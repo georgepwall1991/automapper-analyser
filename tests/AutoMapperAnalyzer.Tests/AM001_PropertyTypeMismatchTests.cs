@@ -204,12 +204,11 @@ namespace TestNamespace
     }
 }";
 
-            // Note: This test currently expects to fail since nullable detection isn't implemented yet
-            // TODO: Implement nullable reference type detection in analyzer
             await DiagnosticTestFramework
                 .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
                 .WithSource(testCode)
-                .RunWithNoDiagnosticsAsync(); // Temporarily expect no diagnostics until nullable support is added
+                .ExpectDiagnostic(AM001_PropertyTypeMismatchAnalyzer.NullableCompatibilityRule, 20, 13, "Name", "Source", "string?", "Destination", "string")
+                .RunAsync();
         }
 
         [Fact]

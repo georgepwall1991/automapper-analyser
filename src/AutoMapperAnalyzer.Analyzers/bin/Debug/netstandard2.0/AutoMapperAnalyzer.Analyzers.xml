@@ -4,5 +4,20 @@
         <name>AutoMapperAnalyzer.Analyzers</name>
     </assembly>
     <members>
+        <member name="T:AutoMapperAnalyzer.Analyzers.AM002_NullableCompatibilityAnalyzer">
+            <summary>
+            Analyzer for detecting nullable reference type compatibility issues in AutoMapper configurations
+            </summary>
+        </member>
+        <member name="F:AutoMapperAnalyzer.Analyzers.AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule">
+            <summary>
+            AM002: Nullable to non-nullable assignment without proper handling
+            </summary>
+        </member>
+        <member name="F:AutoMapperAnalyzer.Analyzers.AM002_NullableCompatibilityAnalyzer.NonNullableToNullableRule">
+            <summary>
+            AM002: Non-nullable to nullable assignment (informational)
+            </summary>
+        </member>
     </members>
 </doc>
