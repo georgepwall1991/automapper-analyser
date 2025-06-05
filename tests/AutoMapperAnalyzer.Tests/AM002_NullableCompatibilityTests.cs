@@ -364,7 +364,7 @@ public class AM002_NullableCompatibilityTests
             .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
             .WithSource(testCode)
             .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 22, 13, "Items", "Source",
-                "List<string>?", "Destination", "List<string>")
+                "System.Collections.Generic.List<string>?", "Destination", "System.Collections.Generic.List<string>")
             .RunAsync();
     }
 }
