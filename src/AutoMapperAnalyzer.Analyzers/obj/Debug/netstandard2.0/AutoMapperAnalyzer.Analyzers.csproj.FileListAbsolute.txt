@@ -20,3 +20,4 @@
 /Users/georgewall/RiderProjects/automapper-analyser/src/AutoMapperAnalyzer.Analyzers/obj/Debug/netstandard2.0/AutoMapperAnalyzer.Analyzers.dll
 /Users/georgewall/RiderProjects/automapper-analyser/src/AutoMapperAnalyzer.Analyzers/obj/Debug/netstandard2.0/AutoMapperAnalyzer.Analyzers.xml
 /Users/georgewall/RiderProjects/automapper-analyser/src/AutoMapperAnalyzer.Analyzers/obj/Debug/netstandard2.0/AutoMapperAnalyzer.Analyzers.pdb
+/Users/georgewall/RiderProjects/automapper-analyser/src/AutoMapperAnalyzer.Analyzers/obj/Debug/netstandard2.0/AutoMapperAnalyzer.Analyzers.sourcelink.json

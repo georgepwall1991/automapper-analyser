@@ -16,7 +16,7 @@ using System.Reflection;
     "revent runtime exceptions and data loss. Supports type safety validation, missin" +
     "g property detection, and configuration validation."))]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5df4489099af571a415fae252c4aa0adbd1c253c")]
 [assembly: System.Reflection.AssemblyProductAttribute("AutoMapperAnalyzer.Analyzers")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AutoMapperAnalyzer.Analyzers")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

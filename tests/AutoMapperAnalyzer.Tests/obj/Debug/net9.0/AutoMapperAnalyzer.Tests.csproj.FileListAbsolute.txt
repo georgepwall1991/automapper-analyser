@@ -374,3 +374,4 @@
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapperAnalyzer.Tests.pdb
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapperAnalyzer.Tests.genruntimeconfig.cache
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/ref/AutoMapperAnalyzer.Tests.dll
+/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapperAnalyzer.Tests.sourcelink.json
