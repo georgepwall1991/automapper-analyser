@@ -3,13 +3,13 @@ using AutoMapper;
 namespace AutoMapperAnalyzer.Samples.Performance;
 
 /// <summary>
-/// Examples of performance issues that AutoMapper analyzer will detect
+///     Examples of performance issues that AutoMapper analyzer will detect
 /// </summary>
 public class PerformanceExamples
 {
     /// <summary>
-    /// AM050: Static Mapper Usage
-    /// This should trigger AM050 diagnostic
+    ///     AM050: Static Mapper Usage
+    ///     This should trigger AM050 diagnostic
     /// </summary>
     public void StaticMapperUsageExample()
     {
@@ -19,25 +19,20 @@ public class PerformanceExamples
             cfg.CreateMap<Employee, EmployeeDto>();
         });
 
-        var mapper = config.CreateMapper();
+        IMapper? mapper = config.CreateMapper();
 
-        var employee = new Employee 
-        { 
-            Id = 1, 
-            Name = "John Doe", 
-            Department = "Engineering" 
-        };
+        var employee = new Employee { Id = 1, Name = "John Doe", Department = "Engineering" };
 
         // ❌ AM050: Creating mapper locally instead of using injected IMapper
-        var employeeDto = mapper.Map<EmployeeDto>(employee);
-        
+        EmployeeDto? employeeDto = mapper.Map<EmployeeDto>(employee);
+
         Console.WriteLine($"Mapped: {employeeDto.Name} in {employeeDto.Department}");
         Console.WriteLine("❌ Local mapper creation detected - prefer dependency injection!");
     }
 
     /// <summary>
-    /// AM052: Missing Null Propagation
-    /// This should trigger AM052 diagnostic
+    ///     AM052: Missing Null Propagation
+    ///     This should trigger AM052 diagnostic
     /// </summary>
     public void MissingNullPropagationExample()
     {
@@ -49,18 +44,16 @@ public class PerformanceExamples
                 .ForMember(dest => dest.Country, opt => opt.MapFrom(src => src.Address.Country));
         });
 
-        var mapper = config.CreateMapper();
-        
-        var company = new Company 
-        { 
-            Id = 1, 
-            Name = "TechCorp",
-            Address = null // This will cause NullReferenceException!
+        IMapper? mapper = config.CreateMapper();
+
+        var company = new Company
+        {
+            Id = 1, Name = "TechCorp", Address = null // This will cause NullReferenceException!
         };
-        
+
         try
         {
-            var companyDto = mapper.Map<CompanyDto>(company);
+            CompanyDto? companyDto = mapper.Map<CompanyDto>(company);
             Console.WriteLine($"Mapped: {companyDto.Name}, {companyDto.City}, {companyDto.Country}");
         }
         catch (Exception ex)
@@ -70,8 +63,8 @@ public class PerformanceExamples
     }
 
     /// <summary>
-    /// AM051: Repeated Mapping Configuration (future implementation)
-    /// This would trigger AM051 diagnostic when implemented
+    ///     AM051: Repeated Mapping Configuration (future implementation)
+    ///     This would trigger AM051 diagnostic when implemented
     /// </summary>
     public void RepeatedMappingConfigurationExample()
     {
@@ -79,16 +72,16 @@ public class PerformanceExamples
         {
             // ❌ AM051: Same mapping configured multiple times
             cfg.CreateMap<Customer, CustomerDto>();
-            
+
             // Later in configuration...
             cfg.CreateMap<Customer, CustomerDto>(); // Duplicate!
         });
 
-        var mapper = config.CreateMapper();
-        
+        IMapper? mapper = config.CreateMapper();
+
         var customer = new Customer { Id = 1, Name = "Jane Smith", Email = "jane@example.com" };
-        var customerDto = mapper.Map<CustomerDto>(customer);
-        
+        CustomerDto? customerDto = mapper.Map<CustomerDto>(customer);
+
         Console.WriteLine($"Mapped: {customerDto.Name}, Email: {customerDto.Email}");
         Console.WriteLine("❌ Duplicate mapping configuration detected!");
     }
@@ -147,7 +140,7 @@ public class CustomerDto
 }
 
 /// <summary>
-/// Examples of CORRECT performance patterns (for comparison)
+///     Examples of CORRECT performance patterns (for comparison)
 /// </summary>
 public class CorrectPerformanceExamples
 {
@@ -160,16 +153,11 @@ public class CorrectPerformanceExamples
 
     public void CorrectDependencyInjectionExample()
     {
-        var employee = new Employee 
-        { 
-            Id = 1, 
-            Name = "John Doe", 
-            Department = "Engineering" 
-        };
+        var employee = new Employee { Id = 1, Name = "John Doe", Department = "Engineering" };
 
         // ✅ Correct: Using injected IMapper
-        var employeeDto = _mapper.Map<EmployeeDto>(employee);
-        
+        EmployeeDto? employeeDto = _mapper.Map<EmployeeDto>(employee);
+
         Console.WriteLine($"✅ Correctly mapped: {employeeDto.Name} in {employeeDto.Department}");
     }
 
@@ -179,20 +167,17 @@ public class CorrectPerformanceExamples
         {
             cfg.CreateMap<Company, CompanyDto>()
                 // ✅ Correct: Null-safe mapping
-                .ForMember(dest => dest.City, opt => opt.MapFrom(src => src.Address != null ? src.Address.City : string.Empty))
-                .ForMember(dest => dest.Country, opt => opt.MapFrom(src => src.Address != null ? src.Address.Country : string.Empty));
+                .ForMember(dest => dest.City,
+                    opt => opt.MapFrom(src => src.Address != null ? src.Address.City : string.Empty))
+                .ForMember(dest => dest.Country,
+                    opt => opt.MapFrom(src => src.Address != null ? src.Address.Country : string.Empty));
         });
 
-        var mapper = config.CreateMapper();
-        
-        var company = new Company 
-        { 
-            Id = 1, 
-            Name = "TechCorp", 
-            Address = null 
-        };
-        
-        var companyDto = mapper.Map<CompanyDto>(company);
+        IMapper? mapper = config.CreateMapper();
+
+        var company = new Company { Id = 1, Name = "TechCorp", Address = null };
+
+        CompanyDto? companyDto = mapper.Map<CompanyDto>(company);
         Console.WriteLine($"✅ Correctly mapped: {companyDto.Name}, {companyDto.City}, {companyDto.Country}");
     }
 
@@ -202,16 +187,16 @@ public class CorrectPerformanceExamples
         {
             // ✅ Correct: Single mapping configuration
             cfg.CreateMap<Customer, CustomerDto>();
-            
+
             // Different mappings are fine
             cfg.CreateMap<Employee, EmployeeDto>();
         });
 
-        var mapper = config.CreateMapper();
-        
+        IMapper? mapper = config.CreateMapper();
+
         var customer = new Customer { Id = 1, Name = "Jane Smith", Email = "jane@example.com" };
-        var customerDto = mapper.Map<CustomerDto>(customer);
-        
+        CustomerDto? customerDto = mapper.Map<CustomerDto>(customer);
+
         Console.WriteLine($"✅ Correctly configured: {customerDto.Name}, Email: {customerDto.Email}");
     }
-} 
+}

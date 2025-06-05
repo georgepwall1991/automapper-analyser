@@ -3,13 +3,13 @@ using AutoMapper;
 namespace AutoMapperAnalyzer.Samples.TypeSafety;
 
 /// <summary>
-/// Examples of type safety issues that AutoMapper analyzer will detect
+///     Examples of type safety issues that AutoMapper analyzer will detect
 /// </summary>
 public class TypeSafetyExamples
 {
     /// <summary>
-    /// AM001: Property Type Mismatch - string to int without converter
-    /// This should trigger AM001 diagnostic
+    ///     AM001: Property Type Mismatch - string to int without converter
+    ///     This should trigger AM001 diagnostic
     /// </summary>
     public void PropertyTypeMismatchExample()
     {
@@ -19,13 +19,13 @@ public class TypeSafetyExamples
             cfg.CreateMap<PersonWithStringAge, PersonWithIntAge>();
         });
 
-        var mapper = config.CreateMapper();
-        
+        IMapper? mapper = config.CreateMapper();
+
         var source = new PersonWithStringAge { Name = "John", Age = "25" };
-        
+
         try
         {
-            var destination = mapper.Map<PersonWithIntAge>(source);
+            PersonWithIntAge? destination = mapper.Map<PersonWithIntAge>(source);
             Console.WriteLine($"Mapped: {destination.Name}, Age: {destination.Age}");
         }
         catch (Exception ex)
@@ -35,8 +35,8 @@ public class TypeSafetyExamples
     }
 
     /// <summary>
-    /// AM002: Nullable to Non-Nullable Assignment without null handling
-    /// This should trigger AM002 diagnostic
+    ///     AM002: Nullable to Non-Nullable Assignment without null handling
+    ///     This should trigger AM002 diagnostic
     /// </summary>
     public void NullableToNonNullableExample()
     {
@@ -46,13 +46,13 @@ public class TypeSafetyExamples
             cfg.CreateMap<PersonWithNullableName, PersonWithRequiredName>();
         });
 
-        var mapper = config.CreateMapper();
-        
+        IMapper? mapper = config.CreateMapper();
+
         var source = new PersonWithNullableName { Id = 1, Name = null }; // Name is null!
-        
+
         try
         {
-            var destination = mapper.Map<PersonWithRequiredName>(source);
+            PersonWithRequiredName? destination = mapper.Map<PersonWithRequiredName>(source);
             Console.WriteLine($"Mapped: ID={destination.Id}, Name='{destination.Name}'");
         }
         catch (Exception ex)
@@ -62,8 +62,8 @@ public class TypeSafetyExamples
     }
 
     /// <summary>
-    /// AM003: Collection Type Incompatibility
-    /// This should trigger AM003 diagnostic
+    ///     AM003: Collection Type Incompatibility
+    ///     This should trigger AM003 diagnostic
     /// </summary>
     public void CollectionTypeIncompatibilityExample()
     {
@@ -73,17 +73,16 @@ public class TypeSafetyExamples
             cfg.CreateMap<ArticleWithStringTags, ArticleWithIntTags>();
         });
 
-        var mapper = config.CreateMapper();
-        
-        var source = new ArticleWithStringTags 
-        { 
-            Title = "Sample Article", 
-            Tags = new List<string> { "tech", "programming", "csharp" }
+        IMapper? mapper = config.CreateMapper();
+
+        var source = new ArticleWithStringTags
+        {
+            Title = "Sample Article", Tags = new List<string> { "tech", "programming", "csharp" }
         };
-        
+
         try
         {
-            var destination = mapper.Map<ArticleWithIntTags>(source);
+            ArticleWithIntTags? destination = mapper.Map<ArticleWithIntTags>(source);
             Console.WriteLine($"Mapped: {destination.Title}, Tags: [{string.Join(", ", destination.Tags)}]");
         }
         catch (Exception ex)
@@ -132,7 +131,7 @@ public class ArticleWithIntTags
 }
 
 /// <summary>
-/// Examples of CORRECT type safety patterns (for comparison)
+///     Examples of CORRECT type safety patterns (for comparison)
 /// </summary>
 public class CorrectTypeSafetyExamples
 {
@@ -142,14 +141,14 @@ public class CorrectTypeSafetyExamples
         {
             // ✅ Correct: Explicit type conversion
             cfg.CreateMap<PersonWithStringAge, PersonWithIntAge>()
-                .ForMember(dest => dest.Age, opt => opt.MapFrom(src => 
+                .ForMember(dest => dest.Age, opt => opt.MapFrom(src =>
                     string.IsNullOrEmpty(src.Age) ? 0 : Convert.ToInt32(src.Age)));
         });
 
-        var mapper = config.CreateMapper();
+        IMapper? mapper = config.CreateMapper();
         var source = new PersonWithStringAge { Name = "John", Age = "25" };
-        var destination = mapper.Map<PersonWithIntAge>(source);
-        
+        PersonWithIntAge? destination = mapper.Map<PersonWithIntAge>(source);
+
         Console.WriteLine($"✅ Correctly mapped: {destination.Name}, Age: {destination.Age}");
     }
 
@@ -162,10 +161,10 @@ public class CorrectTypeSafetyExamples
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? "Unknown"));
         });
 
-        var mapper = config.CreateMapper();
+        IMapper? mapper = config.CreateMapper();
         var source = new PersonWithNullableName { Id = 1, Name = null };
-        var destination = mapper.Map<PersonWithRequiredName>(source);
-        
+        PersonWithRequiredName? destination = mapper.Map<PersonWithRequiredName>(source);
+
         Console.WriteLine($"✅ Correctly mapped: ID={destination.Id}, Name='{destination.Name}'");
     }
-} 
+}

@@ -5,14 +5,15 @@
 [![Coverage](https://codecov.io/gh/georgepwall1991/automapper-analyser/branch/main/graph/badge.svg)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> 🔍 **Roslyn analyzer that detects AutoMapper configuration issues at compile-time to prevent runtime exceptions and data loss.**
+> 🔍 **Roslyn analyzer that detects AutoMapper configuration issues at compile-time to prevent runtime exceptions and
+data loss.**
 
 ## 🚀 Features
 
 ### 🛡️ Type Safety Validation
 
 - **AM001**: Property type mismatch detection
-- **AM002**: Nullable to non-nullable assignment warnings  
+- **AM002**: Nullable to non-nullable assignment warnings
 - **AM003**: Collection type incompatibility errors
 
 ### 🔍 Missing Property Detection
@@ -144,14 +145,14 @@ public void ConfigureMapping() { }
 
 ## 📊 Supported Scenarios
 
-| Scenario | Analyzer Support | Code Fix Support |
-|----------|------------------|------------------|
-| Type Safety | ✅ All cases | ✅ Common patterns |
-| Missing Properties | ✅ All cases | ✅ Auto-mapping |
-| Configuration Issues | ✅ All cases | ✅ Profile registration |
-| Performance | ✅ All cases | ✅ DI patterns |
-| Custom Converters | ✅ Detection | 🚧 Planned |
-| EF Integration | 🚧 Planned | 🚧 Planned |
+| Scenario             | Analyzer Support | Code Fix Support       |
+|----------------------|------------------|------------------------|
+| Type Safety          | ✅ All cases      | ✅ Common patterns      |
+| Missing Properties   | ✅ All cases      | ✅ Auto-mapping         |
+| Configuration Issues | ✅ All cases      | ✅ Profile registration |
+| Performance          | ✅ All cases      | ✅ DI patterns          |
+| Custom Converters    | ✅ Detection      | 🚧 Planned             |
+| EF Integration       | 🚧 Planned       | 🚧 Planned             |
 
 ## 🏗️ Building from Source
 
@@ -243,7 +244,8 @@ We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING
 
 ## 🏆 Recognition
 
-This project is part of the [AutoMapper](https://automapper.org/) ecosystem, helping developers write safer and more maintainable mapping code.
+This project is part of the [AutoMapper](https://automapper.org/) ecosystem, helping developers write safer and more
+maintainable mapping code.
 
 ## 📄 License
 

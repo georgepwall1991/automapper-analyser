@@ -1,13 +1,12 @@
-﻿using AutoMapper;
-using AutoMapperAnalyzer.Samples.TypeSafety;
+﻿using AutoMapperAnalyzer.Samples.Configuration;
 using AutoMapperAnalyzer.Samples.MissingProperties;
-using AutoMapperAnalyzer.Samples.Configuration;
 using AutoMapperAnalyzer.Samples.Performance;
+using AutoMapperAnalyzer.Samples.TypeSafety;
 
 namespace AutoMapperAnalyzer.Samples;
 
 /// <summary>
-/// Sample application demonstrating AutoMapper scenarios that the analyzer will catch
+///     Sample application demonstrating AutoMapper scenarios that the analyzer will catch
 /// </summary>
 public class Program
 {
@@ -36,13 +35,13 @@ public class Program
     private static void RunTypeSafetyExamples()
     {
         var typeSafetyExamples = new TypeSafetyExamples();
-        
+
         Console.WriteLine("  - Property type mismatch (string -> int)");
         typeSafetyExamples.PropertyTypeMismatchExample();
-        
+
         Console.WriteLine("  - Nullable to non-nullable assignment");
         typeSafetyExamples.NullableToNonNullableExample();
-        
+
         Console.WriteLine("  - Collection type incompatibility");
         typeSafetyExamples.CollectionTypeIncompatibilityExample();
     }
@@ -50,13 +49,13 @@ public class Program
     private static void RunMissingPropertyExamples()
     {
         var missingPropertyExamples = new MissingPropertyExamples();
-        
+
         Console.WriteLine("  - Missing destination property (data loss)");
         missingPropertyExamples.MissingDestinationPropertyExample();
-        
+
         Console.WriteLine("  - Unmapped required property");
         missingPropertyExamples.UnmappedRequiredPropertyExample();
-        
+
         Console.WriteLine("  - Case sensitivity mismatch");
         missingPropertyExamples.CaseSensitivityMismatchExample();
     }
@@ -64,10 +63,10 @@ public class Program
     private static void RunConfigurationExamples()
     {
         var configExamples = new ConfigurationExamples();
-        
+
         Console.WriteLine("  - Missing profile registration");
         configExamples.MissingProfileRegistrationExample();
-        
+
         Console.WriteLine("  - Conflicting mapping rules");
         configExamples.ConflictingMappingRulesExample();
     }
@@ -75,10 +74,10 @@ public class Program
     private static void RunPerformanceExamples()
     {
         var performanceExamples = new PerformanceExamples();
-        
+
         Console.WriteLine("  - Static mapper usage");
         performanceExamples.StaticMapperUsageExample();
-        
+
         Console.WriteLine("  - Missing null propagation");
         performanceExamples.MissingNullPropagationExample();
     }

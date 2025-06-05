@@ -1,13 +1,12 @@
-using AutoMapperAnalyzer.Tests.Framework;
-using AutoMapperAnalyzer.Tests.Helpers;
-using Microsoft.CodeAnalysis.Diagnostics;
 using System.Collections.Immutable;
+using AutoMapperAnalyzer.Tests.Helpers;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace AutoMapperAnalyzer.Tests.Framework;
 
 /// <summary>
-/// Tests for the diagnostic test framework
+///     Tests for the diagnostic test framework
 /// </summary>
 public class DiagnosticTestFrameworkTests
 {
@@ -15,7 +14,7 @@ public class DiagnosticTestFrameworkTests
     public void DiagnosticTestFramework_CanCreateAnalyzerTestRunner()
     {
         // Act
-        var runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>();
+        AnalyzerTestRunner<TestAnalyzer> runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>();
 
         // Assert
         Assert.NotNull(runner);
@@ -30,7 +29,7 @@ public class DiagnosticTestFrameworkTests
         var analyzer2 = new TestAnalyzer();
 
         // Act
-        var runner = DiagnosticTestFramework.ForAnalyzers(analyzer1, analyzer2);
+        MultiAnalyzerTestRunner runner = DiagnosticTestFramework.ForAnalyzers(analyzer1, analyzer2);
 
         // Assert
         Assert.NotNull(runner);
@@ -41,7 +40,7 @@ public class DiagnosticTestFrameworkTests
     public void AnalyzerTestRunner_CanChainFluentCalls()
     {
         // Act
-        var runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>()
+        AnalyzerTestRunner<TestAnalyzer> runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>()
             .WithSource("public class Test { }")
             .ExpectNoDiagnostics();
 
@@ -53,7 +52,7 @@ public class DiagnosticTestFrameworkTests
     public void AnalyzerTestRunner_CanAddDiagnosticExpectations()
     {
         // Act
-        var runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>()
+        AnalyzerTestRunner<TestAnalyzer> runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>()
             .WithSource("public class Test { }")
             .ExpectDiagnostic(AutoMapperDiagnostics.PropertyTypeMismatch, 1, 1, "Test", "string", "int");
 
@@ -65,7 +64,7 @@ public class DiagnosticTestFrameworkTests
     public async Task AnalyzerTestRunner_ThrowsWhenNoSourceProvided()
     {
         // Arrange
-        var runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>();
+        AnalyzerTestRunner<TestAnalyzer> runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>();
 
         // Act & Assert
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunAsync());
@@ -75,13 +74,15 @@ public class DiagnosticTestFrameworkTests
     public async Task AnalyzerTestRunner_CanRunWithValidSource()
     {
         // Arrange
-        var source = @"
-using System;
+        string source = """
 
-public class TestClass
-{
-    public string Name { get; set; }
-}";
+                        using System;
+
+                        public class TestClass
+                        {
+                            public string Name { get; set; }
+                        }
+                        """;
 
         // Act & Assert (should not throw)
         await DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>()
@@ -93,7 +94,7 @@ public class TestClass
     public async Task AnalyzerTestRunner_CanUseScenarioBuilder()
     {
         // Arrange
-        var scenario = new TestScenarioBuilder()
+        TestScenarioBuilder scenario = new TestScenarioBuilder()
             .AddClass("Source", ("string", "Name"))
             .AddClass("Destination", ("string", "Name"));
 
@@ -107,7 +108,7 @@ public class TestClass
     public void DiagnosticTestExtensions_CanCreateTypeMismatchScenario()
     {
         // Act
-        var runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>()
+        AnalyzerTestRunner<TestAnalyzer> runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>()
             .WithTypeMismatchScenario("string", "int", "Age");
 
         // Assert
@@ -118,8 +119,8 @@ public class TestClass
     public void DiagnosticTestExtensions_CanCreateNullableScenario()
     {
         // Act
-        var runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>()
-            .WithNullableScenario("Name");
+        AnalyzerTestRunner<TestAnalyzer> runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>()
+            .WithNullableScenario();
 
         // Assert
         Assert.NotNull(runner);
@@ -129,8 +130,8 @@ public class TestClass
     public void DiagnosticTestExtensions_CanCreateMissingPropertyScenario()
     {
         // Act
-        var runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>()
-            .WithMissingPropertyScenario("ImportantData");
+        AnalyzerTestRunner<TestAnalyzer> runner = DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>()
+            .WithMissingPropertyScenario();
 
         // Assert
         Assert.NotNull(runner);
@@ -150,7 +151,7 @@ public class TestClass
     {
         // Act & Assert (should not throw - validates the generated code compiles)
         await DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>()
-            .WithNullableScenario("Name")
+            .WithNullableScenario()
             .RunWithNoDiagnosticsAsync();
     }
 
@@ -159,7 +160,7 @@ public class TestClass
     {
         // Act & Assert (should not throw - validates the generated code compiles)
         await DiagnosticTestFramework.ForAnalyzer<TestAnalyzer>()
-            .WithMissingPropertyScenario("ImportantData")
+            .WithMissingPropertyScenario()
             .RunWithNoDiagnosticsAsync();
     }
 
@@ -167,7 +168,7 @@ public class TestClass
     public async Task MultiAnalyzerTestRunner_ThrowsNotImplemented()
     {
         // Arrange
-        var runner = DiagnosticTestFramework.ForAnalyzers(new TestAnalyzer())
+        MultiAnalyzerTestRunner runner = DiagnosticTestFramework.ForAnalyzers(new TestAnalyzer())
             .WithSource("public class Test { }");
 
         // Act & Assert
@@ -176,12 +177,12 @@ public class TestClass
 }
 
 /// <summary>
-/// Test analyzer that doesn't report any diagnostics (for framework testing)
+///     Test analyzer that doesn't report any diagnostics (for framework testing)
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class TestAnalyzer : DiagnosticAnalyzer
 {
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => 
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray<DiagnosticDescriptor>.Empty;
 
     public override void Initialize(AnalysisContext context)
@@ -190,4 +191,4 @@ public class TestAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         // No analysis - this is just for framework testing
     }
-} 
+}

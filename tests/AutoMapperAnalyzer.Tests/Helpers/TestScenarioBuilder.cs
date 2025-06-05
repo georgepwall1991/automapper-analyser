@@ -3,15 +3,15 @@ using System.Text;
 namespace AutoMapperAnalyzer.Tests.Helpers;
 
 /// <summary>
-/// Fluent builder for creating AutoMapper test scenarios
+///     Fluent builder for creating AutoMapper test scenarios
 /// </summary>
 public class TestScenarioBuilder
 {
+    private readonly List<string> _classes = new();
+    private readonly List<string> _mappingCalls = new();
+    private readonly List<string> _profiles = new();
     private readonly StringBuilder _sourceBuilder = new();
     private readonly List<string> _usings = new();
-    private readonly List<string> _classes = new();
-    private readonly List<string> _profiles = new();
-    private readonly List<string> _mappingCalls = new();
 
     public TestScenarioBuilder()
     {
@@ -23,7 +23,7 @@ public class TestScenarioBuilder
     }
 
     /// <summary>
-    /// Add a using statement
+    ///     Add a using statement
     /// </summary>
     public TestScenarioBuilder AddUsing(string usingStatement)
     {
@@ -31,39 +31,41 @@ public class TestScenarioBuilder
         {
             _usings.Add(usingStatement);
         }
+
         return this;
     }
 
     /// <summary>
-    /// Add a simple class with properties
+    ///     Add a simple class with properties
     /// </summary>
     public TestScenarioBuilder AddClass(string className, params (string Type, string Name)[] properties)
     {
         var classBuilder = new StringBuilder();
         classBuilder.AppendLine($"public class {className}");
         classBuilder.AppendLine("{");
-        
-        foreach (var (type, name) in properties)
+
+        foreach ((string type, string name) in properties)
         {
             classBuilder.AppendLine($"    public {type} {name} {{ get; set; }}");
         }
-        
+
         classBuilder.AppendLine("}");
-        
+
         _classes.Add(classBuilder.ToString());
         return this;
     }
 
     /// <summary>
-    /// Add a class with required properties
+    ///     Add a class with required properties
     /// </summary>
-    public TestScenarioBuilder AddClassWithRequired(string className, params (string Type, string Name, bool Required)[] properties)
+    public TestScenarioBuilder AddClassWithRequired(string className,
+        params (string Type, string Name, bool Required)[] properties)
     {
         var classBuilder = new StringBuilder();
         classBuilder.AppendLine($"public class {className}");
         classBuilder.AppendLine("{");
-        
-        foreach (var (type, name, required) in properties)
+
+        foreach ((string type, string name, bool required) in properties)
         {
             if (required)
             {
@@ -74,15 +76,15 @@ public class TestScenarioBuilder
                 classBuilder.AppendLine($"    public {type} {name} {{ get; set; }}");
             }
         }
-        
+
         classBuilder.AppendLine("}");
-        
+
         _classes.Add(classBuilder.ToString());
         return this;
     }
 
     /// <summary>
-    /// Add a custom AutoMapper profile
+    ///     Add a custom AutoMapper profile
     /// </summary>
     public TestScenarioBuilder AddProfile(string profileName, params string[] mappingConfigurations)
     {
@@ -91,64 +93,66 @@ public class TestScenarioBuilder
         profileBuilder.AppendLine("{");
         profileBuilder.AppendLine($"    public {profileName}()");
         profileBuilder.AppendLine("    {");
-        
-        foreach (var config in mappingConfigurations)
+
+        foreach (string config in mappingConfigurations)
         {
             profileBuilder.AppendLine($"        {config}");
         }
-        
+
         profileBuilder.AppendLine("    }");
         profileBuilder.AppendLine("}");
-        
+
         _profiles.Add(profileBuilder.ToString());
         return this;
     }
 
     /// <summary>
-    /// Add a simple mapping configuration
+    ///     Add a simple mapping configuration
     /// </summary>
     public TestScenarioBuilder AddMapping(string sourceType, string destType, params string[] configurations)
     {
         var mappingBuilder = new StringBuilder();
         mappingBuilder.Append($"CreateMap<{sourceType}, {destType}>()");
-        
-        foreach (var config in configurations)
+
+        foreach (string config in configurations)
         {
             mappingBuilder.Append($".{config}");
         }
-        
+
         mappingBuilder.Append(";");
-        
-        var profileName = $"TestProfile_{sourceType}To{destType}";
+
+        string profileName = $"TestProfile_{sourceType}To{destType}";
         return AddProfile(profileName, mappingBuilder.ToString());
     }
 
     /// <summary>
-    /// Add a mapping call scenario
+    ///     Add a mapping call scenario
     /// </summary>
-    public TestScenarioBuilder AddMappingCall(string sourceVar, string sourceType, string destType, string mapperVar = "mapper")
+    public TestScenarioBuilder AddMappingCall(string sourceVar, string sourceType, string destType,
+        string mapperVar = "mapper")
     {
         _mappingCalls.Add($"var result = {mapperVar}.Map<{destType}>({sourceVar});");
         return this;
     }
 
     /// <summary>
-    /// Add a method that performs mapping
+    ///     Add a method that performs mapping
     /// </summary>
-    public TestScenarioBuilder AddMappingMethod(string methodName, string sourceType, string destType, params string[] methodBody)
+    public TestScenarioBuilder AddMappingMethod(string methodName, string sourceType, string destType,
+        params string[] methodBody)
     {
         var methodBuilder = new StringBuilder();
-        methodBuilder.AppendLine($"public class MappingService");
+        methodBuilder.AppendLine("public class MappingService");
         methodBuilder.AppendLine("{");
         methodBuilder.AppendLine("    private readonly IMapper _mapper;");
         methodBuilder.AppendLine("    public MappingService(IMapper mapper) => _mapper = mapper;");
         methodBuilder.AppendLine();
         methodBuilder.AppendLine($"    public {destType} {methodName}({sourceType} source)");
         methodBuilder.AppendLine("    {");
-        
+
         if (methodBody.Length > 0)
         {
-            foreach (var line in methodBody)
+            foreach (string line in methodBody)
             {
                 methodBuilder.AppendLine($"        {line}");
             }
@@ -157,42 +161,43 @@ public class TestScenarioBuilder
         {
             methodBuilder.AppendLine($"        return _mapper.Map<{destType}>(source);");
         }
-        
+
         methodBuilder.AppendLine("    }");
         methodBuilder.AppendLine("}");
-        
+
         _classes.Add(methodBuilder.ToString());
         return this;
     }
 
     /// <summary>
-    /// Build the complete source code
+    ///     Build the complete source code
     /// </summary>
     public string Build()
     {
         var result = new StringBuilder();
-        
+
         // Add usings
-        foreach (var usingStatement in _usings)
+        foreach (string usingStatement in _usings)
         {
             result.AppendLine($"using {usingStatement};");
         }
+
         result.AppendLine();
-        
+
         // Add classes
-        foreach (var classCode in _classes)
+        foreach (string classCode in _classes)
         {
             result.AppendLine(classCode);
             result.AppendLine();
         }
-        
+
         // Add profiles
-        foreach (var profileCode in _profiles)
+        foreach (string profileCode in _profiles)
         {
             result.AppendLine(profileCode);
             result.AppendLine();
         }
-        
+
         // Add a test method if there are mapping calls
         if (_mappingCalls.Count > 0)
         {
@@ -201,21 +206,21 @@ public class TestScenarioBuilder
             result.AppendLine("    public void TestMethod()");
             result.AppendLine("    {");
             result.AppendLine("        var mapper = new Mock<IMapper>().Object;");
-            
-            foreach (var call in _mappingCalls)
+
+            foreach (string call in _mappingCalls)
             {
                 result.AppendLine($"        {call}");
             }
-            
+
             result.AppendLine("    }");
             result.AppendLine("}");
         }
-        
+
         return result.ToString();
     }
 
     /// <summary>
-    /// Create a simple type mismatch scenario
+    ///     Create a simple type mismatch scenario
     /// </summary>
     public static TestScenarioBuilder CreateTypeMismatchScenario()
     {
@@ -226,7 +231,7 @@ public class TestScenarioBuilder
     }
 
     /// <summary>
-    /// Create a nullable to non-nullable scenario
+    ///     Create a nullable to non-nullable scenario
     /// </summary>
     public static TestScenarioBuilder CreateNullableScenario()
     {
@@ -237,7 +242,7 @@ public class TestScenarioBuilder
     }
 
     /// <summary>
-    /// Create a missing property scenario
+    ///     Create a missing property scenario
     /// </summary>
     public static TestScenarioBuilder CreateMissingPropertyScenario()
     {
@@ -246,4 +251,4 @@ public class TestScenarioBuilder
             .AddClass("Destination", ("string", "Name"))
             .AddMapping("Source", "Destination");
     }
-} 
+}

@@ -1,12 +1,13 @@
+using System.Collections.Immutable;
 using AutoMapperAnalyzer.Tests.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
-using System.Collections.Immutable;
+using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests.Infrastructure;
 
 /// <summary>
-/// Tests to validate our test infrastructure
+///     Tests to validate our test infrastructure
 /// </summary>
 public class TestInfrastructureTests
 {
@@ -14,7 +15,7 @@ public class TestInfrastructureTests
     public void TestScenarioBuilder_CanBuildBasicClass()
     {
         // Arrange & Act
-        var source = new TestScenarioBuilder()
+        string source = new TestScenarioBuilder()
             .AddClass("TestClass", ("string", "Name"), ("int", "Age"))
             .Build();
 
@@ -28,7 +29,7 @@ public class TestInfrastructureTests
     public void TestScenarioBuilder_CanBuildAutMapperProfile()
     {
         // Arrange & Act
-        var source = new TestScenarioBuilder()
+        string source = new TestScenarioBuilder()
             .AddClass("Source", ("string", "Name"))
             .AddClass("Destination", ("string", "Name"))
             .AddMapping("Source", "Destination")
@@ -43,7 +44,7 @@ public class TestInfrastructureTests
     public void TestScenarioBuilder_TypeMismatchScenario_BuildsCorrectly()
     {
         // Arrange & Act
-        var source = TestScenarioBuilder.CreateTypeMismatchScenario().Build();
+        string source = TestScenarioBuilder.CreateTypeMismatchScenario().Build();
 
         // Assert
         Assert.Contains("public class Source", source);
@@ -57,7 +58,7 @@ public class TestInfrastructureTests
     public void TestScenarioBuilder_NullableScenario_BuildsCorrectly()
     {
         // Arrange & Act
-        var source = TestScenarioBuilder.CreateNullableScenario().Build();
+        string source = TestScenarioBuilder.CreateNullableScenario().Build();
 
         // Assert
         Assert.Contains("public string? Name { get; set; }", source);
@@ -68,17 +69,17 @@ public class TestInfrastructureTests
     public void TestScenarioBuilder_MissingPropertyScenario_BuildsCorrectly()
     {
         // Arrange & Act
-        var source = TestScenarioBuilder.CreateMissingPropertyScenario().Build();
+        string source = TestScenarioBuilder.CreateMissingPropertyScenario().Build();
 
         // Assert
         Assert.Contains("public string ImportantData { get; set; }", source);
         // Destination should not have ImportantData
-        var lines = source.Split('\n');
-        var destinationLines = lines
+        string[] lines = source.Split('\n');
+        string[] destinationLines = lines
             .SkipWhile(l => !l.Contains("public class Destination"))
             .TakeWhile(l => !l.Contains("public class") || l.Contains("public class Destination"))
             .ToArray();
-        
+
         Assert.DoesNotContain(destinationLines, l => l.Contains("ImportantData"));
     }
 
@@ -86,7 +87,7 @@ public class TestInfrastructureTests
     public void DiagnosticAssertions_CanCreateDiagnostic()
     {
         // Arrange & Act
-        var diagnostic = DiagnosticAssertions
+        DiagnosticResult diagnostic = DiagnosticAssertions
             .Diagnostic(AutoMapperDiagnostics.PropertyTypeMismatch)
             .AtLocation(5, 10)
             .WithArguments("Age", "string", "int")
@@ -122,12 +123,12 @@ public class TestInfrastructureTests
 }
 
 /// <summary>
-/// Dummy analyzer for testing the test infrastructure
+///     Dummy analyzer for testing the test infrastructure
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class DummyAnalyzer : DiagnosticAnalyzer
 {
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => 
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(AutoMapperDiagnostics.PropertyTypeMismatch);
 
     public override void Initialize(AnalysisContext context)
@@ -139,21 +140,23 @@ public class DummyAnalyzer : DiagnosticAnalyzer
 }
 
 /// <summary>
-/// Test that our base analyzer test class works
+///     Test that our base analyzer test class works
 /// </summary>
 public class DummyAnalyzerTests : AnalyzerTestBase<DummyAnalyzer>
 {
     [Fact]
     public async Task DummyAnalyzer_DoesNotReportDiagnosticsForValidCode()
     {
-        var source = @"
-using System;
+        string source = """
 
-public class TestClass
-{
-    public string Name { get; set; }
-}";
+                        using System;
+
+                        public class TestClass
+                        {
+                            public string Name { get; set; }
+                        }
+                        """;
 
         await RunAnalyzerTestAsync(source);
     }
-} 
+}

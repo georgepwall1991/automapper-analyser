@@ -3,13 +3,13 @@ using AutoMapper;
 namespace AutoMapperAnalyzer.Samples.Configuration;
 
 /// <summary>
-/// Examples of configuration issues that AutoMapper analyzer will detect
+///     Examples of configuration issues that AutoMapper analyzer will detect
 /// </summary>
 public class ConfigurationExamples
 {
     /// <summary>
-    /// AM040: Missing Profile Registration
-    /// This should trigger AM040 diagnostic
+    ///     AM040: Missing Profile Registration
+    ///     This should trigger AM040 diagnostic
     /// </summary>
     public void MissingProfileRegistrationExample()
     {
@@ -20,13 +20,13 @@ public class ConfigurationExamples
             cfg.CreateMap<User, UserDto>();
         });
 
-        var mapper = config.CreateMapper();
-        
+        IMapper? mapper = config.CreateMapper();
+
         var user = new User { Id = 1, FirstName = "John", LastName = "Doe", Email = "john@example.com" };
-        
+
         try
         {
-            var userDto = mapper.Map<UserDto>(user);
+            UserDto? userDto = mapper.Map<UserDto>(user);
             Console.WriteLine($"Mapped: {userDto.FullName}, Email: {userDto.Email}");
         }
         catch (Exception ex)
@@ -36,8 +36,8 @@ public class ConfigurationExamples
     }
 
     /// <summary>
-    /// AM041: Conflicting Mapping Rules
-    /// This should trigger AM041 diagnostic
+    ///     AM041: Conflicting Mapping Rules
+    ///     This should trigger AM041 diagnostic
     /// </summary>
     public void ConflictingMappingRulesExample()
     {
@@ -49,24 +49,18 @@ public class ConfigurationExamples
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Title)); // Conflict!
         });
 
-        var mapper = config.CreateMapper();
-        
-        var product = new Product 
-        { 
-            Id = 1, 
-            ProductName = "Widget", 
-            Title = "Amazing Widget",
-            Price = 19.99m
-        };
-        
-        var productDto = mapper.Map<ProductDto>(product);
+        IMapper? mapper = config.CreateMapper();
+
+        var product = new Product { Id = 1, ProductName = "Widget", Title = "Amazing Widget", Price = 19.99m };
+
+        ProductDto? productDto = mapper.Map<ProductDto>(product);
         Console.WriteLine($"Mapped: Name={productDto.Name}, Price={productDto.Price}");
         Console.WriteLine("❌ Which Name mapping was used? Behavior is undefined!");
     }
 
     /// <summary>
-    /// AM042: Ignore vs MapFrom Conflict (implementation for future)
-    /// This would trigger AM042 diagnostic when implemented
+    ///     AM042: Ignore vs MapFrom Conflict (implementation for future)
+    ///     This would trigger AM042 diagnostic when implemented
     /// </summary>
     public void IgnoreVsMapFromConflictExample()
     {
@@ -78,16 +72,11 @@ public class ConfigurationExamples
                 .ForMember(dest => dest.CustomerName, opt => opt.MapFrom(src => src.Customer.Name)); // Conflict!
         });
 
-        var mapper = config.CreateMapper();
-        
-        var order = new Order 
-        { 
-            Id = 1, 
-            Amount = 100.00m,
-            Customer = new Customer { Name = "John Doe" }
-        };
-        
-        var orderDto = mapper.Map<OrderDto>(order);
+        IMapper? mapper = config.CreateMapper();
+
+        var order = new Order { Id = 1, Amount = 100.00m, Customer = new Customer { Name = "John Doe" } };
+
+        OrderDto? orderDto = mapper.Map<OrderDto>(order);
         Console.WriteLine($"Mapped: Order ID={orderDto.Id}, Customer={orderDto.CustomerName}");
         Console.WriteLine("❌ Is CustomerName ignored or mapped? Behavior is undefined!");
     }
@@ -145,7 +134,7 @@ public class OrderDto
 }
 
 /// <summary>
-/// Profile that should be registered but isn't (for AM040 example)
+///     Profile that should be registered but isn't (for AM040 example)
 /// </summary>
 public class UserMappingProfile : Profile
 {
@@ -157,7 +146,7 @@ public class UserMappingProfile : Profile
 }
 
 /// <summary>
-/// Examples of CORRECT configuration patterns (for comparison)
+///     Examples of CORRECT configuration patterns (for comparison)
 /// </summary>
 public class CorrectConfigurationExamples
 {
@@ -169,10 +158,10 @@ public class CorrectConfigurationExamples
             cfg.AddProfile<UserMappingProfile>();
         });
 
-        var mapper = config.CreateMapper();
+        IMapper? mapper = config.CreateMapper();
         var user = new User { Id = 1, FirstName = "John", LastName = "Doe", Email = "john@example.com" };
-        var userDto = mapper.Map<UserDto>(user);
-        
+        UserDto? userDto = mapper.Map<UserDto>(user);
+
         Console.WriteLine($"✅ Correctly mapped: {userDto.FullName}, Email: {userDto.Email}");
     }
 
@@ -182,20 +171,14 @@ public class CorrectConfigurationExamples
         {
             cfg.CreateMap<Product, ProductDto>()
                 // ✅ Correct: Single, clear mapping rule
-                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => 
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src =>
                     string.IsNullOrEmpty(src.Title) ? src.ProductName : src.Title));
         });
 
-        var mapper = config.CreateMapper();
-        var product = new Product 
-        { 
-            Id = 1, 
-            ProductName = "Widget", 
-            Title = "Amazing Widget", 
-            Price = 19.99m 
-        };
-        var productDto = mapper.Map<ProductDto>(product);
-        
+        IMapper? mapper = config.CreateMapper();
+        var product = new Product { Id = 1, ProductName = "Widget", Title = "Amazing Widget", Price = 19.99m };
+        ProductDto? productDto = mapper.Map<ProductDto>(product);
+
         Console.WriteLine($"✅ Correctly mapped: Name={productDto.Name}, Price={productDto.Price}");
     }
 
@@ -206,18 +189,13 @@ public class CorrectConfigurationExamples
             cfg.CreateMap<Order, OrderDto>()
                 // ✅ Correct: Either ignore OR map, not both
                 .ForMember(dest => dest.CustomerName, opt => opt.MapFrom(src => src.Customer.Name));
-                // OR: .ForMember(dest => dest.CustomerName, opt => opt.Ignore());
+            // OR: .ForMember(dest => dest.CustomerName, opt => opt.Ignore());
         });
 
-        var mapper = config.CreateMapper();
-        var order = new Order 
-        { 
-            Id = 1, 
-            Amount = 100.00m, 
-            Customer = new Customer { Name = "John Doe" } 
-        };
-        var orderDto = mapper.Map<OrderDto>(order);
-        
+        IMapper? mapper = config.CreateMapper();
+        var order = new Order { Id = 1, Amount = 100.00m, Customer = new Customer { Name = "John Doe" } };
+        OrderDto? orderDto = mapper.Map<OrderDto>(order);
+
         Console.WriteLine($"✅ Correctly mapped: Order ID={orderDto.Id}, Customer={orderDto.CustomerName}");
     }
-} 
+}

@@ -3,13 +3,13 @@ using AutoMapper;
 namespace AutoMapperAnalyzer.Samples.MissingProperties;
 
 /// <summary>
-/// Examples of missing property issues that AutoMapper analyzer will detect
+///     Examples of missing property issues that AutoMapper analyzer will detect
 /// </summary>
 public class MissingPropertyExamples
 {
     /// <summary>
-    /// AM010: Missing Destination Property - potential data loss
-    /// This should trigger AM010 diagnostic
+    ///     AM010: Missing Destination Property - potential data loss
+    ///     This should trigger AM010 diagnostic
     /// </summary>
     public void MissingDestinationPropertyExample()
     {
@@ -19,23 +19,23 @@ public class MissingPropertyExamples
             cfg.CreateMap<SourceWithExtraData, DestinationMissingData>();
         });
 
-        var mapper = config.CreateMapper();
-        
-        var source = new SourceWithExtraData 
-        { 
-            Name = "John", 
+        IMapper? mapper = config.CreateMapper();
+
+        var source = new SourceWithExtraData
+        {
+            Name = "John",
             Email = "john@example.com",
             ImportantData = "This data will be lost!" // This won't be mapped!
         };
-        
-        var destination = mapper.Map<DestinationMissingData>(source);
+
+        DestinationMissingData? destination = mapper.Map<DestinationMissingData>(source);
         Console.WriteLine($"Mapped: Name={destination.Name}, Email={destination.Email}");
         Console.WriteLine("❌ ImportantData was lost in mapping!");
     }
 
     /// <summary>
-    /// AM011: Unmapped Required Property - will cause runtime exception
-    /// This should trigger AM011 diagnostic
+    ///     AM011: Unmapped Required Property - will cause runtime exception
+    ///     This should trigger AM011 diagnostic
     /// </summary>
     public void UnmappedRequiredPropertyExample()
     {
@@ -45,13 +45,13 @@ public class MissingPropertyExamples
             cfg.CreateMap<SourceWithoutRequired, DestinationWithRequired>();
         });
 
-        var mapper = config.CreateMapper();
-        
+        IMapper? mapper = config.CreateMapper();
+
         var source = new SourceWithoutRequired { Name = "John", Age = 25 };
-        
+
         try
         {
-            var destination = mapper.Map<DestinationWithRequired>(source);
+            DestinationWithRequired? destination = mapper.Map<DestinationWithRequired>(source);
             Console.WriteLine($"Mapped: {destination.Name}, Required: {destination.RequiredField}");
         }
         catch (Exception ex)
@@ -61,8 +61,8 @@ public class MissingPropertyExamples
     }
 
     /// <summary>
-    /// AM012: Case Sensitivity Mismatch
-    /// This should trigger AM012 diagnostic
+    ///     AM012: Case Sensitivity Mismatch
+    ///     This should trigger AM012 diagnostic
     /// </summary>
     public void CaseSensitivityMismatchExample()
     {
@@ -72,17 +72,13 @@ public class MissingPropertyExamples
             cfg.CreateMap<SourceWithCamelCase, DestinationWithPascalCase>();
         });
 
-        var mapper = config.CreateMapper();
-        
-        var source = new SourceWithCamelCase 
-        { 
-            firstName = "John", 
-            lastName = "Doe",
-            userName = "johndoe"
-        };
-        
-        var destination = mapper.Map<DestinationWithPascalCase>(source);
-        Console.WriteLine($"Mapped: FirstName={destination.FirstName}, LastName={destination.LastName}, UserName={destination.UserName}");
+        IMapper? mapper = config.CreateMapper();
+
+        var source = new SourceWithCamelCase { firstName = "John", lastName = "Doe", userName = "johndoe" };
+
+        DestinationWithPascalCase? destination = mapper.Map<DestinationWithPascalCase>(source);
+        Console.WriteLine(
+            $"Mapped: FirstName={destination.FirstName}, LastName={destination.LastName}, UserName={destination.UserName}");
         Console.WriteLine("❌ Case sensitivity may cause mapping issues!");
     }
 }
@@ -99,6 +95,7 @@ public class SourceWithExtraData
 public class DestinationMissingData
 {
     public string Name { get; set; } = string.Empty;
+
     public string Email { get; set; } = string.Empty;
     // Missing ImportantData property - data loss!
 }
@@ -106,6 +103,7 @@ public class DestinationMissingData
 public class SourceWithoutRequired
 {
     public string Name { get; set; } = string.Empty;
+
     public int Age { get; set; }
     // No RequiredField property
 }
@@ -120,19 +118,19 @@ public class DestinationWithRequired
 public class SourceWithCamelCase
 {
     public string firstName { get; set; } = string.Empty; // camelCase
-    public string lastName { get; set; } = string.Empty;  // camelCase
-    public string userName { get; set; } = string.Empty;  // camelCase
+    public string lastName { get; set; } = string.Empty; // camelCase
+    public string userName { get; set; } = string.Empty; // camelCase
 }
 
 public class DestinationWithPascalCase
 {
     public string FirstName { get; set; } = string.Empty; // PascalCase
-    public string LastName { get; set; } = string.Empty;  // PascalCase
-    public string UserName { get; set; } = string.Empty;  // PascalCase
+    public string LastName { get; set; } = string.Empty; // PascalCase
+    public string UserName { get; set; } = string.Empty; // PascalCase
 }
 
 /// <summary>
-/// Examples of CORRECT missing property handling (for comparison)
+///     Examples of CORRECT missing property handling (for comparison)
 /// </summary>
 public class CorrectMissingPropertyExamples
 {
@@ -142,19 +140,17 @@ public class CorrectMissingPropertyExamples
         {
             // ✅ Correct: Explicit handling of data loss
             cfg.CreateMap<SourceWithExtraData, DestinationMissingData>()
-                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => 
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src =>
                     $"{src.Name} (Data: {src.ImportantData})"));
         });
 
-        var mapper = config.CreateMapper();
-        var source = new SourceWithExtraData 
-        { 
-            Name = "John", 
-            Email = "john@example.com", 
-            ImportantData = "Important!" 
+        IMapper? mapper = config.CreateMapper();
+        var source = new SourceWithExtraData
+        {
+            Name = "John", Email = "john@example.com", ImportantData = "Important!"
         };
-        var destination = mapper.Map<DestinationMissingData>(source);
-        
+        DestinationMissingData? destination = mapper.Map<DestinationMissingData>(source);
+
         Console.WriteLine($"✅ Correctly handled: {destination.Name}");
     }
 
@@ -167,10 +163,10 @@ public class CorrectMissingPropertyExamples
                 .ForMember(dest => dest.RequiredField, opt => opt.MapFrom(src => "Default Value"));
         });
 
-        var mapper = config.CreateMapper();
+        IMapper? mapper = config.CreateMapper();
         var source = new SourceWithoutRequired { Name = "John", Age = 25 };
-        var destination = mapper.Map<DestinationWithRequired>(source);
-        
+        DestinationWithRequired? destination = mapper.Map<DestinationWithRequired>(source);
+
         Console.WriteLine($"✅ Correctly mapped: {destination.Name}, Required: {destination.RequiredField}");
     }
 
@@ -185,15 +181,11 @@ public class CorrectMissingPropertyExamples
                 .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.userName));
         });
 
-        var mapper = config.CreateMapper();
-        var source = new SourceWithCamelCase 
-        { 
-            firstName = "John", 
-            lastName = "Doe", 
-            userName = "johndoe" 
-        };
-        var destination = mapper.Map<DestinationWithPascalCase>(source);
-        
-        Console.WriteLine($"✅ Correctly mapped: {destination.FirstName} {destination.LastName}, User: {destination.UserName}");
+        IMapper? mapper = config.CreateMapper();
+        var source = new SourceWithCamelCase { firstName = "John", lastName = "Doe", userName = "johndoe" };
+        DestinationWithPascalCase? destination = mapper.Map<DestinationWithPascalCase>(source);
+
+        Console.WriteLine(
+            $"✅ Correctly mapped: {destination.FirstName} {destination.LastName}, User: {destination.UserName}");
     }
-} 
+}

@@ -1,6 +1,7 @@
 # 🔍 AutoMapper Analyzer Samples
 
-This project contains comprehensive examples of AutoMapper configurations that demonstrate issues the **AutoMapper Roslyn Analyzer** will detect and prevent at compile-time.
+This project contains comprehensive examples of AutoMapper configurations that demonstrate issues the **AutoMapper
+Roslyn Analyzer** will detect and prevent at compile-time.
 
 ## 🚀 Running the Samples
 
@@ -63,20 +64,20 @@ Examples that demonstrate performance and best practice violations:
 
 When our analyzer is complete, these samples will trigger the following diagnostics:
 
-| Sample Scenario | Diagnostic ID | Severity | Description |
-|----------------|---------------|----------|-------------|
-| `PropertyTypeMismatchExample()` | AM001 | Error | Property type mismatch without converter |
-| `NullableToNonNullableExample()` | AM002 | Warning | Nullable to non-nullable without null handling |
-| `CollectionTypeIncompatibilityExample()` | AM003 | Error | Incompatible collection types |
-| `MissingDestinationPropertyExample()` | AM010 | Warning | Source property not mapped (data loss) |
-| `UnmappedRequiredPropertyExample()` | AM011 | Error | Required property not mapped |
-| `CaseSensitivityMismatchExample()` | AM012 | Info | Case sensitivity mismatch |
-| `MissingProfileRegistrationExample()` | AM040 | Warning | Profile not registered |
-| `ConflictingMappingRulesExample()` | AM041 | Error | Conflicting mapping rules |
-| `IgnoreVsMapFromConflictExample()` | AM042 | Error | Ignore vs MapFrom conflict |
-| `StaticMapperUsageExample()` | AM050 | Info | Static mapper usage |
-| `RepeatedMappingConfigurationExample()` | AM051 | Warning | Repeated configuration |
-| `MissingNullPropagationExample()` | AM052 | Warning | Missing null propagation |
+| Sample Scenario                          | Diagnostic ID | Severity | Description                                    |
+|------------------------------------------|---------------|----------|------------------------------------------------|
+| `PropertyTypeMismatchExample()`          | AM001         | Error    | Property type mismatch without converter       |
+| `NullableToNonNullableExample()`         | AM002         | Warning  | Nullable to non-nullable without null handling |
+| `CollectionTypeIncompatibilityExample()` | AM003         | Error    | Incompatible collection types                  |
+| `MissingDestinationPropertyExample()`    | AM010         | Warning  | Source property not mapped (data loss)         |
+| `UnmappedRequiredPropertyExample()`      | AM011         | Error    | Required property not mapped                   |
+| `CaseSensitivityMismatchExample()`       | AM012         | Info     | Case sensitivity mismatch                      |
+| `MissingProfileRegistrationExample()`    | AM040         | Warning  | Profile not registered                         |
+| `ConflictingMappingRulesExample()`       | AM041         | Error    | Conflicting mapping rules                      |
+| `IgnoreVsMapFromConflictExample()`       | AM042         | Error    | Ignore vs MapFrom conflict                     |
+| `StaticMapperUsageExample()`             | AM050         | Info     | Static mapper usage                            |
+| `RepeatedMappingConfigurationExample()`  | AM051         | Warning  | Repeated configuration                         |
+| `MissingNullPropagationExample()`        | AM052         | Warning  | Missing null propagation                       |
 
 ## ✅ Correct Patterns
 
@@ -127,10 +128,11 @@ Mapped: ID=1, Name=''
 ## 🔄 Usage in Analyzer Development
 
 1. **Phase 2**: Use these samples to develop actual analyzer implementations
-2. **Phase 3**: Verify code fixes work correctly with these examples  
+2. **Phase 3**: Verify code fixes work correctly with these examples
 3. **Phase 4**: Performance testing using these scenarios
 4. **Phase 5**: Integration testing with real projects
 
 ---
 
-*This sample repository is part of the **AutoMapper Roslyn Analyzer** project, designed to catch AutoMapper configuration issues at compile-time and prevent runtime exceptions.* 
+*This sample repository is part of the **AutoMapper Roslyn Analyzer** project, designed to catch AutoMapper
+configuration issues at compile-time and prevent runtime exceptions.* 

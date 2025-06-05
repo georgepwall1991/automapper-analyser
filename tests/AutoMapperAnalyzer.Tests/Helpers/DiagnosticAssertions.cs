@@ -4,12 +4,12 @@ using Microsoft.CodeAnalysis.Testing;
 namespace AutoMapperAnalyzer.Tests.Helpers;
 
 /// <summary>
-/// Fluent assertion helpers for diagnostic results
+///     Fluent assertion helpers for diagnostic results
 /// </summary>
 public static class DiagnosticAssertions
 {
     /// <summary>
-    /// Creates a diagnostic result builder for fluent assertions
+    ///     Creates a diagnostic result builder for fluent assertions
     /// </summary>
     public static DiagnosticResultBuilder Diagnostic(DiagnosticDescriptor descriptor)
     {
@@ -17,9 +17,10 @@ public static class DiagnosticAssertions
     }
 
     /// <summary>
-    /// Creates a diagnostic result builder for AutoMapper analyzer rules
+    ///     Creates a diagnostic result builder for AutoMapper analyzer rules
     /// </summary>
-    public static DiagnosticResultBuilder AutoMapperDiagnostic(string ruleId, DiagnosticSeverity severity, string messageFormat)
+    public static DiagnosticResultBuilder AutoMapperDiagnostic(string ruleId, DiagnosticSeverity severity,
+        string messageFormat)
     {
         var descriptor = new DiagnosticDescriptor(
             ruleId,
@@ -27,21 +28,21 @@ public static class DiagnosticAssertions
             messageFormat,
             "AutoMapper",
             severity,
-            isEnabledByDefault: true);
-            
+            true);
+
         return new DiagnosticResultBuilder(descriptor);
     }
 
     /// <summary>
-    /// Builder for creating diagnostic results with fluent API
+    ///     Builder for creating diagnostic results with fluent API
     /// </summary>
     public class DiagnosticResultBuilder
     {
         private readonly DiagnosticDescriptor _descriptor;
-        private int? _line;
         private int? _column;
-        private int? _endLine;
         private int? _endColumn;
+        private int? _endLine;
+        private int? _line;
         private object[]? _messageArgs;
 
         internal DiagnosticResultBuilder(DiagnosticDescriptor descriptor)
@@ -50,7 +51,7 @@ public static class DiagnosticAssertions
         }
 
         /// <summary>
-        /// Sets the location of the diagnostic
+        ///     Sets the location of the diagnostic
         /// </summary>
         public DiagnosticResultBuilder AtLocation(int line, int column)
         {
@@ -60,7 +61,7 @@ public static class DiagnosticAssertions
         }
 
         /// <summary>
-        /// Sets the span of the diagnostic
+        ///     Sets the span of the diagnostic
         /// </summary>
         public DiagnosticResultBuilder AtSpan(int startLine, int startColumn, int endLine, int endColumn)
         {
@@ -72,7 +73,7 @@ public static class DiagnosticAssertions
         }
 
         /// <summary>
-        /// Sets the message arguments for the diagnostic
+        ///     Sets the message arguments for the diagnostic
         /// </summary>
         public DiagnosticResultBuilder WithArguments(params object[] args)
         {
@@ -81,7 +82,7 @@ public static class DiagnosticAssertions
         }
 
         /// <summary>
-        /// Builds the diagnostic result
+        ///     Builds the diagnostic result
         /// </summary>
         public DiagnosticResult Build()
         {
@@ -108,7 +109,7 @@ public static class DiagnosticAssertions
         }
 
         /// <summary>
-        /// Implicit conversion to DiagnosticResult for convenience
+        ///     Implicit conversion to DiagnosticResult for convenience
         /// </summary>
         public static implicit operator DiagnosticResult(DiagnosticResultBuilder builder)
         {
@@ -118,12 +119,12 @@ public static class DiagnosticAssertions
 }
 
 /// <summary>
-/// Common diagnostic descriptors for AutoMapper analyzer
+///     Common diagnostic descriptors for AutoMapper analyzer
 /// </summary>
 public static class AutoMapperDiagnostics
 {
     /// <summary>
-    /// AM001: Property Type Mismatch
+    ///     AM001: Property Type Mismatch
     /// </summary>
     public static readonly DiagnosticDescriptor PropertyTypeMismatch = new(
         "AM001",
@@ -131,11 +132,11 @@ public static class AutoMapperDiagnostics
         "Property '{0}' type mismatch: source is '{1}' but destination is '{2}'",
         "AutoMapper.TypeSafety",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
-        description: "Source and destination properties have incompatible types without explicit conversion.");
+        true,
+        "Source and destination properties have incompatible types without explicit conversion.");
 
     /// <summary>
-    /// AM002: Nullable to Non-Nullable Assignment
+    ///     AM002: Nullable to Non-Nullable Assignment
     /// </summary>
     public static readonly DiagnosticDescriptor NullableToNonNullable = new(
         "AM002",
@@ -143,11 +144,11 @@ public static class AutoMapperDiagnostics
         "Property '{0}' maps nullable source '{1}' to non-nullable destination '{2}' without null handling",
         "AutoMapper.TypeSafety",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
-        description: "Mapping nullable source to non-nullable destination without null handling could cause NullReferenceException.");
+        true,
+        "Mapping nullable source to non-nullable destination without null handling could cause NullReferenceException.");
 
     /// <summary>
-    /// AM003: Collection Type Incompatibility
+    ///     AM003: Collection Type Incompatibility
     /// </summary>
     public static readonly DiagnosticDescriptor CollectionTypeIncompatibility = new(
         "AM003",
@@ -155,11 +156,11 @@ public static class AutoMapperDiagnostics
         "Collection property '{0}' has incompatible types: source '{1}' and destination '{2}'",
         "AutoMapper.TypeSafety",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
-        description: "Collection types are incompatible and require explicit conversion.");
+        true,
+        "Collection types are incompatible and require explicit conversion.");
 
     /// <summary>
-    /// AM010: Missing Destination Property
+    ///     AM010: Missing Destination Property
     /// </summary>
     public static readonly DiagnosticDescriptor MissingDestinationProperty = new(
         "AM010",
@@ -167,11 +168,11 @@ public static class AutoMapperDiagnostics
         "Source property '{0}' will not be mapped - potential data loss",
         "AutoMapper.MissingProperty",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
-        description: "Source property exists but no corresponding destination property - potential data loss.");
+        true,
+        "Source property exists but no corresponding destination property - potential data loss.");
 
     /// <summary>
-    /// AM011: Unmapped Required Property
+    ///     AM011: Unmapped Required Property
     /// </summary>
     public static readonly DiagnosticDescriptor UnmappedRequiredProperty = new(
         "AM011",
@@ -179,6 +180,6 @@ public static class AutoMapperDiagnostics
         "Required destination property '{0}' is not mapped from any source property",
         "AutoMapper.MissingProperty",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
-        description: "Required destination property has no mapping configuration and will cause runtime exception.");
-} 
+        true,
+        "Required destination property has no mapping configuration and will cause runtime exception.");
+}
