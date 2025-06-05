@@ -293,8 +293,20 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
     {
         // Check if there's an implicit conversion between the types
         // This is a simplified check - in a full implementation, we'd use Compilation.HasImplicitConversion
-        return from.SpecialType != SpecialType.None && to.SpecialType != SpecialType.None &&
-               GetNumericConversionLevel(from.SpecialType) <= GetNumericConversionLevel(to.SpecialType);
+        
+        // Only check for numeric implicit conversions between numeric types
+        if (from.SpecialType == SpecialType.None || to.SpecialType == SpecialType.None)
+            return false;
+
+        // Both must be numeric types for implicit numeric conversion
+        int fromLevel = GetNumericConversionLevel(from.SpecialType);
+        int toLevel = GetNumericConversionLevel(to.SpecialType);
+        
+        // If either is not a numeric type (returns int.MaxValue), no implicit conversion
+        if (fromLevel == int.MaxValue || toLevel == int.MaxValue)
+            return false;
+            
+        return fromLevel <= toLevel;
     }
 
     private static int GetNumericConversionLevel(SpecialType type)
