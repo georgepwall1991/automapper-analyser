@@ -1,0 +1,158 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# AutoMapper Diagnostic Rules
+
+## Type Safety Diagnostics
+
+### AM001: Property Type Mismatch
+**Issue**: Source and destination properties have incompatible types without explicit conversion
+```csharp
+// Problem: string -> int without converter
+class Source { public string Age { get; set; } }
+class Dest { public int Age { get; set; } }
+```
+**Solution**: Add custom type converter or fix property types
+
+### AM002: Nullable to Non-Nullable Assignment
+**Issue**: Mapping nullable source to non-nullable destination without null handling
+```csharp
+class Source { public string? Name { get; set; } }
+class Dest { public string Name { get; set; } } // Could throw NRE
+```
+**Solution**: Add null conditional mapping or make destination nullable
+
+### AM003: Collection Type Incompatibility
+**Issue**: Incompatible collection types in mapping
+```csharp
+class Source { public List<string> Items { get; set; } }
+class Dest { public HashSet<int> Items { get; set; } }
+```
+**Solution**: Add collection conversion logic
+
+## Missing Property Diagnostics
+
+### AM010: Missing Destination Property
+**Issue**: Source property exists but no corresponding destination property
+```csharp
+class Source { public string ImportantData { get; set; } }
+class Dest { /* Missing ImportantData - data loss! */ }
+```
+**Severity**: Warning (potential data loss)
+
+### AM011: Unmapped Required Property
+**Issue**: Destination has required property not mapped from source
+```csharp
+class Dest { public required string RequiredField { get; set; } }
+// No mapping configuration for RequiredField
+```
+**Severity**: Error (will cause runtime exception)
+
+### AM012: Case Sensitivity Mismatch
+**Issue**: Properties differ only in casing
+```csharp
+class Source { public string userName { get; set; } }
+class Dest { public string UserName { get; set; } }
+```
+**Solution**: Configure case-insensitive mapping or add explicit mapping
+
+## Collection and Complex Type Diagnostics
+
+### AM020: Nested Object Mapping Issues
+**Issue**: Complex nested objects without proper mapping configuration
+```csharp
+class Source { public SourceAddress Address { get; set; } }
+class Dest { public DestAddress Address { get; set; } }
+// Need explicit mapping between SourceAddress and DestAddress
+```
+
+### AM021: Collection Element Type Mismatch
+**Issue**: Collection elements have incompatible types
+```csharp
+class Source { public List<SourceItem> Items { get; set; } }
+class Dest { public List<DestItem> Items { get; set; } }
+// Need mapping between SourceItem and DestItem
+```
+
+### AM022: Infinite Recursion Risk
+**Issue**: Circular references in object graphs without proper handling
+```csharp
+class Person { public Person Parent { get; set; } public List<Person> Children { get; set; } }
+```
+
+## Custom Conversion Diagnostics
+
+### AM030: Invalid Type Converter
+**Issue**: Custom type converter doesn't handle all cases or has wrong signature
+```csharp
+// Missing null handling or exception cases
+.ForMember(dest => dest.Value, opt => opt.ConvertUsing(src => int.Parse(src.StringValue)))
+```
+
+### AM031: Performance Warning - Expensive Conversion
+**Issue**: Type converter performs expensive operations that should be cached
+```csharp
+.ForMember(dest => dest.Data, opt => opt.ConvertUsing(src => CallExpensiveApi(src.Id)))
+```
+
+## Configuration Diagnostics
+
+### AM040: Missing Profile Registration
+**Issue**: Mapping profile created but not registered with mapper
+```csharp
+public class MyProfile : Profile { /* mappings */ }
+// Profile not registered in mapper configuration
+```
+
+### AM041: Conflicting Mapping Rules
+**Issue**: Multiple conflicting mapping configurations for same property
+```csharp
+.ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.FirstName))
+.ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.LastName)) // Conflict!
+```
+
+### AM042: Ignore vs MapFrom Conflict
+**Issue**: Property both ignored and explicitly mapped
+```csharp
+.ForMember(dest => dest.Field, opt => opt.Ignore())
+.ForMember(dest => dest.Field, opt => opt.MapFrom(src => src.Value)) // Conflict!
+```
+
+## Performance and Best Practice Diagnostics
+
+### AM050: Static Mapper Usage
+**Issue**: Using Mapper.Map static methods instead of injected IMapper
+```csharp
+var result = Mapper.Map<Dest>(source); // Prefer IMapper injection
+```
+
+### AM051: Repeated Mapping Configuration
+**Issue**: Same mapping configured multiple times unnecessarily
+```csharp
+// Same mapping in multiple profiles
+```
+
+### AM052: Missing Null Propagation
+**Issue**: Mapping without proper null handling in chains
+```csharp
+.ForMember(dest => dest.City, opt => opt.MapFrom(src => src.Address.City))
+// Should handle src.Address being null
+```
+
+## Entity Framework Integration Diagnostics
+
+### AM060: EF Navigation Property Issues
+**Issue**: Mapping EF navigation properties without proper loading
+```csharp
+// Mapping lazy-loaded properties that might not be loaded
+.ForMember(dest => dest.Orders, opt => opt.MapFrom(src => src.Orders))
+```
+
+### AM061: Tracking vs Non-Tracking Conflicts
+**Issue**: Mapping tracked entities in ways that could cause EF issues
+```csharp
+// Mapping lazy-loaded properties that might not be loaded
+.ForMember(dest => dest.Orders, opt => opt.MapFrom(src => src.Orders))
+```

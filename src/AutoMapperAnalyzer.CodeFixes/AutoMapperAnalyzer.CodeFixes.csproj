@@ -1,0 +1,49 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    
+    <!-- CodeFix Package Configuration -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <PrivateAssets>all</PrivateAssets>
+    
+    <!-- NuGet Package Metadata -->
+    <PackageId>AutoMapperAnalyzer.CodeFixes</PackageId>
+    <PackageVersion>1.0.0</PackageVersion>
+    <Title>AutoMapper Roslyn Analyzer Code Fixes</Title>
+    <Authors>George Wall</Authors>
+    <Description>Code fix providers for AutoMapper analyzer diagnostics. Automatically fixes common AutoMapper configuration issues detected by the analyzer.</Description>
+    <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis;codefixes</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/georgepwall1991/automapper-analyser</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReleaseNotes>Initial release of AutoMapper code fix providers with automatic fixes for type safety, missing property, and configuration issues.</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Analyzer Include="*.dll" />
+  </ItemGroup>
+
+</Project>

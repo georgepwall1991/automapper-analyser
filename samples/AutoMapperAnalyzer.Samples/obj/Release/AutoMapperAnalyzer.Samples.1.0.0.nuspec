@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>AutoMapperAnalyzer.Samples</id>
+    <version>1.0.0</version>
+    <authors>AutoMapperAnalyzer.Samples</authors>
+    <description>Package Description</description>
+    <repository type="git" />
+    <dependencies>
+      <group targetFramework="net9.0">
+        <dependency id="AutoMapper" version="12.0.1" exclude="Build,Analyzers" />
+        <dependency id="AutoMapper.Extensions.Microsoft.DependencyInjection" version="12.0.1" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="/Users/georgewall/RiderProjects/HighLevelArchitecture/samples/AutoMapperAnalyzer.Samples/bin/Release/net9.0/AutoMapperAnalyzer.Samples.runtimeconfig.json" target="lib/net9.0/AutoMapperAnalyzer.Samples.runtimeconfig.json" />
+    <file src="/Users/georgewall/RiderProjects/HighLevelArchitecture/samples/AutoMapperAnalyzer.Samples/bin/Release/net9.0/AutoMapperAnalyzer.Samples.dll" target="lib/net9.0/AutoMapperAnalyzer.Samples.dll" />
+  </files>
+</package>

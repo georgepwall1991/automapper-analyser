@@ -1,0 +1,181 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Roslyn Analyzer Implementation Guide
+
+## Analyzer Architecture
+
+### Core Analyzer Structure
+```csharp
+[DiagnosticAnalyzer(LanguageNames.CSharp)]
+public class AutoMapperAnalyzer : DiagnosticAnalyzer
+{
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; }
+    public override void Initialize(AnalysisContext context) { }
+}
+```
+
+### Key Analysis Points
+1. **Syntax Analysis**: Look for AutoMapper API usage patterns
+2. **Semantic Analysis**: Understand type relationships and mappings
+3. **Symbol Analysis**: Track mapping profiles and configurations
+4. **Data Flow**: Follow mapping chains and conversions
+
+## Diagnostic Descriptor Patterns
+
+### Standard Descriptor Template
+```csharp
+public static readonly DiagnosticDescriptor TypeMismatchRule = new DiagnosticDescriptor(
+    "AM001",
+    "Property type mismatch in AutoMapper configuration",
+    "Property '{0}' has incompatible types: {1} -> {2}",
+    "AutoMapper",
+    DiagnosticSeverity.Error,
+    isEnabledByDefault: true,
+    description: "Source and destination properties have incompatible types without explicit conversion.");
+```
+
+### Severity Guidelines
+- **Error**: Will cause runtime exceptions (missing required mappings, type conversion failures)
+- **Warning**: Potential data loss or performance issues
+- **Info**: Best practice suggestions
+- **Hidden**: Internal analyzer information
+
+## Key Syntax Nodes to Analyze
+
+### 1. Profile Inheritance
+```csharp
+// Look for: class SomeProfile : Profile
+context.RegisterSyntaxNodeAction(AnalyzeProfileClass, SyntaxKind.ClassDeclaration);
+```
+
+### 2. CreateMap Calls
+```csharp
+// Look for: CreateMap<Source, Dest>()
+context.RegisterSyntaxNodeAction(AnalyzeCreateMapInvocation, SyntaxKind.InvocationExpression);
+```
+
+### 3. ForMember Configurations
+```csharp
+// Look for: .ForMember(dest => dest.Prop, opt => ...)
+context.RegisterSyntaxNodeAction(AnalyzeForMemberInvocation, SyntaxKind.InvocationExpression);
+```
+
+### 4. Mapper.Map Usage
+```csharp
+// Look for: Mapper.Map<T>(source) or mapper.Map<T>(source)
+context.RegisterSyntaxNodeAction(AnalyzeMapInvocation, SyntaxKind.InvocationExpression);
+```
+
+## Symbol Analysis Strategies
+
+### Type Compatibility Checking
+```csharp
+private static bool AreTypesCompatible(ITypeSymbol sourceType, ITypeSymbol destType)
+{
+    // Check direct assignment compatibility
+    // Check nullable reference types
+    // Check collection compatibility
+    // Check custom conversion availability
+}
+```
+
+### Property Mapping Analysis
+```csharp
+private static MappingAnalysisResult AnalyzePropertyMapping(
+    ITypeSymbol sourceType, 
+    ITypeSymbol destType,
+    SemanticModel semanticModel)
+{
+    var sourceProperties = GetProperties(sourceType);
+    var destProperties = GetProperties(destType);
+    
+    // Compare properties by name, type, accessibility
+    // Check for missing mappings
+    // Validate type compatibility
+}
+```
+
+## Code Fix Provider Patterns
+
+### Basic Fix Provider Structure
+```csharp
+[ExportCodeFixProvider(LanguageNames.CSharp)]
+public class AutoMapperCodeFixProvider : CodeFixProvider
+{
+    public override ImmutableArray<string> FixableDiagnosticIds { get; }
+    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    
+    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    {
+        // Register fixes for each diagnostic
+    }
+}
+```
+
+### Common Fix Patterns
+1. **Add Missing Mapping**: Generate `.ForMember()` configuration
+2. **Add Type Converter**: Create custom converter method
+3. **Add Null Handling**: Insert null-conditional operators
+4. **Fix Case Sensitivity**: Add explicit property mapping
+
+## Testing Strategy
+
+### Analyzer Test Base
+```csharp
+public class AutoMapperAnalyzerTests : AnalyzerTest<AutoMapperAnalyzer>
+{
+    [Fact]
+    public async Task DetectsTypeMismatch()
+    {
+        var source = @"
+            class Source { public string Age { get; set; } }
+            class Dest { public int Age { get; set; } }
+            
+            class Profile : AutoMapper.Profile
+            {
+                public Profile()
+                {
+                    CreateMap<Source, Dest>();
+                }
+            }";
+            
+        var expected = Diagnostic("AM001").WithArguments("Age", "string", "int");
+        await VerifyAnalyzerAsync(source, expected);
+    }
+}
+```
+
+### Test Categories
+1. **Type Safety Tests**: All type mismatch scenarios
+2. **Missing Property Tests**: Data loss detection
+3. **Configuration Tests**: Profile and mapping validation
+4. **Performance Tests**: Best practice enforcement
+5. **Integration Tests**: Real-world AutoMapper usage
+
+## Performance Considerations
+
+### Efficient Symbol Walking
+- Cache type symbol lookups
+- Use symbol equality comparisons
+- Avoid repeated semantic model queries
+- Implement incremental analysis where possible
+
+### Memory Management
+- Dispose of resources properly
+- Use object pooling for frequently created objects
+- Minimize allocations in hot paths
+
+## Integration Points
+
+### AutoMapper Version Compatibility
+- Support multiple AutoMapper versions
+- Handle API changes gracefully
+- Provide version-specific diagnostics
+
+### IDE Integration
+- Provide rich diagnostic messages
+- Support quick fixes and refactoring
+- Integrate with IntelliSense

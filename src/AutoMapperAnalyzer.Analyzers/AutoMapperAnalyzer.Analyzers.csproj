@@ -1,0 +1,47 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    
+    <!-- Analyzer Package Configuration -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <PrivateAssets>all</PrivateAssets>
+    
+    <!-- NuGet Package Metadata -->
+    <PackageId>AutoMapperAnalyzer.Analyzers</PackageId>
+    <PackageVersion>1.0.0</PackageVersion>
+    <Title>AutoMapper Roslyn Analyzer</Title>
+    <Authors>George Wall</Authors>
+    <Description>Roslyn analyzer that detects AutoMapper configuration issues at compile-time to prevent runtime exceptions and data loss. Supports type safety validation, missing property detection, and configuration validation.</Description>
+    <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/georgepwall1991/automapper-analyser</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReleaseNotes>Initial release of AutoMapper Roslyn Analyzer with support for type safety, missing property detection, and configuration validation.</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="tools\install.ps1" Pack="true" PackagePath="tools\" />
+    <None Include="tools\uninstall.ps1" Pack="true" PackagePath="tools\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Analyzer Include="*.dll" />
+  </ItemGroup>
+
+</Project>
