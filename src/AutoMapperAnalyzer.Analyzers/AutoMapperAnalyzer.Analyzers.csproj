@@ -16,7 +16,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>AutoMapperAnalyzer.Analyzers</PackageId>
-        <PackageVersion>1.0.2</PackageVersion>
+        <PackageVersion>1.0.3</PackageVersion>
         <Title>AutoMapper Roslyn Analyzer</Title>
         <Authors>George Wall</Authors>
         <Description>Roslyn analyzer that detects AutoMapper configuration issues at compile-time to prevent runtime exceptions and data loss. Supports type safety validation, missing property detection, and configuration validation.</Description>
