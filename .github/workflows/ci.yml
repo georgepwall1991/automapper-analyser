@@ -9,6 +9,7 @@ on:
 env:
   DOTNET_VERSION: '9.0.x'
   SOLUTION_FILE: 'automapper-analyser.sln'
+  COMMIT_MESSAGE: 'chore: auto-commit after successful test iteration'
 
 jobs:
   build:
@@ -20,6 +21,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -49,6 +51,22 @@ jobs:
         directory: ./coverage
         fail_ci_if_error: true
 
+    - name: Check for changes and commit
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Check if there are any changes to commit
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "Changes detected, committing..."
+          git add .
+          git commit -m "${{ env.COMMIT_MESSAGE }} - Build and tests passed"
+          git push
+        else
+          echo "No changes to commit"
+        fi
+
   package:
     name: Package Analyzer
     needs: build
@@ -58,6 +76,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -82,6 +102,22 @@ jobs:
         name: nuget-packages
         path: ./packages/*.nupkg
 
+    - name: Commit packaging artifacts info
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Create or update a packages info file
+        echo "Last packaging run: $(date -u)" > .github/last-package-info.txt
+        echo "Packages created:" >> .github/last-package-info.txt
+        ls -la ./packages/*.nupkg >> .github/last-package-info.txt
+        
+        if [ -n "$(git status --porcelain)" ]; then
+          git add .github/last-package-info.txt
+          git commit -m "${{ env.COMMIT_MESSAGE }} - Packaging completed successfully"
+          git push
+        fi
+
   validate-samples:
     name: Validate Sample Scenarios
     needs: build
@@ -90,6 +126,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -104,6 +142,22 @@ jobs:
 
     - name: Run samples (validation)
       run: dotnet run --project samples/AutoMapperAnalyzer.Samples --configuration Release
+
+    - name: Commit sample validation results
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Create or update validation results
+        echo "Last sample validation: $(date -u)" > .github/last-validation.txt
+        echo "Validation status: PASSED" >> .github/last-validation.txt
+        
+        if [ -n "$(git status --porcelain)" ]; then
+          git add .github/last-validation.txt
+          git commit -m "${{ env.COMMIT_MESSAGE }} - Sample validation passed"
+          git push
+        fi
 
   security-scan:
     name: Security Scan
@@ -136,6 +190,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -179,9 +234,65 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       run: dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
 
+    - name: Commit quality analysis results
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Create or update quality analysis results
+        echo "Last quality analysis: $(date -u)" > .github/last-quality-check.txt
+        echo "SonarCloud analysis: COMPLETED" >> .github/last-quality-check.txt
+        
+        if [ -n "$(git status --porcelain)" ]; then
+          git add .github/last-quality-check.txt
+          git commit -m "${{ env.COMMIT_MESSAGE }} - Code quality analysis completed"
+          git push
+        fi
+
+  auto-commit:
+    name: Auto-commit after successful iteration
+    needs: [build, validate-samples, security-scan, code-quality]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Pull latest changes
+      run: git pull origin ${{ github.ref_name }}
+
+    - name: Final commit after successful iteration
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Create iteration summary
+        echo "=== CI/CD Iteration Summary ===" > .github/iteration-summary.txt
+        echo "Timestamp: $(date -u)" >> .github/iteration-summary.txt
+        echo "Branch: ${{ github.ref_name }}" >> .github/iteration-summary.txt
+        echo "Commit: ${{ github.sha }}" >> .github/iteration-summary.txt
+        echo "Status: ALL TESTS PASSED" >> .github/iteration-summary.txt
+        echo "" >> .github/iteration-summary.txt
+        echo "Jobs completed successfully:" >> .github/iteration-summary.txt
+        echo "- ✅ Build and Test" >> .github/iteration-summary.txt
+        echo "- ✅ Sample Validation" >> .github/iteration-summary.txt
+        echo "- ✅ Security Scan" >> .github/iteration-summary.txt
+        echo "- ✅ Code Quality Analysis" >> .github/iteration-summary.txt
+        echo "===============================" >> .github/iteration-summary.txt
+        
+        # Always commit the iteration summary
+        git add .github/iteration-summary.txt
+        git commit -m "${{ env.COMMIT_MESSAGE }} - Complete iteration with all tests passing"
+        git push
+
   release:
     name: Release
-    needs: [build, package, validate-samples, security-scan, code-quality]
+    needs: [build, package, validate-samples, security-scan, code-quality, auto-commit]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]')
     
