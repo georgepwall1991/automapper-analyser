@@ -23,8 +23,8 @@
 /Users/georgewall/RiderProjects/automapper-analyser/src/AutoMapperAnalyzer.CodeFixes/obj/Debug/netstandard2.0/AutoMapperAnalyzer.CodeFixes.AssemblyInfoInputs.cache
 /Users/georgewall/RiderProjects/automapper-analyser/src/AutoMapperAnalyzer.CodeFixes/obj/Debug/netstandard2.0/AutoMapperAnalyzer.CodeFixes.AssemblyInfo.cs
 /Users/georgewall/RiderProjects/automapper-analyser/src/AutoMapperAnalyzer.CodeFixes/obj/Debug/netstandard2.0/AutoMapperAnalyzer.CodeFixes.csproj.CoreCompileInputs.cache
+/Users/georgewall/RiderProjects/automapper-analyser/src/AutoMapperAnalyzer.CodeFixes/obj/Debug/netstandard2.0/AutoMapperAnalyzer.CodeFixes.sourcelink.json
 /Users/georgewall/RiderProjects/automapper-analyser/src/AutoMapperAnalyzer.CodeFixes/obj/Debug/netstandard2.0/AutoMapp.A6F331B6.Up2Date
 /Users/georgewall/RiderProjects/automapper-analyser/src/AutoMapperAnalyzer.CodeFixes/obj/Debug/netstandard2.0/AutoMapperAnalyzer.CodeFixes.dll
 /Users/georgewall/RiderProjects/automapper-analyser/src/AutoMapperAnalyzer.CodeFixes/obj/Debug/netstandard2.0/AutoMapperAnalyzer.CodeFixes.xml
 /Users/georgewall/RiderProjects/automapper-analyser/src/AutoMapperAnalyzer.CodeFixes/obj/Debug/netstandard2.0/AutoMapperAnalyzer.CodeFixes.pdb
-/Users/georgewall/RiderProjects/automapper-analyser/src/AutoMapperAnalyzer.CodeFixes/obj/Debug/netstandard2.0/AutoMapperAnalyzer.CodeFixes.sourcelink.json

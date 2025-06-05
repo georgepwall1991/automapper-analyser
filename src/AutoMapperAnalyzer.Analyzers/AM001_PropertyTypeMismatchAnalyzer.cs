@@ -24,7 +24,7 @@ namespace AutoMapperAnalyzer.Analyzers
         public static readonly DiagnosticDescriptor NullableCompatibilityRule = new DiagnosticDescriptor(
             "AM001",
             "Nullable compatibility issue in AutoMapper configuration",
-            "Property '{0}' has nullable compatibility issue: {1}.{0} ({2}) can be null but {3}.{0} ({4}) is non-nullable.",
+            "Property '{0}' has nullable compatibility issue: {1}.{0} ({2}) can be null but {3}.{0} ({4}) is non-nullable",
             "AutoMapper.TypeSafety",
             DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
@@ -89,6 +89,25 @@ namespace AutoMapperAnalyzer.Analyzers
 
         private static bool IsCreateMapInvocation(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
         {
+            // Get the symbol info to check if this is really AutoMapper's CreateMap method
+            var symbolInfo = semanticModel.GetSymbolInfo(invocation);
+            
+            if (symbolInfo.Symbol is IMethodSymbol method)
+            {
+                // Check if it's a CreateMap method and it's a generic method
+                if (method.Name == "CreateMap" && method.IsGenericMethod && method.TypeArguments.Length == 2)
+                {
+                    // Additional check: see if it's from AutoMapper (check containing type or namespace)
+                    var containingType = method.ContainingType;
+                    if (containingType != null)
+                    {
+                        // Allow any CreateMap method for now, we'll refine this later if needed
+                        return true;
+                    }
+                }
+            }
+            
+            // Fallback: check syntax if symbol resolution fails
             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
             {
                 return memberAccess.Name.Identifier.ValueText == "CreateMap";
@@ -103,7 +122,7 @@ namespace AutoMapperAnalyzer.Analyzers
         }
 
         private static (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) GetCreateMapTypeArguments(
-            InvocationExpressionSyntax invocation, 
+            InvocationExpressionSyntax invocation,
             SemanticModel semanticModel)
         {
             var symbolInfo = semanticModel.GetSymbolInfo(invocation);
@@ -129,7 +148,7 @@ namespace AutoMapperAnalyzer.Analyzers
             // Check each source property for mapping compatibility
             foreach (var sourceProp in sourceProperties)
             {
-                var destProp = destinationProperties.FirstOrDefault(p => 
+                var destProp = destinationProperties.FirstOrDefault(p =>
                     string.Equals(p.Name, sourceProp.Name, StringComparison.OrdinalIgnoreCase));
 
                 if (destProp == null)
@@ -140,11 +159,11 @@ namespace AutoMapperAnalyzer.Analyzers
                     continue;
 
                 AnalyzePropertyTypeCompatibility(
-                    context, 
-                    invocation, 
-                    sourceProp, 
-                    destProp, 
-                    sourceType, 
+                    context,
+                    invocation,
+                    sourceProp,
+                    destProp,
+                    sourceType,
                     destinationType
                 );
             }
@@ -154,7 +173,7 @@ namespace AutoMapperAnalyzer.Analyzers
         {
             return type.GetMembers()
                 .OfType<IPropertySymbol>()
-                .Where(p => p.DeclaredAccessibility == Accessibility.Public && 
+                .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
                            p.CanBeReferencedByName &&
                            !p.IsStatic)
                 .ToArray();
@@ -164,8 +183,8 @@ namespace AutoMapperAnalyzer.Analyzers
         {
             // Look for chained ForMember calls
             var parent = createMapInvocation.Parent;
-            
-            while (parent is MemberAccessExpressionSyntax memberAccess && 
+
+            while (parent is MemberAccessExpressionSyntax memberAccess &&
                    memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
             {
                 if (memberAccess.Name.Identifier.ValueText == "ForMember")
@@ -174,7 +193,7 @@ namespace AutoMapperAnalyzer.Analyzers
                     if (IsForMemberOfProperty(chainedInvocation, propertyName))
                         return true;
                 }
-                
+
                 parent = chainedInvocation.Parent;
             }
 
@@ -192,7 +211,7 @@ namespace AutoMapperAnalyzer.Analyzers
                 var firstArg = arguments.Value[0];
                 return firstArg.ToString().Contains(propertyName);
             }
-            
+
             return false;
         }
 
@@ -278,7 +297,7 @@ namespace AutoMapperAnalyzer.Analyzers
         private static bool IsNullableCompatibilityIssue(ITypeSymbol sourceType, ITypeSymbol destinationType)
         {
             // Check if source is nullable reference type and destination is non-nullable
-            return sourceType.CanBeReferencedByName && 
+            return sourceType.CanBeReferencedByName &&
                    sourceType.NullableAnnotation == NullableAnnotation.Annotated &&
                    destinationType.NullableAnnotation == NullableAnnotation.NotAnnotated;
         }
@@ -295,7 +314,7 @@ namespace AutoMapperAnalyzer.Analyzers
                     for (int i = 0; i < sourceNamed.TypeArguments.Length; i++)
                     {
                         if (!SymbolEqualityComparer.Default.Equals(
-                            sourceNamed.TypeArguments[i], 
+                            sourceNamed.TypeArguments[i],
                             destNamed.TypeArguments[i]))
                         {
                             return true;
@@ -303,7 +322,7 @@ namespace AutoMapperAnalyzer.Analyzers
                     }
                 }
             }
-            
+
             return false;
         }
 
@@ -351,7 +370,7 @@ namespace AutoMapperAnalyzer.Analyzers
                 ("float", "double")
             };
 
-            return numericConversions.Any(conversion => 
+            return numericConversions.Any(conversion =>
                 conversion.Item1 == fromTypeName && conversion.Item2 == toTypeName);
         }
 
@@ -367,4 +386,4 @@ namespace AutoMapperAnalyzer.Analyzers
             return primitiveAndFrameworkTypes.Contains(typeName);
         }
     }
-} 
+}

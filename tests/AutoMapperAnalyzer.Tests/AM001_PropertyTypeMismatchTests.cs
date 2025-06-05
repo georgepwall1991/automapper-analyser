@@ -31,7 +31,7 @@ public class TestProfile : Profile
     }
 }";
 
-            // Try expecting a diagnostic to see what happens
+            // Expect the analyzer to detect the string -> int type mismatch for Age property
             await DiagnosticTestFramework
                 .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
                 .WithSource(testCode)

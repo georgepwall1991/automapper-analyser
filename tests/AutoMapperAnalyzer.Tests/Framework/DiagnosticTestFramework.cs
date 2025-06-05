@@ -40,7 +40,7 @@ public class AnalyzerTestRunner<TAnalyzer>
     private readonly List<(string FileName, string Source)> _sources = new();
     private readonly List<DiagnosticResult> _expectedDiagnostics = new();
     private readonly List<MetadataReference> _additionalReferences = new();
-    private ReferenceAssemblies _referenceAssemblies = ReferenceAssemblies.Net.Net60;
+    private ReferenceAssemblies _referenceAssemblies = ReferenceAssemblies.Net.Net80;
 
     /// <summary>
     /// Adds source code to test

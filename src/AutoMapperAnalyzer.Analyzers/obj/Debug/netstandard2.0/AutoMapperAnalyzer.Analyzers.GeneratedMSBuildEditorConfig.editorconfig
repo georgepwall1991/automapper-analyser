@@ -1,5 +1,7 @@
 is_global = true
 build_property.TargetFramework = netstandard2.0
+build_property.TargetFrameworkIdentifier = .NETStandard
+build_property.TargetFrameworkVersion = v2.0
 build_property.TargetPlatformMinVersion = 7.0
 build_property.UsingMicrosoftNETSdkWeb = 
 build_property.ProjectTypeGuids = 

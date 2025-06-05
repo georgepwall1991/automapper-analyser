@@ -19,3 +19,9 @@
 /Users/georgewall/RiderProjects/HighLevelArchitecture/samples/AutoMapperAnalyzer.Samples/obj/Debug/net9.0/AutoMapperAnalyzer.Samples.pdb
 /Users/georgewall/RiderProjects/HighLevelArchitecture/samples/AutoMapperAnalyzer.Samples/obj/Debug/net9.0/AutoMapperAnalyzer.Samples.genruntimeconfig.cache
 /Users/georgewall/RiderProjects/HighLevelArchitecture/samples/AutoMapperAnalyzer.Samples/obj/Debug/net9.0/ref/AutoMapperAnalyzer.Samples.dll
+/Users/georgewall/RiderProjects/automapper-analyser/samples/AutoMapperAnalyzer.Samples/obj/Debug/net9.0/AutoMapperAnalyzer.Samples.csproj.AssemblyReference.cache
+/Users/georgewall/RiderProjects/automapper-analyser/samples/AutoMapperAnalyzer.Samples/obj/Debug/net9.0/AutoMapperAnalyzer.Samples.GeneratedMSBuildEditorConfig.editorconfig
+/Users/georgewall/RiderProjects/automapper-analyser/samples/AutoMapperAnalyzer.Samples/obj/Debug/net9.0/AutoMapperAnalyzer.Samples.AssemblyInfoInputs.cache
+/Users/georgewall/RiderProjects/automapper-analyser/samples/AutoMapperAnalyzer.Samples/obj/Debug/net9.0/AutoMapperAnalyzer.Samples.AssemblyInfo.cs
+/Users/georgewall/RiderProjects/automapper-analyser/samples/AutoMapperAnalyzer.Samples/obj/Debug/net9.0/AutoMapperAnalyzer.Samples.csproj.CoreCompileInputs.cache
+/Users/georgewall/RiderProjects/automapper-analyser/samples/AutoMapperAnalyzer.Samples/obj/Debug/net9.0/AutoMapperAnalyzer.Samples.sourcelink.json

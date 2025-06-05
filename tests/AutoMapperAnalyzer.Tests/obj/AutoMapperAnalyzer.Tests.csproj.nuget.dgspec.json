@@ -47,12 +47,12 @@
             "Microsoft.CodeAnalysis.Analyzers": {
               "suppressParent": "All",
               "target": "Package",
-              "version": "[3.3.4, )"
+              "version": "[4.14.0, )"
             },
             "Microsoft.CodeAnalysis.CSharp": {
               "suppressParent": "All",
               "target": "Package",
-              "version": "[4.8.0, )"
+              "version": "[4.14.0, )"
             },
             "NETStandard.Library": {
               "suppressParent": "All",
@@ -123,12 +123,12 @@
             "Microsoft.CodeAnalysis.Analyzers": {
               "suppressParent": "All",
               "target": "Package",
-              "version": "[3.3.4, )"
+              "version": "[4.14.0, )"
             },
             "Microsoft.CodeAnalysis.CSharp": {
               "suppressParent": "All",
               "target": "Package",
-              "version": "[4.8.0, )"
+              "version": "[4.14.0, )"
             },
             "NETStandard.Library": {
               "suppressParent": "All",
@@ -201,39 +201,45 @@
           "dependencies": {
             "AutoMapper": {
               "target": "Package",
-              "version": "[12.0.1, )"
+              "version": "[14.0.0, )"
             },
             "Microsoft.CodeAnalysis.Analyzers": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
               "target": "Package",
-              "version": "[3.3.4, )"
+              "version": "[4.14.0, )"
             },
             "Microsoft.CodeAnalysis.CSharp": {
               "target": "Package",
-              "version": "[4.8.0, )"
+              "version": "[4.14.0, )"
             },
             "Microsoft.CodeAnalysis.CSharp.Analyzer.Testing.XUnit": {
               "target": "Package",
-              "version": "[1.1.1, )"
+              "version": "[1.1.2, )"
             },
             "Microsoft.CodeAnalysis.CSharp.CodeFix.Testing.XUnit": {
               "target": "Package",
-              "version": "[1.1.1, )"
+              "version": "[1.1.2, )"
             },
             "Microsoft.NET.Test.Sdk": {
               "target": "Package",
-              "version": "[17.8.0, )"
+              "version": "[17.14.1, )"
             },
             "coverlet.collector": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
               "target": "Package",
-              "version": "[6.0.0, )"
+              "version": "[6.0.4, )"
             },
             "xunit": {
               "target": "Package",
-              "version": "[2.4.2, )"
+              "version": "[2.9.3, )"
             },
             "xunit.runner.visualstudio": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
               "target": "Package",
-              "version": "[2.4.5, )"
+              "version": "[3.1.0, )"
             }
           },
           "imports": [

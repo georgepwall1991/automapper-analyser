@@ -185,10 +185,10 @@
 /Users/georgewall/RiderProjects/HighLevelArchitecture/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapperAnalyzer.Tests.pdb
 /Users/georgewall/RiderProjects/HighLevelArchitecture/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapperAnalyzer.Tests.genruntimeconfig.cache
 /Users/georgewall/RiderProjects/HighLevelArchitecture/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/ref/AutoMapperAnalyzer.Tests.dll
+/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/.msCoverageSourceRootsMapping_AutoMapperAnalyzer.Tests
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/CoverletSourceRootsMapping_AutoMapperAnalyzer.Tests
-/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/xunit.runner.visualstudio.dotnetcore.testadapter.dll
-/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/xunit.runner.reporters.netcoreapp10.dll
-/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/xunit.runner.utility.netcoreapp10.dll
+/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/xunit.abstractions.dll
+/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/xunit.runner.visualstudio.testadapter.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/AutoMapperAnalyzer.Tests.deps.json
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/AutoMapperAnalyzer.Tests.runtimeconfig.json
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/AutoMapperAnalyzer.Tests.dll
@@ -208,6 +208,9 @@
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/Microsoft.CodeAnalysis.Workspaces.Desktop.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/Microsoft.CodeAnalysis.Workspaces.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/Microsoft.VisualStudio.CodeCoverage.Shim.dll
+/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll
+/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/Microsoft.Extensions.Options.dll
+/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/Microsoft.Extensions.Primitives.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/Microsoft.TestPlatform.CoreUtilities.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/Microsoft.TestPlatform.PlatformAbstractions.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/Microsoft.VisualStudio.TestPlatform.ObjectModel.dll
@@ -233,8 +236,9 @@
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/System.Composition.Hosting.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/System.Composition.Runtime.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/System.Composition.TypedParts.dll
+/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/System.Security.Cryptography.Pkcs.dll
+/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/System.Security.Cryptography.ProtectedData.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/System.Security.Permissions.dll
-/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/xunit.abstractions.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/xunit.assert.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/xunit.core.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/xunit.execution.dotnet.dll
@@ -355,8 +359,8 @@
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/tr/Microsoft.VisualStudio.Validation.resources.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/zh-Hans/Microsoft.VisualStudio.Validation.resources.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/zh-Hant/Microsoft.VisualStudio.Validation.resources.dll
-/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/runtimes/unix/lib/netstandard1.3/System.Security.Cryptography.ProtectedData.dll
-/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/runtimes/win/lib/netstandard1.3/System.Security.Cryptography.ProtectedData.dll
+/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/runtimes/win/lib/netcoreapp3.0/System.Security.Cryptography.Pkcs.dll
+/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/runtimes/win/lib/netstandard2.0/System.Security.Cryptography.ProtectedData.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/AutoMapperAnalyzer.Analyzers.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/AutoMapperAnalyzer.CodeFixes.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/bin/Debug/net9.0/AutoMapperAnalyzer.Analyzers.pdb
@@ -368,10 +372,10 @@
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapperAnalyzer.Tests.AssemblyInfoInputs.cache
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapperAnalyzer.Tests.AssemblyInfo.cs
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapperAnalyzer.Tests.csproj.CoreCompileInputs.cache
+/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapperAnalyzer.Tests.sourcelink.json
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapp.1B0E844D.Up2Date
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapperAnalyzer.Tests.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/refint/AutoMapperAnalyzer.Tests.dll
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapperAnalyzer.Tests.pdb
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapperAnalyzer.Tests.genruntimeconfig.cache
 /Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/ref/AutoMapperAnalyzer.Tests.dll
-/Users/georgewall/RiderProjects/automapper-analyser/tests/AutoMapperAnalyzer.Tests/obj/Debug/net9.0/AutoMapperAnalyzer.Tests.sourcelink.json

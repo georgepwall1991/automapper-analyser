@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyDescriptionAttribute(("Code fix providers for AutoMapper analyzer diagnostics. Automatically fixes commo" +
     "n AutoMapper configuration issues detected by the analyzer."))]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5df4489099af571a415fae252c4aa0adbd1c253c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bb050182d2a04c01bb386690c15d0efaa0bce7ba")]
 [assembly: System.Reflection.AssemblyProductAttribute("AutoMapperAnalyzer.CodeFixes")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AutoMapperAnalyzer.CodeFixes")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
