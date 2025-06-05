@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
 
         <!-- Analyzer Package Configuration -->
         <IncludeBuildOutput>false</IncludeBuildOutput>
@@ -41,7 +42,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Analyzer Include="*.dll"/>
+        <None Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers\dotnet\cs\$(AssemblyName).dll" Visible="false" />
     </ItemGroup>
 
 </Project>
