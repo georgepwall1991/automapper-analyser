@@ -16,7 +16,7 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>AutoMapperAnalyzer.Analyzers</PackageId>
-        <PackageVersion>1.0.0</PackageVersion>
+        <PackageVersion>1.0.1</PackageVersion>
         <Title>AutoMapper Roslyn Analyzer</Title>
         <Authors>George Wall</Authors>
         <Description>Roslyn analyzer that detects AutoMapper configuration issues at compile-time to prevent runtime exceptions and data loss. Supports type safety validation, missing property detection, and configuration validation.</Description>
@@ -28,6 +28,10 @@
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageReleaseNotes>Initial release of AutoMapper Roslyn Analyzer with support for type safety, missing property detection, and configuration validation.</PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+        
+        <!-- Analyzer Package Type -->
+        <PackageType>Analyzer</PackageType>
+        <NoPackageAnalysis>true</NoPackageAnalysis>
     </PropertyGroup>
 
     <ItemGroup>
@@ -43,6 +47,12 @@
 
     <ItemGroup>
         <None Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers\dotnet\cs\$(AssemblyName).dll" Visible="false" />
+        <None Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers\dotnet\$(AssemblyName).dll" Visible="false" />
+    </ItemGroup>
+    
+    <!-- Ensure this package is treated as an analyzer -->
+    <ItemGroup>
+        <Analyzer Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll" />
     </ItemGroup>
 
 </Project>
