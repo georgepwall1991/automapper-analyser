@@ -12,7 +12,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor PropertyTypeMismatchRule = new(
         "AM001",
         "Property type mismatch in AutoMapper configuration",
-        "Property '{0}' has incompatible types: {1}.{0} ({2}) cannot be mapped to {3}.{0} ({4}) without explicit conversion.",
+        "Property '{0}' has incompatible types: {1}.{0} ({2}) cannot be mapped to {3}.{0} ({4}) without explicit conversion",
         "AutoMapper.TypeSafety",
         DiagnosticSeverity.Error,
         true,
@@ -32,7 +32,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor GenericTypeMismatchRule = new(
         "AM001",
         "Generic type mismatch in AutoMapper configuration",
-        "Property '{0}' has incompatible generic types: {1}.{0} ({2}) cannot be mapped to {3}.{0} ({4}) without explicit conversion.",
+        "Property '{0}' has incompatible generic types: {1}.{0} ({2}) cannot be mapped to {3}.{0} ({4}) without explicit conversion",
         "AutoMapper.TypeSafety",
         DiagnosticSeverity.Error,
         true,
@@ -50,12 +50,12 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
     );
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(
-            PropertyTypeMismatchRule,
+    [
+        PropertyTypeMismatchRule,
             NullableCompatibilityRule,
             GenericTypeMismatchRule,
             ComplexTypeMappingMissingRule
-        );
+    ];
 
     public override void Initialize(AnalysisContext context)
     {
