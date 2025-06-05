@@ -265,16 +265,20 @@ namespace AutoMapperAnalyzer.Analyzers
             // Check for complex type mapping requirements
             if (IsComplexTypeMappingRequired(sourceProperty.Type, destinationProperty.Type))
             {
-                var diagnostic = Diagnostic.Create(
-                    ComplexTypeMappingMissingRule,
-                    invocation.GetLocation(),
-                    sourceProperty.Name,
-                    sourceType.Name,
-                    sourceTypeName,
-                    destinationType.Name,
-                    destTypeName
-                );
-                context.ReportDiagnostic(diagnostic);
+                // Check if mapping already exists for these complex types
+                if (!HasExistingCreateMapForTypes(context, sourceProperty.Type, destinationProperty.Type))
+                {
+                    var diagnostic = Diagnostic.Create(
+                        ComplexTypeMappingMissingRule,
+                        invocation.GetLocation(),
+                        sourceProperty.Name,
+                        sourceType.Name,
+                        sourceTypeName,
+                        destinationType.Name,
+                        destTypeName
+                    );
+                    context.ReportDiagnostic(diagnostic);
+                }
                 return;
             }
 
@@ -341,6 +345,37 @@ namespace AutoMapperAnalyzer.Analyzers
                        destNamed.TypeKind == TypeKind.Class;
             }
 
+            return false;
+        }
+
+        private static bool HasExistingCreateMapForTypes(
+            SyntaxNodeAnalysisContext context,
+            ITypeSymbol sourceType,
+            ITypeSymbol destinationType)
+        {
+            // Get the root syntax node to search for all CreateMap invocations
+            var root = context.Node.SyntaxTree.GetRoot();
+            
+            // Find all invocation expressions in the syntax tree
+            var allInvocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>();
+            
+            foreach (var invocation in allInvocations)
+            {
+                if (IsCreateMapInvocation(invocation, context.SemanticModel))
+                {
+                    var typeArgs = GetCreateMapTypeArguments(invocation, context.SemanticModel);
+                    if (typeArgs.sourceType != null && typeArgs.destinationType != null)
+                    {
+                        // Check if this CreateMap matches the types we're looking for
+                        if (SymbolEqualityComparer.Default.Equals(typeArgs.sourceType, sourceType) &&
+                            SymbolEqualityComparer.Default.Equals(typeArgs.destinationType, destinationType))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            
             return false;
         }
 
