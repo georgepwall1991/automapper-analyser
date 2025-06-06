@@ -8,31 +8,33 @@
 > 🔍 **Roslyn analyzer that detects AutoMapper configuration issues at compile-time to prevent runtime exceptions and
 data loss.**
 
-## 🚀 Features
+## 🚀 Implemented Analyzer Rules
 
-### 🛡️ Type Safety Validation
+This analyzer currently implements the following diagnostic rules to help you catch AutoMapper issues at compile time.
 
-- **AM001**: Property type mismatch detection
-- **AM002**: Nullable to non-nullable assignment warnings
-- **AM003**: Collection type incompatibility errors
+### 🛡️ Type Safety Diagnostics
 
-### 🔍 Missing Property Detection
+- **AM001: Property Type Mismatch**: Detects when source and destination properties have incompatible types without an explicit type converter.
+- **AM002: Nullable to Non-Nullable Assignment**: Warns when a nullable source property is mapped to a non-nullable destination property without proper null handling.
+- **AM003: Collection Type Incompatibility**: Finds incompatible collection types between source and destination (e.g., `List<string>` to `HashSet<int>`).
 
-- **AM010**: Source properties not mapped to destination (data loss prevention)
-- **AM011**: Required destination properties without source mapping
-- **AM012**: Case sensitivity mismatches between properties
+### 🔍 Missing Property and Mapping Diagnostics
 
-### ⚙️ Configuration Validation
+- **AM010: Missing Destination Property**: Warns about source properties that do not have a corresponding property in the destination type, preventing potential data loss. (Implemented as `AM004` in code)
+- **AM011: Unmapped Required Property**: Generates an error when a `required` property in the destination type is not mapped, which would cause a runtime exception.
+- **AM012: Case Sensitivity Mismatch**: Detects when source and destination property names differ only by case, which can lead to unexpected mapping behavior. (Implemented as `AM005` in code)
 
-- **AM040**: Missing AutoMapper profile registration
-- **AM041**: Conflicting mapping rules for the same property
-- **AM042**: Properties both ignored and explicitly mapped
+### 🧩 Collection and Complex Type Diagnostics
 
-### ⚡ Performance & Best Practices
+- **AM020: Nested Object Mapping Issues**: Detects when nested complex objects are used without a corresponding `CreateMap` call for them.
 
-- **AM050**: Static mapper usage detection (recommend dependency injection)
-- **AM051**: Repeated mapping configuration warnings
-- **AM052**: Missing null propagation in mapping chains
+### 🔜 Future Rules
+
+Support for more diagnostic rules is planned, including:
+- Custom conversion validation
+- Configuration issues (e.g., missing profiles)
+- Performance and best practice recommendations
+- Entity Framework-specific mapping problems
 
 ## 📦 Installation
 
@@ -94,7 +96,7 @@ cfg.CreateMap<Source, Dest>(); // ❌ Warning: Data loss potential
 ```csharp
 // ✅ Explicit type conversion
 cfg.CreateMap<Source, Dest>()
-   .ForMember(dest => dest.Age, opt => opt.MapFrom(src => 
+   .ForMember(dest => dest.Age, opt => opt.MapFrom(src =>
        int.TryParse(src.Age, out var age) ? age : 0));
 
 // ✅ Null safety handling
@@ -103,7 +105,7 @@ cfg.CreateMap<Source, Dest>()
 
 // ✅ Explicit data handling
 cfg.CreateMap<Source, Dest>()
-   .ForMember(dest => dest.Summary, opt => opt.MapFrom(src => 
+   .ForMember(dest => dest.Summary, opt => opt.MapFrom(src =>
        $"Name: {src.Name}, Data: {src.ImportantData}"));
 ```
 
@@ -119,7 +121,7 @@ dotnet_diagnostic.AM001.severity = error  # Type mismatches
 dotnet_diagnostic.AM003.severity = error  # Collection incompatibility
 dotnet_diagnostic.AM011.severity = error  # Missing required properties
 
-# Warning level diagnostics  
+# Warning level diagnostics
 dotnet_diagnostic.AM002.severity = warning  # Nullable issues
 dotnet_diagnostic.AM010.severity = warning  # Data loss potential
 dotnet_diagnostic.AM040.severity = warning  # Missing profiles
@@ -138,21 +140,27 @@ cfg.CreateMap<Source, Dest>();
 #pragma warning restore AM001
 
 // Suppress via attributes
-[SuppressMessage("AutoMapper", "AM010:Missing destination property", 
+[SuppressMessage("AutoMapper", "AM010:Missing destination property",
     Justification = "Data intentionally excluded for security")]
 public void ConfigureMapping() { }
 ```
 
-## 📊 Supported Scenarios
+## 📊 Supported Diagnostics
 
-| Scenario             | Analyzer Support | Code Fix Support       |
-|----------------------|------------------|------------------------|
-| Type Safety          | ✅ All cases      | ✅ Common patterns      |
-| Missing Properties   | ✅ All cases      | ✅ Auto-mapping         |
-| Configuration Issues | ✅ All cases      | ✅ Profile registration |
-| Performance          | ✅ All cases      | ✅ DI patterns          |
-| Custom Converters    | ✅ Detection      | 🚧 Planned             |
-| EF Integration       | 🚧 Planned       | 🚧 Planned             |
+| Rule ID | Description                          | Analyzer Status | Code Fix Status |
+|---------|--------------------------------------|-----------------|-----------------|
+| AM001   | Property Type Mismatch               | ✅ Implemented  | 🚧 Planned      |
+| AM002   | Nullable to Non-nullable             | ✅ Implemented  | 🚧 Planned      |
+| AM003   | Collection Type Incompatibility      | ✅ Implemented  | 🚧 Planned      |
+| AM010   | Missing Destination Property         | ✅ Implemented  | 🚧 Planned      |
+| AM011   | Unmapped Required Property           | ✅ Implemented  | 🚧 Planned      |
+| AM012   | Case Sensitivity Mismatch            | ✅ Implemented  | 🚧 Planned      |
+| AM020   | Nested Object Mapping Issues         | ✅ Implemented  | 🚧 Planned      |
+| AM021+  | Other Complex/Collection Rules       | 🚧 Planned      | 🚧 Planned      |
+| AM030+  | Custom Conversion Rules              | 🚧 Planned      | 🚧 Planned      |
+| AM040+  | Configuration Rules                  | 🚧 Planned      | 🚧 Planned      |
+| AM050+  | Performance Rules                    | 🚧 Planned      | 🚧 Planned      |
+| AM060+  | EF Integration Rules                 | 🚧 Planned      | 🚧 Planned      |
 
 ## 🏗️ Building from Source
 
@@ -221,114 +229,37 @@ We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING
 
 ## 🎯 Next Steps
 
-### Kick-off Workshop to Review Findings & Align on Remediation Priorities
+### Review and Prioritization
 
-Now that we have successfully implemented our core analyzers (AM001, AM002, AM003) with 100% test coverage, it's time to strategically plan our next development phase.
+With a solid foundation of type safety, property mapping, and complex type analyzers in place, the next phase of development will focus on expanding coverage to configuration, performance, and other advanced scenarios.
 
-**Workshop Objectives:**
-- Review current analyzer capabilities and performance
-- Identify high-impact areas for improvement
-- Align team on technical debt vs. new feature priorities
-- Establish clear success metrics for next phase
+### Prioritized Backlog
 
-### Build a Prioritized Backlog: Quick Wins (Linting, Logging), Strategic Refactors (Architecture, Process)
+The following is a high-level view of planned features:
 
-#### 🚀 Quick Wins (1-2 Sprint Capacity)
+#### 🚀 Immediate Priorities
 
-**Linting & Code Quality:**
-- [ ] **AM004**: Missing Property Diagnostics - Detect data loss scenarios
-- [ ] **AM005**: Case Sensitivity Mapping Issues  
-- [ ] Enhanced diagnostic messages with actionable suggestions
-- [ ] EditorConfig integration for severity customization
+- **Code Fixes**: Implement code fix providers for existing analyzers (e.g., suggesting explicit conversions for `AM001`).
+- **Enhanced Diagnostics**: Improve diagnostic messages with more context and actionable suggestions.
+- **EditorConfig Integration**: Ensure all analyzer severities can be customized via `.editorconfig`.
 
-**Logging & Observability:**
-- [ ] Analyzer performance metrics and telemetry
-- [ ] Debug logging for complex mapping scenarios
-- [ ] Test coverage reporting integration
-- [ ] Build-time diagnostic statistics
+#### 🏗️ Future Milestones
 
-#### 🏗️ Strategic Refactors (3-5 Sprint Capacity)
+- **Configuration Analyzers**:
+  - **AM040**: Missing `Profile` registration.
+  - **AM041**: Conflicting mapping rules.
+- **Performance Analyzers**:
+  - **AM050**: Detect static `Mapper.Map` usage.
+  - **AM052**: Find mapping chains without null propagation.
+- **Logging & Telemetry**:
+  - Add performance metrics for analyzer execution.
+  - Integrate build-time diagnostic statistics.
+- **Architectural Scalability**: Refactor core analyzer components for better extensibility.
+- **Performance Optimization**: Reduce memory footprint and improve analysis speed.
+- **CI/CD Pipeline Enhancements**: Add automated release notes and documentation updates.
+- **Test Suite Modernization**: Migrate to latest testing frameworks and patterns.
+- **Code Fix Infrastructure**: Build robust infrastructure for suggesting complex code changes.
 
-**Architecture Improvements:**
-- [ ] Shared type compatibility engine across analyzers
-- [ ] Plugin architecture for custom rule extensions
-- [ ] Improved semantic model caching for performance
-- [ ] Rule configuration system (severity, scope, exclusions)
+## 📜 License
 
-**Process Enhancements:**
-- [ ] Code fix providers for automatic remediation
-- [ ] IDE integration improvements (Visual Studio, Rider)
-- [ ] CI/CD pipeline optimizations
-- [ ] Documentation automation and examples
-
-#### 🎯 Success Metrics
-
-**Technical Excellence:**
-- Maintain 95%+ test coverage across all analyzers
-- Sub-100ms analysis time for typical project files
-- Zero false positives in common AutoMapper patterns
-- 90%+ developer satisfaction with diagnostic accuracy
-
-**Developer Experience:**
-- One-click installation and configuration
-- Actionable diagnostics with clear remediation steps
-- Seamless IDE integration with immediate feedback
-- Comprehensive documentation and examples
-
-### 📋 Recommended Sprint Planning
-
-1. **Sprint 1**: Complete AM004-AM005 + Enhanced messaging
-2. **Sprint 2**: Code fix providers for AM001-AM003
-3. **Sprint 3**: Architecture refactoring + performance optimization
-4. **Sprint 4**: IDE integration + developer experience improvements
-
-## 📈 Roadmap
-
-### Phase 1: Foundation ✅
-
-- [x] Core analyzer infrastructure
-- [x] Type safety validation (AM001, AM002, AM003)
-- [x] Comprehensive test framework
-- [x] CI/CD pipeline with quality gates
-
-### Phase 2: Advanced Features 🚧
-
-- [ ] Missing property detection (AM004, AM005)
-- [ ] Custom converter validation
-- [ ] Complex nested object mapping
-- [ ] Performance optimization hints
-- [ ] Code fix providers
-
-### Phase 3: Ecosystem Integration 📋
-
-- [ ] Visual Studio extension
-- [ ] JetBrains Rider plugin
-- [ ] Azure DevOps integration
-- [ ] SonarQube rules
-
-## 🏆 Recognition
-
-This project is part of the [AutoMapper](https://automapper.org/) ecosystem, helping developers write safer and more
-maintainable mapping code.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🤝 Acknowledgments
-
-- **George Wall** - Project maintainer and lead developer
-- **Jimmy Bogard** - Creator of AutoMapper
-- **AutoMapper Contributors** - For the excellent mapping library
-- **Roslyn Team** - For the powerful analyzer framework
-- **Community** - For feedback and contributions
-
----
-
-<div align="center">
-
-**[Documentation](docs/) • [Samples](samples/) • [Contributing](CONTRIBUTING.md) • [License](LICENSE)**
-
-Made with ❤️ by the AutoMapper community
-
-</div>
+This project is licensed under the [MIT License](LICENSE). 
