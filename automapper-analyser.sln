@@ -15,12 +15,17 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoMapperAnalyzer.Samples"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{072E37BE-1DC8-4DD8-B2D6-E162AB4EE8CF}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Files", "Solution Files", "{7D1101B1-6CEB-4AB8-91AD-37E39EA921FE}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{7356C872-043D-4DE6-B554-8C9D2E9F5041}"
 	ProjectSection(SolutionItems) = preProject
 		PROJECT_PLAN.md = PROJECT_PLAN.md
 		SPRINT_TRACKING.md = SPRINT_TRACKING.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{88F70CA0-BC51-46E8-8A0E-4EE256EE6694}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\codeql.yml = .github\workflows\codeql.yml
+		.github\workflows\ci.yml = .github\workflows\ci.yml
+		.github\dependabot.yml = .github\dependabot.yml
 	EndProjectSection
 EndProject
 Global

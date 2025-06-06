@@ -15,319 +15,319 @@ jobs:
   build:
     name: Build and Test
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-        token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: Cache NuGet packages
-      uses: actions/cache@v3
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
 
-    - name: Restore dependencies
-      run: dotnet restore ${{ env.SOLUTION_FILE }}
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_FILE }}
 
-    - name: Build solution
-      run: dotnet build ${{ env.SOLUTION_FILE }} --no-restore --configuration Release
+      - name: Build solution
+        run: dotnet build ${{ env.SOLUTION_FILE }} --no-restore --configuration Release
 
-    - name: Run unit tests
-      run: dotnet test ${{ env.SOLUTION_FILE }} --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+      - name: Run unit tests
+        run: dotnet test ${{ env.SOLUTION_FILE }} --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
 
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        directory: ./coverage
-        fail_ci_if_error: true
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./coverage
+          fail_ci_if_error: true
 
-    - name: Check for changes and commit
-      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        
-        # Check if there are any changes to commit
-        if [ -n "$(git status --porcelain)" ]; then
-          echo "Changes detected, committing..."
-          git add .
-          git commit -m "${{ env.COMMIT_MESSAGE }} - Build and tests passed"
-          git push
-        else
-          echo "No changes to commit"
-        fi
+      - name: Check for changes and commit
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          # Check if there are any changes to commit
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Changes detected, committing..."
+            git add .
+            git commit -m "${{ env.COMMIT_MESSAGE }} - Build and tests passed"
+            git push
+          else
+            echo "No changes to commit"
+          fi
 
   package:
     name: Package Analyzer
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: Restore dependencies
-      run: dotnet restore ${{ env.SOLUTION_FILE }}
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_FILE }}
 
-    - name: Build solution
-      run: dotnet build ${{ env.SOLUTION_FILE }} --no-restore --configuration Release
+      - name: Build solution
+        run: dotnet build ${{ env.SOLUTION_FILE }} --no-restore --configuration Release
 
-    - name: Pack analyzer
-      run: dotnet pack src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-build --configuration Release --output ./packages
+      - name: Pack analyzer
+        run: dotnet pack src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-build --configuration Release --output ./packages
 
-    - name: Pack code fixes
-      run: dotnet pack src/AutoMapperAnalyzer.CodeFixes/AutoMapperAnalyzer.CodeFixes.csproj --no-build --configuration Release --output ./packages
+      - name: Pack code fixes
+        run: dotnet pack src/AutoMapperAnalyzer.CodeFixes/AutoMapperAnalyzer.CodeFixes.csproj --no-build --configuration Release --output ./packages
 
-    - name: Upload packages as artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: nuget-packages
-        path: ./packages/*.nupkg
+      - name: Upload packages as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: nuget-packages
+          path: ./packages/*.nupkg
 
-    - name: Commit packaging artifacts info
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        
-        # Create or update a packages info file
-        echo "Last packaging run: $(date -u)" > .github/last-package-info.txt
-        echo "Packages created:" >> .github/last-package-info.txt
-        ls -la ./packages/*.nupkg >> .github/last-package-info.txt
-        
-        if [ -n "$(git status --porcelain)" ]; then
-          git add .github/last-package-info.txt
-          git commit -m "${{ env.COMMIT_MESSAGE }} - Packaging completed successfully"
-          git push
-        fi
+      - name: Commit packaging artifacts info
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          # Create or update a packages info file
+          echo "Last packaging run: $(date -u)" > .github/last-package-info.txt
+          echo "Packages created:" >> .github/last-package-info.txt
+          ls -la ./packages/*.nupkg >> .github/last-package-info.txt
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .github/last-package-info.txt
+            git commit -m "${{ env.COMMIT_MESSAGE }} - Packaging completed successfully"
+            git push
+          fi
 
   validate-samples:
     name: Validate Sample Scenarios
     needs: build
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: Restore dependencies
-      run: dotnet restore ${{ env.SOLUTION_FILE }}
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_FILE }}
 
-    - name: Build samples
-      run: dotnet build samples/AutoMapperAnalyzer.Samples/AutoMapperAnalyzer.Samples.csproj --configuration Release
+      - name: Build samples
+        run: dotnet build samples/AutoMapperAnalyzer.Samples/AutoMapperAnalyzer.Samples.csproj --configuration Release
 
-    - name: Run samples (validation)
-      run: dotnet run --project samples/AutoMapperAnalyzer.Samples --configuration Release
+      - name: Run samples (validation)
+        run: dotnet run --project samples/AutoMapperAnalyzer.Samples --configuration Release
 
-    - name: Commit sample validation results
-      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        
-        # Create or update validation results
-        echo "Last sample validation: $(date -u)" > .github/last-validation.txt
-        echo "Validation status: PASSED" >> .github/last-validation.txt
-        
-        if [ -n "$(git status --porcelain)" ]; then
-          git add .github/last-validation.txt
-          git commit -m "${{ env.COMMIT_MESSAGE }} - Sample validation passed"
-          git push
-        fi
+      - name: Commit sample validation results
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          # Create or update validation results
+          echo "Last sample validation: $(date -u)" > .github/last-validation.txt
+          echo "Validation status: PASSED" >> .github/last-validation.txt
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .github/last-validation.txt
+            git commit -m "${{ env.COMMIT_MESSAGE }} - Sample validation passed"
+            git push
+          fi
 
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
 
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
 
   code-quality:
     name: Code Quality Analysis
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: Cache SonarCloud packages
-      uses: actions/cache@v3
-      with:
-        path: ~\sonar\cache
-        key: ${{ runner.os }}-sonar
-        restore-keys: ${{ runner.os }}-sonar
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v3
+        with:
+          path: ~\sonar\cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
 
-    - name: Install SonarCloud scanner
-      run: dotnet tool install --global dotnet-sonarscanner
+      - name: Install SonarCloud scanner
+        run: dotnet tool install --global dotnet-sonarscanner
 
-    - name: Begin SonarCloud analysis
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      run: |
-        dotnet-sonarscanner begin \
-          /k:"georgepwall1991_automapper-analyser" \
-          /o:"georgepwall1991" \
-          /d:sonar.token="${{ secrets.SONAR_TOKEN }}" \
-          /d:sonar.host.url="https://sonarcloud.io" \
-          /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" \
-          /d:sonar.exclusions="**/bin/**,**/obj/**,**/*.js,**/*.css"
+      - name: Begin SonarCloud analysis
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          dotnet-sonarscanner begin \
+            /k:"georgepwall1991_automapper-analyser" \
+            /o:"georgepwall1991" \
+            /d:sonar.token="${{ secrets.SONAR_TOKEN }}" \
+            /d:sonar.host.url="https://sonarcloud.io" \
+            /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" \
+            /d:sonar.exclusions="**/bin/**,**/obj/**,**/*.js,**/*.css"
 
-    - name: Build and analyze
-      run: |
-        dotnet restore ${{ env.SOLUTION_FILE }}
-        dotnet build ${{ env.SOLUTION_FILE }} --no-restore --configuration Release
+      - name: Build and analyze
+        run: |
+          dotnet restore ${{ env.SOLUTION_FILE }}
+          dotnet build ${{ env.SOLUTION_FILE }} --no-restore --configuration Release
 
-    - name: Run tests with coverage
-      run: dotnet test ${{ env.SOLUTION_FILE }} --no-build --configuration Release --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+      - name: Run tests with coverage
+        run: dotnet test ${{ env.SOLUTION_FILE }} --no-build --configuration Release --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 
-    - name: End SonarCloud analysis
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      run: dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+      - name: End SonarCloud analysis
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
 
-    - name: Commit quality analysis results
-      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        
-        # Create or update quality analysis results
-        echo "Last quality analysis: $(date -u)" > .github/last-quality-check.txt
-        echo "SonarCloud analysis: COMPLETED" >> .github/last-quality-check.txt
-        
-        if [ -n "$(git status --porcelain)" ]; then
-          git add .github/last-quality-check.txt
-          git commit -m "${{ env.COMMIT_MESSAGE }} - Code quality analysis completed"
-          git push
-        fi
+      - name: Commit quality analysis results
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          # Create or update quality analysis results
+          echo "Last quality analysis: $(date -u)" > .github/last-quality-check.txt
+          echo "SonarCloud analysis: COMPLETED" >> .github/last-quality-check.txt
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .github/last-quality-check.txt
+            git commit -m "${{ env.COMMIT_MESSAGE }} - Code quality analysis completed"
+            git push
+          fi
 
   auto-commit:
     name: Auto-commit after successful iteration
     needs: [build, validate-samples, security-scan, code-quality]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-    - name: Pull latest changes
-      run: git pull origin ${{ github.ref_name }}
+      - name: Pull latest changes
+        run: git pull origin ${{ github.ref_name }}
 
-    - name: Final commit after successful iteration
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        
-        # Create iteration summary
-        echo "=== CI/CD Iteration Summary ===" > .github/iteration-summary.txt
-        echo "Timestamp: $(date -u)" >> .github/iteration-summary.txt
-        echo "Branch: ${{ github.ref_name }}" >> .github/iteration-summary.txt
-        echo "Commit: ${{ github.sha }}" >> .github/iteration-summary.txt
-        echo "Status: ALL TESTS PASSED" >> .github/iteration-summary.txt
-        echo "" >> .github/iteration-summary.txt
-        echo "Jobs completed successfully:" >> .github/iteration-summary.txt
-        echo "- ✅ Build and Test" >> .github/iteration-summary.txt
-        echo "- ✅ Sample Validation" >> .github/iteration-summary.txt
-        echo "- ✅ Security Scan" >> .github/iteration-summary.txt
-        echo "- ✅ Code Quality Analysis" >> .github/iteration-summary.txt
-        echo "===============================" >> .github/iteration-summary.txt
-        
-        # Always commit the iteration summary
-        git add .github/iteration-summary.txt
-        git commit -m "${{ env.COMMIT_MESSAGE }} - Complete iteration with all tests passing"
-        git push
+      - name: Final commit after successful iteration
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          # Create iteration summary
+          echo "=== CI/CD Iteration Summary ===" > .github/iteration-summary.txt
+          echo "Timestamp: $(date -u)" >> .github/iteration-summary.txt
+          echo "Branch: ${{ github.ref_name }}" >> .github/iteration-summary.txt
+          echo "Commit: ${{ github.sha }}" >> .github/iteration-summary.txt
+          echo "Status: ALL TESTS PASSED" >> .github/iteration-summary.txt
+          echo "" >> .github/iteration-summary.txt
+          echo "Jobs completed successfully:" >> .github/iteration-summary.txt
+          echo "- ✅ Build and Test" >> .github/iteration-summary.txt
+          echo "- ✅ Sample Validation" >> .github/iteration-summary.txt
+          echo "- ✅ Security Scan" >> .github/iteration-summary.txt
+          echo "- ✅ Code Quality Analysis" >> .github/iteration-summary.txt
+          echo "===============================" >> .github/iteration-summary.txt
+
+          # Always commit the iteration summary
+          git add .github/iteration-summary.txt
+          git commit -m "${{ env.COMMIT_MESSAGE }} - Complete iteration with all tests passing"
+          git push
 
   release:
     name: Release
     needs: [build, package, validate-samples, security-scan, code-quality, auto-commit]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]')
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Download package artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: nuget-packages
-        path: ./packages
+      - name: Download package artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: nuget-packages
+          path: ./packages
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: Publish to NuGet
-      env:
-        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-      run: |
-        for package in ./packages/*.nupkg; do
-          dotnet nuget push "$package" --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
-        done
+      - name: Publish to NuGet
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          for package in ./packages/*.nupkg; do
+            dotnet nuget push "$package" --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          done
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v${{ github.run_number }}
-        name: Release v${{ github.run_number }}
-        body: |
-          ## What's Changed
-          - AutoMapper Roslyn Analyzer release
-          - See commit history for detailed changes
-        files: ./packages/*.nupkg
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          body: |
+            ## What's Changed
+            - AutoMapper Roslyn Analyzer release
+            - See commit history for detailed changes
+          files: ./packages/*.nupkg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
