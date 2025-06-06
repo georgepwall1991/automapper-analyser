@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -63,6 +63,7 @@ jobs:
             echo "Changes detected, committing..."
             git add .
             git commit -m "${{ env.COMMIT_MESSAGE }} - Build and tests passed"
+            git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}
             git push
           else
             echo "No changes to commit"
@@ -78,7 +79,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -116,6 +117,7 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then
             git add .github/last-package-info.txt
             git commit -m "${{ env.COMMIT_MESSAGE }} - Packaging completed successfully"
+            git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}
             git push
           fi
 
@@ -128,7 +130,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -157,6 +159,7 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then
             git add .github/last-validation.txt
             git commit -m "${{ env.COMMIT_MESSAGE }} - Sample validation passed"
+            git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}
             git push
           fi
 
@@ -192,7 +195,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -253,6 +256,7 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then
             git add .github/last-quality-check.txt
             git commit -m "${{ env.COMMIT_MESSAGE }} - Code quality analysis completed"
+            git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}
             git push
           fi
 
@@ -266,7 +270,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           fetch-depth: 0
 
       - name: Pull latest changes
