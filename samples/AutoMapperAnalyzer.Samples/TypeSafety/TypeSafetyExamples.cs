@@ -74,7 +74,11 @@ public class TypeSafetyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ❌ AM003: Collection property 'Tags' has incompatible types: source 'List<string>' and destination 'HashSet<int>'
+#pragma warning disable AM003
+#pragma warning disable AM001
             cfg.CreateMap<ArticleWithStringTags, ArticleWithIntTags>();
+#pragma warning restore AM001
+#pragma warning restore AM003
         });
 
         IMapper? mapper = config.CreateMapper();
