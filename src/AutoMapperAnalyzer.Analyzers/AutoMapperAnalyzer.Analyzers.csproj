@@ -16,7 +16,11 @@
 
         <!-- NuGet Package Metadata -->
         <PackageId>AutoMapperAnalyzer.Analyzers</PackageId>
-        <PackageVersion>1.0.4</PackageVersion>
+        <!-- Auto-incrementing version using date: 1.0.YYYYMMDD -->
+        <MajorVersion>1</MajorVersion>
+        <MinorVersion>0</MinorVersion>  
+        <BuildNumber Condition="'$(BuildNumber)' == ''">$([System.DateTime]::Now.ToString('yyyyMMdd'))</BuildNumber>
+        <PackageVersion>$(MajorVersion).$(MinorVersion).$(BuildNumber)</PackageVersion>
         <Title>AutoMapper Roslyn Analyzer</Title>
         <Authors>George Wall</Authors>
         <Description>Roslyn analyzer that detects AutoMapper configuration issues at compile-time to prevent runtime exceptions and data loss. Supports type safety validation, missing property detection, and configuration validation.</Description>
