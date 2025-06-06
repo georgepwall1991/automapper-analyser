@@ -18,7 +18,26 @@ updates:
     labels:
       - "dependencies"
       - "automated"
+version: 2
+updates:
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "automated-pr"
 
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "actions"
+      - "automated-pr"
   # GitHub Actions dependencies
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -36,4 +55,4 @@ updates:
       include: "scope"
     labels:
       - "github-actions"
-      - "automated" 
+      - "automated"

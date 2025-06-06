@@ -31,6 +31,14 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+              - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
@@ -39,9 +47,11 @@ jobs:
 
       - name: Restore dependencies
         run: dotnet restore automapper-analyser.sln
+        timeout-minutes: 5
 
       - name: Build solution
         run: dotnet build automapper-analyser.sln --no-restore --configuration Release
+        timeout-minutes: 10
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
