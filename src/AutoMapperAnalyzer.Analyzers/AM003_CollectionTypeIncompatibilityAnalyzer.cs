@@ -37,7 +37,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         "Collection properties have compatible collection types but incompatible element types that may require custom mapping.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(CollectionTypeIncompatibilityRule, CollectionElementIncompatibilityRule);
+        [CollectionTypeIncompatibilityRule, CollectionElementIncompatibilityRule];
 
     public override void Initialize(AnalysisContext context)
     {
@@ -366,9 +366,9 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
     private static bool AreNumericTypesCompatible(string from, string to)
     {
         string[] numericTypes =
-        {
+        [
             "byte", "sbyte", "short", "ushort", "int", "uint", "long", "ulong", "float", "double", "decimal"
-        };
+        ];
         bool fromIsNumeric = numericTypes.Contains(from);
         bool toIsNumeric = numericTypes.Contains(to);
 

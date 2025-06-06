@@ -85,7 +85,7 @@ public class TypeSafetyExamples
 
         var source = new ArticleWithStringTags
         {
-            Title = "Sample Article", Tags = new List<string> { "tech", "programming", "csharp" }
+            Title = "Sample Article", Tags = ["tech", "programming", "csharp"]
         };
 
         try
@@ -129,13 +129,13 @@ public class PersonWithRequiredName
 public class ArticleWithStringTags
 {
     public string Title { get; set; } = string.Empty;
-    public List<string> Tags { get; set; } = new(); // List of strings
+    public List<string> Tags { get; set; } = []; // List of strings
 }
 
 public class ArticleWithIntTags
 {
     public string Title { get; set; } = string.Empty;
-    public HashSet<int> Tags { get; set; } = new(); // HashSet of ints - incompatible!
+    public HashSet<int> Tags { get; set; } = []; // HashSet of ints - incompatible!
 }
 
 /// <summary>

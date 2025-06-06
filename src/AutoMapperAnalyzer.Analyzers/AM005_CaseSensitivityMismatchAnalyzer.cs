@@ -27,7 +27,7 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         "Consider using explicit mapping or configure case-insensitive property matching.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(CaseSensitivityMismatchRule);
+        [CaseSensitivityMismatchRule];
 
     public override void Initialize(AnalysisContext context)
     {
@@ -185,13 +185,13 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         string destTypeName = destinationType.ToDisplayString();
 
         // Numeric conversions
-        (string, string)[] numericConversions = new[]
-        {
+        (string, string)[] numericConversions =
+        [
             ("byte", "short"), ("byte", "int"), ("byte", "long"), ("byte", "float"), ("byte", "double"),
             ("byte", "decimal"), ("short", "int"), ("short", "long"), ("short", "float"), ("short", "double"),
             ("short", "decimal"), ("int", "long"), ("int", "float"), ("int", "double"), ("int", "decimal"),
             ("long", "float"), ("long", "double"), ("long", "decimal"), ("float", "double")
-        };
+        ];
 
         return numericConversions.Any(conversion =>
             conversion.Item1 == sourceTypeName && conversion.Item2 == destTypeName);

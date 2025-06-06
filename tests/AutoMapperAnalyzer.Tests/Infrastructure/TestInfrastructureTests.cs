@@ -129,7 +129,7 @@ public class TestInfrastructureTests
 public class DummyAnalyzer : DiagnosticAnalyzer
 {
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(AutoMapperDiagnostics.PropertyTypeMismatch);
+        [AutoMapperDiagnostics.PropertyTypeMismatch];
 
     public override void Initialize(AnalysisContext context)
     {

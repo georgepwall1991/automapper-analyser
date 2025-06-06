@@ -38,9 +38,9 @@ public static class DiagnosticTestFramework
 public class AnalyzerTestRunner<TAnalyzer>
     where TAnalyzer : DiagnosticAnalyzer, new()
 {
-    private readonly List<MetadataReference> _additionalReferences = new();
-    private readonly List<DiagnosticResult> _expectedDiagnostics = new();
-    private readonly List<(string FileName, string Source)> _sources = new();
+    private readonly List<MetadataReference> _additionalReferences = [];
+    private readonly List<DiagnosticResult> _expectedDiagnostics = [];
+    private readonly List<(string FileName, string Source)> _sources = [];
     private ReferenceAssemblies _referenceAssemblies = ReferenceAssemblies.Net.Net80;
 
     /// <summary>
@@ -172,8 +172,8 @@ public class AnalyzerTestRunner<TAnalyzer>
 public class MultiAnalyzerTestRunner
 {
     private readonly DiagnosticAnalyzer[] _analyzers;
-    private readonly List<DiagnosticResult> _expectedDiagnostics = new();
-    private readonly List<(string FileName, string Source)> _sources = new();
+    private readonly List<DiagnosticResult> _expectedDiagnostics = [];
+    private readonly List<(string FileName, string Source)> _sources = [];
 
     internal MultiAnalyzerTestRunner(DiagnosticAnalyzer[] analyzers)
     {

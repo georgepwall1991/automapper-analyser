@@ -25,7 +25,7 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         "Required destination properties must be mapped from source properties or explicitly configured to prevent runtime exceptions during mapping.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(UnmappedRequiredPropertyRule);
+        [UnmappedRequiredPropertyRule];
 
     public override void Initialize(AnalysisContext context)
     {
