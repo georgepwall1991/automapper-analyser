@@ -52,9 +52,9 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
     [
         PropertyTypeMismatchRule,
-            NullableCompatibilityRule,
-            GenericTypeMismatchRule,
-            ComplexTypeMappingMissingRule
+        NullableCompatibilityRule,
+        GenericTypeMismatchRule,
+        ComplexTypeMappingMissingRule
     ];
 
     public override void Initialize(AnalysisContext context)

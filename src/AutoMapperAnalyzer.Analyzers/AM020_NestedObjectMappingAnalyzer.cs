@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -45,7 +44,8 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var typeArguments = GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
+        (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArguments =
+            GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
         if (typeArguments.sourceType == null || typeArguments.destinationType == null)
         {
             return;
@@ -93,7 +93,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         IPropertySymbol[] destinationProperties = GetMappableProperties(destinationType);
 
         // Get all CreateMap configurations in the same profile
-        var existingMappings = GetExistingMappings(context, invocation);
+        HashSet<(string sourceType, string destType)> existingMappings = GetExistingMappings(context, invocation);
 
         // Check each property pair for nested object mapping requirements
         foreach (IPropertySymbol sourceProperty in sourceProperties)
@@ -111,9 +111,9 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
             if (RequiresNestedObjectMapping(sourceProperty.Type, destinationProperty.Type))
             {
                 // Check if mapping already exists
-                var sourceTypeName = GetTypeNameWithoutNullability(sourceProperty.Type);
-                var destTypeName = GetTypeNameWithoutNullability(destinationProperty.Type);
-                
+                string sourceTypeName = GetTypeNameWithoutNullability(sourceProperty.Type);
+                string destTypeName = GetTypeNameWithoutNullability(destinationProperty.Type);
+
                 if (HasExistingMapping(existingMappings, sourceTypeName, destTypeName))
                 {
                     continue; // Mapping already configured
@@ -141,19 +141,19 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
     private static IPropertySymbol[] GetMappableProperties(INamedTypeSymbol type)
     {
         var properties = new List<IPropertySymbol>();
-        
+
         // Get properties from the type and all its base types
-        var currentType = type;
+        INamedTypeSymbol? currentType = type;
         while (currentType != null && currentType.SpecialType != SpecialType.System_Object)
         {
             // Get declared properties (not inherited ones to avoid duplicates)
-            var typeProperties = currentType.GetMembers()
+            IPropertySymbol[] typeProperties = currentType.GetMembers()
                 .OfType<IPropertySymbol>()
                 .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
                             p.CanBeReferencedByName &&
                             !p.IsStatic &&
-                            p.GetMethod != null &&  // Must be readable
-                            p.SetMethod != null &&  // Must be writable
+                            p.GetMethod != null && // Must be readable
+                            p.SetMethod != null && // Must be writable
                             p.ContainingType.Equals(currentType, SymbolEqualityComparer.Default)) // Only direct members
                 .ToArray();
 
@@ -167,8 +167,8 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
     private static bool RequiresNestedObjectMapping(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
         // Get the underlying types (remove nullable wrappers)
-        var sourceUnderlyingType = GetUnderlyingType(sourceType);
-        var destUnderlyingType = GetUnderlyingType(destinationType);
+        ITypeSymbol sourceUnderlyingType = GetUnderlyingType(sourceType);
+        ITypeSymbol destUnderlyingType = GetUnderlyingType(destinationType);
 
         // Same types don't need mapping
         if (SymbolEqualityComparer.Default.Equals(sourceUnderlyingType, destUnderlyingType))
@@ -189,14 +189,15 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         }
 
         // Both must be reference types (classes) that are different
-        return sourceUnderlyingType.TypeKind == TypeKind.Class && 
+        return sourceUnderlyingType.TypeKind == TypeKind.Class &&
                destUnderlyingType.TypeKind == TypeKind.Class;
     }
 
     private static ITypeSymbol GetUnderlyingType(ITypeSymbol type)
     {
         // Handle nullable reference types (T?)
-        if (type is INamedTypeSymbol namedType && namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+        if (type is INamedTypeSymbol namedType &&
+            namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
         {
             return namedType.TypeArguments[0];
         }
@@ -213,7 +214,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
     private static bool IsBuiltInType(ITypeSymbol type)
     {
         // Check for built-in value types and common reference types that don't need mapping
-        return type.SpecialType != SpecialType.None || 
+        return type.SpecialType != SpecialType.None ||
                type.Name == "String" ||
                type.Name == "DateTime" ||
                type.Name == "DateTimeOffset" ||
@@ -230,15 +231,15 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        return type.AllInterfaces.Any(i => 
-            i.Name == "IEnumerable" || 
-            i.Name == "ICollection" || 
+        return type.AllInterfaces.Any(i =>
+            i.Name == "IEnumerable" ||
+            i.Name == "ICollection" ||
             i.Name == "IList");
     }
 
     private static string GetTypeNameWithoutNullability(ITypeSymbol type)
     {
-        var underlyingType = GetUnderlyingType(type);
+        ITypeSymbol underlyingType = GetUnderlyingType(type);
         return underlyingType.Name;
     }
 
@@ -248,20 +249,22 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         var mappings = new HashSet<(string, string)>();
 
         // Find the containing class (Profile)
-        var containingClass = currentInvocation.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+        ClassDeclarationSyntax? containingClass =
+            currentInvocation.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
         if (containingClass == null)
         {
             return mappings;
         }
 
         // Find all CreateMap invocations in the same class
-        var createMapInvocations = containingClass.DescendantNodes()
+        IEnumerable<InvocationExpressionSyntax> createMapInvocations = containingClass.DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Where(inv => IsCreateMapInvocation(inv, context.SemanticModel));
 
-        foreach (var invocation in createMapInvocations)
+        foreach (InvocationExpressionSyntax? invocation in createMapInvocations)
         {
-            var typeArgs = GetCreateMapTypeArguments(invocation, context.SemanticModel);
+            (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArgs =
+                GetCreateMapTypeArguments(invocation, context.SemanticModel);
             if (typeArgs.sourceType != null && typeArgs.destinationType != null)
             {
                 mappings.Add((typeArgs.sourceType.Name, typeArgs.destinationType.Name));
@@ -277,7 +280,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         return existingMappings.Contains((sourceTypeName, destTypeName));
     }
 
-    private static bool IsPropertyExplicitlyMapped(InvocationExpressionSyntax createMapInvocation, 
+    private static bool IsPropertyExplicitlyMapped(InvocationExpressionSyntax createMapInvocation,
         string propertyName)
     {
         // Look for chained ForMember calls that map this property
@@ -301,12 +304,12 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsForMemberTargetingProperty(InvocationExpressionSyntax forMemberInvocation, 
+    private static bool IsForMemberTargetingProperty(InvocationExpressionSyntax forMemberInvocation,
         string propertyName)
     {
         // This is a simplified check - in a full implementation, we'd need to analyze the lambda expressions
         // to determine exact property targets
-        var arguments = forMemberInvocation.ArgumentList?.Arguments;
+        SeparatedSyntaxList<ArgumentSyntax>? arguments = forMemberInvocation.ArgumentList?.Arguments;
         if (arguments?.Count >= 1)
         {
             // Check if the property is referenced in the first argument (destination selector)
@@ -319,4 +322,4 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-} 
+}

@@ -385,4 +385,4 @@ public class AM003_CollectionTypeIncompatibilityTests
                 "System.Collections.Generic.List<int>")
             .RunAsync();
     }
-} 
+}

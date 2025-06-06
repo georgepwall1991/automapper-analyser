@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -8,7 +7,8 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace AutoMapperAnalyzer.Analyzers;
 
 /// <summary>
-///     Analyzer for detecting case sensitivity mismatches between source and destination properties in AutoMapper configurations
+///     Analyzer for detecting case sensitivity mismatches between source and destination properties in AutoMapper
+///     configurations
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
@@ -46,7 +46,8 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var typeArguments = GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
+        (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArguments =
+            GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
         if (typeArguments.sourceType == null || typeArguments.destinationType == null)
         {
             return;
@@ -140,19 +141,19 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
     private static IPropertySymbol[] GetMappableProperties(INamedTypeSymbol type)
     {
         var properties = new List<IPropertySymbol>();
-        
+
         // Get properties from the type and all its base types
-        var currentType = type;
+        INamedTypeSymbol? currentType = type;
         while (currentType != null && currentType.SpecialType != SpecialType.System_Object)
         {
             // Get declared properties (not inherited ones to avoid duplicates)
-            var typeProperties = currentType.GetMembers()
+            IPropertySymbol[] typeProperties = currentType.GetMembers()
                 .OfType<IPropertySymbol>()
                 .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
                             p.CanBeReferencedByName &&
                             !p.IsStatic &&
-                            p.GetMethod != null &&  // Must be readable
-                            p.SetMethod != null &&  // Must be writable
+                            p.GetMethod != null && // Must be readable
+                            p.SetMethod != null && // Must be writable
                             p.ContainingType.Equals(currentType, SymbolEqualityComparer.Default)) // Only direct members
                 .ToArray();
 
@@ -167,7 +168,7 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
     {
         // For case sensitivity checks, we only care about properties where the types are the same or compatible
         // If types are incompatible, that's a different issue (AM001)
-        
+
         // Exact type match
         if (SymbolEqualityComparer.Default.Equals(sourceType, destinationType))
         {
@@ -184,20 +185,19 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         string destTypeName = destinationType.ToDisplayString();
 
         // Numeric conversions
-        var numericConversions = new[]
+        (string, string)[] numericConversions = new[]
         {
-            ("byte", "short"), ("byte", "int"), ("byte", "long"), ("byte", "float"), ("byte", "double"), ("byte", "decimal"),
-            ("short", "int"), ("short", "long"), ("short", "float"), ("short", "double"), ("short", "decimal"),
-            ("int", "long"), ("int", "float"), ("int", "double"), ("int", "decimal"),
-            ("long", "float"), ("long", "double"), ("long", "decimal"),
-            ("float", "double")
+            ("byte", "short"), ("byte", "int"), ("byte", "long"), ("byte", "float"), ("byte", "double"),
+            ("byte", "decimal"), ("short", "int"), ("short", "long"), ("short", "float"), ("short", "double"),
+            ("short", "decimal"), ("int", "long"), ("int", "float"), ("int", "double"), ("int", "decimal"),
+            ("long", "float"), ("long", "double"), ("long", "decimal"), ("float", "double")
         };
 
-        return numericConversions.Any(conversion => 
+        return numericConversions.Any(conversion =>
             conversion.Item1 == sourceTypeName && conversion.Item2 == destTypeName);
     }
 
-    private static bool IsPropertyExplicitlyMapped(InvocationExpressionSyntax createMapInvocation, 
+    private static bool IsPropertyExplicitlyMapped(InvocationExpressionSyntax createMapInvocation,
         string sourcePropertyName, string destinationPropertyName)
     {
         // Look for chained ForMember calls that handle this property mapping
@@ -221,12 +221,12 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsForMemberMappingProperty(InvocationExpressionSyntax forMemberInvocation, 
+    private static bool IsForMemberMappingProperty(InvocationExpressionSyntax forMemberInvocation,
         string sourcePropertyName, string destinationPropertyName)
     {
         // This is a simplified check - in a full implementation, we'd need to analyze the lambda expressions
         // to determine exact property mappings
-        var arguments = forMemberInvocation.ArgumentList?.Arguments;
+        SeparatedSyntaxList<ArgumentSyntax>? arguments = forMemberInvocation.ArgumentList?.Arguments;
         if (arguments?.Count >= 2)
         {
             // Check if the destination property is referenced in the first argument
@@ -244,4 +244,4 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-} 
+}

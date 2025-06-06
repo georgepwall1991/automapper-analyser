@@ -252,7 +252,7 @@ jobs:
 
   auto-commit:
     name: Auto-commit after successful iteration
-    needs: [build, validate-samples, security-scan, code-quality]
+    needs: [ build, validate-samples, security-scan, code-quality ]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
 
@@ -292,7 +292,7 @@ jobs:
 
   release:
     name: Release
-    needs: [build, package, validate-samples, security-scan, code-quality, auto-commit]
+    needs: [ build, package, validate-samples, security-scan, code-quality, auto-commit ]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]')
 

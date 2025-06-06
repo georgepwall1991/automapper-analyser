@@ -40,7 +40,8 @@ public class AM004_MissingDestinationPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13, "ImportantData")
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13,
+                "ImportantData")
             .RunAsync();
     }
 
@@ -192,9 +193,12 @@ public class AM004_MissingDestinationPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 22, 13, "MissingProperty1")
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 22, 13, "MissingProperty2")
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 22, 13, "MissingNumber")
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 22, 13,
+                "MissingProperty1")
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 22, 13,
+                "MissingProperty2")
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 22, 13,
+                "MissingNumber")
             .RunAsync();
     }
 
@@ -345,7 +349,8 @@ public class AM004_MissingDestinationPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 26, 13, "MissingInDest")
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 26, 13,
+                "MissingInDest")
             .RunAsync();
     }
 
@@ -389,7 +394,8 @@ public class AM004_MissingDestinationPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 28, 13, "WorkAddress")
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 28, 13,
+                "WorkAddress")
             .RunAsync();
     }
-} 
+}

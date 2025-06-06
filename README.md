@@ -14,23 +14,31 @@ This analyzer currently implements the following diagnostic rules to help you ca
 
 ### 🛡️ Type Safety Diagnostics
 
-- **AM001: Property Type Mismatch**: Detects when source and destination properties have incompatible types without an explicit type converter.
-- **AM002: Nullable to Non-Nullable Assignment**: Warns when a nullable source property is mapped to a non-nullable destination property without proper null handling.
-- **AM003: Collection Type Incompatibility**: Finds incompatible collection types between source and destination (e.g., `List<string>` to `HashSet<int>`).
+- **AM001: Property Type Mismatch**: Detects when source and destination properties have incompatible types without an
+  explicit type converter.
+- **AM002: Nullable to Non-Nullable Assignment**: Warns when a nullable source property is mapped to a non-nullable
+  destination property without proper null handling.
+- **AM003: Collection Type Incompatibility**: Finds incompatible collection types between source and destination (e.g.,
+  `List<string>` to `HashSet<int>`).
 
 ### 🔍 Missing Property and Mapping Diagnostics
 
-- **AM010: Missing Destination Property**: Warns about source properties that do not have a corresponding property in the destination type, preventing potential data loss. (Implemented as `AM004` in code)
-- **AM011: Unmapped Required Property**: Generates an error when a `required` property in the destination type is not mapped, which would cause a runtime exception.
-- **AM012: Case Sensitivity Mismatch**: Detects when source and destination property names differ only by case, which can lead to unexpected mapping behavior. (Implemented as `AM005` in code)
+- **AM010: Missing Destination Property**: Warns about source properties that do not have a corresponding property in
+  the destination type, preventing potential data loss. (Implemented as `AM004` in code)
+- **AM011: Unmapped Required Property**: Generates an error when a `required` property in the destination type is not
+  mapped, which would cause a runtime exception.
+- **AM012: Case Sensitivity Mismatch**: Detects when source and destination property names differ only by case, which
+  can lead to unexpected mapping behavior. (Implemented as `AM005` in code)
 
 ### 🧩 Collection and Complex Type Diagnostics
 
-- **AM020: Nested Object Mapping Issues**: Detects when nested complex objects are used without a corresponding `CreateMap` call for them.
+- **AM020: Nested Object Mapping Issues**: Detects when nested complex objects are used without a corresponding
+  `CreateMap` call for them.
 
 ### 🔜 Future Rules
 
 Support for more diagnostic rules is planned, including:
+
 - Custom conversion validation
 - Configuration issues (e.g., missing profiles)
 - Performance and best practice recommendations
@@ -147,20 +155,20 @@ public void ConfigureMapping() { }
 
 ## 📊 Supported Diagnostics
 
-| Rule ID | Description                          | Analyzer Status | Code Fix Status |
-|---------|--------------------------------------|-----------------|-----------------|
-| AM001   | Property Type Mismatch               | ✅ Implemented  | 🚧 Planned      |
-| AM002   | Nullable to Non-nullable             | ✅ Implemented  | 🚧 Planned      |
-| AM003   | Collection Type Incompatibility      | ✅ Implemented  | 🚧 Planned      |
-| AM010   | Missing Destination Property         | ✅ Implemented  | 🚧 Planned      |
-| AM011   | Unmapped Required Property           | ✅ Implemented  | 🚧 Planned      |
-| AM012   | Case Sensitivity Mismatch            | ✅ Implemented  | 🚧 Planned      |
-| AM020   | Nested Object Mapping Issues         | ✅ Implemented  | 🚧 Planned      |
-| AM021+  | Other Complex/Collection Rules       | 🚧 Planned      | 🚧 Planned      |
-| AM030+  | Custom Conversion Rules              | 🚧 Planned      | 🚧 Planned      |
-| AM040+  | Configuration Rules                  | 🚧 Planned      | 🚧 Planned      |
-| AM050+  | Performance Rules                    | 🚧 Planned      | 🚧 Planned      |
-| AM060+  | EF Integration Rules                 | 🚧 Planned      | 🚧 Planned      |
+| Rule ID | Description                     | Analyzer Status | Code Fix Status |
+|---------|---------------------------------|-----------------|-----------------|
+| AM001   | Property Type Mismatch          | ✅ Implemented   | 🚧 Planned      |
+| AM002   | Nullable to Non-nullable        | ✅ Implemented   | 🚧 Planned      |
+| AM003   | Collection Type Incompatibility | ✅ Implemented   | 🚧 Planned      |
+| AM010   | Missing Destination Property    | ✅ Implemented   | 🚧 Planned      |
+| AM011   | Unmapped Required Property      | ✅ Implemented   | 🚧 Planned      |
+| AM012   | Case Sensitivity Mismatch       | ✅ Implemented   | 🚧 Planned      |
+| AM020   | Nested Object Mapping Issues    | ✅ Implemented   | 🚧 Planned      |
+| AM021+  | Other Complex/Collection Rules  | 🚧 Planned      | 🚧 Planned      |
+| AM030+  | Custom Conversion Rules         | 🚧 Planned      | 🚧 Planned      |
+| AM040+  | Configuration Rules             | 🚧 Planned      | 🚧 Planned      |
+| AM050+  | Performance Rules               | 🚧 Planned      | 🚧 Planned      |
+| AM060+  | EF Integration Rules            | 🚧 Planned      | 🚧 Planned      |
 
 ## 🏗️ Building from Source
 
@@ -231,7 +239,8 @@ We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING
 
 ### Review and Prioritization
 
-With a solid foundation of type safety, property mapping, and complex type analyzers in place, the next phase of development will focus on expanding coverage to configuration, performance, and other advanced scenarios.
+With a solid foundation of type safety, property mapping, and complex type analyzers in place, the next phase of
+development will focus on expanding coverage to configuration, performance, and other advanced scenarios.
 
 ### Prioritized Backlog
 
@@ -239,21 +248,22 @@ The following is a high-level view of planned features:
 
 #### 🚀 Immediate Priorities
 
-- **Code Fixes**: Implement code fix providers for existing analyzers (e.g., suggesting explicit conversions for `AM001`).
+- **Code Fixes**: Implement code fix providers for existing analyzers (e.g., suggesting explicit conversions for
+  `AM001`).
 - **Enhanced Diagnostics**: Improve diagnostic messages with more context and actionable suggestions.
 - **EditorConfig Integration**: Ensure all analyzer severities can be customized via `.editorconfig`.
 
 #### 🏗️ Future Milestones
 
 - **Configuration Analyzers**:
-  - **AM040**: Missing `Profile` registration.
-  - **AM041**: Conflicting mapping rules.
+    - **AM040**: Missing `Profile` registration.
+    - **AM041**: Conflicting mapping rules.
 - **Performance Analyzers**:
-  - **AM050**: Detect static `Mapper.Map` usage.
-  - **AM052**: Find mapping chains without null propagation.
+    - **AM050**: Detect static `Mapper.Map` usage.
+    - **AM052**: Find mapping chains without null propagation.
 - **Logging & Telemetry**:
-  - Add performance metrics for analyzer execution.
-  - Integrate build-time diagnostic statistics.
+    - Add performance metrics for analyzer execution.
+    - Integrate build-time diagnostic statistics.
 - **Architectural Scalability**: Refactor core analyzer components for better extensibility.
 - **Performance Optimization**: Reduce memory footprint and improve analysis speed.
 - **CI/CD Pipeline Enhancements**: Add automated release notes and documentation updates.
