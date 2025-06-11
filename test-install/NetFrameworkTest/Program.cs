@@ -12,7 +12,11 @@ namespace NetFrameworkTest
             var config = new MapperConfiguration(cfg =>
             {
                 // This should trigger AM001 - Property Type Mismatch
+#pragma warning disable AM001
+#pragma warning disable AM004
                 cfg.CreateMap<SourceClass, DestClass>();
+#pragma warning restore AM004
+#pragma warning restore AM001
             });
 
             var mapper = config.CreateMapper();
