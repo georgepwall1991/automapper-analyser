@@ -41,9 +41,84 @@ jobs:
       - name: Run unit tests
         run: dotnet test ${{ env.SOLUTION_FILE }} --no-build --configuration Release --verbosity normal
 
+  compatibility-test:
+    name: Multi-Framework Compatibility Test
+    runs-on: windows-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET (multiple versions)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            3.1.x
+            9.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Build analyzer
+        run: dotnet build src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --configuration Release
+
+      - name: Test .NET Framework 4.8 compatibility
+        run: |
+          cd test-install/NetFrameworkTest
+          dotnet restore
+          $output = dotnet build --no-restore --verbosity minimal 2>&1
+          $hasAM001 = $output -match "AM001"
+          $hasAM004 = $output -match "AM004"
+          if (-not ($hasAM001 -or $hasAM004)) {
+            Write-Host "❌ Analyzer not working with .NET Framework 4.8" -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "✅ .NET Framework 4.8 compatibility verified" -ForegroundColor Green
+        shell: pwsh
+
+      - name: Test .NET Core 3.1 compatibility
+        run: |
+          cd test-install/NetCoreTest
+          dotnet restore
+          $output = dotnet build --no-restore --verbosity minimal 2>&1
+          $hasAM001 = $output -match "AM001"
+          $hasAM004 = $output -match "AM004"
+          if (-not ($hasAM001 -or $hasAM004)) {
+            Write-Host "❌ Analyzer not working with .NET Core 3.1" -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "✅ .NET Core 3.1 compatibility verified" -ForegroundColor Green
+        shell: pwsh
+
+      - name: Test .NET 9.0 compatibility
+        run: |
+          cd test-install/TestPackage
+          dotnet restore
+          $output = dotnet build --no-restore --verbosity minimal 2>&1
+          $hasAM001 = $output -match "AM001"
+          $hasAM004 = $output -match "AM004"
+          if (-not ($hasAM001 -or $hasAM004)) {
+            Write-Host "❌ Analyzer not working with .NET 9.0" -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "✅ .NET 9.0 compatibility verified" -ForegroundColor Green
+        shell: pwsh
+
+      - name: Run comprehensive compatibility test
+        run: |
+          cd test-install
+          pwsh test-compatibility.ps1 -SkipBuild
+        shell: pwsh
+
   package:
     name: Package Analyzer
-    needs: build
+    needs: [build, compatibility-test]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 

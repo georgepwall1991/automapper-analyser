@@ -46,6 +46,19 @@ Support for more diagnostic rules is planned, including:
 
 ## 📦 Installation
 
+### 🎯 Compatibility
+
+The AutoMapper Analyzer is fully compatible with:
+
+| Framework | Version | Status | Notes |
+|-----------|---------|--------|-------|
+| .NET Framework | 4.8+ | ✅ Fully Supported | Requires AutoMapper 10.x+ |
+| .NET Core | 3.1+ | ✅ Fully Supported | LTS version recommended |
+| .NET | 5.0+ | ✅ Fully Supported | Latest features supported |
+| .NET Standard | 2.0+ | ✅ Fully Supported | Analyzer targets netstandard2.0 |
+
+The analyzer itself targets **.NET Standard 2.0**, ensuring maximum compatibility across all modern .NET platforms.
+
 ### Package Manager
 
 ```powershell
@@ -72,6 +85,23 @@ dotnet add package AutoMapperAnalyzer.CodeFixes
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
 ```
+
+### 🔧 Framework-Specific Notes
+
+#### .NET Framework 4.8
+- Use AutoMapper 10.x series for maximum compatibility
+- Nullable reference types supported with C# 8.0+
+- Full analyzer functionality available
+
+#### .NET Core 3.1
+- LTS version with full support
+- Recommended for production applications
+- All analyzer features work correctly
+
+#### .NET 5.0+
+- Latest analyzer features supported
+- Best performance and compatibility
+- Recommended for new projects
 
 ## 🎯 Quick Start
 

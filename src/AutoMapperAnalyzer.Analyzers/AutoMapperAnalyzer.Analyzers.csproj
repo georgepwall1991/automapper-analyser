@@ -23,8 +23,8 @@
         <PackageVersion>$(MajorVersion).$(MinorVersion).$(BuildNumber)</PackageVersion>
         <Title>AutoMapper Roslyn Analyzer</Title>
         <Authors>George Wall</Authors>
-        <Description>Roslyn analyzer that detects AutoMapper configuration issues at compile-time to prevent runtime exceptions and data loss. Supports type safety validation, missing property detection, and configuration validation.</Description>
-        <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis</PackageTags>
+        <Description>Roslyn analyzer that detects AutoMapper configuration issues at compile-time to prevent runtime exceptions and data loss. Supports type safety validation, missing property detection, and configuration validation. Compatible with .NET Framework 4.8+, .NET Core 3.1+, and .NET 5.0+.</Description>
+        <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis;netframework;netcore;dotnet</PackageTags>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/georgepwall1991/automapper-analyser</PackageProjectUrl>
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
