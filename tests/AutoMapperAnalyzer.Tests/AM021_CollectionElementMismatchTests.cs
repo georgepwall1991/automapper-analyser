@@ -37,7 +37,7 @@ public class AM021_CollectionElementMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 31, 13, 
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 20, 13, 
                 "Numbers", "Source", "string", "Destination", "int")
             .RunAsync();
     }
@@ -86,7 +86,8 @@ public class AM021_CollectionElementMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 36, 29, "SourcePerson", "DestPerson")
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 32, 13, 
+                "People", "Source", "TestNamespace.SourcePerson", "Destination", "TestNamespace.DestPerson")
             .RunAsync();
     }
 
@@ -122,7 +123,8 @@ public class AM021_CollectionElementMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 20, 29, "String[]", "HashSet<Int32>")
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 20, 13, 
+                "Tags", "Source", "string", "Destination", "int")
             .RunAsync();
     }
 
@@ -160,8 +162,10 @@ public class AM021_CollectionElementMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 21, 29)
-            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 22, 29)
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 21, 13, 
+                "StringNumbers", "Source", "string", "Destination", "int")
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 22, 13, 
+                "DecimalValues", "Source", "double", "Destination", "string")
             .RunAsync();
     }
 
@@ -257,6 +261,7 @@ public class AM021_CollectionElementMismatchTests
         const string testCode = """
                                 using AutoMapper;
                                 using System.Collections.Generic;
+                                using System.Linq;
 
                                 namespace TestNamespace
                                 {
@@ -321,7 +326,8 @@ public class AM021_CollectionElementMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 18, 29)
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 20, 13, 
+                "Matrix", "Source", "System.Collections.Generic.List<string>", "Destination", "System.Collections.Generic.List<int>")
             .RunAsync();
     }
 
@@ -407,7 +413,7 @@ public class AM021_CollectionElementMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 28, 29)
+            .ExpectNoDiagnostics()
             .RunAsync();
     }
 }
