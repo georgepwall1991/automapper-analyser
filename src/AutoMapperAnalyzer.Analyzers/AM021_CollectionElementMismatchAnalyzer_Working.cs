@@ -7,18 +7,12 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace AutoMapperAnalyzer.Analyzers;
 
-/// <summary>
-///     Analyzer for detecting collection element type mismatch issues in AutoMapper configurations
-/// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
-public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
+public class AM021_CollectionElementMismatchAnalyzer_Working : DiagnosticAnalyzer
 {
-    /// <summary>
-    ///     AM021: Collection element type incompatibility
-    /// </summary>
     public static readonly DiagnosticDescriptor CollectionElementIncompatibilityRule = new(
         "AM021",
-        "Collection element type incompatibility in AutoMapper configuration", 
+        "Collection element type incompatibility in AutoMapper configuration",
         "Property '{0}' has incompatible collection element types: {1}.{0} ({2}) elements cannot be mapped to {3}.{0} ({4}) elements without explicit conversion",
         "AutoMapper.Collections",
         DiagnosticSeverity.Warning,
@@ -54,8 +48,49 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
             typeArguments.destinationType);
     }
 
+    private static bool IsCreateMapInvocation(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    {
+        // Get the symbol info to check if this is really AutoMapper's CreateMap method
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+
+        if (symbolInfo.Symbol is IMethodSymbol method)
+        {
+            // Check if method name is CreateMap and it's generic with 2 type parameters
+            if (method.Name == "CreateMap" && method.IsGenericMethod && method.TypeArguments.Length == 2)
+            {
+                // Additional check: see if it's from AutoMapper (check containing type or namespace)
+                INamedTypeSymbol? containingType = method.ContainingType;
+                if (containingType != null)
+                {
+                    // Check if the containing type is likely from AutoMapper
+                    string? namespaceName = containingType.ContainingNamespace?.ToDisplayString();
+                    return namespaceName == "AutoMapper" || 
+                           containingType.Name.Contains("Profile") || 
+                           containingType.BaseType?.Name == "Profile";
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) GetCreateMapTypeArguments(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+        if (symbolInfo.Symbol is IMethodSymbol method && method.IsGenericMethod && method.TypeArguments.Length == 2)
+        {
+            return (method.TypeArguments[0] as INamedTypeSymbol, method.TypeArguments[1] as INamedTypeSymbol);
+        }
+
+        return (null, null);
+    }
+
     private static void AnalyzeCollectionElementCompatibility(SyntaxNodeAnalysisContext context,
-        InvocationExpressionSyntax invocation, INamedTypeSymbol sourceType, INamedTypeSymbol destinationType)
+        InvocationExpressionSyntax invocation,
+        INamedTypeSymbol sourceType,
+        INamedTypeSymbol destinationType)
     {
         IPropertySymbol[] sourceProperties = GetPublicProperties(sourceType);
         IPropertySymbol[] destinationProperties = GetPublicProperties(destinationType);
@@ -111,81 +146,6 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool IsCreateMapInvocation(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        // Get the symbol info to check if this is really AutoMapper's CreateMap method
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-
-        if (symbolInfo.Symbol is IMethodSymbol method)
-        {
-            // Check if method name is CreateMap and it's generic with 2 type parameters
-            if (method.Name == "CreateMap" && method.IsGenericMethod && method.TypeArguments.Length == 2)
-            {
-                // Additional check: see if it's from AutoMapper (check containing type or namespace)
-                INamedTypeSymbol? containingType = method.ContainingType;
-                if (containingType != null)
-                {
-                    // Check if the containing type is likely from AutoMapper
-                    string? namespaceName = containingType.ContainingNamespace?.ToDisplayString();
-                    return namespaceName == "AutoMapper" || 
-                           containingType.Name.Contains("Profile") || 
-                           containingType.BaseType?.Name == "Profile";
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private static (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) GetCreateMapTypeArguments(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is IMethodSymbol method && method.IsGenericMethod && method.TypeArguments.Length == 2)
-        {
-            return (method.TypeArguments[0] as INamedTypeSymbol, method.TypeArguments[1] as INamedTypeSymbol);
-        }
-
-        return (null, null);
-    }
-
-    private static IPropertySymbol[] GetPublicProperties(ITypeSymbol type)
-    {
-        return type.GetMembers()
-            .OfType<IPropertySymbol>()
-            .Where(p => p.DeclaredAccessibility == Accessibility.Public && 
-                        p.GetMethod != null && 
-                        p.SetMethod != null)
-            .ToArray();
-    }
-
-    private static bool HasExplicitPropertyMapping(InvocationExpressionSyntax invocation, string propertyName)
-    {
-        // Simple check - look for ForMember calls in the same method
-        var method = invocation.FirstAncestorOrSelf<MethodDeclarationSyntax>();
-        if (method == null) return false;
-
-        // Look for ForMember calls that mention this property
-        var forMemberCalls = method.DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .Where(inv => inv.Expression is MemberAccessExpressionSyntax member &&
-                         member.Name.Identifier.ValueText == "ForMember");
-
-        foreach (var call in forMemberCalls)
-        {
-            var args = call.ArgumentList.Arguments;
-            if (args.Count > 0)
-            {
-                var firstArg = args[0].Expression.ToString();
-                if (firstArg.Contains(propertyName))
-                    return true;
-            }
-        }
-
-        return false;
-    }
-
     private static ITypeSymbol? GetCollectionElementType(ITypeSymbol type)
     {
         // Handle arrays
@@ -202,7 +162,6 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
 
         return null;
     }
-
 
     private static bool AreElementTypesCompatible(ITypeSymbol sourceType, ITypeSymbol destType)
     {
@@ -248,5 +207,41 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    private static bool HasExplicitPropertyMapping(InvocationExpressionSyntax invocation, string propertyName)
+    {
+        // Simple check - look for ForMember calls in the same method
+        var method = invocation.FirstAncestorOrSelf<MethodDeclarationSyntax>();
+        if (method == null) return false;
+
+        // Look for ForMember calls that mention this property
+        var forMemberCalls = method.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Where(inv => inv.Expression is MemberAccessExpressionSyntax member &&
+                         member.Name.Identifier.ValueText == "ForMember");
+
+        foreach (var call in forMemberCalls)
+        {
+            var args = call.ArgumentList.Arguments;
+            if (args.Count > 0)
+            {
+                var firstArg = args[0].Expression.ToString();
+                if (firstArg.Contains(propertyName))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IPropertySymbol[] GetPublicProperties(ITypeSymbol type)
+    {
+        return type.GetMembers()
+            .OfType<IPropertySymbol>()
+            .Where(p => p.DeclaredAccessibility == Accessibility.Public && 
+                        p.GetMethod != null && 
+                        p.SetMethod != null)
+            .ToArray();
     }
 }
