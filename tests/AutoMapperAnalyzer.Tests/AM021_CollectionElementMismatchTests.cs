@@ -37,7 +37,8 @@ public class AM021_CollectionElementMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementMismatchRule, 20, 29, "List<String>", "List<Int32>")
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementMismatchRule, 20, 29, 
+                "List<System.String>", "List<System.Int32>")
             .RunAsync();
     }
 
