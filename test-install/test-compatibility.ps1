@@ -31,10 +31,10 @@ $testFrameworks = @(
         Description = "Legacy .NET Framework support"
     },
     @{
-        Name = ".NET Core 3.1"
+        Name = ".NET 6.0"
         Path = "NetCoreTest"
-        Framework = "netcoreapp3.1"
-        Description = "LTS .NET Core version"
+        Framework = "net6.0"
+        Description = "LTS .NET version"
     },
     @{
         Name = ".NET 9.0"

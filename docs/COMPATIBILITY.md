@@ -9,7 +9,7 @@ This document provides detailed information about framework compatibility and in
 | Framework | Min Version | Status | AutoMapper Version | Notes |
 |-----------|-------------|--------|-------------------|-------|
 | .NET Framework | 4.8 | ✅ Fully Supported | 10.1.1+ | Requires C# 8.0+ for full features |
-| .NET Core | 3.1 | ✅ Fully Supported | 12.0.1+ | LTS version recommended |
+| .NET | 6.0 | ✅ Fully Supported | 12.0.1+ | LTS version recommended |
 | .NET | 5.0 | ✅ Fully Supported | 13.0.0+ | Modern .NET, all features |
 | .NET | 6.0 | ✅ Fully Supported | 13.0.0+ | LTS version |
 | .NET | 7.0 | ✅ Fully Supported | 13.0.0+ | Latest features |
@@ -55,12 +55,12 @@ The AutoMapper Analyzer targets **.NET Standard 2.0**, which provides compatibil
 - Enable nullable reference types for best analyzer performance
 - Requires Visual Studio 2019 16.8+ or .NET SDK 5.0+
 
-### .NET Core 3.1 (LTS)
+### .NET 6.0 (LTS)
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
@@ -150,7 +150,7 @@ public class Destination
 
 ## 📋 Feature Support Matrix
 
-| Feature | .NET Framework 4.8 | .NET Core 3.1 | .NET 5.0+ |
+| Feature | .NET Framework 4.8 | .NET 6.0 | .NET 8.0+ |
 |---------|-------------------|---------------|-----------|
 | Type Safety Analysis (AM001-AM003) | ✅ | ✅ | ✅ |
 | Missing Property Detection (AM004, AM010-AM012) | ✅ | ✅ | ✅ |
@@ -198,11 +198,11 @@ public class Destination
    - Requires Visual Studio 2019 16.8+ for full support
    - May show additional warnings in older tooling
 
-### .NET Core 3.1 Specific
+### .NET 6.0+ Specific
 
-1. **End of Support Warning**
-   - .NET Core 3.1 is out of support as of December 2022
-   - Consider upgrading to .NET 6.0 (LTS) or .NET 8.0 (LTS)
+1. **LTS Support**
+   - .NET 6.0 and .NET 8.0 are Long Term Support versions
+   - Recommended for production applications
 
 ## 🛠️ Troubleshooting
 

@@ -57,7 +57,7 @@ The AutoMapper Analyzer is fully compatible with:
 | Framework | Version | Status | Notes |
 |-----------|---------|--------|-------|
 | .NET Framework | 4.8+ | ✅ Fully Supported | Requires AutoMapper 10.x+ |
-| .NET Core | 3.1+ | ✅ Fully Supported | LTS version recommended |
+| .NET | 6.0+ | ✅ Fully Supported | LTS version recommended |
 | .NET | 5.0+ | ✅ Fully Supported | Latest features supported |
 | .NET Standard | 2.0+ | ✅ Fully Supported | Analyzer targets netstandard2.0 |
 
@@ -97,8 +97,8 @@ dotnet add package AutoMapperAnalyzer.CodeFixes
 - Nullable reference types supported with C# 8.0+
 - Full analyzer functionality available
 
-#### .NET Core 3.1
-- LTS version with full support
+#### .NET 6.0+
+- LTS versions with full support
 - Recommended for production applications
 - All analyzer features work correctly
 
