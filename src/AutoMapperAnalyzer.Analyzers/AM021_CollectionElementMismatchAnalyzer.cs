@@ -162,11 +162,30 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
 
     private static bool HasExplicitPropertyMapping(InvocationExpressionSyntax invocation, string propertyName)
     {
-        // Simple check - look for ForMember calls in the same method
+        // Look for chained ForMember calls starting from this invocation
+        var current = invocation.Parent;
+        while (current != null)
+        {
+            if (current is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Name.Identifier.ValueText == "ForMember" &&
+                memberAccess.Parent is InvocationExpressionSyntax forMemberCall)
+            {
+                var args = forMemberCall.ArgumentList.Arguments;
+                if (args.Count > 0)
+                {
+                    var firstArg = args[0].Expression.ToString();
+                    // Look for patterns like "dest => dest.PropertyName" or "x => x.PropertyName"
+                    if (firstArg.Contains($".{propertyName}"))
+                        return true;
+                }
+            }
+            current = current.Parent;
+        }
+
+        // Also check within the same method for ForMember calls
         var method = invocation.FirstAncestorOrSelf<MethodDeclarationSyntax>();
         if (method == null) return false;
 
-        // Look for ForMember calls that mention this property
         var forMemberCalls = method.DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Where(inv => inv.Expression is MemberAccessExpressionSyntax member &&
@@ -178,10 +197,39 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
             if (args.Count > 0)
             {
                 var firstArg = args[0].Expression.ToString();
-                if (firstArg.Contains(propertyName))
+                // Look for patterns like "dest => dest.PropertyName"
+                if (firstArg.Contains($".{propertyName}"))
                     return true;
             }
         }
+
+        return false;
+    }
+
+    private static bool HasElementTypeMapping(InvocationExpressionSyntax invocation, ITypeSymbol sourceElementType, ITypeSymbol destElementType)
+    {
+        // Look for CreateMap<SourceElementType, DestElementType> calls in the same method
+        var method = invocation.FirstAncestorOrSelf<MethodDeclarationSyntax>();
+        if (method == null) return false;
+
+        // Get the full type names for comparison
+        var sourceElementTypeName = sourceElementType.ToDisplayString();
+        var destElementTypeName = destElementType.ToDisplayString();
+
+        // Find all CreateMap calls in the method by looking at the entire method text
+        var methodText = method.ToString();
+        
+        // Simple check - look for CreateMap<SourceElementType, DestElementType> pattern in the text
+        var createMapPattern = $"CreateMap<{sourceElementTypeName}, {destElementTypeName}>";
+        if (methodText.Contains(createMapPattern))
+            return true;
+            
+        // Also check with just the type names (without namespace)
+        var sourceSimpleName = sourceElementType.Name;
+        var destSimpleName = destElementType.Name;
+        var simpleCreateMapPattern = $"CreateMap<{sourceSimpleName}, {destSimpleName}>";
+        if (methodText.Contains(simpleCreateMapPattern))
+            return true;
 
         return false;
     }
