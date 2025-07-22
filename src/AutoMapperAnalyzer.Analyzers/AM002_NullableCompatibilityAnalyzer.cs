@@ -37,7 +37,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         "Non-nullable source property is being mapped to nullable destination property.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(NullableToNonNullableRule, NonNullableToNullableRule);
+        [NullableToNonNullableRule, NonNullableToNullableRule];
 
     public override void Initialize(AnalysisContext context)
     {
@@ -306,13 +306,13 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         string toTypeName = to.ToDisplayString();
 
         // Numeric conversions
-        (string, string)[] numericConversions = new[]
-        {
+        (string, string)[] numericConversions =
+        [
             ("byte", "short"), ("byte", "int"), ("byte", "long"), ("byte", "float"), ("byte", "double"),
             ("byte", "decimal"), ("short", "int"), ("short", "long"), ("short", "float"), ("short", "double"),
             ("short", "decimal"), ("int", "long"), ("int", "float"), ("int", "double"), ("int", "decimal"),
             ("long", "float"), ("long", "double"), ("long", "decimal"), ("float", "double")
-        };
+        ];
 
         return numericConversions.Any(conversion =>
             conversion.Item1 == fromTypeName && conversion.Item2 == toTypeName);

@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -38,7 +37,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         "Collection properties have compatible collection types but incompatible element types that may require custom mapping.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(CollectionTypeIncompatibilityRule, CollectionElementIncompatibilityRule);
+        [CollectionTypeIncompatibilityRule, CollectionElementIncompatibilityRule];
 
     public override void Initialize(AnalysisContext context)
     {
@@ -50,16 +49,22 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
     {
         if (context.Node is not InvocationExpressionSyntax invocationExpr)
+        {
             return;
+        }
 
         // Check if this is a CreateMap<TSource, TDestination>() call
         if (!IsCreateMapInvocation(invocationExpr, context.SemanticModel))
+        {
             return;
+        }
 
         (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArguments =
             GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
         if (typeArguments.sourceType == null || typeArguments.destinationType == null)
+        {
             return;
+        }
 
         // Analyze collection compatibility for property mappings
         AnalyzeCollectionCompatibility(context, invocationExpr, typeArguments.sourceType,
@@ -82,8 +87,8 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
                 {
                     // Check if the containing type is likely from AutoMapper
                     string? namespaceName = containingType.ContainingNamespace?.ToDisplayString();
-                    return namespaceName == "AutoMapper" || 
-                           containingType.Name.Contains("Profile") || 
+                    return namespaceName == "AutoMapper" ||
+                           containingType.Name.Contains("Profile") ||
                            containingType.BaseType?.Name == "Profile";
                 }
             }
@@ -119,11 +124,15 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
                 .FirstOrDefault(p => p.Name == sourceProperty.Name);
 
             if (destinationProperty == null)
+            {
                 continue;
+            }
 
             // Check for explicit property mapping that might handle collection conversion
             if (HasExplicitPropertyMapping(invocation, sourceProperty.Name))
+            {
                 continue;
+            }
 
             // Check if both properties are collections
             if (IsCollectionType(sourceProperty.Type) && IsCollectionType(destinationProperty.Type))
@@ -138,12 +147,14 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
     {
         // Check for common collection interfaces and types
         if (type.TypeKind == TypeKind.Array)
+        {
             return true;
+        }
 
         if (type is INamedTypeSymbol namedType)
         {
             string typeName = namedType.ToDisplayString();
-            
+
             // Check for generic collection types
             if (namedType.IsGenericType)
             {
@@ -184,12 +195,14 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol? destElementType = GetCollectionElementType(destinationProperty.Type);
 
         if (sourceElementType == null || destElementType == null)
+        {
             return;
+        }
 
         // Check if collection types are fundamentally incompatible
         if (AreCollectionTypesIncompatible(sourceProperty.Type, destinationProperty.Type))
         {
-            Diagnostic diagnostic = Diagnostic.Create(
+            var diagnostic = Diagnostic.Create(
                 CollectionTypeIncompatibilityRule,
                 invocation.GetLocation(),
                 sourceProperty.Name,
@@ -203,7 +216,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         // Check if element types are incompatible
         else if (!AreElementTypesCompatible(sourceElementType, destElementType))
         {
-            Diagnostic diagnostic = Diagnostic.Create(
+            var diagnostic = Diagnostic.Create(
                 CollectionElementIncompatibilityRule,
                 invocation.GetLocation(),
                 sourceProperty.Name,
@@ -220,14 +233,18 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
     {
         // Handle arrays
         if (collectionType is IArrayTypeSymbol arrayType)
+        {
             return arrayType.ElementType;
+        }
 
         // Handle generic collections
         if (collectionType is INamedTypeSymbol { IsGenericType: true } namedType)
         {
             // Most generic collections have the element type as the first type argument
             if (namedType.TypeArguments.Length > 0)
+            {
                 return namedType.TypeArguments[0];
+            }
         }
 
         return null;
@@ -240,7 +257,9 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         bool destIsArray = destType.TypeKind == TypeKind.Array;
 
         if (sourceIsArray && destIsArray)
+        {
             return false; // Arrays to arrays are compatible
+        }
 
         // Check for specific incompatible combinations
         string sourceTypeName = sourceType.ToDisplayString();
@@ -248,16 +267,22 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
 
         // HashSet to List is generally incompatible without custom handling
         if (sourceTypeName.Contains("HashSet") && destTypeName.Contains("List"))
+        {
             return true;
+        }
 
         // Queue/Stack to other collections need special handling
         if ((sourceTypeName.Contains("Queue") || sourceTypeName.Contains("Stack")) &&
             !destTypeName.Contains("Queue") && !destTypeName.Contains("Stack"))
+        {
             return true;
+        }
 
         // Non-generic to generic collections
         if (!IsGenericCollection(sourceType) && IsGenericCollection(destType))
+        {
             return true;
+        }
 
         return false;
     }
@@ -272,11 +297,15 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
     {
         // Same types are compatible
         if (SymbolEqualityComparer.Default.Equals(sourceElementType, destElementType))
+        {
             return true;
+        }
 
         // Check for implicit conversions
         if (HasImplicitConversion(sourceElementType, destElementType))
+        {
             return true;
+        }
 
         // String representations for additional checks
         string sourceTypeName = sourceElementType.ToDisplayString();
@@ -284,7 +313,9 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
 
         // Numeric type compatibility
         if (AreNumericTypesCompatible(sourceTypeName, destTypeName))
+        {
             return true;
+        }
 
         return false;
     }
@@ -293,19 +324,23 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
     {
         // Check if there's an implicit conversion between the types
         // This is a simplified check - in a full implementation, we'd use Compilation.HasImplicitConversion
-        
+
         // Only check for numeric implicit conversions between numeric types
         if (from.SpecialType == SpecialType.None || to.SpecialType == SpecialType.None)
+        {
             return false;
+        }
 
         // Both must be numeric types for implicit numeric conversion
         int fromLevel = GetNumericConversionLevel(from.SpecialType);
         int toLevel = GetNumericConversionLevel(to.SpecialType);
-        
+
         // If either is not a numeric type (returns int.MaxValue), no implicit conversion
         if (fromLevel == int.MaxValue || toLevel == int.MaxValue)
+        {
             return false;
-            
+        }
+
         return fromLevel <= toLevel;
     }
 
@@ -330,10 +365,13 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
 
     private static bool AreNumericTypesCompatible(string from, string to)
     {
-        string[] numericTypes = { "byte", "sbyte", "short", "ushort", "int", "uint", "long", "ulong", "float", "double", "decimal" };
+        string[] numericTypes =
+        [
+            "byte", "sbyte", "short", "ushort", "int", "uint", "long", "ulong", "float", "double", "decimal"
+        ];
         bool fromIsNumeric = numericTypes.Contains(from);
         bool toIsNumeric = numericTypes.Contains(to);
-        
+
         // Both must be numeric types for this to be true
         return fromIsNumeric && toIsNumeric;
     }
@@ -342,8 +380,8 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
     {
         return type.GetMembers()
             .OfType<IPropertySymbol>()
-            .Where(p => p.DeclaredAccessibility == Accessibility.Public && 
-                        p.GetMethod != null && 
+            .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
+                        p.GetMethod != null &&
                         p.SetMethod != null)
             .ToArray();
     }
@@ -360,7 +398,9 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
             {
                 // Check if this ForMember call is for the property we're analyzing
                 if (IsForMemberOfProperty(chainedInvocation, propertyName))
+                {
                     return true;
+                }
             }
 
             parent = chainedInvocation.Parent;
@@ -383,4 +423,4 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-} 
+}

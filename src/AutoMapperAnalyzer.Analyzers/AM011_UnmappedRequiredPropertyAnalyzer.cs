@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -26,7 +25,7 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         "Required destination properties must be mapped from source properties or explicitly configured to prevent runtime exceptions during mapping.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(UnmappedRequiredPropertyRule);
+        [UnmappedRequiredPropertyRule];
 
     public override void Initialize(AnalysisContext context)
     {
@@ -45,7 +44,8 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var typeArguments = GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
+        (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArguments =
+            GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
         if (typeArguments.sourceType == null || typeArguments.destinationType == null)
         {
             return;
@@ -103,7 +103,8 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
 
             // Check if source has a property with the same name (case-insensitive, like AutoMapper)
             IPropertySymbol? sourceProperty = sourceProperties
-                .FirstOrDefault(p => string.Equals(p.Name, destinationProperty.Name, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(p =>
+                    string.Equals(p.Name, destinationProperty.Name, StringComparison.OrdinalIgnoreCase));
 
             if (sourceProperty != null)
             {
@@ -129,19 +130,19 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
     private static IPropertySymbol[] GetMappableProperties(INamedTypeSymbol type)
     {
         var properties = new List<IPropertySymbol>();
-        
+
         // Get properties from the type and all its base types
-        var currentType = type;
+        INamedTypeSymbol? currentType = type;
         while (currentType != null && currentType.SpecialType != SpecialType.System_Object)
         {
             // Get declared properties (not inherited ones to avoid duplicates)
-            var typeProperties = currentType.GetMembers()
+            IPropertySymbol[] typeProperties = currentType.GetMembers()
                 .OfType<IPropertySymbol>()
                 .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
                             p.CanBeReferencedByName &&
                             !p.IsStatic &&
-                            p.GetMethod != null &&  // Must be readable
-                            p.SetMethod != null &&  // Must be writable
+                            p.GetMethod != null && // Must be readable
+                            p.SetMethod != null && // Must be writable
                             p.ContainingType.Equals(currentType, SymbolEqualityComparer.Default)) // Only direct members
                 .ToArray();
 
@@ -159,7 +160,7 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         return property.IsRequired;
     }
 
-    private static bool IsDestinationPropertyExplicitlyMapped(InvocationExpressionSyntax createMapInvocation, 
+    private static bool IsDestinationPropertyExplicitlyMapped(InvocationExpressionSyntax createMapInvocation,
         string destinationPropertyName)
     {
         // Look for chained ForMember calls that map to this destination property
@@ -183,12 +184,12 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsForMemberTargetingProperty(InvocationExpressionSyntax forMemberInvocation, 
+    private static bool IsForMemberTargetingProperty(InvocationExpressionSyntax forMemberInvocation,
         string destinationPropertyName)
     {
         // This is a simplified check - in a full implementation, we'd need to analyze the lambda expressions
         // to determine exact property targets
-        var arguments = forMemberInvocation.ArgumentList?.Arguments;
+        SeparatedSyntaxList<ArgumentSyntax>? arguments = forMemberInvocation.ArgumentList?.Arguments;
         if (arguments?.Count >= 1)
         {
             // Check if the destination property is referenced in the first argument (destination selector)
@@ -201,4 +202,4 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-} 
+}

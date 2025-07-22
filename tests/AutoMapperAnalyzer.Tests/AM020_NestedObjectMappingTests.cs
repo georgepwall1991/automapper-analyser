@@ -50,7 +50,8 @@ public class AM020_NestedObjectMappingTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 33, 13, "Address", "SourceAddress", "DestAddress")
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 33, 13, "Address",
+                "SourceAddress", "DestAddress")
             .RunAsync();
     }
 
@@ -200,8 +201,10 @@ public class AM020_NestedObjectMappingTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 43, 13, "Address", "SourceAddress", "DestAddress")
-            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 43, 13, "Contact", "SourceContact", "DestContact")
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 43, 13, "Address",
+                "SourceAddress", "DestAddress")
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 43, 13, "Contact",
+                "SourceContact", "DestContact")
             .RunAsync();
     }
 
@@ -372,7 +375,8 @@ public class AM020_NestedObjectMappingTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 31, 13, "Address", "SourceAddress", "DestAddress")
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 31, 13, "Address",
+                "SourceAddress", "DestAddress")
             .RunAsync();
     }
 
@@ -427,7 +431,8 @@ public class AM020_NestedObjectMappingTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 39, 13, "Address", "SourceAddress", "DestAddress")
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 39, 13, "Address",
+                "SourceAddress", "DestAddress")
             .RunAsync();
     }
 
@@ -478,4 +483,4 @@ public class AM020_NestedObjectMappingTests
             .WithSource(testCode)
             .RunWithNoDiagnosticsAsync();
     }
-} 
+}

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -26,7 +25,7 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         "Source property exists but no corresponding destination property found, which may result in data loss during mapping.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        ImmutableArray.Create(MissingDestinationPropertyRule);
+        [MissingDestinationPropertyRule];
 
     public override void Initialize(AnalysisContext context)
     {
@@ -156,24 +155,24 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
     private static IPropertySymbol[] GetMappableProperties(INamedTypeSymbol type)
     {
         var properties = new List<IPropertySymbol>();
-        
+
         // Get properties from the type and all its base types
-        var currentType = type;
+        INamedTypeSymbol? currentType = type;
         while (currentType != null && currentType.SpecialType != SpecialType.System_Object)
         {
-            var currentProperties = currentType.GetMembers()
+            IPropertySymbol[] currentProperties = currentType.GetMembers()
                 .OfType<IPropertySymbol>()
                 .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
                             p.CanBeReferencedByName &&
                             !p.IsStatic &&
-                            p.GetMethod != null &&  // Must be readable
-                            p.SetMethod != null)    // Must be writable (for destination) or readable (for source)
+                            p.GetMethod != null && // Must be readable
+                            p.SetMethod != null) // Must be writable (for destination) or readable (for source)
                 .ToArray();
-            
+
             properties.AddRange(currentProperties);
             currentType = currentType.BaseType;
         }
-        
+
         // Remove duplicates (in case of overridden properties)
         return properties
             .GroupBy(p => p.Name)
@@ -181,7 +180,8 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             .ToArray();
     }
 
-    private static bool IsSourcePropertyHandledByCustomMapping(InvocationExpressionSyntax createMapInvocation, string sourcePropertyName)
+    private static bool IsSourcePropertyHandledByCustomMapping(InvocationExpressionSyntax createMapInvocation,
+        string sourcePropertyName)
     {
         // Look for chained ForMember calls that might use this source property
         SyntaxNode? parent = createMapInvocation.Parent;
@@ -205,7 +205,8 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool ForMemberReferencesSourceProperty(InvocationExpressionSyntax forMemberInvocation, string sourcePropertyName)
+    private static bool ForMemberReferencesSourceProperty(InvocationExpressionSyntax forMemberInvocation,
+        string sourcePropertyName)
     {
         // Look for lambda expressions in ForMember arguments that reference the source property
         foreach (ArgumentSyntax arg in forMemberInvocation.ArgumentList.Arguments)
@@ -226,7 +227,8 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             .Any(memberAccess => memberAccess.Name.Identifier.ValueText == propertyName);
     }
 
-    private static bool IsSourcePropertyExplicitlyIgnored(InvocationExpressionSyntax createMapInvocation, string sourcePropertyName)
+    private static bool IsSourcePropertyExplicitlyIgnored(InvocationExpressionSyntax createMapInvocation,
+        string sourcePropertyName)
     {
         // Look for ForSourceMember calls with DoNotValidate
         SyntaxNode? parent = createMapInvocation.Parent;
@@ -254,12 +256,13 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsForSourceMemberOfProperty(InvocationExpressionSyntax forSourceMemberInvocation, string propertyName)
+    private static bool IsForSourceMemberOfProperty(InvocationExpressionSyntax forSourceMemberInvocation,
+        string propertyName)
     {
         // Check the first argument of ForSourceMember to see if it references the property
         if (forSourceMemberInvocation.ArgumentList.Arguments.Count > 0)
         {
-            var firstArg = forSourceMemberInvocation.ArgumentList.Arguments[0].Expression;
+            ExpressionSyntax firstArg = forSourceMemberInvocation.ArgumentList.Arguments[0].Expression;
             return ContainsPropertyReference(firstArg, propertyName);
         }
 
@@ -271,16 +274,16 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         // Look for DoNotValidate call in the second argument (options)
         if (forSourceMemberInvocation.ArgumentList.Arguments.Count > 1)
         {
-            var secondArg = forSourceMemberInvocation.ArgumentList.Arguments[1].Expression;
-            
+            ExpressionSyntax secondArg = forSourceMemberInvocation.ArgumentList.Arguments[1].Expression;
+
             // Look for lambda expressions that contain DoNotValidate calls
             return secondArg.DescendantNodes()
                 .OfType<InvocationExpressionSyntax>()
-                .Any(invocation => 
+                .Any(invocation =>
                     invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
                     memberAccess.Name.Identifier.ValueText == "DoNotValidate");
         }
 
         return false;
     }
-} 
+}

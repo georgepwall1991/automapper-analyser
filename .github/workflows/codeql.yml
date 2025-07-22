@@ -2,8 +2,6 @@ name: "CodeQL Security Analysis"
 
 on:
   push:
-    branches: [ "main", "develop" ]
-  pull_request:
     branches: [ "main" ]
   schedule:
     - cron: '30 2 * * 1'  # Weekly on Mondays at 2:30 AM UTC
@@ -47,3 +45,4 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}" 
+

@@ -39,7 +39,8 @@ public class AM011_UnmappedRequiredPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 22, 13, "RequiredField")
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 22, 13,
+                "RequiredField")
             .RunAsync();
     }
 
@@ -192,9 +193,12 @@ public class AM011_UnmappedRequiredPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 22, 13, "RequiredField1")
-            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 22, 13, "RequiredField2")
-            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 22, 13, "RequiredNumber")
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 22, 13,
+                "RequiredField1")
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 22, 13,
+                "RequiredField2")
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 22, 13,
+                "RequiredNumber")
             .RunAsync();
     }
 
@@ -241,8 +245,10 @@ public class AM011_UnmappedRequiredPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 31, 13, "BaseRequiredField")
-            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 31, 13, "DerivedRequiredField")
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 31, 13,
+                "BaseRequiredField")
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 31, 13,
+                "DerivedRequiredField")
             .RunAsync();
     }
 
@@ -280,7 +286,8 @@ public class AM011_UnmappedRequiredPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 21, 13, "RequiredField")
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 21, 13,
+                "RequiredField")
             .RunAsync();
     }
 
@@ -318,7 +325,8 @@ public class AM011_UnmappedRequiredPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 21, 13, "InstanceRequiredField")
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 21, 13,
+                "InstanceRequiredField")
             .RunAsync();
     }
 
@@ -358,7 +366,8 @@ public class AM011_UnmappedRequiredPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 22, 13, "UnmappedRequired")
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 22, 13,
+                "UnmappedRequired")
             .RunAsync();
     }
 
@@ -398,4 +407,4 @@ public class AM011_UnmappedRequiredPropertyTests
             .WithSource(testCode)
             .RunWithNoDiagnosticsAsync();
     }
-} 
+}

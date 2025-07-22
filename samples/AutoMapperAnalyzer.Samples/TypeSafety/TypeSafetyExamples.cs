@@ -16,7 +16,9 @@ public class TypeSafetyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ❌ AM001: Property 'Age' type mismatch: source is 'string' but destination is 'int'
+#pragma warning disable AM001
             cfg.CreateMap<PersonWithStringAge, PersonWithIntAge>();
+#pragma warning restore AM001
         });
 
         IMapper? mapper = config.CreateMapper();
@@ -43,7 +45,9 @@ public class TypeSafetyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ❌ AM002: Property 'Name' maps nullable source 'string?' to non-nullable destination 'string' without null handling
+#pragma warning disable AM002
             cfg.CreateMap<PersonWithNullableName, PersonWithRequiredName>();
+#pragma warning restore AM002
         });
 
         IMapper? mapper = config.CreateMapper();
@@ -70,7 +74,11 @@ public class TypeSafetyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ❌ AM003: Collection property 'Tags' has incompatible types: source 'List<string>' and destination 'HashSet<int>'
+#pragma warning disable AM003
+#pragma warning disable AM001
             cfg.CreateMap<ArticleWithStringTags, ArticleWithIntTags>();
+#pragma warning restore AM001
+#pragma warning restore AM003
         });
 
         IMapper? mapper = config.CreateMapper();
@@ -124,13 +132,13 @@ public class PersonWithRequiredName
 public class ArticleWithStringTags
 {
     public string Title { get; set; } = string.Empty;
-    public List<string> Tags { get; set; } = new(); // List of strings
+    public List<string> Tags { get; set; } = []; // List of strings
 }
 
 public class ArticleWithIntTags
 {
     public string Title { get; set; } = string.Empty;
-    public HashSet<int> Tags { get; set; } = new(); // HashSet of ints - incompatible!
+    public HashSet<int> Tags { get; set; } = []; // HashSet of ints - incompatible!
 }
 
 /// <summary>

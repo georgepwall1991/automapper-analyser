@@ -11,26 +11,26 @@ public class AM001_PropertyTypeMismatchTests
         const string
             testCode = """
 
-                                using AutoMapper;
+                       using AutoMapper;
 
-                                public class Source
-                                {
-                                    public string Age { get; set; }
-                                }
+                       public class Source
+                       {
+                           public string Age { get; set; }
+                       }
 
-                                public class Destination
-                                {
-                                    public int Age { get; set; }
-                                }
+                       public class Destination
+                       {
+                           public int Age { get; set; }
+                       }
 
-                                public class TestProfile : Profile
-                                {
-                                    public TestProfile()
-                                    {
-                                        CreateMap<Source, Destination>();
-                                    }
-                                }
-                                """;
+                       public class TestProfile : Profile
+                       {
+                           public TestProfile()
+                           {
+                               CreateMap<Source, Destination>();
+                           }
+                       }
+                       """;
 
         // Expect the analyzer to detect the string -> int type mismatch for Age property
         await DiagnosticTestFramework

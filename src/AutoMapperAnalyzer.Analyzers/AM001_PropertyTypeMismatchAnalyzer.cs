@@ -52,9 +52,9 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
     [
         PropertyTypeMismatchRule,
-            NullableCompatibilityRule,
-            GenericTypeMismatchRule,
-            ComplexTypeMappingMissingRule
+        NullableCompatibilityRule,
+        GenericTypeMismatchRule,
+        ComplexTypeMappingMissingRule
     ];
 
     public override void Initialize(AnalysisContext context)
@@ -95,19 +95,12 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         // Get the symbol info to check if this is really AutoMapper's CreateMap method
         SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
 
-        if (symbolInfo.Symbol is IMethodSymbol method)
-        {
+        if (symbolInfo.Symbol is IMethodSymbol { Name: "CreateMap", IsGenericMethod: true, TypeArguments.Length: 2, ContainingType: not null })
             // Check if it's a CreateMap method and it's a generic method
-            if (method.Name == "CreateMap" && method.IsGenericMethod && method.TypeArguments.Length == 2)
-            {
-                // Additional check: see if it's from AutoMapper (check containing type or namespace)
-                INamedTypeSymbol? containingType = method.ContainingType;
-                if (containingType != null)
-                {
-                    // Allow any CreateMap method for now, we'll refine this later if needed
-                    return true;
-                }
-            }
+            // Additional check: see if it's from AutoMapper (check containing type or namespace)
+        {
+            // Allow any CreateMap method for now, we'll refine this later if needed
+            return true;
         }
 
         // Fallback: check syntax if symbol resolution fails
@@ -129,7 +122,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         SemanticModel semanticModel)
     {
         SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is IMethodSymbol method && method.IsGenericMethod && method.TypeArguments.Length == 2)
+        if (symbolInfo.Symbol is IMethodSymbol { IsGenericMethod: true, TypeArguments.Length: 2 } method)
         {
             var sourceType = method.TypeArguments[0] as INamedTypeSymbol;
             var destinationType = method.TypeArguments[1] as INamedTypeSymbol;
@@ -181,8 +174,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         return type.GetMembers()
             .OfType<IPropertySymbol>()
             .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
-                        p.CanBeReferencedByName &&
-                        !p.IsStatic)
+                        p is { CanBeReferencedByName: true, IsStatic: false })
             .ToArray();
     }
 
@@ -191,8 +183,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         // Look for chained ForMember calls
         SyntaxNode? parent = createMapInvocation.Parent;
 
-        while (parent is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
+        while (parent is MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax chainedInvocation } memberAccess)
         {
             if (memberAccess.Name.Identifier.ValueText == "ForMember")
             {
@@ -313,8 +304,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
     private static bool IsNullableCompatibilityIssue(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
         // Check if source is nullable reference type and destination is non-nullable
-        return sourceType.CanBeReferencedByName &&
-               sourceType.NullableAnnotation == NullableAnnotation.Annotated &&
+        return sourceType is { CanBeReferencedByName: true, NullableAnnotation: NullableAnnotation.Annotated } &&
                destinationType.NullableAnnotation == NullableAnnotation.NotAnnotated;
     }
 
@@ -380,7 +370,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
             {
                 (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArgs =
                     GetCreateMapTypeArguments(invocation, context.SemanticModel);
-                if (typeArgs.sourceType != null && typeArgs.destinationType != null)
+                if (typeArgs is { sourceType: not null, destinationType: not null })
                 {
                     // Check if this CreateMap matches the types we're looking for
                     if (SymbolEqualityComparer.Default.Equals(typeArgs.sourceType, sourceType) &&
@@ -414,13 +404,13 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         string toTypeName = to.ToDisplayString();
 
         // Numeric conversions
-        (string, string)[] numericConversions = new[]
-        {
+        (string, string)[] numericConversions =
+        [
             ("byte", "short"), ("byte", "int"), ("byte", "long"), ("byte", "float"), ("byte", "double"),
             ("byte", "decimal"), ("short", "int"), ("short", "long"), ("short", "float"), ("short", "double"),
             ("short", "decimal"), ("int", "long"), ("int", "float"), ("int", "double"), ("int", "decimal"),
             ("long", "float"), ("long", "double"), ("long", "decimal"), ("float", "double")
-        };
+        ];
 
         return numericConversions.Any(conversion =>
             conversion.Item1 == fromTypeName && conversion.Item2 == toTypeName);
@@ -429,11 +419,11 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
     private static bool IsPrimitiveOrFrameworkType(ITypeSymbol type)
     {
         string typeName = type.ToDisplayString();
-        string[] primitiveAndFrameworkTypes = new[]
-        {
+        string[] primitiveAndFrameworkTypes =
+        [
             "string", "int", "long", "short", "byte", "bool", "char", "float", "double", "decimal",
             "System.DateTime", "System.DateTimeOffset", "System.TimeSpan", "System.Guid"
-        };
+        ];
 
         return primitiveAndFrameworkTypes.Contains(typeName);
     }

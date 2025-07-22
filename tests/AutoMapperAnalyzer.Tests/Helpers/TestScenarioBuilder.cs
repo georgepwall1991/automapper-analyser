@@ -7,11 +7,11 @@ namespace AutoMapperAnalyzer.Tests.Helpers;
 /// </summary>
 public class TestScenarioBuilder
 {
-    private readonly List<string> _classes = new();
-    private readonly List<string> _mappingCalls = new();
-    private readonly List<string> _profiles = new();
+    private readonly List<string> _classes = [];
+    private readonly List<string> _mappingCalls = [];
+    private readonly List<string> _profiles = [];
     private readonly StringBuilder _sourceBuilder = new();
-    private readonly List<string> _usings = new();
+    private readonly List<string> _usings = [];
 
     public TestScenarioBuilder()
     {

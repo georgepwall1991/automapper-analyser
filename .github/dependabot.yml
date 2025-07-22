@@ -18,7 +18,6 @@ updates:
     labels:
       - "dependencies"
       - "automated"
-
   # GitHub Actions dependencies
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -36,4 +35,4 @@ updates:
       include: "scope"
     labels:
       - "github-actions"
-      - "automated" 
+      - "automated"

@@ -40,9 +40,12 @@ public class AM005_CaseSensitivityMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM005_CaseSensitivityMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "firstName", "FirstName")
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "lastName", "LastName")
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "userName", "UserName")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "firstName",
+                "FirstName")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "lastName",
+                "LastName")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "userName",
+                "UserName")
             .RunAsync();
     }
 
@@ -157,7 +160,8 @@ public class AM005_CaseSensitivityMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM005_CaseSensitivityMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "lastName", "LastName")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "lastName",
+                "LastName")
             .RunAsync();
     }
 
@@ -198,10 +202,14 @@ public class AM005_CaseSensitivityMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM005_CaseSensitivityMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "userID", "UserID")
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "eMail", "Email")
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "phoneNumber", "PhoneNumber")
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "HTTPStatus", "HttpStatus")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "userID",
+                "UserID")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "eMail",
+                "Email")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "phoneNumber",
+                "PhoneNumber")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "HTTPStatus",
+                "HttpStatus")
             .RunAsync();
     }
 
@@ -246,8 +254,10 @@ public class AM005_CaseSensitivityMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM005_CaseSensitivityMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 29, 13, "baseName", "BaseName")
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 29, 13, "firstName", "FirstName")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 29, 13, "baseName",
+                "BaseName")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 29, 13, "firstName",
+                "FirstName")
             .RunAsync();
     }
 
@@ -285,7 +295,8 @@ public class AM005_CaseSensitivityMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM005_CaseSensitivityMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName", "FirstName")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName",
+                "FirstName")
             .RunAsync();
     }
 
@@ -323,7 +334,8 @@ public class AM005_CaseSensitivityMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM005_CaseSensitivityMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName", "FirstName")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName",
+                "FirstName")
             .RunAsync();
     }
 
@@ -364,10 +376,14 @@ public class AM005_CaseSensitivityMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM005_CaseSensitivityMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "XMLHttpRequest", "XmlHttpRequest")
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "URLPath", "UrlPath")
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "iDCard", "IdCard")
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "aCRONYM", "Acronym")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13,
+                "XMLHttpRequest", "XmlHttpRequest")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "URLPath",
+                "UrlPath")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "iDCard",
+                "IdCard")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "aCRONYM",
+                "Acronym")
             .RunAsync();
     }
 
@@ -406,7 +422,8 @@ public class AM005_CaseSensitivityMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM005_CaseSensitivityMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName", "FirstName")
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName",
+                "FirstName")
             .RunAsync();
     }
-} 
+}
