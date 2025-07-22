@@ -34,6 +34,10 @@ This analyzer currently implements the following diagnostic rules to help you ca
 
 - **AM020: Nested Object Mapping Issues**: Detects when nested complex objects are used without a corresponding
   `CreateMap` call for them.
+- **AM021: Collection Element Type Mismatch**: Identifies mismatched element types in collection mappings that require
+  explicit conversion or CreateMap configuration.
+- **AM022: Infinite Recursion Risk**: Detects potential infinite recursion scenarios in self-referencing or circular
+  object mappings and suggests MaxDepth or Ignore configurations.
 
 ### 🔜 Future Rules
 
@@ -187,14 +191,15 @@ public void ConfigureMapping() { }
 
 | Rule ID | Description                     | Analyzer Status | Code Fix Status |
 |---------|---------------------------------|-----------------|-----------------|
-| AM001   | Property Type Mismatch          | ✅ Implemented   | 🚧 Planned      |
-| AM002   | Nullable to Non-nullable        | ✅ Implemented   | 🚧 Planned      |
-| AM003   | Collection Type Incompatibility | ✅ Implemented   | 🚧 Planned      |
-| AM010   | Missing Destination Property    | ✅ Implemented   | 🚧 Planned      |
-| AM011   | Unmapped Required Property      | ✅ Implemented   | 🚧 Planned      |
-| AM012   | Case Sensitivity Mismatch       | ✅ Implemented   | 🚧 Planned      |
-| AM020   | Nested Object Mapping Issues    | ✅ Implemented   | 🚧 Planned      |
-| AM021+  | Other Complex/Collection Rules  | 🚧 Planned      | 🚧 Planned      |
+| AM001   | Property Type Mismatch          | ✅ Implemented   | ✅ Implemented  |
+| AM002   | Nullable to Non-nullable        | ✅ Implemented   | ✅ Implemented  |
+| AM003   | Collection Type Incompatibility | ✅ Implemented   | ✅ Implemented  |
+| AM004   | Missing Destination Property    | ✅ Implemented   | ✅ Implemented  |
+| AM005   | Case Sensitivity Mismatch       | ✅ Implemented   | ✅ Implemented  |
+| AM011   | Unmapped Required Property      | ✅ Implemented   | ✅ Implemented  |
+| AM020   | Nested Object Mapping Issues    | ✅ Implemented   | ✅ Implemented  |
+| AM021   | Collection Element Mismatch     | ✅ Implemented   | ✅ Implemented  |
+| AM022   | Infinite Recursion Risk         | ✅ Implemented   | ✅ Implemented  |
 | AM030+  | Custom Conversion Rules         | 🚧 Planned      | 🚧 Planned      |
 | AM040+  | Configuration Rules             | 🚧 Planned      | 🚧 Planned      |
 | AM050+  | Performance Rules               | 🚧 Planned      | 🚧 Planned      |
@@ -278,8 +283,7 @@ The following is a high-level view of planned features:
 
 #### 🚀 Immediate Priorities
 
-- **Code Fixes**: Implement code fix providers for existing analyzers (e.g., suggesting explicit conversions for
-  `AM001`).
+- **✅ Code Fixes**: All existing analyzers now have comprehensive code fix providers with multiple fix strategies.
 - **Enhanced Diagnostics**: Improve diagnostic messages with more context and actionable suggestions.
 - **EditorConfig Integration**: Ensure all analyzer severities can be customized via `.editorconfig`.
 
