@@ -128,9 +128,17 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
             }
 
             // Report diagnostic for case sensitivity mismatch
+            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            properties.Add("SourcePropertyName", sourceProperty.Name);
+            properties.Add("DestinationPropertyName", caseInsensitiveMatch.Name);
+            properties.Add("PropertyType", sourceProperty.Type.ToDisplayString());
+            properties.Add("SourceTypeName", sourceType.Name);
+            properties.Add("DestinationTypeName", destinationType.Name);
+
             var diagnostic = Diagnostic.Create(
                 CaseSensitivityMismatchRule,
                 invocation.GetLocation(),
+                properties.ToImmutable(),
                 sourceProperty.Name,
                 caseInsensitiveMatch.Name);
 
