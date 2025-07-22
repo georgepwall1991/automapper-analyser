@@ -21,32 +21,28 @@ jobs:
         language: [ 'csharp' ]
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        queries: security-extended,security-and-quality
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: ${{ matrix.language }}
+    - name: Restore dependencies
+      run: dotnet restore automapper-analyser.sln
 
-      - name: Restore dependencies
-        run: dotnet restore automapper-analyser.sln
+    - name: Build solution
+      run: dotnet build automapper-analyser.sln --no-restore --configuration Release
 
-      - name: Build solution
-        run: dotnet build automapper-analyser.sln --no-restore --configuration Release
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}" 
 
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3

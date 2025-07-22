@@ -116,6 +116,14 @@ jobs:
           pwsh test-compatibility.ps1 -SkipBuild
         shell: pwsh
 
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  code-quality:
+    name: Code Quality Analysis
   package:
     name: Package Analyzer
     needs: [build, compatibility-test]
