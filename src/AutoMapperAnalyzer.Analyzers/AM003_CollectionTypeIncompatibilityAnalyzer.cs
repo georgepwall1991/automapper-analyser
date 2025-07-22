@@ -202,9 +202,19 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         // Check if collection types are fundamentally incompatible
         if (AreCollectionTypesIncompatible(sourceProperty.Type, destinationProperty.Type))
         {
+            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            properties.Add("PropertyName", sourceProperty.Name);
+            properties.Add("SourceType", sourceTypeName);
+            properties.Add("DestType", destTypeName);
+            properties.Add("SourceTypeName", sourceType.Name);
+            properties.Add("DestTypeName", destinationType.Name);
+            properties.Add("SourceElementType", sourceElementType.ToDisplayString());
+            properties.Add("DestElementType", destElementType.ToDisplayString());
+
             var diagnostic = Diagnostic.Create(
                 CollectionTypeIncompatibilityRule,
                 invocation.GetLocation(),
+                properties.ToImmutable(),
                 sourceProperty.Name,
                 sourceType.Name,
                 sourceTypeName,
@@ -216,9 +226,19 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         // Check if element types are incompatible
         else if (!AreElementTypesCompatible(sourceElementType, destElementType))
         {
+            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            properties.Add("PropertyName", sourceProperty.Name);
+            properties.Add("SourceType", sourceTypeName);
+            properties.Add("DestType", destTypeName);
+            properties.Add("SourceTypeName", sourceType.Name);
+            properties.Add("DestTypeName", destinationType.Name);
+            properties.Add("SourceElementType", sourceElementType.ToDisplayString());
+            properties.Add("DestElementType", destElementType.ToDisplayString());
+
             var diagnostic = Diagnostic.Create(
                 CollectionElementIncompatibilityRule,
                 invocation.GetLocation(),
+                properties.ToImmutable(),
                 sourceProperty.Name,
                 sourceType.Name,
                 sourceElementType.ToDisplayString(),
