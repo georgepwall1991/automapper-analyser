@@ -23,7 +23,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Recursion",
         DiagnosticSeverity.Warning,
         true,
-        "Circular object references can cause infinite recursion during mapping. Consider using MaxDepth() or ignoring circular properties.");
+        "Circular object references can cause infinite recursion during mapping. Consider using MaxDepth() or ignoring circular properties."
+    );
 
     /// <summary>
     ///     AM022: Self-referencing type detected
@@ -35,7 +36,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Recursion",
         DiagnosticSeverity.Warning,
         true,
-        "Self-referencing types can cause infinite recursion during mapping. Consider using MaxDepth() or ignoring self-referencing properties.");
+        "Self-referencing types can cause infinite recursion during mapping. Consider using MaxDepth() or ignoring self-referencing properties."
+    );
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(InfiniteRecursionRiskRule, SelfReferencingTypeRule);
@@ -62,14 +64,29 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return;
 
         // Check if MaxDepth is configured or circular properties are ignored
-        if (HasMaxDepthConfiguration(invocationExpr) || HasCircularPropertyIgnored(invocationExpr, typeArguments.sourceType, typeArguments.destinationType))
+        if (
+            HasMaxDepthConfiguration(invocationExpr)
+            || HasCircularPropertyIgnored(
+                invocationExpr,
+                typeArguments.sourceType,
+                typeArguments.destinationType
+            )
+        )
             return;
 
         // Analyze for infinite recursion risks
-        AnalyzeRecursionRisk(context, invocationExpr, typeArguments.sourceType, typeArguments.destinationType);
+        AnalyzeRecursionRisk(
+            context,
+            invocationExpr,
+            typeArguments.sourceType,
+            typeArguments.destinationType
+        );
     }
 
-    private static bool IsCreateMapInvocation(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static bool IsCreateMapInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel
+    )
     {
         // Get the symbol info to check if this is really AutoMapper's CreateMap method
         SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
@@ -77,7 +94,11 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         if (symbolInfo.Symbol is IMethodSymbol method)
         {
             // Check if method name is CreateMap and it's generic with 2 type parameters
-            if (method.Name == "CreateMap" && method.IsGenericMethod && method.TypeArguments.Length == 2)
+            if (
+                method.Name == "CreateMap"
+                && method.IsGenericMethod
+                && method.TypeArguments.Length == 2
+            )
             {
                 // Additional check: see if it's from AutoMapper (check containing type or namespace)
                 INamedTypeSymbol? containingType = method.ContainingType;
@@ -85,9 +106,9 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                 {
                     // Check if the containing type is likely from AutoMapper
                     string? namespaceName = containingType.ContainingNamespace?.ToDisplayString();
-                    return namespaceName == "AutoMapper" || 
-                           containingType.Name.Contains("Profile") || 
-                           containingType.BaseType?.Name == "Profile";
+                    return namespaceName == "AutoMapper"
+                        || containingType.Name.Contains("Profile")
+                        || containingType.BaseType?.Name == "Profile";
                 }
             }
         }
@@ -95,14 +116,22 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) GetCreateMapTypeArguments(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
+    private static (
+        INamedTypeSymbol? sourceType,
+        INamedTypeSymbol? destinationType
+    ) GetCreateMapTypeArguments(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
         SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is IMethodSymbol method && method.IsGenericMethod && method.TypeArguments.Length == 2)
+        if (
+            symbolInfo.Symbol is IMethodSymbol method
+            && method.IsGenericMethod
+            && method.TypeArguments.Length == 2
+        )
         {
-            return (method.TypeArguments[0] as INamedTypeSymbol, method.TypeArguments[1] as INamedTypeSymbol);
+            return (
+                method.TypeArguments[0] as INamedTypeSymbol,
+                method.TypeArguments[1] as INamedTypeSymbol
+            );
         }
 
         return (null, null);
@@ -114,9 +143,11 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         var parent = invocation.Parent;
         while (parent != null)
         {
-            if (parent is InvocationExpressionSyntax chainedCall &&
-                chainedCall.Expression is MemberAccessExpressionSyntax memberAccess &&
-                memberAccess.Name.Identifier.ValueText == "MaxDepth")
+            if (
+                parent is InvocationExpressionSyntax chainedCall
+                && chainedCall.Expression is MemberAccessExpressionSyntax memberAccess
+                && memberAccess.Name.Identifier.ValueText == "MaxDepth"
+            )
             {
                 return true;
             }
@@ -126,8 +157,11 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool HasCircularPropertyIgnored(InvocationExpressionSyntax invocation, 
-        INamedTypeSymbol sourceType, INamedTypeSymbol destinationType)
+    private static bool HasCircularPropertyIgnored(
+        InvocationExpressionSyntax invocation,
+        INamedTypeSymbol sourceType,
+        INamedTypeSymbol destinationType
+    )
     {
         var circularProperties = FindCircularProperties(sourceType, destinationType);
         var ignoredProperties = GetIgnoredProperties(invocation);
@@ -139,14 +173,16 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
     private static HashSet<string> GetIgnoredProperties(InvocationExpressionSyntax invocation)
     {
         var ignoredProperties = new HashSet<string>();
-        
+
         // Look for chained ForMember calls with Ignore()
         var parent = invocation.Parent;
         while (parent != null)
         {
-            if (parent is InvocationExpressionSyntax chainedCall &&
-                chainedCall.Expression is MemberAccessExpressionSyntax memberAccess &&
-                memberAccess.Name.Identifier.ValueText == "ForMember")
+            if (
+                parent is InvocationExpressionSyntax chainedCall
+                && chainedCall.Expression is MemberAccessExpressionSyntax memberAccess
+                && memberAccess.Name.Identifier.ValueText == "ForMember"
+            )
             {
                 // Check if this ForMember call has Ignore()
                 if (HasIgnoreConfiguration(chainedCall))
@@ -175,14 +211,18 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static string? ExtractPropertyNameFromForMember(InvocationExpressionSyntax forMemberCall)
+    private static string? ExtractPropertyNameFromForMember(
+        InvocationExpressionSyntax forMemberCall
+    )
     {
         if (forMemberCall.ArgumentList.Arguments.Count == 0)
             return null;
 
         var firstArg = forMemberCall.ArgumentList.Arguments[0];
-        if (firstArg.Expression is SimpleLambdaExpressionSyntax lambda &&
-            lambda.Body is MemberAccessExpressionSyntax memberAccess)
+        if (
+            firstArg.Expression is SimpleLambdaExpressionSyntax lambda
+            && lambda.Body is MemberAccessExpressionSyntax memberAccess
+        )
         {
             return memberAccess.Name.Identifier.ValueText;
         }
@@ -190,8 +230,12 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    private static void AnalyzeRecursionRisk(SyntaxNodeAnalysisContext context,
-        InvocationExpressionSyntax invocation, INamedTypeSymbol sourceType, INamedTypeSymbol destinationType)
+    private static void AnalyzeRecursionRisk(
+        SyntaxNodeAnalysisContext context,
+        InvocationExpressionSyntax invocation,
+        INamedTypeSymbol sourceType,
+        INamedTypeSymbol destinationType
+    )
     {
         // Check for self-referencing types
         if (IsSelfReferencing(sourceType) || IsSelfReferencing(destinationType))
@@ -200,8 +244,9 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                 SelfReferencingTypeRule,
                 invocation.GetLocation(),
                 sourceType.Name,
-                destinationType.Name);
-            
+                destinationType.Name
+            );
+
             context.ReportDiagnostic(diagnostic);
             return;
         }
@@ -213,8 +258,9 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                 InfiniteRecursionRiskRule,
                 invocation.GetLocation(),
                 sourceType.Name,
-                destinationType.Name);
-            
+                destinationType.Name
+            );
+
             context.ReportDiagnostic(diagnostic);
         }
     }
@@ -222,7 +268,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
     private static bool IsSelfReferencing(INamedTypeSymbol type)
     {
         var properties = GetAccessibleProperties(type);
-        
+
         foreach (var property in properties)
         {
             // Check direct self-reference
@@ -238,14 +284,22 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool HasCircularReference(INamedTypeSymbol sourceType, INamedTypeSymbol destinationType)
+    private static bool HasCircularReference(
+        INamedTypeSymbol sourceType,
+        INamedTypeSymbol destinationType
+    )
     {
         var visited = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
         return HasCircularReferenceRecursive(sourceType, destinationType, visited, 0, maxDepth: 10);
     }
 
-    private static bool HasCircularReferenceRecursive(INamedTypeSymbol currentSourceType, 
-        INamedTypeSymbol targetDestType, HashSet<INamedTypeSymbol> visited, int depth, int maxDepth)
+    private static bool HasCircularReferenceRecursive(
+        INamedTypeSymbol currentSourceType,
+        INamedTypeSymbol targetDestType,
+        HashSet<INamedTypeSymbol> visited,
+        int depth,
+        int maxDepth
+    )
     {
         // Prevent stack overflow by limiting recursion depth
         if (depth > maxDepth)
@@ -258,11 +312,11 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         visited.Add(currentSourceType);
 
         var properties = GetAccessibleProperties(currentSourceType);
-        
+
         foreach (var property in properties)
         {
             var propertyType = property.Type;
-            
+
             // Skip value types and system types
             if (IsSimpleType(propertyType))
                 continue;
@@ -279,7 +333,15 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                     return true;
 
                 // Recursively check this property's type
-                if (HasCircularReferenceRecursive(namedPropertyType, targetDestType, new HashSet<INamedTypeSymbol>(visited), depth + 1, maxDepth))
+                if (
+                    HasCircularReferenceRecursive(
+                        namedPropertyType,
+                        targetDestType,
+                        new HashSet<INamedTypeSymbol>(visited),
+                        depth + 1,
+                        maxDepth
+                    )
+                )
                     return true;
             }
         }
@@ -288,7 +350,10 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static HashSet<string> FindCircularProperties(INamedTypeSymbol sourceType, INamedTypeSymbol destinationType)
+    private static HashSet<string> FindCircularProperties(
+        INamedTypeSymbol sourceType,
+        INamedTypeSymbol destinationType
+    )
     {
         var circularProperties = new HashSet<string>();
         var sourceProperties = GetAccessibleProperties(sourceType);
@@ -304,7 +369,10 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
 
             // Check collection element types
             var elementType = GetCollectionElementType(property.Type);
-            if (elementType != null && SymbolEqualityComparer.Default.Equals(elementType, destinationType))
+            if (
+                elementType != null
+                && SymbolEqualityComparer.Default.Equals(elementType, destinationType)
+            )
             {
                 circularProperties.Add(property.Name);
             }
@@ -321,12 +389,15 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         // Walk up the inheritance chain to get all properties including inherited ones
         while (currentType != null && currentType.SpecialType != SpecialType.System_Object)
         {
-            var typeProperties = currentType.GetMembers()
+            var typeProperties = currentType
+                .GetMembers()
                 .OfType<IPropertySymbol>()
-                .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
-                           !p.IsStatic &&
-                           !p.IsIndexer &&
-                           p.GetMethod != null);
+                .Where(p =>
+                    p.DeclaredAccessibility == Accessibility.Public
+                    && !p.IsStatic
+                    && !p.IsIndexer
+                    && p.GetMethod != null
+                );
 
             properties.AddRange(typeProperties);
             currentType = currentType.BaseType;
@@ -346,8 +417,10 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         {
             // Check if it implements IEnumerable<T>
             var enumerableInterface = namedType.AllInterfaces.FirstOrDefault(i =>
-                i.IsGenericType &&
-                i.ConstructedFrom.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T);
+                i.IsGenericType
+                && i.ConstructedFrom.SpecialType
+                    == SpecialType.System_Collections_Generic_IEnumerable_T
+            );
 
             if (enumerableInterface != null)
                 return enumerableInterface.TypeArguments[0];
@@ -362,30 +435,30 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
 
     private static bool IsSimpleType(ITypeSymbol type)
     {
-        return type.SpecialType != SpecialType.None ||
-               type.TypeKind == TypeKind.Enum ||
-               IsNumericType(type) ||
-               type.Name == "String" ||
-               type.Name == "DateTime" ||
-               type.Name == "Guid";
+        return type.SpecialType != SpecialType.None
+            || type.TypeKind == TypeKind.Enum
+            || IsNumericType(type)
+            || type.Name == "String"
+            || type.Name == "DateTime"
+            || type.Name == "Guid";
     }
 
     private static bool IsNumericType(ITypeSymbol type)
     {
         return type.SpecialType switch
         {
-            SpecialType.System_Byte or
-            SpecialType.System_SByte or
-            SpecialType.System_Int16 or
-            SpecialType.System_UInt16 or
-            SpecialType.System_Int32 or
-            SpecialType.System_UInt32 or
-            SpecialType.System_Int64 or
-            SpecialType.System_UInt64 or
-            SpecialType.System_Single or
-            SpecialType.System_Double or
-            SpecialType.System_Decimal => true,
-            _ => false
+            SpecialType.System_Byte
+            or SpecialType.System_SByte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64
+            or SpecialType.System_Single
+            or SpecialType.System_Double
+            or SpecialType.System_Decimal => true,
+            _ => false,
         };
     }
 }

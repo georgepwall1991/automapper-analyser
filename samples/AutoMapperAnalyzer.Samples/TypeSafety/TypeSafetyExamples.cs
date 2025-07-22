@@ -77,13 +77,16 @@ public class TypeSafetyExamples
 
         var source = new ArticleWithStringTags
         {
-            Title = "Sample Article", Tags = new List<string> { "tech", "programming", "csharp" }
+            Title = "Sample Article",
+            Tags = new List<string> { "tech", "programming", "csharp" },
         };
 
         try
         {
             ArticleWithIntTags? destination = mapper.Map<ArticleWithIntTags>(source);
-            Console.WriteLine($"Mapped: {destination.Title}, Tags: [{string.Join(", ", destination.Tags)}]");
+            Console.WriteLine(
+                $"Mapped: {destination.Title}, Tags: [{string.Join(", ", destination.Tags)}]"
+            );
         }
         catch (Exception ex)
         {
@@ -141,8 +144,13 @@ public class CorrectTypeSafetyExamples
         {
             // ✅ Correct: Explicit type conversion
             cfg.CreateMap<PersonWithStringAge, PersonWithIntAge>()
-                .ForMember(dest => dest.Age, opt => opt.MapFrom(src =>
-                    string.IsNullOrEmpty(src.Age) ? 0 : Convert.ToInt32(src.Age)));
+                .ForMember(
+                    dest => dest.Age,
+                    opt =>
+                        opt.MapFrom(src =>
+                            string.IsNullOrEmpty(src.Age) ? 0 : Convert.ToInt32(src.Age)
+                        )
+                );
         });
 
         IMapper? mapper = config.CreateMapper();
