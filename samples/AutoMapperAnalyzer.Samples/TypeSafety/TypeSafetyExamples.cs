@@ -16,7 +16,9 @@ public class TypeSafetyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ❌ AM001: Property 'Age' type mismatch: source is 'string' but destination is 'int'
+#pragma warning disable AM001
             cfg.CreateMap<PersonWithStringAge, PersonWithIntAge>();
+#pragma warning restore AM001
         });
 
         IMapper? mapper = config.CreateMapper();
@@ -42,7 +44,9 @@ public class TypeSafetyExamples
     {
         var config = new MapperConfiguration(cfg =>
         {
+#pragma warning disable AM002
             cfg.CreateMap<PersonWithNullableName, PersonWithRequiredName>();
+#pragma warning restore AM002
         });
 
         IMapper? mapper = config.CreateMapper();

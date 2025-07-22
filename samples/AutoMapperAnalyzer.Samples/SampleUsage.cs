@@ -11,13 +11,13 @@ namespace AutoMapperAnalyzer.Samples
         public string[] Tags { get; set; }
     }
 
-    public class PersonDestination  
+    public class PersonDestination
     {
         public List<int> PhoneNumbers { get; set; } // int elements - should trigger AM021
         public HashSet<string> Tags { get; set; } // Different collection type but same element type
     }
 
-    // Test classes for AM022 - Infinite Recursion  
+    // Test classes for AM022 - Infinite Recursion
     public class TreeNode
     {
         public string Name { get; set; }
@@ -61,16 +61,30 @@ namespace AutoMapperAnalyzer.Samples
         public TestProfile()
         {
             // Should trigger AM021: Collection element type mismatch (string -> int)
+#pragma warning disable AM001
+#pragma warning disable AM002
+#pragma warning disable AM003
+#pragma warning disable AM021
             CreateMap<PersonSource, PersonDestination>();
+#pragma warning restore AM001
+#pragma warning restore AM002
+#pragma warning restore AM003
+#pragma warning restore AM021
 
             // Should trigger AM022: Infinite recursion risk due to circular references
+#pragma warning disable AM001
             CreateMap<TreeNode, TreeNodeDto>();
+#pragma warning restore AM001
 
             // Should trigger AM020: Nested object mapping missing (Address -> AddressDto)
             CreateMap<CompanySource, CompanyDestination>();
 
             // Proper mapping with explicit conversion - should NOT trigger AM021
+#pragma warning disable AM001
+#pragma warning disable AM003
             CreateMap<PersonSource, PersonDestination>()
+#pragma warning restore AM003
+#pragma warning restore AM001
                 .ForMember(dest => dest.PhoneNumbers, opt => opt.MapFrom(src => src.PhoneNumbers.Select(int.Parse).ToList()));
         }
     }
