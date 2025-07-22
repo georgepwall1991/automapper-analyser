@@ -35,11 +35,21 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore ${{ env.SOLUTION_FILE }}
 
-      - name: Build solution
-        run: dotnet build ${{ env.SOLUTION_FILE }} --no-restore --configuration Release
+      - name: Build solution (excluding samples)
+        run: |
+          # Build main projects but exclude samples to avoid analyzer errors failing the build
+          dotnet build src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-restore --configuration Release
+          dotnet build src/AutoMapperAnalyzer.CodeFixes/AutoMapperAnalyzer.CodeFixes.csproj --no-restore --configuration Release
+          dotnet build tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --configuration Release
 
       - name: Run unit tests
         run: dotnet test ${{ env.SOLUTION_FILE }} --no-build --configuration Release --verbosity normal
+
+      - name: Build samples (expect analyzer errors)
+        run: |
+          echo "Building samples project which intentionally contains analyzer errors for demonstration..."
+          dotnet build samples/AutoMapperAnalyzer.Samples/AutoMapperAnalyzer.Samples.csproj --configuration Release --verbosity minimal || true
+          echo "Sample build completed (analyzer errors are expected and desired for demonstration purposes)"
 
   compatibility-test:
     name: Multi-Framework Compatibility Test
@@ -54,7 +64,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
-            3.1.x
+            6.0.x
             9.0.x
 
       - name: Cache NuGet packages
@@ -72,42 +82,72 @@ jobs:
         run: |
           cd test-install/NetFrameworkTest
           dotnet restore
+          # Build and capture output, don't fail on analyzer errors
           $output = dotnet build --no-restore --verbosity minimal 2>&1
+          $buildSuccess = $LASTEXITCODE -eq 0
           $hasAM001 = $output -match "AM001"
           $hasAM004 = $output -match "AM004"
-          if (-not ($hasAM001 -or $hasAM004)) {
-            Write-Host "❌ Analyzer not working with .NET Framework 4.8" -ForegroundColor Red
+          $analyzerWorking = $hasAM001 -or $hasAM004
+          
+          Write-Host "Build Output:" -ForegroundColor Yellow
+          Write-Host $output
+          
+          if ($analyzerWorking) {
+            Write-Host "✅ .NET Framework 4.8 analyzer compatibility verified" -ForegroundColor Green
+            Write-Host "  - AM001 detected: $hasAM001" -ForegroundColor Cyan
+            Write-Host "  - AM004 detected: $hasAM004" -ForegroundColor Cyan
+          } else {
+            Write-Host "❌ Analyzer not detecting expected issues in .NET Framework 4.8" -ForegroundColor Red
             exit 1
           }
-          Write-Host "✅ .NET Framework 4.8 compatibility verified" -ForegroundColor Green
         shell: pwsh
 
-      - name: Test .NET Core 3.1 compatibility
+      - name: Test .NET 6.0 compatibility
         run: |
           cd test-install/NetCoreTest
           dotnet restore
+          # Build and capture output, don't fail on analyzer errors
           $output = dotnet build --no-restore --verbosity minimal 2>&1
+          $buildSuccess = $LASTEXITCODE -eq 0
           $hasAM001 = $output -match "AM001"
           $hasAM004 = $output -match "AM004"
-          if (-not ($hasAM001 -or $hasAM004)) {
-            Write-Host "❌ Analyzer not working with .NET Core 3.1" -ForegroundColor Red
+          $analyzerWorking = $hasAM001 -or $hasAM004
+          
+          Write-Host "Build Output:" -ForegroundColor Yellow
+          Write-Host $output
+          
+          if ($analyzerWorking) {
+            Write-Host "✅ .NET 6.0 analyzer compatibility verified" -ForegroundColor Green
+            Write-Host "  - AM001 detected: $hasAM001" -ForegroundColor Cyan
+            Write-Host "  - AM004 detected: $hasAM004" -ForegroundColor Cyan
+          } else {
+            Write-Host "❌ Analyzer not detecting expected issues in .NET 6.0" -ForegroundColor Red
             exit 1
           }
-          Write-Host "✅ .NET Core 3.1 compatibility verified" -ForegroundColor Green
         shell: pwsh
 
       - name: Test .NET 9.0 compatibility
         run: |
           cd test-install/TestPackage
           dotnet restore
+          # Build and capture output, don't fail on analyzer errors
           $output = dotnet build --no-restore --verbosity minimal 2>&1
+          $buildSuccess = $LASTEXITCODE -eq 0
           $hasAM001 = $output -match "AM001"
           $hasAM004 = $output -match "AM004"
-          if (-not ($hasAM001 -or $hasAM004)) {
-            Write-Host "❌ Analyzer not working with .NET 9.0" -ForegroundColor Red
+          $analyzerWorking = $hasAM001 -or $hasAM004
+          
+          Write-Host "Build Output:" -ForegroundColor Yellow
+          Write-Host $output
+          
+          if ($analyzerWorking) {
+            Write-Host "✅ .NET 9.0 analyzer compatibility verified" -ForegroundColor Green
+            Write-Host "  - AM001 detected: $hasAM001" -ForegroundColor Cyan
+            Write-Host "  - AM004 detected: $hasAM004" -ForegroundColor Cyan
+          } else {
+            Write-Host "❌ Analyzer not detecting expected issues in .NET 9.0" -ForegroundColor Red
             exit 1
           }
-          Write-Host "✅ .NET 9.0 compatibility verified" -ForegroundColor Green
         shell: pwsh
 
       - name: Run comprehensive compatibility test
@@ -116,14 +156,6 @@ jobs:
           pwsh test-compatibility.ps1 -SkipBuild
         shell: pwsh
 
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
-
-  code-quality:
-    name: Code Quality Analysis
   package:
     name: Package Analyzer
     needs: [build, compatibility-test]
@@ -142,8 +174,11 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore ${{ env.SOLUTION_FILE }}
 
-      - name: Build solution
-        run: dotnet build ${{ env.SOLUTION_FILE }} --no-restore --configuration Release
+      - name: Build solution (excluding samples)
+        run: |
+          # Build main projects but exclude samples to avoid analyzer errors failing the build
+          dotnet build src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-restore --configuration Release
+          dotnet build src/AutoMapperAnalyzer.CodeFixes/AutoMapperAnalyzer.CodeFixes.csproj --no-restore --configuration Release
 
       - name: Pack analyzer
         run: dotnet pack src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-build --configuration Release --output ./packages
