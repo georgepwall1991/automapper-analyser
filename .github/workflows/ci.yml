@@ -82,9 +82,9 @@ jobs:
         run: |
           cd test-install/NetFrameworkTest
           dotnet restore
-          # Build and capture output, don't fail on analyzer errors
-          $output = dotnet build --no-restore --verbosity minimal 2>&1
-          $buildSuccess = $LASTEXITCODE -eq 0
+          # Build and capture output, expect build failure due to analyzer errors
+          $output = dotnet build --no-restore --verbosity normal 2>&1
+          $buildFailed = $LASTEXITCODE -ne 0
           $hasAM001 = $output -match "AM001"
           $hasAM004 = $output -match "AM004"
           $analyzerWorking = $hasAM001 -or $hasAM004
@@ -96,6 +96,7 @@ jobs:
             Write-Host "✅ .NET Framework 4.8 analyzer compatibility verified" -ForegroundColor Green
             Write-Host "  - AM001 detected: $hasAM001" -ForegroundColor Cyan
             Write-Host "  - AM004 detected: $hasAM004" -ForegroundColor Cyan
+            Write-Host "  - Build failed as expected due to AM001 error: $buildFailed" -ForegroundColor Cyan
           } else {
             Write-Host "❌ Analyzer not detecting expected issues in .NET Framework 4.8" -ForegroundColor Red
             exit 1
@@ -106,9 +107,9 @@ jobs:
         run: |
           cd test-install/NetCoreTest
           dotnet restore
-          # Build and capture output, don't fail on analyzer errors
-          $output = dotnet build --no-restore --verbosity minimal 2>&1
-          $buildSuccess = $LASTEXITCODE -eq 0
+          # Build and capture output, expect build failure due to analyzer errors
+          $output = dotnet build --no-restore --verbosity normal 2>&1
+          $buildFailed = $LASTEXITCODE -ne 0
           $hasAM001 = $output -match "AM001"
           $hasAM004 = $output -match "AM004"
           $analyzerWorking = $hasAM001 -or $hasAM004
@@ -120,6 +121,7 @@ jobs:
             Write-Host "✅ .NET 6.0 analyzer compatibility verified" -ForegroundColor Green
             Write-Host "  - AM001 detected: $hasAM001" -ForegroundColor Cyan
             Write-Host "  - AM004 detected: $hasAM004" -ForegroundColor Cyan
+            Write-Host "  - Build failed as expected due to AM001 error: $buildFailed" -ForegroundColor Cyan
           } else {
             Write-Host "❌ Analyzer not detecting expected issues in .NET 6.0" -ForegroundColor Red
             exit 1
@@ -130,9 +132,9 @@ jobs:
         run: |
           cd test-install/TestPackage
           dotnet restore
-          # Build and capture output, don't fail on analyzer errors
-          $output = dotnet build --no-restore --verbosity minimal 2>&1
-          $buildSuccess = $LASTEXITCODE -eq 0
+          # Build and capture output, expect build failure due to analyzer errors
+          $output = dotnet build --no-restore --verbosity normal 2>&1
+          $buildFailed = $LASTEXITCODE -ne 0
           $hasAM001 = $output -match "AM001"
           $hasAM004 = $output -match "AM004"
           $analyzerWorking = $hasAM001 -or $hasAM004
@@ -144,6 +146,7 @@ jobs:
             Write-Host "✅ .NET 9.0 analyzer compatibility verified" -ForegroundColor Green
             Write-Host "  - AM001 detected: $hasAM001" -ForegroundColor Cyan
             Write-Host "  - AM004 detected: $hasAM004" -ForegroundColor Cyan
+            Write-Host "  - Build failed as expected due to AM001 error: $buildFailed" -ForegroundColor Cyan
           } else {
             Write-Host "❌ Analyzer not detecting expected issues in .NET 9.0" -ForegroundColor Red
             exit 1
