@@ -143,9 +143,16 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             }
 
             // Report diagnostic for missing destination property
+            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            properties.Add("PropertyName", sourceProperty.Name);
+            properties.Add("PropertyType", sourceProperty.Type.ToDisplayString());
+            properties.Add("SourceTypeName", sourceType.Name);
+            properties.Add("DestinationTypeName", destinationType.Name);
+
             var diagnostic = Diagnostic.Create(
                 MissingDestinationPropertyRule,
                 invocation.GetLocation(),
+                properties.ToImmutable(),
                 sourceProperty.Name);
 
             context.ReportDiagnostic(diagnostic);
