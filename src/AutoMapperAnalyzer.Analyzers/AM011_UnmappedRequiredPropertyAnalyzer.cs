@@ -118,9 +118,16 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
             }
 
             // Report diagnostic for unmapped required property
+            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            properties.Add("PropertyName", destinationProperty.Name);
+            properties.Add("PropertyType", destinationProperty.Type.ToDisplayString());
+            properties.Add("SourceTypeName", sourceType.Name);
+            properties.Add("DestinationTypeName", destinationType.Name);
+
             var diagnostic = Diagnostic.Create(
                 UnmappedRequiredPropertyRule,
                 invocation.GetLocation(),
+                properties.ToImmutable(),
                 destinationProperty.Name);
 
             context.ReportDiagnostic(diagnostic);
