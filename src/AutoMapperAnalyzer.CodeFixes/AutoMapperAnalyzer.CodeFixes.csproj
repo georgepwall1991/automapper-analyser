@@ -36,9 +36,6 @@
         <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="4.14.0" PrivateAssets="all"/>
     </ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="../AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj"/>
-    </ItemGroup>
 
     <ItemGroup>
         <None Include="..\..\README.md" Pack="true" PackagePath="\"/>

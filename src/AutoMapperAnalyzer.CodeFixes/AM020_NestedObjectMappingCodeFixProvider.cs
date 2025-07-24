@@ -3,7 +3,6 @@ using System.Composition;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using AutoMapperAnalyzer.Analyzers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -20,7 +19,7 @@ namespace AutoMapperAnalyzer.CodeFixes;
 public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
 {
     public sealed override ImmutableArray<string> FixableDiagnosticIds =>
-        ImmutableArray.Create(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule.Id);
+        ImmutableArray.Create("AM020");
 
     public sealed override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 

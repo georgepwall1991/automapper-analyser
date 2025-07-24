@@ -1,61 +1,105 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
-    <PropertyGroup>
-        <TargetFramework>netstandard2.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <LangVersion>latest</LangVersion>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-
-        <!-- Analyzer Package Configuration -->
-        <IncludeBuildOutput>false</IncludeBuildOutput>
-        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-        <DevelopmentDependency>true</DevelopmentDependency>
-        <PrivateAssets>all</PrivateAssets>
-
-        <!-- NuGet Package Metadata -->
-        <PackageId>AutoMapperAnalyzer.Analyzers</PackageId>
-        <!-- Auto-incrementing version using date: 1.0.YYYYMMDD -->
-        <MajorVersion>1</MajorVersion>
-        <MinorVersion>0</MinorVersion>
-        <BuildNumber Condition="'$(BuildNumber)' == ''">$([System.DateTime]::Now.ToString('yyyyMMdd'))</BuildNumber>
-        <PackageVersion>$(MajorVersion).$(MinorVersion).$(BuildNumber)</PackageVersion>
-        <Title>AutoMapper Roslyn Analyzer</Title>
-        <Authors>George Wall</Authors>
-        <Description>Roslyn analyzer that detects AutoMapper configuration issues at compile-time to prevent runtime exceptions and data loss. Supports type safety validation, missing property detection, and configuration validation. Compatible with .NET Framework 4.8+, .NET 6.0+, and .NET 8.0+.</Description>
-        <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis;netframework;netcore;dotnet</PackageTags>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <PackageProjectUrl>https://github.com/georgepwall1991/automapper-analyser</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
-        <RepositoryType>git</RepositoryType>
-        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Initial release of AutoMapper Roslyn Analyzer with support for type safety, missing property detection, and configuration validation.</PackageReleaseNotes>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
-        <PackageIcon>icon.png</PackageIcon>
-
-        <!-- Remove strict PackageType for broader compatibility -->
-        <NoPackageAnalysis>true</NoPackageAnalysis>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="4.14.0" PrivateAssets="all"/>
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" PrivateAssets="all"/>
-    </ItemGroup>
-
-    <ItemGroup>
-        <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
-        <None Include="..\..\icon.png" Pack="true" PackagePath="\"/>
-        <None Include="tools\install.ps1" Pack="true" PackagePath="tools\"/>
-        <None Include="tools\uninstall.ps1" Pack="true" PackagePath="tools\"/>
-    </ItemGroup>
-
-    <!-- Analyzer files for NuGet package -->
-    <ItemGroup>
-        <None Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers\dotnet\cs\$(AssemblyName).dll" Visible="false"/>
-        <None Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers\dotnet\$(AssemblyName).dll" Visible="false"/>
-        <!-- Also include for broader compatibility -->
-        <None Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll" Pack="true" PackagePath="tools\analyzers\$(AssemblyName).dll" Visible="false"/>
-    </ItemGroup>
-
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <!-- Analyzer Package Configuration -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <PrivateAssets>all</PrivateAssets>
+    <!-- NuGet Package Metadata -->
+    <PackageId>AutoMapperAnalyzer.Analyzers</PackageId>
+    <!-- Auto-incrementing version using date: 1.0.YYYYMMDD -->
+    <MajorVersion>1</MajorVersion>
+    <MinorVersion>0</MinorVersion>
+    <BuildNumber Condition="'$(BuildNumber)' == ''"
+      >$([System.DateTime]::Now.ToString('yyyyMMdd'))</BuildNumber
+    >
+    <PackageVersion>$(MajorVersion).$(MinorVersion).$(BuildNumber)</PackageVersion>
+    <Title>AutoMapper Roslyn Analyzer</Title>
+    <Authors>George Wall</Authors>
+    <Description>Roslyn analyzer that detects AutoMapper configuration issues at compile-time to prevent runtime exceptions and data loss. Supports type safety validation, missing property detection, and configuration validation. Compatible with .NET Framework 4.8+, .NET 6.0+, and .NET 8.0+.</Description>
+    <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis;netframework;netcore;dotnet</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/georgepwall1991/automapper-analyser</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReleaseNotes>Fixed: Code fix providers are now properly included in the NuGet package. The analyzer now provides automatic fixes for detected issues including type mismatches, missing properties, and configuration problems.</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <!-- Remove strict PackageType for broader compatibility -->
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference
+      Include="Microsoft.CodeAnalysis.Analyzers"
+      Version="4.14.0"
+      PrivateAssets="all"
+    />
+    <PackageReference
+      Include="Microsoft.CodeAnalysis.CSharp"
+      Version="4.14.0"
+      PrivateAssets="all"
+    />
+  </ItemGroup>
+  <!-- Reference CodeFixes project to ensure build order but don't include in output -->
+  <ItemGroup>
+    <ProjectReference
+      Include="..\AutoMapperAnalyzer.CodeFixes\AutoMapperAnalyzer.CodeFixes.csproj"
+      PrivateAssets="all"
+      ReferenceOutputAssembly="false"
+    />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\icon.png" Pack="true" PackagePath="\" />
+    <None Include="tools\install.ps1" Pack="true" PackagePath="tools\" />
+    <None Include="tools\uninstall.ps1" Pack="true" PackagePath="tools\" />
+  </ItemGroup>
+  <!-- Analyzer files for NuGet package -->
+  <ItemGroup>
+    <None
+      Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll"
+      Pack="true"
+      PackagePath="analyzers\dotnet\cs\$(AssemblyName).dll"
+      Visible="false"
+    />
+    <None
+      Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll"
+      Pack="true"
+      PackagePath="analyzers\dotnet\$(AssemblyName).dll"
+      Visible="false"
+    />
+    <!-- Also include for broader compatibility -->
+    <None
+      Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll"
+      Pack="true"
+      PackagePath="tools\analyzers\$(AssemblyName).dll"
+      Visible="false"
+    />
+    <!-- Include CodeFixes DLL in the analyzer package -->
+    <None
+      Include="..\AutoMapperAnalyzer.CodeFixes\bin\$(Configuration)\$(TargetFramework)\AutoMapperAnalyzer.CodeFixes.dll"
+      Pack="true"
+      PackagePath="analyzers\dotnet\cs\AutoMapperAnalyzer.CodeFixes.dll"
+      Visible="false"
+    />
+    <None
+      Include="..\AutoMapperAnalyzer.CodeFixes\bin\$(Configuration)\$(TargetFramework)\AutoMapperAnalyzer.CodeFixes.dll"
+      Pack="true"
+      PackagePath="analyzers\dotnet\AutoMapperAnalyzer.CodeFixes.dll"
+      Visible="false"
+    />
+    <None
+      Include="..\AutoMapperAnalyzer.CodeFixes\bin\$(Configuration)\$(TargetFramework)\AutoMapperAnalyzer.CodeFixes.dll"
+      Pack="true"
+      PackagePath="tools\analyzers\AutoMapperAnalyzer.CodeFixes.dll"
+      Visible="false"
+    />
+  </ItemGroup>
 </Project>
