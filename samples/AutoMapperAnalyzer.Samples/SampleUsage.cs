@@ -1,6 +1,7 @@
 using AutoMapper;
 using System.Collections.Generic;
 using System.Linq;
+using System;
 
 namespace AutoMapperAnalyzer.Samples
 {
@@ -56,8 +57,50 @@ namespace AutoMapperAnalyzer.Samples
         public AddressDto Headquarters { get; set; } // Different nested object type
     }
 
+    // Test classes for AM030 - Custom Type Converter Issues
+    public class ProductSource
+    {
+        public string Price { get; set; } = "19.99"; // String price
+        public string CreatedDate { get; set; } = "2023-01-01"; // String date
+        public string? Description { get; set; } // Nullable string
+    }
+
+    public class ProductDestination
+    {
+        public decimal Price { get; set; } // Decimal price - needs converter
+        public DateTime CreatedDate { get; set; } // DateTime - needs converter
+        public string Description { get; set; } // Non-nullable string
+    }
+
+    // Example converter that doesn't handle nulls properly
+    public class UnsafeStringToDateTimeConverter : ITypeConverter<string?, DateTime>
+    {
+        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+        {
+            // No null check - should trigger AM030 null handling warning
+            return DateTime.Parse(source);
+        }
+    }
+
+    // Example converter that handles nulls properly
+    public class SafeStringToDateTimeConverter : ITypeConverter<string?, DateTime>
+    {
+        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+        {
+            if (source == null)
+                return DateTime.MinValue;
+            
+            return DateTime.TryParse(source, out var result) ? result : DateTime.MinValue;
+        }
+    }
+
     public class TestProfile : Profile
     {
+        private static decimal ParseDecimalSafely(string value)
+        {
+            return decimal.TryParse(value, out var result) ? result : 0m;
+        }
+
         public TestProfile()
         {
             // Should trigger AM021: Collection element type mismatch (string -> int)
@@ -86,6 +129,24 @@ namespace AutoMapperAnalyzer.Samples
 #pragma warning restore AM003
 #pragma warning restore AM001
                 .ForMember(dest => dest.PhoneNumbers, opt => opt.MapFrom(src => src.PhoneNumbers.Select(int.Parse).ToList()));
+
+            // AM030 Examples: Custom Type Converter Issues
+
+            // Should trigger AM030: Missing ConvertUsing configuration for incompatible types
+#pragma warning disable AM001, AM002, AM030
+            CreateMap<ProductSource, ProductDestination>();
+#pragma warning restore AM001, AM002, AM030
+
+            // Proper mapping with ConvertUsing - should NOT trigger AM030
+#pragma warning disable AM002
+            CreateMap<ProductSource, ProductDestination>()
+                .ForMember(dest => dest.CreatedDate, 
+                    opt => opt.MapFrom(src => new SafeStringToDateTimeConverter().Convert(src.CreatedDate, default, null!)))
+                .ForMember(dest => dest.Price, 
+                    opt => opt.MapFrom(src => ParseDecimalSafely(src.Price)))
+                .ForMember(dest => dest.Description,
+                    opt => opt.MapFrom(src => src.Description ?? string.Empty));
+#pragma warning restore AM002
         }
     }
 }

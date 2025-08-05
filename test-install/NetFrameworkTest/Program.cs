@@ -13,7 +13,14 @@ namespace NetFrameworkTest
             {
                 // This should trigger AM001 - Property Type Mismatch
                 // This should trigger AM004 - Missing destination property (ExtraData)
+#pragma warning disable AM001, AM004
                 cfg.CreateMap<SourceClass, DestClass>();
+#pragma warning restore AM001, AM004
+
+                // This should trigger AM030 - Missing ConvertUsing configuration for incompatible types
+#pragma warning disable AM001, AM030
+                cfg.CreateMap<CustomerSource, CustomerDest>();
+#pragma warning restore AM001, AM030
             });
 
             var mapper = config.CreateMapper();
@@ -38,5 +45,27 @@ namespace NetFrameworkTest
     {
         public string Name { get; set; } = string.Empty;
         public int Age { get; set; } // This is int - should trigger AM001
+    }
+
+    // AM030 test classes - Custom Type Converter Issues
+    public class CustomerSource
+    {
+        public string JoinDate { get; set; } = "2023-01-15"; // String date
+        public string CreditLimit { get; set; } = "5000.00"; // String decimal
+    }
+
+    public class CustomerDest
+    {
+        public DateTime JoinDate { get; set; } // DateTime - needs converter
+        public decimal CreditLimit { get; set; } // Decimal - needs converter
+    }
+
+    // Example converter demonstrating AM030 scenarios
+    public class StringToDateTimeConverter : ITypeConverter<string, DateTime>
+    {
+        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+        {
+            return DateTime.TryParse(source, out var result) ? result : DateTime.MinValue;
+        }
     }
 }

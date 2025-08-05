@@ -13,7 +13,14 @@ namespace NetCoreTest
             {
                 // This should trigger AM001 - Property Type Mismatch
                 // This should trigger AM004 - Missing destination property (ExtraData)
+#pragma warning disable AM001, AM004
                 cfg.CreateMap<SourceClass, DestClass>();
+#pragma warning restore AM001, AM004
+
+                // This should trigger AM030 - Missing ConvertUsing configuration for incompatible types
+#pragma warning disable AM001, AM030
+                cfg.CreateMap<OrderSource, OrderDest>();
+#pragma warning restore AM001, AM030
             });
 
             var mapper = config.CreateMapper();
@@ -38,5 +45,28 @@ namespace NetCoreTest
     {
         public string Name { get; set; } = string.Empty;
         public int Age { get; set; } // This is int - should trigger AM001
+    }
+
+    // AM030 test classes - Custom Type Converter Issues
+    public class OrderSource
+    {
+        public string OrderDate { get; set; } = "2023-12-01"; // String date
+        public string TotalAmount { get; set; } = "199.99"; // String decimal
+    }
+
+    public class OrderDest
+    {
+        public DateTime OrderDate { get; set; } // DateTime - needs converter
+        public decimal TotalAmount { get; set; } // Decimal - needs converter
+    }
+
+    // Example converter with null handling issue
+    public class UnsafeStringToDecimalConverter : ITypeConverter<string?, decimal>
+    {
+        public decimal Convert(string? source, decimal destination, ResolutionContext context)
+        {
+            // No null check - would trigger AM030 null handling warning
+            return decimal.Parse(source);
+        }
     }
 }

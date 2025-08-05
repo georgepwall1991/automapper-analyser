@@ -11,7 +11,14 @@ class Program
         var config = new MapperConfiguration(cfg =>
         {
             // This should trigger AM001 - Property Type Mismatch
+#pragma warning disable AM001, AM004
             cfg.CreateMap<SourceClass, DestClass>();
+#pragma warning restore AM001, AM004
+
+            // This should trigger AM030 - Missing ConvertUsing configuration for incompatible types
+#pragma warning disable AM001, AM030
+            cfg.CreateMap<EventSource, EventDest>();
+#pragma warning restore AM001, AM030
         });
 
         var mapper = config.CreateMapper();
@@ -36,4 +43,26 @@ public class DestClass
 {
     public string Name { get; set; } = string.Empty;
     public int Age { get; set; } // This is int - should trigger AM001
+}
+
+// AM030 test classes - Custom Type Converter Issues
+public class EventSource
+{
+    public string StartTime { get; set; } = "14:30:00"; // String time
+    public string Duration { get; set; } = "120"; // String minutes
+}
+
+public class EventDest
+{
+    public TimeSpan StartTime { get; set; } // TimeSpan - needs converter
+    public int Duration { get; set; } // Int minutes - needs converter
+}
+
+// Example converter for AM030 demonstration
+public class TimeStringToTimeSpanConverter : ITypeConverter<string, TimeSpan>
+{
+    public TimeSpan Convert(string source, TimeSpan destination, ResolutionContext context)
+    {
+        return TimeSpan.TryParse(source, out var result) ? result : TimeSpan.Zero;
+    }
 }

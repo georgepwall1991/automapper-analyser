@@ -33,7 +33,13 @@ namespace AutoMapperAnalyzer.Samples
         {
             // This should trigger AM020 diagnostic for missing nested object mapping
             // The code fix should suggest adding: CreateMap<Location, LocationDto>();
+#pragma warning disable AM020
+#pragma warning disable AM001
+#pragma warning disable AM030
             CreateMap<Employee, EmployeeDto>();
+#pragma warning restore AM030
+#pragma warning restore AM001
+#pragma warning restore AM020
         }
     }
 }
