@@ -11,9 +11,8 @@ class Program
         var config = new MapperConfiguration(cfg =>
         {
             // This should trigger AM001 - Property Type Mismatch
-#pragma warning disable AM001, AM004
+            // Keep these enabled for CI verification
             cfg.CreateMap<SourceClass, DestClass>();
-#pragma warning restore AM001, AM004
 
             // This should trigger AM030 - Missing ConvertUsing configuration for incompatible types
 #pragma warning disable AM001, AM030
