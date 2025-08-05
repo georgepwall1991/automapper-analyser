@@ -209,5 +209,5 @@ dotnet run --project samples/AutoMapperAnalyzer.Samples
 
 ---
 
-*Last Updated: December 23, 2024*  
+*Last Updated: August 5, 2025*  
 *Pipeline Version: 1.0*
