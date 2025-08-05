@@ -18,11 +18,23 @@ namespace AutoMapperAnalyzer.CodeFixes;
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM020_NestedObjectMappingCodeFixProvider)), Shared]
 public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
 {
+    /// <summary>
+    /// Gets the diagnostic IDs that this code fix provider can fix.
+    /// </summary>
     public sealed override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArray.Create("AM020");
 
+    /// <summary>
+    /// Gets the fix all provider for batch fixes.
+    /// </summary>
+    /// <returns>The batch fixer provider.</returns>
     public sealed override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
+    /// <summary>
+    /// Registers code fixes for the specified context.
+    /// </summary>
+    /// <param name="context">The code fix context.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);

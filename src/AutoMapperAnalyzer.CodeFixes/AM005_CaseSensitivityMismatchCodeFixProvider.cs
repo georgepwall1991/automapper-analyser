@@ -8,13 +8,29 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace AutoMapperAnalyzer.CodeFixes;
 
+/// <summary>
+/// Code fix provider for AM005 diagnostic - Case Sensitivity Mismatch.
+/// Provides fixes for property mapping issues caused by case sensitivity differences.
+/// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM005_CaseSensitivityMismatchCodeFixProvider)), Shared]
 public class AM005_CaseSensitivityMismatchCodeFixProvider : CodeFixProvider
 {
+    /// <summary>
+    /// Gets the diagnostic IDs that this code fix provider can fix.
+    /// </summary>
     public override ImmutableArray<string> FixableDiagnosticIds => ["AM005"];
 
+    /// <summary>
+    /// Gets the fix all provider for batch fixes.
+    /// </summary>
+    /// <returns>The batch fixer provider.</returns>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
+    /// <summary>
+    /// Registers code fixes for the specified context.
+    /// </summary>
+    /// <param name="context">The code fix context.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
@@ -26,7 +42,8 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : CodeFixProvider
         foreach (var diagnostic in context.Diagnostics)
         {
             if (!diagnostic.Properties.TryGetValue("SourcePropertyName", out var sourcePropertyName) ||
-                !diagnostic.Properties.TryGetValue("DestinationPropertyName", out var destinationPropertyName))
+                !diagnostic.Properties.TryGetValue("DestinationPropertyName", out var destinationPropertyName) ||
+                string.IsNullOrEmpty(sourcePropertyName) || string.IsNullOrEmpty(destinationPropertyName))
             {
                 continue;
             }
@@ -42,7 +59,7 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : CodeFixProvider
                 title: $"Map '{sourcePropertyName}' to '{destinationPropertyName}' explicitly",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddExplicitPropertyMapping(root, invocation, sourcePropertyName, destinationPropertyName);
+                    var newRoot = AddExplicitPropertyMapping(root, invocation, sourcePropertyName!, destinationPropertyName!);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"ExplicitMapping_{sourcePropertyName}_{destinationPropertyName}");
@@ -54,7 +71,7 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : CodeFixProvider
                 title: "Add comment about case-insensitive configuration",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddCaseInsensitiveConfigComment(root, invocation, sourcePropertyName, destinationPropertyName);
+                    var newRoot = AddCaseInsensitiveConfigComment(root, invocation, sourcePropertyName!, destinationPropertyName!);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"CaseInsensitiveConfig_{sourcePropertyName}_{destinationPropertyName}");
@@ -66,7 +83,7 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : CodeFixProvider
                 title: $"Add comment to standardize casing (rename '{sourcePropertyName}' to '{destinationPropertyName}')",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddCasingCorrectionComment(root, invocation, sourcePropertyName, destinationPropertyName);
+                    var newRoot = AddCasingCorrectionComment(root, invocation, sourcePropertyName!, destinationPropertyName!);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"CasingCorrection_{sourcePropertyName}_{destinationPropertyName}");

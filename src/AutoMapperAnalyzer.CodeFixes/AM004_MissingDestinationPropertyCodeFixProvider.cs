@@ -8,13 +8,29 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace AutoMapperAnalyzer.CodeFixes;
 
+/// <summary>
+/// Code fix provider for AM004 diagnostic - Missing Destination Property.
+/// Provides fixes for source properties that don't have corresponding destination properties.
+/// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM004_MissingDestinationPropertyCodeFixProvider)), Shared]
 public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
 {
+    /// <summary>
+    /// Gets the diagnostic IDs that this code fix provider can fix.
+    /// </summary>
     public override ImmutableArray<string> FixableDiagnosticIds => ["AM004"];
 
+    /// <summary>
+    /// Gets the fix all provider for batch fixes.
+    /// </summary>
+    /// <returns>The batch fixer provider.</returns>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
+    /// <summary>
+    /// Registers code fixes for the specified context.
+    /// </summary>
+    /// <param name="context">The code fix context.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
@@ -26,7 +42,8 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
         foreach (var diagnostic in context.Diagnostics)
         {
             if (!diagnostic.Properties.TryGetValue("PropertyName", out var propertyName) ||
-                !diagnostic.Properties.TryGetValue("PropertyType", out var propertyType))
+                !diagnostic.Properties.TryGetValue("PropertyType", out var propertyType) ||
+                string.IsNullOrEmpty(propertyName) || string.IsNullOrEmpty(propertyType))
             {
                 continue;
             }
@@ -42,7 +59,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
                 title: $"Ignore source property '{propertyName}' (prevent data loss warning)",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddForSourceMemberIgnore(root, invocation, propertyName);
+                    var newRoot = AddForSourceMemberIgnore(root, invocation, propertyName!);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"Ignore_{propertyName}");
@@ -54,7 +71,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
                 title: $"Add custom mapping for '{propertyName}' (requires destination property)",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddCustomMappingComment(root, invocation, propertyName, propertyType);
+                    var newRoot = AddCustomMappingComment(root, invocation, propertyName!, propertyType!);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"CustomMapping_{propertyName}");
@@ -62,13 +79,13 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
             context.RegisterCodeFix(customMappingAction, context.Diagnostics);
 
             // Fix 3: Add ForMember with MapFrom to combine multiple properties
-            if (IsStringType(propertyType))
+            if (!string.IsNullOrEmpty(propertyType) && IsStringType(propertyType!))
             {
                 var combineAction = CodeAction.Create(
                     title: $"Map '{propertyName}' to existing property with custom logic",
                     createChangedDocument: cancellationToken =>
                     {
-                        var newRoot = AddCombinedPropertyMapping(root, invocation, propertyName);
+                        var newRoot = AddCombinedPropertyMapping(root, invocation, propertyName!);
                         return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                     },
                     equivalenceKey: $"Combine_{propertyName}");

@@ -8,13 +8,29 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace AutoMapperAnalyzer.CodeFixes;
 
+/// <summary>
+/// Code fix provider for AM003 diagnostic - Collection Type Incompatibility.
+/// Provides fixes for collection type mismatches and element type conversions.
+/// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM003_CollectionTypeIncompatibilityCodeFixProvider)), Shared]
 public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvider
 {
+    /// <summary>
+    /// Gets the diagnostic IDs that this code fix provider can fix.
+    /// </summary>
     public override ImmutableArray<string> FixableDiagnosticIds => ["AM003"];
 
+    /// <summary>
+    /// Gets the fix all provider for batch fixes.
+    /// </summary>
+    /// <returns>The batch fixer provider.</returns>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
+    /// <summary>
+    /// Registers code fixes for the specified context.
+    /// </summary>
+    /// <param name="context">The code fix context.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
@@ -29,7 +45,10 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
                 !diagnostic.Properties.TryGetValue("SourceType", out var sourceType) ||
                 !diagnostic.Properties.TryGetValue("DestType", out var destType) ||
                 !diagnostic.Properties.TryGetValue("SourceElementType", out var sourceElementType) ||
-                !diagnostic.Properties.TryGetValue("DestElementType", out var destElementType))
+                !diagnostic.Properties.TryGetValue("DestElementType", out var destElementType) ||
+                string.IsNullOrEmpty(propertyName) || string.IsNullOrEmpty(sourceType) ||
+                string.IsNullOrEmpty(destType) || string.IsNullOrEmpty(sourceElementType) ||
+                string.IsNullOrEmpty(destElementType))
             {
                 continue;
             }
@@ -41,17 +60,18 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
             }
 
             // Check if this is a collection type incompatibility vs element type incompatibility
-            bool isCollectionTypeIncompatibility = sourceType.Contains("HashSet") || sourceType.Contains("Queue") || sourceType.Contains("Stack");
+            bool isCollectionTypeIncompatibility = !string.IsNullOrEmpty(sourceType) && 
+                (sourceType!.Contains("HashSet") || sourceType.Contains("Queue") || sourceType.Contains("Stack"));
 
             if (isCollectionTypeIncompatibility)
             {
                 // Collection type incompatibility fixes
-                RegisterCollectionTypeIncompatibilityFixes(context, root, invocation, propertyName, sourceType, destType, sourceElementType, destElementType);
+                RegisterCollectionTypeIncompatibilityFixes(context, root, invocation, propertyName!, sourceType!, destType!, sourceElementType!, destElementType!);
             }
             else
             {
                 // Element type incompatibility fixes
-                RegisterElementTypeIncompatibilityFixes(context, root, invocation, propertyName, sourceType, destType, sourceElementType, destElementType);
+                RegisterElementTypeIncompatibilityFixes(context, root, invocation, propertyName!, sourceType!, destType!, sourceElementType!, destElementType!);
             }
         }
     }
