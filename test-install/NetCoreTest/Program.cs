@@ -14,7 +14,11 @@ namespace NetCoreTest
                 // This should trigger AM001 - Property Type Mismatch
                 // This should trigger AM004 - Missing destination property (ExtraData)
 #pragma warning disable AM001, AM004
+#pragma warning disable AM004
+#pragma warning disable AM030
                 cfg.CreateMap<SourceClass, DestClass>();
+#pragma warning restore AM030
+#pragma warning restore AM004
 #pragma warning restore AM001, AM004
 
                 // This should trigger AM030 - Missing ConvertUsing configuration for incompatible types
@@ -63,10 +67,16 @@ namespace NetCoreTest
     // Example converter with null handling issue
     public class UnsafeStringToDecimalConverter : ITypeConverter<string?, decimal>
     {
+#pragma warning disable AM030
         public decimal Convert(string? source, decimal destination, ResolutionContext context)
+#pragma warning restore AM030
         {
             // No null check - would trigger AM030 null handling warning
+#pragma warning disable CA1305
+#pragma warning disable CS8604 // Possible null reference argument.
             return decimal.Parse(source);
+#pragma warning restore CS8604 // Possible null reference argument.
+#pragma warning restore CA1305
         }
     }
 }

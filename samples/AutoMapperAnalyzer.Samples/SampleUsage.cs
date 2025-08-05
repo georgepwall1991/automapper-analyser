@@ -75,10 +75,16 @@ namespace AutoMapperAnalyzer.Samples
     // Example converter that doesn't handle nulls properly
     public class UnsafeStringToDateTimeConverter : ITypeConverter<string?, DateTime>
     {
+#pragma warning disable AM030
         public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+#pragma warning restore AM030
         {
             // No null check - should trigger AM030 null handling warning
+#pragma warning disable CA1305
+#pragma warning disable CS8604 // Possible null reference argument.
             return DateTime.Parse(source);
+#pragma warning restore CS8604 // Possible null reference argument.
+#pragma warning restore CA1305
         }
     }
 
@@ -89,7 +95,7 @@ namespace AutoMapperAnalyzer.Samples
         {
             if (source == null)
                 return DateTime.MinValue;
-            
+
             return DateTime.TryParse(source, out var result) ? result : DateTime.MinValue;
         }
     }
@@ -116,7 +122,19 @@ namespace AutoMapperAnalyzer.Samples
 
             // Should trigger AM022: Infinite recursion risk due to circular references
 #pragma warning disable AM001
+#pragma warning disable AM001
+#pragma warning disable AM001
+#pragma warning disable AM030
+#pragma warning disable AM022
+#pragma warning disable AM003
+#pragma warning disable AM003
             CreateMap<TreeNode, TreeNodeDto>();
+#pragma warning restore AM003
+#pragma warning restore AM003
+#pragma warning restore AM022
+#pragma warning restore AM030
+#pragma warning restore AM001
+#pragma warning restore AM001
 #pragma warning restore AM001
 
             // Should trigger AM020: Nested object mapping missing (Address -> AddressDto)
@@ -140,9 +158,9 @@ namespace AutoMapperAnalyzer.Samples
             // Proper mapping with ConvertUsing - should NOT trigger AM030
 #pragma warning disable AM002
             CreateMap<ProductSource, ProductDestination>()
-                .ForMember(dest => dest.CreatedDate, 
+                .ForMember(dest => dest.CreatedDate,
                     opt => opt.MapFrom(src => new SafeStringToDateTimeConverter().Convert(src.CreatedDate, default, null!)))
-                .ForMember(dest => dest.Price, 
+                .ForMember(dest => dest.Price,
                     opt => opt.MapFrom(src => ParseDecimalSafely(src.Price)))
                 .ForMember(dest => dest.Description,
                     opt => opt.MapFrom(src => src.Description ?? string.Empty));
