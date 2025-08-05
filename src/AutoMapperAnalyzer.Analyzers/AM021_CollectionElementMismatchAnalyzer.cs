@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers;
 
@@ -41,11 +42,11 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
             return;
 
         // Check if this is a CreateMap<TSource, TDestination>() call
-        if (!IsCreateMapInvocation(invocationExpr, context.SemanticModel))
+        if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
             return;
 
-        (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArguments =
-            GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
+        (ITypeSymbol? sourceType, ITypeSymbol? destinationType) typeArguments =
+            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
         if (typeArguments.sourceType == null || typeArguments.destinationType == null)
             return;
 
@@ -55,10 +56,10 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
     }
 
     private static void AnalyzeCollectionElementCompatibility(SyntaxNodeAnalysisContext context,
-        InvocationExpressionSyntax invocation, INamedTypeSymbol sourceType, INamedTypeSymbol destinationType)
+        InvocationExpressionSyntax invocation, ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
-        IPropertySymbol[] sourceProperties = GetPublicProperties(sourceType);
-        IPropertySymbol[] destinationProperties = GetPublicProperties(destinationType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType);
 
         foreach (IPropertySymbol sourceProperty in sourceProperties)
         {
@@ -69,11 +70,11 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
                 continue;
 
             // Check for explicit property mapping that might handle collection conversion
-            if (HasExplicitPropertyMapping(invocation, sourceProperty.Name))
+            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProperty.Name, context.SemanticModel))
                 continue;
 
             // Check if both properties are collections and analyze element types
-            if (IsCollectionType(sourceProperty.Type) && IsCollectionType(destinationProperty.Type))
+            if (AutoMapperAnalysisHelpers.IsCollectionType(sourceProperty.Type) && AutoMapperAnalysisHelpers.IsCollectionType(destinationProperty.Type))
             {
                 AnalyzeCollectionElementTypes(context, invocation, sourceProperty, destinationProperty,
                     sourceType, destinationType);
@@ -85,80 +86,32 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
         InvocationExpressionSyntax invocation,
         IPropertySymbol sourceProperty,
         IPropertySymbol destinationProperty,
-        INamedTypeSymbol sourceType,
-        INamedTypeSymbol destinationType)
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType)
     {
         // Get element types from collections
-        ITypeSymbol? sourceElementType = GetCollectionElementType(sourceProperty.Type);
-        ITypeSymbol? destElementType = GetCollectionElementType(destinationProperty.Type);
+        ITypeSymbol? sourceElementType = AutoMapperAnalysisHelpers.GetCollectionElementType(sourceProperty.Type);
+        ITypeSymbol? destElementType = AutoMapperAnalysisHelpers.GetCollectionElementType(destinationProperty.Type);
 
         if (sourceElementType == null || destElementType == null)
             return;
 
         // Check if element types are compatible
-        if (!AreElementTypesCompatible(sourceElementType, destElementType))
+        if (!AutoMapperAnalysisHelpers.AreTypesCompatible(sourceElementType, destElementType))
         {
             var diagnostic = Diagnostic.Create(
                 CollectionElementIncompatibilityRule,
                 invocation.GetLocation(),
                 sourceProperty.Name,
-                sourceType.Name,
+                GetTypeName(sourceType),
                 sourceElementType.ToDisplayString(),
-                destinationType.Name,
+                GetTypeName(destinationType),
                 destElementType.ToDisplayString());
 
             context.ReportDiagnostic(diagnostic);
         }
     }
 
-    private static bool IsCreateMapInvocation(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        // Get the symbol info to check if this is really AutoMapper's CreateMap method
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-
-        if (symbolInfo.Symbol is IMethodSymbol method)
-        {
-            // Check if method name is CreateMap and it's generic with 2 type parameters
-            if (method.Name == "CreateMap" && method.IsGenericMethod && method.TypeArguments.Length == 2)
-            {
-                // Additional check: see if it's from AutoMapper (check containing type or namespace)
-                INamedTypeSymbol? containingType = method.ContainingType;
-                if (containingType != null)
-                {
-                    // Check if the containing type is likely from AutoMapper
-                    string? namespaceName = containingType.ContainingNamespace?.ToDisplayString();
-                    return namespaceName == "AutoMapper" || 
-                           containingType.Name.Contains("Profile") || 
-                           containingType.BaseType?.Name == "Profile";
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private static (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) GetCreateMapTypeArguments(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is IMethodSymbol method && method.IsGenericMethod && method.TypeArguments.Length == 2)
-        {
-            return (method.TypeArguments[0] as INamedTypeSymbol, method.TypeArguments[1] as INamedTypeSymbol);
-        }
-
-        return (null, null);
-    }
-
-    private static IPropertySymbol[] GetPublicProperties(ITypeSymbol type)
-    {
-        return type.GetMembers()
-            .OfType<IPropertySymbol>()
-            .Where(p => p.DeclaredAccessibility == Accessibility.Public && 
-                        p.GetMethod != null && 
-                        p.SetMethod != null)
-            .ToArray();
-    }
 
     private static bool HasExplicitPropertyMapping(InvocationExpressionSyntax invocation, string propertyName)
     {
@@ -234,67 +187,15 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static ITypeSymbol? GetCollectionElementType(ITypeSymbol type)
+
+
+    /// <summary>
+    /// Gets the type name from an ITypeSymbol.
+    /// </summary>
+    /// <param name="type">The type symbol.</param>
+    /// <returns>The type name.</returns>
+    private static string GetTypeName(ITypeSymbol type)
     {
-        // Handle arrays
-        if (type is IArrayTypeSymbol arrayType)
-            return arrayType.ElementType;
-
-        // Handle generic collections
-        if (type is INamedTypeSymbol namedType && namedType.IsGenericType)
-        {
-            // For List<T>, IEnumerable<T>, etc., get the first type argument
-            if (namedType.TypeArguments.Length > 0)
-                return namedType.TypeArguments[0];
-        }
-
-        return null;
-    }
-
-
-    private static bool AreElementTypesCompatible(ITypeSymbol sourceType, ITypeSymbol destType)
-    {
-        // Same type
-        if (SymbolEqualityComparer.Default.Equals(sourceType, destType))
-            return true;
-
-        // Check for basic type compatibility (e.g., numeric conversions)
-        if (AreNumericTypesCompatible(sourceType.Name, destType.Name))
-            return true;
-
-        return false;
-    }
-
-    private static bool AreNumericTypesCompatible(string from, string to)
-    {
-        string[] numericTypes = { "Byte", "SByte", "Int16", "UInt16", "Int32", "UInt32", "Int64", "UInt64", "Single", "Double", "Decimal" };
-        bool fromIsNumeric = numericTypes.Contains(from);
-        bool toIsNumeric = numericTypes.Contains(to);
-        
-        return fromIsNumeric && toIsNumeric;
-    }
-
-    private static bool IsCollectionType(ITypeSymbol type)
-    {
-        // Check for arrays
-        if (type.TypeKind == TypeKind.Array)
-            return true;
-
-        if (type is INamedTypeSymbol namedType)
-        {
-            // Check for generic collection types
-            if (namedType.IsGenericType)
-            {
-                string genericTypeName = namedType.ConstructedFrom.ToDisplayString();
-                return genericTypeName.Contains("List") ||
-                       genericTypeName.Contains("IEnumerable") ||
-                       genericTypeName.Contains("ICollection") ||
-                       genericTypeName.Contains("HashSet") ||
-                       genericTypeName.Contains("Queue") ||
-                       genericTypeName.Contains("Stack");
-            }
-        }
-
-        return false;
+        return type.Name;
     }
 }

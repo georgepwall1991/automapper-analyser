@@ -412,10 +412,13 @@ public class AM021_CollectionElementMismatchTests
                                 }
                                 """;
 
+        // The analyzer should now correctly detect incompatible element types in inherited properties
+        // BaseCollection has List<string> in source but List<int> in destination
         await DiagnosticTestFramework
             .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectNoDiagnostics()
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 30, 13, 
+                "BaseCollection", "Source", "string", "Destination", "int")
             .RunAsync();
     }
 }

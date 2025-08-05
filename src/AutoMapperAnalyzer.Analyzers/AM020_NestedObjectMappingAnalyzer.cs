@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers;
 
@@ -39,13 +40,13 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         var invocationExpr = (InvocationExpressionSyntax)context.Node;
 
         // Check if this is a CreateMap<TSource, TDestination>() call
-        if (!IsCreateMapInvocation(invocationExpr, context.SemanticModel))
+        if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
         {
             return;
         }
 
-        (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArguments =
-            GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
+        (ITypeSymbol? sourceType, ITypeSymbol? destinationType) typeArguments =
+            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
         if (typeArguments.sourceType == null || typeArguments.destinationType == null)
         {
             return;
@@ -60,37 +61,15 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         );
     }
 
-    private static bool IsCreateMapInvocation(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        return symbolInfo.Symbol is IMethodSymbol method &&
-               method.Name == "CreateMap" &&
-               (method.ContainingType?.Name == "IMappingExpression" ||
-                method.ContainingType?.Name == "Profile");
-    }
-
-    private static (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) GetCreateMapTypeArguments(
-        InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is IMethodSymbol method && method.IsGenericMethod && method.TypeArguments.Length == 2)
-        {
-            var sourceType = method.TypeArguments[0] as INamedTypeSymbol;
-            var destinationType = method.TypeArguments[1] as INamedTypeSymbol;
-            return (sourceType, destinationType);
-        }
-
-        return (null, null);
-    }
 
     private static void AnalyzeNestedObjectMappingRequirements(
         SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
-        INamedTypeSymbol sourceType,
-        INamedTypeSymbol destinationType)
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType)
     {
-        IPropertySymbol[] sourceProperties = GetMappableProperties(sourceType);
-        IPropertySymbol[] destinationProperties = GetMappableProperties(destinationType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType);
 
         // Get all CreateMap configurations in the same profile
         HashSet<(string sourceType, string destType)> existingMappings = GetExistingMappings(context, invocation);
@@ -120,7 +99,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
                 }
 
                 // Check if property is explicitly mapped via ForMember
-                if (IsPropertyExplicitlyMapped(invocation, destinationProperty.Name))
+                if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, destinationProperty.Name, context.SemanticModel))
                 {
                     continue; // Property is explicitly handled
                 }
@@ -183,7 +162,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         }
 
         // Collections should be handled by AM021, not AM020
-        if (IsCollectionType(sourceUnderlyingType) || IsCollectionType(destUnderlyingType))
+        if (AutoMapperAnalysisHelpers.IsCollectionType(sourceUnderlyingType) || AutoMapperAnalysisHelpers.IsCollectionType(destUnderlyingType))
         {
             return false;
         }
@@ -259,12 +238,12 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         // Find all CreateMap invocations in the same class
         IEnumerable<InvocationExpressionSyntax> createMapInvocations = containingClass.DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
-            .Where(inv => IsCreateMapInvocation(inv, context.SemanticModel));
+            .Where(inv => AutoMapperAnalysisHelpers.IsCreateMapInvocation(inv, context.SemanticModel));
 
         foreach (InvocationExpressionSyntax? invocation in createMapInvocations)
         {
-            (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArgs =
-                GetCreateMapTypeArguments(invocation, context.SemanticModel);
+            (ITypeSymbol? sourceType, ITypeSymbol? destinationType) typeArgs =
+                AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, context.SemanticModel);
             if (typeArgs.sourceType != null && typeArgs.destinationType != null)
             {
                 mappings.Add((typeArgs.sourceType.Name, typeArgs.destinationType.Name));
@@ -280,46 +259,13 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         return existingMappings.Contains((sourceTypeName, destTypeName));
     }
 
-    private static bool IsPropertyExplicitlyMapped(InvocationExpressionSyntax createMapInvocation,
-        string propertyName)
+    /// <summary>
+    /// Gets the type name from an ITypeSymbol.
+    /// </summary>
+    /// <param name="type">The type symbol.</param>
+    /// <returns>The type name.</returns>
+    private static string GetTypeName(ITypeSymbol type)
     {
-        // Look for chained ForMember calls that map this property
-        SyntaxNode? parent = createMapInvocation.Parent;
-
-        while (parent is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
-        {
-            if (memberAccess.Name.Identifier.ValueText == "ForMember")
-            {
-                // Check if this ForMember call targets the property we're analyzing
-                if (IsForMemberTargetingProperty(chainedInvocation, propertyName))
-                {
-                    return true;
-                }
-            }
-
-            parent = chainedInvocation.Parent;
-        }
-
-        return false;
-    }
-
-    private static bool IsForMemberTargetingProperty(InvocationExpressionSyntax forMemberInvocation,
-        string propertyName)
-    {
-        // This is a simplified check - in a full implementation, we'd need to analyze the lambda expressions
-        // to determine exact property targets
-        SeparatedSyntaxList<ArgumentSyntax>? arguments = forMemberInvocation.ArgumentList?.Arguments;
-        if (arguments?.Count >= 1)
-        {
-            // Check if the property is referenced in the first argument (destination selector)
-            string firstArg = arguments.Value[0].ToString();
-            if (firstArg.Contains(propertyName))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return type.Name;
     }
 }

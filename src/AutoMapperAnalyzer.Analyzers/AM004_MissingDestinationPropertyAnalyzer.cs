@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers;
 
@@ -39,13 +40,13 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         var invocationExpr = (InvocationExpressionSyntax)context.Node;
 
         // Check if this is a CreateMap<TSource, TDestination>() call
-        if (!IsCreateMapInvocation(invocationExpr, context.SemanticModel))
+        if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
         {
             return;
         }
 
-        (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArguments =
-            GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
+        (ITypeSymbol? sourceType, ITypeSymbol? destinationType) typeArguments =
+            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
         if (typeArguments.sourceType == null || typeArguments.destinationType == null)
         {
             return;
@@ -60,63 +61,15 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         );
     }
 
-    private static bool IsCreateMapInvocation(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        // Get the symbol info to check if this is really AutoMapper's CreateMap method
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-
-        if (symbolInfo.Symbol is IMethodSymbol method)
-        {
-            // Check if it's a CreateMap method and it's a generic method
-            if (method.Name == "CreateMap" && method.IsGenericMethod && method.TypeArguments.Length == 2)
-            {
-                // Additional check: see if it's from AutoMapper (check containing type or namespace)
-                INamedTypeSymbol? containingType = method.ContainingType;
-                if (containingType != null)
-                {
-                    // Allow any CreateMap method for now, we'll refine this later if needed
-                    return true;
-                }
-            }
-        }
-
-        // Fallback: check syntax if symbol resolution fails
-        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
-        {
-            return memberAccess.Name.Identifier.ValueText == "CreateMap";
-        }
-
-        if (invocation.Expression is IdentifierNameSyntax identifier)
-        {
-            return identifier.Identifier.ValueText == "CreateMap";
-        }
-
-        return false;
-    }
-
-    private static (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) GetCreateMapTypeArguments(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is IMethodSymbol method && method.IsGenericMethod && method.TypeArguments.Length == 2)
-        {
-            var sourceType = method.TypeArguments[0] as INamedTypeSymbol;
-            var destinationType = method.TypeArguments[1] as INamedTypeSymbol;
-            return (sourceType, destinationType);
-        }
-
-        return (null, null);
-    }
 
     private static void AnalyzeMissingDestinationProperties(
         SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
-        INamedTypeSymbol sourceType,
-        INamedTypeSymbol destinationType)
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType)
     {
-        IPropertySymbol[] sourceProperties = GetMappableProperties(sourceType);
-        IPropertySymbol[] destinationProperties = GetMappableProperties(destinationType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType);
 
         // Check each source property to see if it has a corresponding destination property
         foreach (IPropertySymbol sourceProperty in sourceProperties)
@@ -146,8 +99,8 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             var properties = ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add("PropertyName", sourceProperty.Name);
             properties.Add("PropertyType", sourceProperty.Type.ToDisplayString());
-            properties.Add("SourceTypeName", sourceType.Name);
-            properties.Add("DestinationTypeName", destinationType.Name);
+            properties.Add("SourceTypeName", GetTypeName(sourceType));
+            properties.Add("DestinationTypeName", GetTypeName(destinationType));
 
             var diagnostic = Diagnostic.Create(
                 MissingDestinationPropertyRule,
@@ -159,32 +112,14 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static IPropertySymbol[] GetMappableProperties(INamedTypeSymbol type)
+    /// <summary>
+    /// Gets the type name from an ITypeSymbol.
+    /// </summary>
+    /// <param name="type">The type symbol.</param>
+    /// <returns>The type name.</returns>
+    private static string GetTypeName(ITypeSymbol type)
     {
-        var properties = new List<IPropertySymbol>();
-
-        // Get properties from the type and all its base types
-        INamedTypeSymbol? currentType = type;
-        while (currentType != null && currentType.SpecialType != SpecialType.System_Object)
-        {
-            IPropertySymbol[] currentProperties = currentType.GetMembers()
-                .OfType<IPropertySymbol>()
-                .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
-                            p.CanBeReferencedByName &&
-                            !p.IsStatic &&
-                            p.GetMethod != null && // Must be readable
-                            p.SetMethod != null) // Must be writable (for destination) or readable (for source)
-                .ToArray();
-
-            properties.AddRange(currentProperties);
-            currentType = currentType.BaseType;
-        }
-
-        // Remove duplicates (in case of overridden properties)
-        return properties
-            .GroupBy(p => p.Name)
-            .Select(g => g.First())
-            .ToArray();
+        return type.Name;
     }
 
     private static bool IsSourcePropertyHandledByCustomMapping(InvocationExpressionSyntax createMapInvocation,

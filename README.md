@@ -54,6 +54,7 @@ public void MapUserData()
 - **AM020**: Nested object mapping validation with CreateMap suggestions
 - **AM021**: Collection element type analysis with conversion strategies
 - **AM022**: Circular reference detection with MaxDepth recommendations
+- **AM030**: Custom type converter analysis with null safety validation
 
 ### ⚡ **Instant Code Fixes**
 Every analyzer comes with **intelligent code fixes** that don't just identify problems—they solve them:
@@ -112,14 +113,15 @@ dotnet add package AutoMapperAnalyzer.CodeFixes
 
 ### ⚡ Universal Compatibility
 
-| Platform | Version | Support | AutoMapper |
-|----------|---------|---------|------------|
-| .NET Framework | 4.8+ | 🟢 **Full** | 10.1.1+ |
-| .NET | 6.0+ | 🟢 **Full** | 12.0.1+ |  
-| .NET | 8.0+ | 🟢 **Full** | 14.0.0+ |
-| .NET | 9.0+ | 🟢 **Full** | 14.0.0+ |
+| Platform | Version | Support | AutoMapper | CI/CD Status |
+|----------|---------|---------|------------|--------------|
+| .NET Framework | 4.8+ | 🟢 **Full** | 10.1.1+ | ✅ **Tested** |
+| .NET | 6.0+ | 🟢 **Full** | 12.0.1+ | ✅ **Tested** |
+| .NET | 8.0+ | 🟢 **Full** | 14.0.0+ | ✅ **Tested** |
+| .NET | 9.0+ | 🟢 **Full** | 14.0.0+ | ✅ **Tested** |
 
-*Analyzer targets .NET Standard 2.0 for maximum compatibility*
+*Analyzer targets .NET Standard 2.0 for maximum compatibility*  
+*All platforms validated in automated CI/CD pipeline*
 
 ---
 
@@ -156,6 +158,7 @@ cfg.CreateMap<UserEntity, UserDto>();
 //  🚨 AM001: Age expects int but gets DateTime (runtime exception)
 //  🚨 AM021: Tags List<string>→HashSet<int> incompatible (mapping failure)
 //  🚨 AM020: HomeAddress→AddressDto needs CreateMap (runtime exception)
+//  🚨 AM030: Custom converter missing ConvertUsing configuration
 ```
 
 ### ✅ **The Solutions** (Auto-Generated!)
@@ -224,10 +227,11 @@ public void ConfigureSafeUserMapping() { }
 | AM020 | Nested Object Issues | ✅ | ✅ | Warning |
 | AM021 | Collection Element Mismatch | ✅ | ✅ | Warning |  
 | AM022 | Circular Reference Risk | ✅ | ✅ | Warning |
+| AM030 | Custom Type Converter Issues | ✅ | ✅ | Warning |
 | **🚀 Future** ||||
-| AM030+ | Custom Conversions | 🔮 | 🔮 | - |
+| AM031+ | Performance Analysis | 🔮 | 🔮 | - |
 | AM040+ | Configuration Rules | 🔮 | 🔮 | - |
-| AM050+ | Performance Optimization | 🔮 | 🔮 | - |
+| AM050+ | Advanced Optimizations | 🔮 | 🔮 | - |
 
 ---
 
@@ -251,7 +255,17 @@ dotnet run --project samples/AutoMapperAnalyzer.Samples
 
 # See all analyzer warnings in action
 dotnet build samples/ --verbosity normal
+
+# Run full test suite with coverage
+dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 ```
+
+### CI/CD & Quality Assurance
+- **🔄 Automated Testing**: Every commit tested across multiple .NET versions
+- **📊 Code Coverage**: Integrated with Codecov for comprehensive coverage tracking  
+- **🛡️ Quality Gates**: Build fails only on genuine errors, warnings are preserved
+- **⚡ Cross-Platform**: Validated on Ubuntu (CI) and Windows (compatibility tests)
+- **📈 Performance**: Incremental builds with analyzer caching for optimal speed
 
 ---
 
@@ -261,16 +275,17 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 - **🏎️ Performance-First**: Incremental analysis with minimal IDE impact
 - **🔧 Extensible Design**: Clean plugin architecture for new rules  
-- **🧪 Battle-Tested**: 121 unit tests covering edge cases (100% passing)
+- **🧪 Battle-Tested**: 130+ unit tests covering edge cases (100% passing)
 - **🌐 Cross-Platform**: Identical behavior on Windows, macOS, Linux
-- **⚡ CI/CD Ready**: Automated GitHub Actions with compatibility testing
+- **⚡ CI/CD Ready**: Automated GitHub Actions with codecov integration
+- **📊 Code Coverage**: 55%+ coverage with comprehensive testing
 
 ---
 
 ## 🎯 What's Next
 
-### Phase 5B: Enhanced Analysis (Ready to Start)
-- **AM030**: Custom type converter validation with intelligent fixes
+### Phase 5B: Enhanced Analysis (In Progress)
+- **AM030**: Custom type converter validation ✅ **COMPLETE**
 - **AM031**: Performance warning analysis with optimization suggestions
 - **AM040**: Profile registration analysis and auto-registration fixes
 - **AM041**: Conflicting mapping rule detection and resolution
@@ -291,7 +306,7 @@ We're building something special, and **your expertise makes it better**.
 ```bash
 git clone https://github.com/georgepwall1991/automapper-analyser.git
 cd automapper-analyser
-dotnet test  # All 121 tests should pass
+dotnet test  # All 130+ tests should pass
 ```
 
 **What We Need:**

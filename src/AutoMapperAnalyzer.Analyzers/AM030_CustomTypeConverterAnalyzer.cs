@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers;
 
@@ -73,14 +74,14 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         var invocation = (InvocationExpressionSyntax)context.Node;
         
         // Check if this is a CreateMap<TSource, TDestination>() call
-        if (!IsCreateMapInvocation(invocation, context.SemanticModel))
+        if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocation, context.SemanticModel))
             return;
 
-        var createMapTypeArgs = GetCreateMapTypeArguments(invocation, context.SemanticModel);
-        if (createMapTypeArgs.sourceType == null || createMapTypeArgs.destinationType == null)
+        var createMapTypeArgs = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, context.SemanticModel);
+        if (createMapTypeArgs.sourceType == null || createMapTypeArgs.destType == null)
             return;
 
-        AnalyzeForMissingConverterConfiguration(context, invocation, createMapTypeArgs.sourceType, createMapTypeArgs.destinationType);
+        AnalyzeForMissingConverterConfiguration(context, invocation, createMapTypeArgs.sourceType, createMapTypeArgs.destType);
     }
 
     private static void AnalyzeClassDeclaration(SyntaxNodeAnalysisContext context)
@@ -97,11 +98,11 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeForMissingConverterConfiguration(
         SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
-        INamedTypeSymbol sourceType,
-        INamedTypeSymbol destinationType)
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType)
     {
-        var sourceProperties = GetMappableProperties(sourceType);
-        var destinationProperties = GetMappableProperties(destinationType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType);
 
         foreach (var sourceProperty in sourceProperties)
         {
@@ -184,56 +185,6 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool IsCreateMapInvocation(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        // Get the symbol info to check if this is really AutoMapper's CreateMap method
-        var symbolInfo = semanticModel.GetSymbolInfo(invocation);
-
-        if (symbolInfo.Symbol is IMethodSymbol { Name: "CreateMap", IsGenericMethod: true, TypeArguments.Length: 2, ContainingType: not null })
-        {
-            // Allow any CreateMap method for now, we'll refine this later if needed
-            return true;
-        }
-
-        // Fallback: check syntax if symbol resolution fails
-        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
-        {
-            return memberAccess.Name.Identifier.ValueText == "CreateMap";
-        }
-
-        if (invocation.Expression is IdentifierNameSyntax identifier)
-        {
-            return identifier.Identifier.ValueText == "CreateMap";
-        }
-
-        return false;
-    }
-
-    private static (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) GetCreateMapTypeArguments(
-        InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        var symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is IMethodSymbol { IsGenericMethod: true, TypeArguments.Length: 2 } method)
-        {
-            var sourceType = method.TypeArguments[0] as INamedTypeSymbol;
-            var destinationType = method.TypeArguments[1] as INamedTypeSymbol;
-            return (sourceType, destinationType);
-        }
-
-        return (null, null);
-    }
-
-    private static IPropertySymbol[] GetMappableProperties(INamedTypeSymbol type)
-    {
-        return type.GetMembers()
-            .OfType<IPropertySymbol>()
-            .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
-                        p.CanBeReferencedByName &&
-                        !p.IsStatic &&
-                        p.GetMethod != null &&
-                        p.SetMethod != null)
-            .ToArray();
-    }
 
     private static bool RequiresTypeConverter(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
@@ -344,6 +295,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
     private static bool IsNullableType(ITypeSymbol type)
     {
+        AutoMapperAnalysisHelpers.IsNullableType(type, out _);
         return type.CanBeReferencedByName && 
                (type.NullableAnnotation == NullableAnnotation.Annotated ||
                 (type is INamedTypeSymbol namedType && 
@@ -372,6 +324,16 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
     private static string GetConverterTypeName(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
-        return $"ITypeConverter<{sourceType.Name}, {destinationType.Name}>";
+        return $"ITypeConverter<{GetTypeName(sourceType)}, {GetTypeName(destinationType)}>";
+    }
+
+    /// <summary>
+    /// Gets the type name from an ITypeSymbol.
+    /// </summary>
+    /// <param name="type">The type symbol.</param>
+    /// <returns>The type name.</returns>
+    private static string GetTypeName(ITypeSymbol type)
+    {
+        return type.Name;
     }
 }

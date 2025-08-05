@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers;
 
@@ -41,13 +42,13 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         var invocationExpr = (InvocationExpressionSyntax)context.Node;
 
         // Check if this is a CreateMap<TSource, TDestination>() call
-        if (!IsCreateMapInvocation(invocationExpr, context.SemanticModel))
+        if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
         {
             return;
         }
 
-        (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArguments =
-            GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
+        (ITypeSymbol? sourceType, ITypeSymbol? destinationType) typeArguments =
+            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
         if (typeArguments.sourceType == null || typeArguments.destinationType == null)
         {
             return;
@@ -62,37 +63,15 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         );
     }
 
-    private static bool IsCreateMapInvocation(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        return symbolInfo.Symbol is IMethodSymbol method &&
-               method.Name == "CreateMap" &&
-               (method.ContainingType?.Name == "IMappingExpression" ||
-                method.ContainingType?.Name == "Profile");
-    }
-
-    private static (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) GetCreateMapTypeArguments(
-        InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is IMethodSymbol method && method.IsGenericMethod && method.TypeArguments.Length == 2)
-        {
-            var sourceType = method.TypeArguments[0] as INamedTypeSymbol;
-            var destinationType = method.TypeArguments[1] as INamedTypeSymbol;
-            return (sourceType, destinationType);
-        }
-
-        return (null, null);
-    }
 
     private static void AnalyzeCaseSensitivityMismatches(
         SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
-        INamedTypeSymbol sourceType,
-        INamedTypeSymbol destinationType)
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType)
     {
-        IPropertySymbol[] sourceProperties = GetMappableProperties(sourceType);
-        IPropertySymbol[] destinationProperties = GetMappableProperties(destinationType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType);
 
         // Check each source property for case sensitivity mismatches
         foreach (IPropertySymbol sourceProperty in sourceProperties)
@@ -116,7 +95,7 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if types are compatible (only report case sensitivity if types match or are compatible)
-            if (!AreTypesCompatibleForCaseSensitivityCheck(sourceProperty.Type, caseInsensitiveMatch.Type))
+            if (!AutoMapperAnalysisHelpers.AreTypesCompatible(sourceProperty.Type, caseInsensitiveMatch.Type))
             {
                 continue; // Type mismatch - this would be handled by AM001 (type mismatch)
             }
@@ -132,8 +111,8 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
             properties.Add("SourcePropertyName", sourceProperty.Name);
             properties.Add("DestinationPropertyName", caseInsensitiveMatch.Name);
             properties.Add("PropertyType", sourceProperty.Type.ToDisplayString());
-            properties.Add("SourceTypeName", sourceType.Name);
-            properties.Add("DestinationTypeName", destinationType.Name);
+            properties.Add("SourceTypeName", GetTypeName(sourceType));
+            properties.Add("DestinationTypeName", GetTypeName(destinationType));
 
             var diagnostic = Diagnostic.Create(
                 CaseSensitivityMismatchRule,
@@ -146,63 +125,15 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static IPropertySymbol[] GetMappableProperties(INamedTypeSymbol type)
+
+    /// <summary>
+    /// Gets the type name from an ITypeSymbol.
+    /// </summary>
+    /// <param name="type">The type symbol.</param>
+    /// <returns>The type name.</returns>
+    private static string GetTypeName(ITypeSymbol type)
     {
-        var properties = new List<IPropertySymbol>();
-
-        // Get properties from the type and all its base types
-        INamedTypeSymbol? currentType = type;
-        while (currentType != null && currentType.SpecialType != SpecialType.System_Object)
-        {
-            // Get declared properties (not inherited ones to avoid duplicates)
-            IPropertySymbol[] typeProperties = currentType.GetMembers()
-                .OfType<IPropertySymbol>()
-                .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
-                            p.CanBeReferencedByName &&
-                            !p.IsStatic &&
-                            p.GetMethod != null && // Must be readable
-                            p.SetMethod != null && // Must be writable
-                            p.ContainingType.Equals(currentType, SymbolEqualityComparer.Default)) // Only direct members
-                .ToArray();
-
-            properties.AddRange(typeProperties);
-            currentType = currentType.BaseType;
-        }
-
-        return properties.ToArray();
-    }
-
-    private static bool AreTypesCompatibleForCaseSensitivityCheck(ITypeSymbol sourceType, ITypeSymbol destinationType)
-    {
-        // For case sensitivity checks, we only care about properties where the types are the same or compatible
-        // If types are incompatible, that's a different issue (AM001)
-
-        // Exact type match
-        if (SymbolEqualityComparer.Default.Equals(sourceType, destinationType))
-        {
-            return true;
-        }
-
-        // Check for implicit conversions between compatible types
-        return AreTypesImplicitlyCompatible(sourceType, destinationType);
-    }
-
-    private static bool AreTypesImplicitlyCompatible(ITypeSymbol sourceType, ITypeSymbol destinationType)
-    {
-        string sourceTypeName = sourceType.ToDisplayString();
-        string destTypeName = destinationType.ToDisplayString();
-
-        // Numeric conversions
-        (string, string)[] numericConversions =
-        [
-            ("byte", "short"), ("byte", "int"), ("byte", "long"), ("byte", "float"), ("byte", "double"),
-            ("byte", "decimal"), ("short", "int"), ("short", "long"), ("short", "float"), ("short", "double"),
-            ("short", "decimal"), ("int", "long"), ("int", "float"), ("int", "double"), ("int", "decimal"),
-            ("long", "float"), ("long", "double"), ("long", "decimal"), ("float", "double")
-        ];
-
-        return numericConversions.Any(conversion =>
-            conversion.Item1 == sourceTypeName && conversion.Item2 == destTypeName);
+        return type.Name;
     }
 
     private static bool IsPropertyExplicitlyMapped(InvocationExpressionSyntax createMapInvocation,

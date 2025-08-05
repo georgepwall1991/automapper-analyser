@@ -3,12 +3,19 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers;
 
+/// <summary>
+/// Analyzer that detects type mismatches between source and destination properties in AutoMapper mappings.
+/// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>
+    /// Diagnostic rule for property type mismatches.
+    /// </summary>
     public static readonly DiagnosticDescriptor PropertyTypeMismatchRule = new(
         "AM001",
         "Property type mismatch in AutoMapper configuration",
@@ -19,6 +26,9 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         "Source and destination properties have incompatible types that require explicit conversion configuration."
     );
 
+    /// <summary>
+    /// Diagnostic rule for nullable compatibility issues.
+    /// </summary>
     public static readonly DiagnosticDescriptor NullableCompatibilityRule = new(
         "AM001",
         "Nullable compatibility issue in AutoMapper configuration",
@@ -29,6 +39,9 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         "Nullable source property mapped to non-nullable destination property may cause null reference exceptions."
     );
 
+    /// <summary>
+    /// Diagnostic rule for generic type mismatches.
+    /// </summary>
     public static readonly DiagnosticDescriptor GenericTypeMismatchRule = new(
         "AM001",
         "Generic type mismatch in AutoMapper configuration",
@@ -39,6 +52,9 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         "Generic type parameters are incompatible and require explicit conversion configuration."
     );
 
+    /// <summary>
+    /// Diagnostic rule for missing complex type mapping configurations.
+    /// </summary>
     public static readonly DiagnosticDescriptor ComplexTypeMappingMissingRule = new(
         "AM001",
         "Complex type mapping configuration missing",
@@ -49,6 +65,9 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         "Complex types require explicit mapping configuration to ensure proper property mapping."
     );
 
+    /// <summary>
+    /// Gets the supported diagnostics for this analyzer.
+    /// </summary>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
     [
         PropertyTypeMismatchRule,
@@ -57,6 +76,10 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         ComplexTypeMappingMissingRule
     ];
 
+    /// <summary>
+    /// Initializes the analyzer.
+    /// </summary>
+    /// <param name="context">The analysis context.</param>
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -69,14 +92,13 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         var invocationExpr = (InvocationExpressionSyntax)context.Node;
 
         // Check if this is a CreateMap<TSource, TDestination>() call
-        if (!IsCreateMapInvocation(invocationExpr, context.SemanticModel))
+        if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
         {
             return;
         }
 
-        (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArguments =
-            GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
-        if (typeArguments.sourceType == null || typeArguments.destinationType == null)
+        var (sourceType, destinationType) = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
+        if (sourceType == null || destinationType == null)
         {
             return;
         }
@@ -85,61 +107,19 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         AnalyzePropertyMappings(
             context,
             invocationExpr,
-            typeArguments.sourceType,
-            typeArguments.destinationType
+            sourceType,
+            destinationType
         );
-    }
-
-    private static bool IsCreateMapInvocation(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        // Get the symbol info to check if this is really AutoMapper's CreateMap method
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-
-        if (symbolInfo.Symbol is IMethodSymbol { Name: "CreateMap", IsGenericMethod: true, TypeArguments.Length: 2, ContainingType: not null })
-            // Check if it's a CreateMap method and it's a generic method
-            // Additional check: see if it's from AutoMapper (check containing type or namespace)
-        {
-            // Allow any CreateMap method for now, we'll refine this later if needed
-            return true;
-        }
-
-        // Fallback: check syntax if symbol resolution fails
-        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
-        {
-            return memberAccess.Name.Identifier.ValueText == "CreateMap";
-        }
-
-        if (invocation.Expression is IdentifierNameSyntax identifier)
-        {
-            return identifier.Identifier.ValueText == "CreateMap";
-        }
-
-        return false;
-    }
-
-    private static (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) GetCreateMapTypeArguments(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is IMethodSymbol { IsGenericMethod: true, TypeArguments.Length: 2 } method)
-        {
-            var sourceType = method.TypeArguments[0] as INamedTypeSymbol;
-            var destinationType = method.TypeArguments[1] as INamedTypeSymbol;
-            return (sourceType, destinationType);
-        }
-
-        return (null, null);
     }
 
     private static void AnalyzePropertyMappings(
         SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
-        INamedTypeSymbol sourceType,
-        INamedTypeSymbol destinationType)
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType)
     {
-        IPropertySymbol[] sourceProperties = GetPublicProperties(sourceType);
-        IPropertySymbol[] destinationProperties = GetPublicProperties(destinationType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType).ToArray();
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType).ToArray();
 
         // Check each source property for mapping compatibility
         foreach (IPropertySymbol sourceProp in sourceProperties)
@@ -153,7 +133,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if explicit mapping is configured for this property
-            if (HasExplicitPropertyMapping(invocation, sourceProp.Name))
+            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProp.Name, context.SemanticModel))
             {
                 continue;
             }
@@ -169,59 +149,13 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static IPropertySymbol[] GetPublicProperties(INamedTypeSymbol type)
-    {
-        return type.GetMembers()
-            .OfType<IPropertySymbol>()
-            .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
-                        p is { CanBeReferencedByName: true, IsStatic: false })
-            .ToArray();
-    }
-
-    private static bool HasExplicitPropertyMapping(InvocationExpressionSyntax createMapInvocation, string propertyName)
-    {
-        // Look for chained ForMember calls
-        SyntaxNode? parent = createMapInvocation.Parent;
-
-        while (parent is MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax chainedInvocation } memberAccess)
-        {
-            if (memberAccess.Name.Identifier.ValueText == "ForMember")
-            {
-                // Check if this ForMember call is for the property we're analyzing
-                if (IsForMemberOfProperty(chainedInvocation, propertyName))
-                {
-                    return true;
-                }
-            }
-
-            parent = chainedInvocation.Parent;
-        }
-
-        return false;
-    }
-
-    private static bool IsForMemberOfProperty(InvocationExpressionSyntax forMemberInvocation, string propertyName)
-    {
-        // This is a simplified check - in a full implementation, we'd need to analyze the lambda expression
-        // to determine which property is being configured
-        SeparatedSyntaxList<ArgumentSyntax>? arguments = forMemberInvocation.ArgumentList?.Arguments;
-        if (arguments?.Count > 0)
-        {
-            // Look for property name in the first argument (lambda expression)
-            ArgumentSyntax firstArg = arguments.Value[0];
-            return firstArg.ToString().Contains(propertyName);
-        }
-
-        return false;
-    }
-
     private static void AnalyzePropertyTypeCompatibility(
         SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         IPropertySymbol sourceProperty,
         IPropertySymbol destinationProperty,
-        INamedTypeSymbol sourceType,
-        INamedTypeSymbol destinationType)
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType)
     {
         string sourceTypeName = sourceProperty.Type.ToDisplayString();
         string destTypeName = destinationProperty.Type.ToDisplayString();
@@ -239,9 +173,9 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
                 NullableCompatibilityRule,
                 invocation.GetLocation(),
                 sourceProperty.Name,
-                sourceType.Name,
+                GetTypeName(sourceType),
                 sourceTypeName,
-                destinationType.Name,
+                GetTypeName(destinationType),
                 destTypeName
             );
             context.ReportDiagnostic(diagnostic);
@@ -255,9 +189,9 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
                 GenericTypeMismatchRule,
                 invocation.GetLocation(),
                 sourceProperty.Name,
-                sourceType.Name,
+                GetTypeName(sourceType),
                 sourceTypeName,
-                destinationType.Name,
+                GetTypeName(destinationType),
                 destTypeName
             );
             context.ReportDiagnostic(diagnostic);
@@ -274,9 +208,9 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
                     ComplexTypeMappingMissingRule,
                     invocation.GetLocation(),
                     sourceProperty.Name,
-                    sourceType.Name,
+                    GetTypeName(sourceType),
                     sourceTypeName,
-                    destinationType.Name,
+                    GetTypeName(destinationType),
                     destTypeName
                 );
                 context.ReportDiagnostic(diagnostic);
@@ -292,9 +226,9 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
                 PropertyTypeMismatchRule,
                 invocation.GetLocation(),
                 sourceProperty.Name,
-                sourceType.Name,
+                GetTypeName(sourceType),
                 sourceTypeName,
-                destinationType.Name,
+                GetTypeName(destinationType),
                 destTypeName
             );
             context.ReportDiagnostic(diagnostic);
@@ -357,27 +291,21 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        // Get the root syntax node to search for all CreateMap invocations
-        SyntaxNode root = context.Node.SyntaxTree.GetRoot();
+        // For now, just check within the current syntax tree
+        // In a more complete implementation, we'd check across the compilation
+        var root = context.Node.SyntaxTree.GetRoot();
+        var allInvocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>();
 
-        // Find all invocation expressions in the syntax tree
-        IEnumerable<InvocationExpressionSyntax> allInvocations =
-            root.DescendantNodes().OfType<InvocationExpressionSyntax>();
-
-        foreach (InvocationExpressionSyntax? invocation in allInvocations)
+        foreach (var invocation in allInvocations)
         {
-            if (IsCreateMapInvocation(invocation, context.SemanticModel))
+            if (AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocation, context.SemanticModel))
             {
-                (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArgs =
-                    GetCreateMapTypeArguments(invocation, context.SemanticModel);
-                if (typeArgs is { sourceType: not null, destinationType: not null })
+                var (mappedSource, mappedDest) = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, context.SemanticModel);
+                if (mappedSource != null && mappedDest != null &&
+                    SymbolEqualityComparer.Default.Equals(mappedSource, sourceType) &&
+                    SymbolEqualityComparer.Default.Equals(mappedDest, destinationType))
                 {
-                    // Check if this CreateMap matches the types we're looking for
-                    if (SymbolEqualityComparer.Default.Equals(typeArgs.sourceType, sourceType) &&
-                        SymbolEqualityComparer.Default.Equals(typeArgs.destinationType, destinationType))
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
         }
@@ -387,14 +315,9 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 
     private static bool AreTypesCompatible(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
-        // Types are compatible if they're the same or have implicit conversions
-        if (SymbolEqualityComparer.Default.Equals(sourceType, destinationType))
-        {
-            return true;
-        }
-
-        // Check for implicit numeric conversions only (string -> int is NOT implicit)
-        return HasImplicitConversion(sourceType, destinationType);
+        // Use the helper method for comprehensive compatibility checking
+        return AutoMapperAnalysisHelpers.AreTypesCompatible(sourceType, destinationType) ||
+               HasImplicitConversion(sourceType, destinationType);
     }
 
     private static bool HasImplicitConversion(ITypeSymbol from, ITypeSymbol to)
@@ -426,5 +349,12 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         ];
 
         return primitiveAndFrameworkTypes.Contains(typeName);
+    }
+
+    private static string GetTypeName(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol namedType)
+            return namedType.Name;
+        return type.Name;
     }
 }
