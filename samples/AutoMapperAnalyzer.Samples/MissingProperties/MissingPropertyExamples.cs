@@ -42,7 +42,9 @@ public class MissingPropertyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ❌ AM011: Required destination property 'RequiredField' is not mapped from any source property
+#pragma warning disable AM011
             cfg.CreateMap<SourceWithoutRequired, DestinationWithRequired>();
+#pragma warning restore AM011
         });
 
         IMapper? mapper = config.CreateMapper();
