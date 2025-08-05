@@ -11,12 +11,11 @@ namespace NetCoreTest
 
             var config = new MapperConfiguration(cfg =>
             {
-                // This should trigger AM001 - Property Type Mismatch
-                // This should trigger AM004 - Missing destination property (ExtraData)
-                // Keep these enabled for CI verification
+                // This should trigger AM001 (warning) - Property Type Mismatch 
+                // This should trigger AM004 (warning) - Missing destination property (ExtraData)
                 cfg.CreateMap<SourceClass, DestClass>();
 
-                // This should trigger AM030 - Missing ConvertUsing configuration for incompatible types
+                // This should trigger AM030 (warning) - Missing ConvertUsing configuration for incompatible types  
 #pragma warning disable AM001, AM030
                 cfg.CreateMap<OrderSource, OrderDest>();
 #pragma warning restore AM001, AM030

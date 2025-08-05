@@ -68,24 +68,33 @@ foreach ($test in $testFrameworks) {
             }
         }
 
-        # Test build (expect warnings/errors from analyzer)
+        # Test build (expect warnings from analyzer) - force rebuild to ensure analyzers run
         Write-Host "   🔨 Building project..." -ForegroundColor Yellow
-        $buildOutput = dotnet build --no-restore --verbosity minimal 2>&1
+        $buildOutput = dotnet build --no-restore --no-incremental --verbosity normal 2>&1
         $buildExitCode = $LASTEXITCODE
 
-        # Check for analyzer warnings/errors
+        # Check for analyzer warnings  
         $hasAM001 = $buildOutput -match "AM001"
         $hasAM004 = $buildOutput -match "AM004"
-        $analyzerWorking = $hasAM001 -or $hasAM004
+        $hasAM030 = $buildOutput -match "AM030"
+        $analyzerWorking = $hasAM001 -or $hasAM004 -or $hasAM030
+        $buildSucceeded = $buildExitCode -eq 0
+
+        # Debug: Show build output if verbose
+        if ($Verbose) {
+            Write-Host "   Debug Build Output:" -ForegroundColor Magenta
+            Write-Host $buildOutput -ForegroundColor Gray
+        }
 
         $result = @{
             Framework = $test.Name
             Target = $test.Framework
             RestoreSuccess = $restoreSuccess
-            BuildExitCode = $buildExitCode
+            BuildSucceeded = $buildSucceeded  
             AnalyzerWorking = $analyzerWorking
             HasAM001 = $hasAM001
             HasAM004 = $hasAM004
+            HasAM030 = $hasAM030
             Output = $buildOutput
         }
 
@@ -93,14 +102,17 @@ foreach ($test in $testFrameworks) {
             Write-Host "   ✅ Analyzer working correctly" -ForegroundColor Green
             if ($hasAM001) { Write-Host "      • AM001 detected (Type Mismatch)" -ForegroundColor Cyan }
             if ($hasAM004) { Write-Host "      • AM004 detected (Missing Property)" -ForegroundColor Cyan }
+            if ($hasAM030) { Write-Host "      • AM030 detected (Type Converter)" -ForegroundColor Cyan }
         } else {
             Write-Host "   ⚠️  Analyzer not detecting expected issues" -ForegroundColor Yellow
         }
 
-        # Check if build failed due to analyzer errors (expected behavior)
-        if ($buildExitCode -ne 0 -and $analyzerWorking) {
-            Write-Host "   ✅ Build failed due to analyzer errors (expected)" -ForegroundColor Green
-        } elseif ($buildExitCode -eq 0 -and -not $analyzerWorking) {
+        # Check build success with analyzer warnings (new expected behavior)
+        if ($buildSucceeded -and $analyzerWorking) {
+            Write-Host "   ✅ Build succeeded with analyzer warnings (expected)" -ForegroundColor Green
+        } elseif (-not $buildSucceeded) {
+            Write-Host "   ❌ Build failed unexpectedly" -ForegroundColor Red
+        } elseif (-not $analyzerWorking) {
             Write-Host "   ⚠️  Build succeeded but analyzer not working" -ForegroundColor Yellow
         }
 
@@ -131,15 +143,17 @@ $successCount = 0
 $totalCount = $results.Count
 
 foreach ($result in $results) {
-    $status = if ($result.RestoreSuccess -and $result.AnalyzerWorking) { "✅ PASS" } else { "❌ FAIL" }
-    $isWorking = $result.RestoreSuccess -and $result.AnalyzerWorking
+    $status = if ($result.RestoreSuccess -and $result.BuildSucceeded -and $result.AnalyzerWorking) { "✅ PASS" } else { "❌ FAIL" }
+    $isWorking = $result.RestoreSuccess -and $result.BuildSucceeded -and $result.AnalyzerWorking
     if ($isWorking) { $successCount++ }
 
     Write-Host "$status $($result.Framework) ($($result.Target))" -ForegroundColor $(if ($isWorking) { "Green" } else { "Red" })
     Write-Host "      Restore: $(if ($result.RestoreSuccess) { "✅" } else { "❌" })" -ForegroundColor Gray
+    Write-Host "      Build: $(if ($result.BuildSucceeded) { "✅" } else { "❌" })" -ForegroundColor Gray
     Write-Host "      Analyzer: $(if ($result.AnalyzerWorking) { "✅" } else { "❌" })" -ForegroundColor Gray
     Write-Host "      AM001: $(if ($result.HasAM001) { "✅" } else { "❌" })" -ForegroundColor Gray
     Write-Host "      AM004: $(if ($result.HasAM004) { "✅" } else { "❌" })" -ForegroundColor Gray
+    Write-Host "      AM030: $(if ($result.HasAM030) { "✅" } else { "❌" })" -ForegroundColor Gray
 }
 
 Write-Host "`n📈 RESULTS: $successCount/$totalCount frameworks compatible" -ForegroundColor $(if ($successCount -eq $totalCount) { "Green" } else { "Yellow" })

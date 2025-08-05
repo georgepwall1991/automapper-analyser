@@ -1,0 +1,6 @@
+root = true
+
+[*.cs]
+# Configure analyzer severities for CI testing
+# AM001 should produce warnings to prove analyzer works without failing build
+dotnet_diagnostic.AM001.severity = warning
