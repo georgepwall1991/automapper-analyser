@@ -275,6 +275,57 @@ public class AM001_PropertyTypeMismatchTests
     }
 
     [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenNumericWideningConversion()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public byte B { get; set; } public short S { get; set; } public int I { get; set; } public long L { get; set; } public float F { get; set; } }
+                                public class Destination { public int B { get; set; } public long S { get; set; } public double I { get; set; } public decimal L { get; set; } public double F { get; set; } }
+
+                                public class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM001_ShouldReportDiagnostic_WhenNumericNarrowingConversion()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public int I { get; set; } public double D { get; set; } }
+                                public class Destination { public short I { get; set; } public int D { get; set; } }
+
+                                public class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 10, 9, "D", "Source", "double", "Destination", "int")
+            .ExpectDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 10, 9, "I", "Source", "int", "Destination", "short")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM001_ShouldReportDiagnostic_WhenComplexTypeMappingMissing()
     {
         const string testCode = """

@@ -16,7 +16,7 @@ This plan breaks work into small, test-first tasks. Each task follows the TDD lo
 - [ ] AM022: recognize `PreserveReferences()`/`MaxDepth()` and common ignore patterns (reduce false positives).
 
 ## Type Compatibility & Conversions
-- [ ] Refactor implicit conversion checks to SpecialType-based matrix (unify with `AreNumericTypesCompatible`).
+- [x] Refactor implicit conversion checks to SpecialType-based matrix (unify with `AreNumericTypesCompatible`).
 - [ ] Tighten nullable compatibility logic using `NullableAnnotation` consistently.
 
 ## Performance & Architecture
@@ -78,3 +78,49 @@ Notes and tips for continuation:
 - Code fixes: prioritize AM021 element conversion scaffolding; add real `CSharpCodeFixTest` coverage.
 
 All tests green locally (140 passed, 2 skipped for advanced AM030 cases).
+
+---
+
+## Next Session Checklist
+
+- AM022 improvements (TDD):
+  - Add tests covering `MaxDepth()`, `PreserveReferences()`, and common ignore patterns (e.g., ForMember(... Ignore())).
+  - Refine AM022 to recognize these and reduce false positives.
+
+- Performance & caching (after behavior remains green):
+  - Add `CompilationStartAction` to discover AutoMapper symbols once per compilation.
+  - Cache `GetMappableProperties` and `GetCollectionElementType` by `ITypeSymbol` using `SymbolEqualityComparer.Default`.
+  - Re-run full test suite to confirm no behavior changes.
+
+- Code fixes:
+  - AM021: implement code fix to scaffold element conversions (`Select` + conversion or `ConvertUsing`).
+  - Introduce proper `CSharpCodeFixTest` tests; the current `CodeFixTestFramework` is a placeholder.
+
+- Documentation & Help Links:
+  - Add `HelpLinkUri` to all `DiagnosticDescriptor`s and link to anchors in `docs/DIAGNOSTIC_RULES.md`.
+  - Update samples to demonstrate recommended suppressions with justification.
+
+## Handy Commands
+
+- Run all tests: `dotnet test --nologo --verbosity minimal`
+- Run a specific suite: `dotnet test --filter "FullyQualifiedName~AM021_CollectionElementMismatchTests"`
+- Run with TRX output: `dotnet test --logger "trx;LogFileName=results.trx"`
+
+## Where Things Are
+
+- Analyzer helpers: `src/AutoMapperAnalyzer.Analyzers/Helpers/AutoMapperAnalysisHelpers.cs`
+- Key analyzers changed: AM004, AM005, AM021, AM030, AM001
+- New tests added: 
+  - CreateMap detection: `tests/.../Infrastructure/CreateMapDetectionTests.cs`
+  - AM030 ConvertUsing tests: `tests/.../AM030_CustomTypeConverterTests.cs`
+  - AM004 complex mapping tests: `tests/.../AM004_MissingDestinationPropertyTests.cs`
+  - AM001 numeric tests: `tests/.../AM001_PropertyTypeMismatchTests.cs`
+
+## Notes
+
+- Two AM030 tests remain skipped (advanced scenarios by design); they do not block current work.
+- If line/column assertions in tests fail, adjust expected positions to the actual diagnostics (the testing framework reports exact spans).
+- Keep TDD: write/extend failing tests first, then implement minimal changes to pass, then refactor.
+- AM001 numeric conversions:
+  - Tests: added widening (byte→int, short→long, int→double, long→decimal, float→double) with no diagnostics; narrowing (double→int, int→short) reports diagnostics.
+  - Code: removed string-based implicit conversion list; rely on SpecialType-based logic in helpers.

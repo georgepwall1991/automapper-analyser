@@ -315,28 +315,8 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 
     private static bool AreTypesCompatible(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
-        // Use the helper method for comprehensive compatibility checking
-        return AutoMapperAnalysisHelpers.AreTypesCompatible(sourceType, destinationType) ||
-               HasImplicitConversion(sourceType, destinationType);
-    }
-
-    private static bool HasImplicitConversion(ITypeSymbol from, ITypeSymbol to)
-    {
-        // Simplified implicit conversion checks for common scenarios
-        string fromTypeName = from.ToDisplayString();
-        string toTypeName = to.ToDisplayString();
-
-        // Numeric conversions
-        (string, string)[] numericConversions =
-        [
-            ("byte", "short"), ("byte", "int"), ("byte", "long"), ("byte", "float"), ("byte", "double"),
-            ("byte", "decimal"), ("short", "int"), ("short", "long"), ("short", "float"), ("short", "double"),
-            ("short", "decimal"), ("int", "long"), ("int", "float"), ("int", "double"), ("int", "decimal"),
-            ("long", "float"), ("long", "double"), ("long", "decimal"), ("float", "double")
-        ];
-
-        return numericConversions.Any(conversion =>
-            conversion.Item1 == fromTypeName && conversion.Item2 == toTypeName);
+        // Delegate to helpers which already handle nullable, collections, and numeric widening via SpecialType
+        return AutoMapperAnalysisHelpers.AreTypesCompatible(sourceType, destinationType);
     }
 
     private static bool IsPrimitiveOrFrameworkType(ITypeSymbol type)
