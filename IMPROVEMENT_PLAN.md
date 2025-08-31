@@ -10,7 +10,7 @@ This plan breaks work into small, test-first tasks. Each task follows the TDD lo
 
 ## Analyzer Robustness
 - [x] CreateMap detection: rely on semantic checks (method symbol + AutoMapper types); remove string fallbacks.
-- [ ] ForMember/ConvertUsing parsing: replace string Contains with lambda + symbol resolution (AM004/AM005/AM021/AM030).
+- [~] ForMember/ConvertUsing parsing: replace string Contains with lambda + symbol resolution (AM004/AM005/AM021/AM030). (Partial: AM005 uses helper; AM004 inspects lambda parameter access; AM030 parses invocation syntax in config lambdas.)
 - [x] AM021: detect element mappings across file/scope (limited compilation scan with caching).
 - [x] AM021: report multiple element mismatches in a single mapping (fix TODOs in tests).
 - [ ] AM022: recognize `PreserveReferences()`/`MaxDepth()` and common ignore patterns (reduce false positives).
@@ -61,10 +61,20 @@ What’s done (tests first, then implementation):
   - Tests: enabled “explicit element mapping” case; added “multiple collection issues” case.
   - Code: skips diagnostics when `CreateMap<elementSrc, elementDest>` exists anywhere in the compilation; reports multiple.
 
+- AM030 ConvertUsing detection improvements:
+  - Tests: added global `ConvertUsing(src => ...)` and property-level `opt.ConvertUsing(new IValueConverter<,>(), s => s.Member)` cases; both suppress missing-converter diagnostics.
+  - Code: `HasConvertUsingInForMember` now traverses the configuration lambda syntax to find `ConvertUsing`/`MapFrom` invocations (no string matching).
+
+- AM004 custom mapping semantics:
+  - Tests: added “unrelated object same-name property” to ensure we still report missing source property; added static helper method in `MapFrom` to ensure property usage is detected through method calls.
+  - Code: `AM004` now walks `ForMember` config lambdas, verifying that member access is on the lambda parameter (e.g., `src.ImportantData`), not any identifier.
+
 All tests pass (except two intentionally skipped AM030 advanced tests).
 
 Notes and tips for continuation:
-- ForMember/ConvertUsing parsing (remaining): extend `AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember` to inspect second-argument lambdas semantically (e.g., detect `ConvertUsing`, complex `MapFrom` chains). Add focused tests in AM004 and AM030 before changes.
+- ForMember/ConvertUsing parsing (remaining): extend `AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember` to inspect second-argument lambdas semantically (e.g., detect `ConvertUsing`, complex `MapFrom` chains) and use SemanticModel to confirm AutoMapper symbols when feasible. Add focused tests in AM004 next.
 - AM001 numeric conversions: add tests for implicit numeric widening and refactor to a SpecialType-based matrix; unify with `AreNumericTypesCompatible`.
 - Performance: introduce `CompilationStartAction` and symbol/type caches after behavior is green to avoid conflating perf with logic changes.
 - Code fixes: prioritize AM021 element conversion scaffolding; add real `CSharpCodeFixTest` coverage.
+
+All tests green locally (140 passed, 2 skipped for advanced AM030 cases).

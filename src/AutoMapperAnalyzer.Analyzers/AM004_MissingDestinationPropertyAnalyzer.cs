@@ -150,23 +150,62 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
     private static bool ForMemberReferencesSourceProperty(InvocationExpressionSyntax forMemberInvocation,
         string sourcePropertyName)
     {
-        // Look for lambda expressions in ForMember arguments that reference the source property
-        foreach (ArgumentSyntax arg in forMemberInvocation.ArgumentList.Arguments)
+        // Inspect ForMember's configuration lambda (second argument) and any nested lambdas
+        var args = forMemberInvocation.ArgumentList?.Arguments;
+        if (args == null || args.Value.Count < 2)
+            return false;
+
+        var configExpr = args.Value[1].Expression;
+
+        // Search for any lambda within the configuration and verify the property access is on the lambda parameter
+        foreach (var lambda in configExpr.DescendantNodesAndSelf().OfType<SimpleLambdaExpressionSyntax>())
         {
-            if (ContainsPropertyReference(arg.Expression, sourcePropertyName))
-            {
+            var paramName = lambda.Parameter.Identifier.ValueText;
+            if (LambdaContainsPropertyOnParameter(lambda, sourcePropertyName, paramName))
                 return true;
-            }
+        }
+
+        // Fallback: MapFrom passed directly as lambda in second argument is common
+        if (configExpr is SimpleLambdaExpressionSyntax directLambda)
+        {
+            var paramName = directLambda.Parameter.Identifier.ValueText;
+            if (LambdaContainsPropertyOnParameter(directLambda, sourcePropertyName, paramName))
+                return true;
         }
 
         return false;
     }
 
-    private static bool ContainsPropertyReference(SyntaxNode node, string propertyName)
+    private static bool LambdaContainsPropertyOnParameter(SimpleLambdaExpressionSyntax lambda, string propertyName, string paramName)
     {
-        // Recursively search for property access expressions that match the property name
-        return node.DescendantNodes().OfType<MemberAccessExpressionSyntax>()
-            .Any(memberAccess => memberAccess.Name.Identifier.ValueText == propertyName);
+        return lambda.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Any(ma => ma.Name.Identifier.ValueText == propertyName && IsAccessOnParameter(ma.Expression, paramName));
+    }
+
+    private static bool IsAccessOnParameter(ExpressionSyntax expr, string paramName)
+    {
+        // Unwrap parentheses
+        while (expr is ParenthesizedExpressionSyntax p)
+            expr = p.Expression;
+
+        // Handle conditional access: src?.Prop
+        if (expr is ConditionalAccessExpressionSyntax cond)
+            return IsAccessOnParameter(cond.Expression, paramName);
+
+        // Handle element access: src.Items[0].Prop
+        if (expr is ElementAccessExpressionSyntax el)
+            return IsAccessOnParameter(el.Expression, paramName);
+
+        // Walk left side of member access chains: src.Foo.Bar
+        if (expr is MemberAccessExpressionSyntax ma)
+            return IsAccessOnParameter(ma.Expression, paramName);
+
+        // Base case: identifier name equals the lambda parameter
+        if (expr is IdentifierNameSyntax id)
+            return id.Identifier.ValueText == paramName;
+
+        return false;
     }
 
     private static bool IsSourcePropertyExplicitlyIgnored(InvocationExpressionSyntax createMapInvocation,
@@ -205,7 +244,18 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         if (forSourceMemberInvocation.ArgumentList.Arguments.Count > 0)
         {
             ExpressionSyntax firstArg = forSourceMemberInvocation.ArgumentList.Arguments[0].Expression;
-            return ContainsPropertyReference(firstArg, propertyName);
+            if (firstArg is SimpleLambdaExpressionSyntax lambda)
+            {
+                var paramName = lambda.Parameter.Identifier.ValueText;
+                return LambdaContainsPropertyOnParameter(lambda, propertyName, paramName);
+            }
+            // Fallback: search any nested lambdas
+            foreach (var innerLambda in firstArg.DescendantNodes().OfType<SimpleLambdaExpressionSyntax>())
+            {
+                var paramName = innerLambda.Parameter.Identifier.ValueText;
+                if (LambdaContainsPropertyOnParameter(innerLambda, propertyName, paramName))
+                    return true;
+            }
         }
 
         return false;

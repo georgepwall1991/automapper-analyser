@@ -160,6 +160,84 @@ public class AM004_MissingDestinationPropertyTests
     }
 
     [Fact]
+    public async Task AM004_ShouldReportDiagnostic_WhenForMemberUsesUnrelatedObjectPropertyWithSameName()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Helper { public string ImportantData { get; set; } = "H"; }
+
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string ImportantData { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            var helper = new Helper();
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(d => d.Name, opt => opt.MapFrom(_ => helper.ImportantData));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13, "ImportantData")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM004_ShouldNotReportDiagnostic_WhenPropertyUsedViaStaticHelperInMapFrom()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public static class Util { public static string Transform(string s) => $"X-{s}-Y"; }
+
+                                    public class Source
+                                    {
+                                        public string ImportantData { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(d => d.Name, opt => opt.MapFrom(s => Util.Transform(s.ImportantData)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM004_ShouldReportMultipleMissingProperties()
     {
         const string testCode = """

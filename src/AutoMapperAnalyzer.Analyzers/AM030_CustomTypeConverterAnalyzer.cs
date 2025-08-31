@@ -259,14 +259,21 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
     private static bool HasConvertUsingInForMember(InvocationExpressionSyntax forMemberInvocation)
     {
-        // Check if the ForMember configuration contains ConvertUsing or MapFrom (both handle conversion)
+        // Inspect the configuration lambda (second argument) for invocation of ConvertUsing or MapFrom
         var arguments = forMemberInvocation.ArgumentList?.Arguments;
         if (arguments?.Count > 1)
         {
-            // Look for ConvertUsing or MapFrom in the configuration lambda (second argument)
-            var configArg = arguments.Value[1];
-            var configText = configArg.ToString();
-            return configText.Contains("ConvertUsing") || configText.Contains("MapFrom");
+            var configArg = arguments.Value[1].Expression;
+            // Traverse invocation expressions and check member names
+            foreach (var innerInvocation in configArg.DescendantNodes().OfType<InvocationExpressionSyntax>())
+            {
+                if (innerInvocation.Expression is MemberAccessExpressionSyntax memberAccess)
+                {
+                    var name = memberAccess.Name.Identifier.ValueText;
+                    if (name == "ConvertUsing" || name == "MapFrom")
+                        return true;
+                }
+            }
         }
         return false;
     }

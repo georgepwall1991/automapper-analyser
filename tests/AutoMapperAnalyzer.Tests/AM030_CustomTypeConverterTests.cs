@@ -322,6 +322,86 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenGlobalConvertUsingLambdaConfigured()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string CreatedDate { get; set; } = "2023-01-01";
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DateTime CreatedDate { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConvertUsing(src => new Destination { CreatedDate = DateTime.Parse(src.CreatedDate) });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenPropertyLevelConvertUsingDetected()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class StringToDate : IValueConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string sourceMember, ResolutionContext context)
+                                            => DateTime.Parse(sourceMember);
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string CreatedDate { get; set; } = "2023-01-01";
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DateTime CreatedDate { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(d => d.CreatedDate, opt => opt.ConvertUsing(new StringToDate(), s => s.CreatedDate));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldHandleMultipleIncompatibleProperties()
     {
         const string testCode = """
