@@ -99,6 +99,11 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
         // Check if element types are compatible
         if (!AutoMapperAnalysisHelpers.AreTypesCompatible(sourceElementType, destElementType))
         {
+            // If an explicit CreateMap<elementSrc, elementDest> exists anywhere in the compilation, consider it handled
+            var compilation = context.SemanticModel.Compilation;
+            if (AutoMapperAnalysisHelpers.HasExistingCreateMapForTypes(compilation, sourceElementType, destElementType))
+                return;
+
             var diagnostic = Diagnostic.Create(
                 CollectionElementIncompatibilityRule,
                 invocation.GetLocation(),

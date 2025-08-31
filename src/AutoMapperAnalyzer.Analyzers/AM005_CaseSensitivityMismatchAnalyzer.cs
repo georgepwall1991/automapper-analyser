@@ -100,8 +100,8 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
                 continue; // Type mismatch - this would be handled by AM001 (type mismatch)
             }
 
-            // Check if explicit mapping is configured for this property
-            if (IsPropertyExplicitlyMapped(invocation, sourceProperty.Name, caseInsensitiveMatch.Name))
+            // Check if explicit mapping is configured for the destination property (regardless of source usage)
+            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, caseInsensitiveMatch.Name, context.SemanticModel))
             {
                 continue; // Explicit mapping handles the case sensitivity issue
             }
@@ -136,51 +136,5 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         return type.Name;
     }
 
-    private static bool IsPropertyExplicitlyMapped(InvocationExpressionSyntax createMapInvocation,
-        string sourcePropertyName, string destinationPropertyName)
-    {
-        // Look for chained ForMember calls that handle this property mapping
-        SyntaxNode? parent = createMapInvocation.Parent;
-
-        while (parent is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
-        {
-            if (memberAccess.Name.Identifier.ValueText == "ForMember")
-            {
-                // Check if this ForMember call maps the source property to the destination property
-                if (IsForMemberMappingProperty(chainedInvocation, sourcePropertyName, destinationPropertyName))
-                {
-                    return true;
-                }
-            }
-
-            parent = chainedInvocation.Parent;
-        }
-
-        return false;
-    }
-
-    private static bool IsForMemberMappingProperty(InvocationExpressionSyntax forMemberInvocation,
-        string sourcePropertyName, string destinationPropertyName)
-    {
-        // This is a simplified check - in a full implementation, we'd need to analyze the lambda expressions
-        // to determine exact property mappings
-        SeparatedSyntaxList<ArgumentSyntax>? arguments = forMemberInvocation.ArgumentList?.Arguments;
-        if (arguments?.Count >= 2)
-        {
-            // Check if the destination property is referenced in the first argument
-            string firstArg = arguments.Value[0].ToString();
-            if (firstArg.Contains(destinationPropertyName))
-            {
-                // Check if the source property is referenced in the second argument  
-                string secondArg = arguments.Value[1].ToString();
-                if (secondArg.Contains(sourcePropertyName))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    // String-based ForMember parsing removed in favor of semantic helper in AutoMapperAnalysisHelpers
 }

@@ -27,42 +27,65 @@ namespace AutoMapperAnalyzer.Analyzers.Helpers
             if (symbolInfo.Symbol is not IMethodSymbol methodSymbol)
                 return false;
 
-            // Check if it's a CreateMap method
-            if (methodSymbol.Name != "CreateMap")
+            // Method name must be CreateMap with two generic type arguments
+            if (!string.Equals(methodSymbol.Name, "CreateMap", StringComparison.Ordinal))
                 return false;
 
-            // Check if it's from AutoMapper namespace
-            var containingNamespace = methodSymbol.ContainingNamespace?.ToDisplayString();
-            if (containingNamespace == "AutoMapper")
+            // Quick accept: method defined on AutoMapper types
+            if (IsAutoMapperContainingType(methodSymbol.ContainingType))
                 return true;
 
-            // Check if the containing type extends AutoMapper.Profile
-            var containingType = methodSymbol.ContainingType;
-            while (containingType != null)
+            // If receiver is explicit (cfg.CreateMap<...>), check its type
+            if (invocation.Expression is MemberAccessExpressionSyntax ma)
             {
-                if (containingType.ToDisplayString() == "AutoMapper.Profile" ||
-                    containingType.Name == "Profile" ||
-                    containingType.Name.Contains("MappingProfile") ||
-                    containingType.Name.Contains("MapperConfiguration"))
-                {
+                var receiverType = semanticModel.GetTypeInfo(ma.Expression).Type;
+                if (IsAutoMapperReceiver(receiverType))
                     return true;
-                }
-                containingType = containingType.BaseType;
             }
 
-            // Fallback: Check syntax pattern for common AutoMapper usage
-            if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
-            {
-                var expressionText = memberAccess.Expression.ToString();
-                if (expressionText.Contains("mapper") || 
-                    expressionText.Contains("Mapper") ||
-                    expressionText.Contains("cfg") ||
-                    expressionText.Contains("config"))
-                {
-                    return true;
-                }
-            }
+            // If called unqualified inside a Profile (inherited member), check enclosing type hierarchy
+            var enclosing = semanticModel.GetEnclosingSymbol(invocation.SpanStart) as ITypeSymbol;
+            if (IsWithinAutoMapperProfile(enclosing))
+                return true;
 
+            return false;
+        }
+
+        private static bool IsAutoMapperContainingType(ITypeSymbol? type)
+        {
+            if (type == null) return false;
+            var fullName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            // Accept Profile and configuration expression types
+            return fullName.Contains("AutoMapper.Profile")
+                   || fullName.Contains("AutoMapper.IMapperConfigurationExpression")
+                   || fullName.Contains("AutoMapper.MapperConfigurationExpression")
+                   || type.ContainingNamespace?.ToDisplayString().StartsWith("AutoMapper", StringComparison.Ordinal) == true;
+        }
+
+        private static bool IsAutoMapperReceiver(ITypeSymbol? receiver)
+        {
+            if (receiver == null) return false;
+            // Receiver implements/equals IMapperConfigurationExpression or derives from Profile
+            if (receiver.ToDisplayString().StartsWith("AutoMapper.", StringComparison.Ordinal))
+                return true;
+
+            // Check interfaces
+            if (receiver.AllInterfaces.Any(i => i.ToDisplayString() == "AutoMapper.IMapperConfigurationExpression"))
+                return true;
+
+            // Check base types chain for Profile
+            return IsWithinAutoMapperProfile(receiver);
+        }
+
+        private static bool IsWithinAutoMapperProfile(ITypeSymbol? type)
+        {
+            var current = type;
+            while (current != null)
+            {
+                if (current.ToDisplayString() == "AutoMapper.Profile")
+                    return true;
+                current = current.BaseType;
+            }
             return false;
         }
 

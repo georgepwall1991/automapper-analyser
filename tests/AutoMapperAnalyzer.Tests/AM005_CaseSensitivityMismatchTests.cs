@@ -166,6 +166,46 @@ public class AM005_CaseSensitivityMismatchTests
     }
 
     [Fact]
+    public async Task AM005_ShouldNotReportDiagnostic_WhenDestinationMappedFromConstant()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string firstName { get; set; }
+                                        public string lastName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string FirstName { get; set; }
+                                        public string LastName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.FirstName, opt => opt.MapFrom(_ => "CONST"));
+                                        }
+                                    }
+                                }
+                                """;
+
+        // The destination FirstName is configured explicitly (constant), so case-mismatch for firstName should not report
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM005_CaseSensitivityMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "lastName",
+                "LastName")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM005_ShouldHandleMixedCasingScenarios()
     {
         const string testCode = """
