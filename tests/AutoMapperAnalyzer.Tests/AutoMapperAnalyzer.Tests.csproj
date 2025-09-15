@@ -35,7 +35,7 @@
     />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="4.14.0" />
-    <PackageReference Include="AutoMapper" Version="14.0.0" />
+    <PackageReference Include="AutoMapper" Version="15.0.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj" />
