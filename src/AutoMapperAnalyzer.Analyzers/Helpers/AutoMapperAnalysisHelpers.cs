@@ -128,7 +128,7 @@ namespace AutoMapperAnalyzer.Analyzers.Helpers
                 foreach (var member in currentType.GetMembers())
                 {
                     if (member is IPropertySymbol property &&
-                        property.DeclaredAccessibility == Accessibility.Public &&
+                        (property.DeclaredAccessibility == Accessibility.Public || property.DeclaredAccessibility == Accessibility.Internal) &&
                         !property.IsStatic &&
                         !property.IsIndexer &&
                         property.GetMethod != null &&

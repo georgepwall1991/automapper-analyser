@@ -130,7 +130,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
             // Get declared properties (not inherited ones to avoid duplicates)
             IPropertySymbol[] typeProperties = currentType.GetMembers()
                 .OfType<IPropertySymbol>()
-                .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
+                .Where(p => (p.DeclaredAccessibility == Accessibility.Public || p.DeclaredAccessibility == Accessibility.Internal) &&
                             p.CanBeReferencedByName &&
                             !p.IsStatic &&
                             p.GetMethod != null && // Must be readable
@@ -229,16 +229,11 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
     {
         var mappings = new HashSet<(string, string)>();
 
-        // Find the containing class (Profile)
-        ClassDeclarationSyntax? containingClass =
-            currentInvocation.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
-        if (containingClass == null)
-        {
-            return mappings;
-        }
+        // Find the root of the syntax tree to search across all Profile classes
+        SyntaxNode root = currentInvocation.SyntaxTree.GetRoot();
 
-        // Find all CreateMap invocations in the same class
-        IEnumerable<InvocationExpressionSyntax> createMapInvocations = containingClass.DescendantNodes()
+        // Find all CreateMap invocations across all Profile classes in the file
+        IEnumerable<InvocationExpressionSyntax> createMapInvocations = root.DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Where(inv => AutoMapperAnalysisHelpers.IsCreateMapInvocation(inv, context.SemanticModel));
 

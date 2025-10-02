@@ -1918,13 +1918,11 @@ public class AM020_NestedObjectMappingTests
                                 }
                                 """;
 
-        // Analyzer currently only detects mappings within the same profile
-        // Cross-profile detection could be added in future enhancement
+        // Analyzer should detect mappings across different profiles in the same file
         await DiagnosticTestFramework
             .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 39, 13,
-                "Address", "SourceAddress", "DestAddress")
+            .ExpectNoDiagnostics()
             .RunAsync();
     }
 
@@ -2163,7 +2161,7 @@ public class AM020_NestedObjectMappingTests
     }
 
     [Fact]
-    public async Task AM020_ShouldIgnoreInternalProperties()
+    public async Task AM020_ShouldHandleInternalProperties()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -2202,11 +2200,76 @@ public class AM020_NestedObjectMappingTests
                                 }
                                 """;
 
-        // Internal properties are currently ignored by the analyzer
+        // Internal properties can be mapped by AutoMapper and should be analyzed
         await DiagnosticTestFramework
             .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
             .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 31, 13,
+                "Address", "SourceAddress", "DestAddress")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldHandleMixedPublicAndInternalProperties()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class PublicAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class InternalAddress
+                                    {
+                                        public string City { get; set; }
+                                    }
+
+                                    public class PublicDestAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class InternalDestAddress
+                                    {
+                                        public string City { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public PublicAddress PublicAddr { get; set; }
+                                        internal InternalAddress InternalAddr { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public PublicDestAddress PublicAddr { get; set; }
+                                        internal InternalDestAddress InternalAddr { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Both public and internal properties should be analyzed and report diagnostics
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 43, 13,
+                "InternalAddr", "InternalAddress", "InternalDestAddress")
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 43, 13,
+                "PublicAddr", "PublicAddress", "PublicDestAddress")
+            .RunAsync();
     }
 
     [Fact]
