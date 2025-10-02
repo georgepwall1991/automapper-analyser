@@ -405,4 +405,78 @@ public class AM030_CustomTypeConverterTests
             .ExpectNoDiagnostics()
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM030_ShouldReportDiagnostic_WhenConvertingBoolToString()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public bool IsActive { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string IsActive { get; set; } = "";
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule, 19, 13,
+                "IsActive", "ITypeConverter<Boolean, String>")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldReportDiagnostic_WhenConvertingGuidToString()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Guid Id { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Id { get; set; } = "";
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule, 20, 13,
+                "Id", "ITypeConverter<Guid, String>")
+            .RunAsync();
+    }
+
 }
