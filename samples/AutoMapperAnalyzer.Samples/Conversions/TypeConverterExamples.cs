@@ -16,9 +16,7 @@ public class TypeConverterExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ❌ AM001/AM030: Property 'BirthDate' requires custom converter from string to DateTime
-#pragma warning disable AM001, AM030
             cfg.CreateMap<PersonWithStringDate, PersonWithDateTime>();
-#pragma warning restore AM001, AM030
         });
 
         IMapper? mapper = config.CreateMapper();
@@ -49,9 +47,7 @@ public class TypeConverterExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ❌ AM001/AM030: Property 'Status' requires custom converter from string to StatusEnum
-#pragma warning disable AM001, AM030
             cfg.CreateMap<OrderWithStringStatus, OrderWithEnumStatus>();
-#pragma warning restore AM001, AM030
         });
 
         IMapper? mapper = config.CreateMapper();
@@ -83,10 +79,8 @@ public class TypeConverterExamples
         {
             cfg.CreateMap<SourceWithNullableString, DestWithGuid>()
                 // ❌ AM030: Converter doesn't handle null values properly
-#pragma warning disable AM030
                 .ForMember(dest => dest.UniqueId,
                     opt => opt.MapFrom(src => Guid.Parse(src.GuidString)));
-#pragma warning restore AM030
         });
 
         IMapper? mapper = config.CreateMapper();
@@ -240,10 +234,8 @@ public class CorrectTypeConverterExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Correct: Using a dedicated ITypeConverter class
-#pragma warning disable AM001  // ConvertUsing handles the type mismatch
             cfg.CreateMap<PersonWithStringDate, PersonWithDateTime>()
                 .ConvertUsing<StringToDateTimeConverter>();
-#pragma warning restore AM001
         });
 
         IMapper? mapper = config.CreateMapper();

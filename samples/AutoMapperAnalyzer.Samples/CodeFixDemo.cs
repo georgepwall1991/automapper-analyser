@@ -33,9 +33,7 @@ namespace AutoMapperAnalyzer.Samples
         {
             // ❌ AM020: Missing nested object mapping - Location to LocationDto
             // The code fix should suggest adding: CreateMap<Location, LocationDto>();
-#pragma warning disable AM020
             CreateMap<Employee, EmployeeDto>();
-#pragma warning restore AM020
         }
     }
 }

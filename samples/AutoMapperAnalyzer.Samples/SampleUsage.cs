@@ -75,16 +75,10 @@ namespace AutoMapperAnalyzer.Samples
     // Example converter that doesn't handle nulls properly
     public class UnsafeStringToDateTimeConverter : ITypeConverter<string?, DateTime>
     {
-#pragma warning disable AM030
         public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
-#pragma warning restore AM030
         {
             // No null check - should trigger AM030 null handling warning
-#pragma warning disable CA1305
-#pragma warning disable CS8604 // Possible null reference argument.
             return DateTime.Parse(source);
-#pragma warning restore CS8604 // Possible null reference argument.
-#pragma warning restore CA1305
         }
     }
 
@@ -110,53 +104,24 @@ namespace AutoMapperAnalyzer.Samples
         public TestProfile()
         {
             // Should trigger AM021: Collection element type mismatch (string -> int)
-#pragma warning disable AM001
-#pragma warning disable AM002
-#pragma warning disable AM003
-#pragma warning disable AM021
             CreateMap<PersonSource, PersonDestination>();
-#pragma warning restore AM001
-#pragma warning restore AM002
-#pragma warning restore AM003
-#pragma warning restore AM021
 
             // Should trigger AM022: Infinite recursion risk due to circular references
-#pragma warning disable AM001
-#pragma warning disable AM001
-#pragma warning disable AM001
-#pragma warning disable AM030
-#pragma warning disable AM022
-#pragma warning disable AM003
-#pragma warning disable AM003
             CreateMap<TreeNode, TreeNodeDto>();
-#pragma warning restore AM003
-#pragma warning restore AM003
-#pragma warning restore AM022
-#pragma warning restore AM030
-#pragma warning restore AM001
-#pragma warning restore AM001
-#pragma warning restore AM001
 
             // Should trigger AM020: Nested object mapping missing (Address -> AddressDto)
             CreateMap<CompanySource, CompanyDestination>();
 
             // Proper mapping with explicit conversion - should NOT trigger AM021
-#pragma warning disable AM001
-#pragma warning disable AM003
             CreateMap<PersonSource, PersonDestination>()
-#pragma warning restore AM003
-#pragma warning restore AM001
                 .ForMember(dest => dest.PhoneNumbers, opt => opt.MapFrom(src => src.PhoneNumbers.Select(int.Parse).ToList()));
 
             // AM030 Examples: Custom Type Converter Issues
 
             // Should trigger AM030: Missing ConvertUsing configuration for incompatible types
-#pragma warning disable AM001, AM002, AM030
             CreateMap<ProductSource, ProductDestination>();
-#pragma warning restore AM001, AM002, AM030
 
             // Proper mapping with ConvertUsing - should NOT trigger AM030
-#pragma warning disable AM002
             CreateMap<ProductSource, ProductDestination>()
                 .ForMember(dest => dest.CreatedDate,
                     opt => opt.MapFrom(src => new SafeStringToDateTimeConverter().Convert(src.CreatedDate, default, null!)))
@@ -164,7 +129,6 @@ namespace AutoMapperAnalyzer.Samples
                     opt => opt.MapFrom(src => ParseDecimalSafely(src.Price)))
                 .ForMember(dest => dest.Description,
                     opt => opt.MapFrom(src => src.Description ?? string.Empty));
-#pragma warning restore AM002
         }
     }
 }

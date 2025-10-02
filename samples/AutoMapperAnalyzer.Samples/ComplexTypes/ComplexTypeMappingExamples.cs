@@ -17,9 +17,7 @@ public class ComplexTypeMappingExamples
         {
             // ❌ AM001/AM021: Collection element types are incompatible: List<SourceItem> to List<DestItem>
             // The nested object mapping is missing: SourceItem -> DestItem
-#pragma warning disable AM001, AM021
             cfg.CreateMap<SourceWithItems, DestWithItems>();
-#pragma warning restore AM001, AM021
         });
 
         IMapper? mapper = config.CreateMapper();
@@ -53,10 +51,8 @@ public class ComplexTypeMappingExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ❌ AM022: Circular reference detected - Parent → Child → Parent
-#pragma warning disable AM022
             cfg.CreateMap<Parent, ParentDto>();
             cfg.CreateMap<Child, ChildDto>();
-#pragma warning restore AM022
         });
 
         IMapper? mapper = config.CreateMapper();
@@ -139,9 +135,7 @@ public class CorrectComplexTypeMappingExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Correct: Explicit mapping for collection elements
-#pragma warning disable AM001  // Element mapping handles the type mismatch
             cfg.CreateMap<SourceWithItems, DestWithItems>();
-#pragma warning restore AM001
             cfg.CreateMap<SourceItem, DestItem>()
                 .ForMember(dest => dest.DisplayValue, opt => opt.MapFrom(src => src.Value));
         });

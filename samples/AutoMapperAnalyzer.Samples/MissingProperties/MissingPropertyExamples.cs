@@ -16,9 +16,7 @@ public class MissingPropertyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ❌ AM004: Source property 'ImportantData' will not be mapped - potential data loss
-#pragma warning disable AM004
             cfg.CreateMap<SourceWithExtraData, DestinationMissingData>();
-#pragma warning restore AM004
         });
 
         IMapper? mapper = config.CreateMapper();
@@ -44,9 +42,7 @@ public class MissingPropertyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ❌ AM011: Required destination property 'RequiredField' is not mapped from any source property
-#pragma warning disable AM011
             cfg.CreateMap<SourceWithoutRequired, DestinationWithRequired>();
-#pragma warning restore AM011
         });
 
         IMapper? mapper = config.CreateMapper();
@@ -73,9 +69,7 @@ public class MissingPropertyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ❌ AM005: Properties differ only in casing: 'userName' vs 'UserName'
-#pragma warning disable AM005
             cfg.CreateMap<SourceWithCamelCase, DestinationWithPascalCase>();
-#pragma warning restore AM005
         });
 
         IMapper? mapper = config.CreateMapper();
