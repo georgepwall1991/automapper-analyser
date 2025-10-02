@@ -1458,4 +1458,268 @@ public class AM020_NestedObjectMappingTests
             .WithSource(testCode)
             .RunWithNoDiagnosticsAsync();
     }
+
+    [Fact]
+    public async Task AM020_ShouldHandleDefaultInterfaceImplementationProperties()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public interface ISourceData
+                                    {
+                                        string Value { get; set; }
+                                    }
+
+                                    public interface IDestData
+                                    {
+                                        string Value { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public ISourceData Data { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public IDestData Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Interface properties are not classes, so no nested object mapping needed
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldHandleMultipleLevelInheritance()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceGrandParent
+                                    {
+                                        public string GrandParentProp { get; set; }
+                                    }
+
+                                    public class SourceParent : SourceGrandParent
+                                    {
+                                        public string ParentProp { get; set; }
+                                    }
+
+                                    public class SourceChild : SourceParent
+                                    {
+                                        public string ChildProp { get; set; }
+                                    }
+
+                                    public class DestGrandParent
+                                    {
+                                        public string GrandParentProp { get; set; }
+                                    }
+
+                                    public class DestParent : DestGrandParent
+                                    {
+                                        public string ParentProp { get; set; }
+                                    }
+
+                                    public class DestChild : DestParent
+                                    {
+                                        public string ChildProp { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceChild NestedObject { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public DestChild NestedObject { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Should report diagnostic for nested object mapping missing
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 51, 13,
+                "NestedObject", "SourceChild", "DestChild")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldHandleExplicitInterfaceImplementation()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public interface IHasData
+                                    {
+                                        string Data { get; set; }
+                                    }
+
+                                    public class SourceData
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public class DestData
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public class Source : IHasData
+                                    {
+                                        string IHasData.Data { get; set; }
+                                        public SourceData NestedData { get; set; }
+                                    }
+
+                                    public class Destination : IHasData
+                                    {
+                                        string IHasData.Data { get; set; }
+                                        public DestData NestedData { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Should report diagnostic for public nested object
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 36, 13,
+                "NestedData", "SourceData", "DestData")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldHandleEmptyClassesWithNoProperties()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class EmptySource
+                                    {
+                                    }
+
+                                    public class EmptyDest
+                                    {
+                                    }
+
+                                    public class Source
+                                    {
+                                        public EmptySource Empty { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public EmptyDest Empty { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Should report diagnostic even for empty classes
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 27, 13,
+                "Empty", "EmptySource", "EmptyDest")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldHandleGenericNestedObjects()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceWrapper<T>
+                                    {
+                                        public T Value { get; set; }
+                                    }
+
+                                    public class DestWrapper<T>
+                                    {
+                                        public T Value { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceWrapper<int> Data { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public DestWrapper<int> Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Should report diagnostic for generic nested objects (without type arguments in diagnostic message)
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 31, 13,
+                "Data", "SourceWrapper", "DestWrapper")
+            .RunAsync();
+    }
 }

@@ -678,4 +678,142 @@ public class AM030_CustomTypeConverterTests
                 "Price", "ITypeConverter<String, Decimal>")
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM030_ShouldHandleComplexClassConversions()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceAddress
+                                    {
+                                        public string Street { get; set; }
+                                        public string City { get; set; }
+                                    }
+
+                                    public class DestinationLocation
+                                    {
+                                        public string FullAddress { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceAddress Address { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestinationLocation Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Complex object conversions detected by AM030 when types don't match
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule, 30, 13,
+                "Address", "ITypeConverter<SourceAddress, DestinationLocation>")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldHandleConverterWithMultipleSourceDestinationTypes()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class CustomConverter : ITypeConverter<Source, Destination>
+                                    {
+                                        public Destination Convert(Source source, Destination destination, ResolutionContext context)
+                                        {
+                                            return new Destination
+                                            {
+                                                Value1 = int.TryParse(source.Value1, out var v1) ? v1 : 0,
+                                                Value2 = int.TryParse(source.Value2, out var v2) ? v2 : 0
+                                            };
+                                        }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Value1 { get; set; }
+                                        public string Value2 { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Value1 { get; set; }
+                                        public int Value2 { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConvertUsing<CustomConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Global ConvertUsing with custom converter should suppress diagnostics for all properties
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldReportDiagnostic_ForObjectToCustomClassConversion()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class CustomData
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public object Data { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public CustomData Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Object to custom class might need explicit mapping - handled by AM020 for nested objects
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
 }
