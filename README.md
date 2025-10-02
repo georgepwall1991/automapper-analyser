@@ -1,9 +1,12 @@
 # 🎯 AutoMapper Roslyn Analyzer
 
-[![Build Status](https://github.com/georgepwall1991/automapper-analyser/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![NuGet](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
-[![Coverage](https://codecov.io/gh/georgepwall1991/automapper-analyser/branch/main/graph/badge.svg)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-131%20passing-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
+[![License](https://img.shields.io/github/license/georgepwall1991/automapper-analyser.svg?style=flat-square&label=License)](LICENSE)
+[![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
 
 > **✨ Catch AutoMapper configuration errors before they cause runtime chaos**  
 > *A sophisticated Roslyn analyzer that transforms AutoMapper development from reactive debugging to proactive prevention*
@@ -34,6 +37,30 @@ public void MapUserData()
     // ✅ Code fixes suggest proper solutions
     // ✅ Ship with confidence
 }
+```
+
+---
+
+## ⚡ Quick Start
+
+```bash
+# Install via .NET CLI
+dotnet add package AutoMapperAnalyzer.Analyzers
+
+# Or via Package Manager Console
+Install-Package AutoMapperAnalyzer.Analyzers
+```
+
+That's it! The analyzer automatically activates and starts checking your AutoMapper configurations. Open any file with AutoMapper mappings and see diagnostics appear instantly.
+
+**See it work:**
+```csharp
+var config = new MapperConfiguration(cfg =>
+{
+    cfg.CreateMap<User, UserDto>();
+    //  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ AM001: Property 'Age' type mismatch
+    //  💡 Press Ctrl+. for code fix suggestions
+});
 ```
 
 ---
@@ -87,19 +114,17 @@ cfg.CreateMap<Source, Dest>()
 
 ## 📦 Installation
 
-### Quick Start - Package Manager
-```powershell
-Install-Package AutoMapperAnalyzer.Analyzers
-Install-Package AutoMapperAnalyzer.CodeFixes  
-```
-
-### .NET CLI
+### .NET CLI (Recommended)
 ```bash
 dotnet add package AutoMapperAnalyzer.Analyzers
-dotnet add package AutoMapperAnalyzer.CodeFixes
 ```
 
-### Project File (Recommended)
+### Package Manager Console
+```powershell
+Install-Package AutoMapperAnalyzer.Analyzers
+```
+
+### Project File (For CI/CD)
 ```xml
 <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.0.0">
   <PrivateAssets>all</PrivateAssets>

@@ -23,14 +23,33 @@
     <PackageVersion Condition="'$(PackageVersion)' == ''">$(MajorVersion).$(MinorVersion).$(BuildNumber)-local</PackageVersion>
     <Title>AutoMapper Roslyn Analyzer</Title>
     <Authors>George Wall</Authors>
-    <Description>Roslyn analyzer that detects AutoMapper configuration issues at compile-time to prevent runtime exceptions and data loss. Supports type safety validation, missing property detection, and configuration validation. Compatible with .NET Framework 4.8+, .NET 6.0+, and .NET 8.0+.</Description>
-    <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis;netframework;netcore;dotnet</PackageTags>
+    <Description>Catch AutoMapper configuration errors at compile-time before they cause runtime chaos! This Roslyn analyzer detects type mismatches, nullable issues, missing properties, collection incompatibilities, and complex mapping problems - all with intelligent code fixes. Transform AutoMapper development from reactive debugging to proactive prevention. Features 10 analyzer rules with smart fixes for type safety, data integrity, and complex mappings. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, and 9.0+.</Description>
+    <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis;code-quality;diagnostics;code-fix;type-safety;compile-time;netframework;netcore;dotnet;dotnet6;dotnet8;dotnet9</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/georgepwall1991/automapper-analyser</PackageProjectUrl>
     <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Fixed: Code fix providers are now properly included in the NuGet package. The analyzer now provides automatic fixes for detected issues including type mismatches, missing properties, and configuration problems.</PackageReleaseNotes>
+    <PackageReleaseNotes>Version 2.0.0 - First Stable Production Release
+
+✨ Features:
+• 10 comprehensive analyzer rules (AM001-AM030)
+• Intelligent code fixes for all diagnostics
+• Complete type safety, data integrity, and complex mapping analysis
+• 131 passing tests with zero build errors
+
+📦 Improvements:
+• Unified package structure (no separate CodeFixes package needed)
+• Professional samples with 122 warnings demonstrating all rules
+• Clean .editorconfig configuration for samples
+• Cross-platform support (.NET Framework 4.8+, .NET 6+, 8+, 9+)
+
+📚 Documentation:
+• Comprehensive README with real-world examples
+• 248-line samples guide with usage patterns
+• Full diagnostic rules reference
+
+🔗 Full Release Notes: https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.0.0</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
     <!-- Remove strict PackageType for broader compatibility -->
