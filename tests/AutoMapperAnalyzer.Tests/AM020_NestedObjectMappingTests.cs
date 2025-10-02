@@ -483,4 +483,240 @@ public class AM020_NestedObjectMappingTests
             .WithSource(testCode)
             .RunWithNoDiagnosticsAsync();
     }
+
+    [Fact]
+    public async Task AM020_ShouldIgnoreGuidAndDecimalProperties()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public Guid Id { get; set; }
+                                        public decimal Price { get; set; }
+                                        public TimeSpan Duration { get; set; }
+                                        public DateTimeOffset Timestamp { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public Guid Id { get; set; }
+                                        public decimal Price { get; set; }
+                                        public TimeSpan Duration { get; set; }
+                                        public DateTimeOffset Timestamp { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldIgnorePropertiesWithoutGetterOrSetter()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class NestedType
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public NestedType ReadOnly { get; } = new NestedType();
+                                        private NestedType _writeOnly;
+                                        public NestedType WriteOnly { set => _writeOnly = value; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public NestedType ReadOnly { get; } = new NestedType();
+                                        private NestedType _writeOnly;
+                                        public NestedType WriteOnly { set => _writeOnly = value; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldHandleStructTypes()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public struct SourceStruct
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public struct DestStruct
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceStruct Data { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public DestStruct Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Structs are value types, so they don't require nested object mapping
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldHandleEnumProperties()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public enum SourceStatus { Active, Inactive }
+                                    public enum DestStatus { Active, Inactive }
+
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceStatus Status { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public DestStatus Status { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Enums are value types, so they don't require nested object mapping
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldHandleDeeplyNestedObjects()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceCity
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class DestCity
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class SourceAddress
+                                    {
+                                        public string Street { get; set; }
+                                        public SourceCity City { get; set; }
+                                    }
+
+                                    public class DestAddress
+                                    {
+                                        public string Street { get; set; }
+                                        public DestCity City { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceAddress Address { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public DestAddress Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Should report Address mapping missing (it will also detect City later when analyzing SourceAddress -> DestAddress)
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 43, 13, "Address",
+                "SourceAddress", "DestAddress")
+            .RunAsync();
+    }
 }
