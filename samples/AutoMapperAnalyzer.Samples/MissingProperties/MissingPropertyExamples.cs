@@ -8,15 +8,17 @@ namespace AutoMapperAnalyzer.Samples.MissingProperties;
 public class MissingPropertyExamples
 {
     /// <summary>
-    ///     AM010: Missing Destination Property - potential data loss
-    ///     This should trigger AM010 diagnostic
+    ///     AM004: Missing Destination Property - potential data loss
+    ///     This should trigger AM004 diagnostic
     /// </summary>
     public void MissingDestinationPropertyExample()
     {
         var config = new MapperConfiguration(cfg =>
         {
-            // ❌ AM010: Source property 'ImportantData' will not be mapped - potential data loss
+            // ❌ AM004: Source property 'ImportantData' will not be mapped - potential data loss
+#pragma warning disable AM004
             cfg.CreateMap<SourceWithExtraData, DestinationMissingData>();
+#pragma warning restore AM004
         });
 
         IMapper? mapper = config.CreateMapper();
@@ -63,15 +65,17 @@ public class MissingPropertyExamples
     }
 
     /// <summary>
-    ///     AM012: Case Sensitivity Mismatch
-    ///     This should trigger AM012 diagnostic
+    ///     AM005: Case Sensitivity Mismatch
+    ///     This should trigger AM005 diagnostic
     /// </summary>
     public void CaseSensitivityMismatchExample()
     {
         var config = new MapperConfiguration(cfg =>
         {
-            // ❌ AM012: Properties differ only in casing: 'userName' vs 'UserName'
+            // ❌ AM005: Properties differ only in casing: 'userName' vs 'UserName'
+#pragma warning disable AM005
             cfg.CreateMap<SourceWithCamelCase, DestinationWithPascalCase>();
+#pragma warning restore AM005
         });
 
         IMapper? mapper = config.CreateMapper();

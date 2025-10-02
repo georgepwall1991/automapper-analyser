@@ -3,7 +3,10 @@ using AutoMapper;
 namespace AutoMapperAnalyzer.Samples.Configuration;
 
 /// <summary>
-///     Examples of configuration issues that AutoMapper analyzer will detect
+///     ⚠️ FUTURE IMPLEMENTATION - These analyzers (AM040-AM042) are NOT yet implemented.
+///     These examples are included for future development reference and documentation.
+///
+///     Examples of configuration issues that AutoMapper analyzer will detect (when implemented)
 /// </summary>
 public class ConfigurationExamples
 {

@@ -101,11 +101,7 @@ dotnet add package AutoMapperAnalyzer.CodeFixes
 
 ### Project File (Recommended)
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="1.0.0">
-  <PrivateAssets>all</PrivateAssets>
-  <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-</PackageReference>
-<PackageReference Include="AutoMapperAnalyzer.CodeFixes" Version="1.0.0">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.0.0">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

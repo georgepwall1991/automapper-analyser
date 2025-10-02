@@ -3,7 +3,10 @@ using AutoMapper;
 namespace AutoMapperAnalyzer.Samples.Performance;
 
 /// <summary>
-///     Examples of performance issues that AutoMapper analyzer will detect
+///     ⚠️ FUTURE IMPLEMENTATION - These analyzers (AM050-AM052) are NOT yet implemented.
+///     These examples are included for future development reference and documentation.
+///
+///     Examples of performance issues that AutoMapper analyzer will detect (when implemented)
 /// </summary>
 public class PerformanceExamples
 {
