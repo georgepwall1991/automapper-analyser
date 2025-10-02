@@ -16,7 +16,7 @@
     <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
     <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
     <MajorVersion>2</MajorVersion>
-    <MinorVersion>0</MinorVersion>
+    <MinorVersion>1</MinorVersion>
     <BuildNumber Condition="'$(BuildNumber)' == ''"
       >$([System.DateTime]::Now.ToString('yyyyMMdd'))</BuildNumber
     >
@@ -30,18 +30,22 @@
     <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Version 2.0.0 - First Stable Production Release
+    <PackageReleaseNotes>Version 2.1.0 - Enhanced AM020 Nested Object Mapping Analyzer
 
-✨ Features:
+✨ New Features:
+• Internal property support: AM020 now detects nested object mappings for internal properties
+• Cross-profile mapping detection: Recognizes mappings defined in different Profile classes
+• Mixed visibility scenarios: Handles classes with both public and internal properties
+
+📦 Improvements:
+• Enhanced GetExistingMappings to search across all Profile classes in the same file
+• Improved AutoMapperAnalysisHelpers to support internal property visibility
+• 374 passing tests (60 AM020 tests, +1 new test for mixed scenarios)
+
+Previous Release (2.0.0):
 • 10 comprehensive analyzer rules (AM001-AM030)
 • Intelligent code fixes for all diagnostics
 • Complete type safety, data integrity, and complex mapping analysis
-• 131 passing tests with zero build errors
-
-📦 Improvements:
-• Unified package structure (no separate CodeFixes package needed)
-• Professional samples with 122 warnings demonstrating all rules
-• Clean .editorconfig configuration for samples
 • Cross-platform support (.NET Framework 4.8+, .NET 6+, 8+, 9+)
 
 📚 Documentation:
