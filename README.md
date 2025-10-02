@@ -13,6 +13,19 @@
 
 ---
 
+## 🎉 Latest Release: v2.1.0
+
+**Enhanced AM020 Nested Object Mapping Analyzer**
+
+✨ **New Capabilities:**
+- 🔓 **Internal Property Support**: Now detects nested object mapping issues for `internal` properties
+- 🔄 **Cross-Profile Detection**: Recognizes mappings defined in different `Profile` classes within the same file
+- 🎨 **Mixed Visibility**: Handles classes with both public and internal nested object properties
+
+This update makes the analyzer even more thorough, catching mapping issues that were previously invisible to static analysis!
+
+---
+
 ## 🌟 Why This Matters
 
 AutoMapper is powerful, but silent failures are its Achilles' heel. Properties that don't map, type mismatches that throw at runtime, nullable violations that cause NullReferenceExceptions—these issues typically surface in production, not during development.
@@ -78,7 +91,7 @@ var config = new MapperConfiguration(cfg =>
 - **AM005**: Case sensitivity issues (cross-platform reliability)
 
 ### 🧩 **Complex Mapping Intelligence**
-- **AM020**: Nested object mapping validation with CreateMap suggestions
+- **AM020**: Nested object mapping validation with CreateMap suggestions (supports internal properties & cross-profile detection)
 - **AM021**: Collection element type analysis with conversion strategies
 - **AM022**: Circular reference detection with MaxDepth recommendations
 - **AM030**: Custom type converter analysis with null safety validation
@@ -126,7 +139,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 
 ### Project File (For CI/CD)
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.0.0">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.1.0">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -295,8 +308,8 @@ dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 This isn't just another analyzer—it's built for **enterprise-grade reliability**:
 
 - **🏎️ Performance-First**: Incremental analysis with minimal IDE impact
-- **🔧 Extensible Design**: Clean plugin architecture for new rules  
-- **🧪 Battle-Tested**: 130+ unit tests covering edge cases (100% passing)
+- **🔧 Extensible Design**: Clean plugin architecture for new rules
+- **🧪 Battle-Tested**: 374 unit tests covering edge cases (100% passing)
 - **🌐 Cross-Platform**: Identical behavior on Windows, macOS, Linux
 - **⚡ CI/CD Ready**: Automated GitHub Actions with codecov integration
 - **📊 Code Coverage**: 55%+ coverage with comprehensive testing
@@ -305,9 +318,15 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ## 🎯 What's Next
 
-### Phase 5B: Enhanced Analysis (In Progress)
-- **AM030**: Custom type converter validation ✅ **COMPLETE**
+### Recently Completed ✅
+- **v2.1.0**: Enhanced AM020 with internal property support and cross-profile detection
+- **AM030**: Custom type converter validation with null safety checks
+
+### Phase 5B: Enhanced Analysis (Upcoming)
 - **AM031**: Performance warning analysis with optimization suggestions
+- **AM032**: Advanced null propagation patterns
+
+### Phase 6: Configuration & Profile Analysis
 - **AM040**: Profile registration analysis and auto-registration fixes
 - **AM041**: Conflicting mapping rule detection and resolution
 
@@ -327,7 +346,7 @@ We're building something special, and **your expertise makes it better**.
 ```bash
 git clone https://github.com/georgepwall1991/automapper-analyser.git
 cd automapper-analyser
-dotnet test  # All 130+ tests should pass
+dotnet test  # All 374 tests should pass
 ```
 
 **What We Need:**
