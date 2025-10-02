@@ -4,7 +4,7 @@
     <DataCollectors>
       <DataCollector friendlyName="XPlat code coverage">
         <Configuration>
-          <Format>opencover,cobertura</Format>
+          <Format>cobertura</Format>
           <Include>[AutoMapperAnalyzer.Analyzers]*</Include>
           <Exclude>[*.Tests]*,[*.Samples]*</Exclude>
           <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
