@@ -15,8 +15,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{072E37BE
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{7356C872-043D-4DE6-B554-8C9D2E9F5041}"
 	ProjectSection(SolutionItems) = preProject
-		PROJECT_PLAN.md = PROJECT_PLAN.md
-		SPRINT_TRACKING.md = SPRINT_TRACKING.md
 		README.md = README.md
 	EndProjectSection
 EndProject
@@ -25,11 +23,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{88F7
 		.github\workflows\codeql.yml = .github\workflows\codeql.yml
 		.github\workflows\ci.yml = .github\workflows\ci.yml
 		.github\dependabot.yml = .github\dependabot.yml
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "executables", "executables", "{29589616-1D2E-43FE-91F8-D8350C7FBADF}"
-	ProjectSection(SolutionItems) = preProject
-		Publish.ps1 = Publish.ps1
 	EndProjectSection
 EndProject
 Global
