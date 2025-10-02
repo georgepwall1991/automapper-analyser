@@ -3,8 +3,8 @@ using System.Composition;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers;
 
@@ -60,25 +60,24 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
             }
 
             // Check if this is a collection type incompatibility vs element type incompatibility
-            bool isCollectionTypeIncompatibility = !string.IsNullOrEmpty(sourceType) && 
+            bool isCollectionTypeIncompatibility = !string.IsNullOrEmpty(sourceType) &&
                 (sourceType!.Contains("HashSet") || sourceType.Contains("Queue") || sourceType.Contains("Stack"));
 
             if (isCollectionTypeIncompatibility)
             {
                 // Collection type incompatibility fixes
-                RegisterCollectionTypeIncompatibilityFixes(context, root, invocation, propertyName!, sourceType!, destType!, sourceElementType!, destElementType!);
+                RegisterCollectionTypeIncompatibilityFixes(context, root, invocation, propertyName!, sourceType!, destType!);
             }
             else
             {
                 // Element type incompatibility fixes
-                RegisterElementTypeIncompatibilityFixes(context, root, invocation, propertyName!, sourceType!, destType!, sourceElementType!, destElementType!);
+                RegisterElementTypeIncompatibilityFixes(context, root, invocation, propertyName!, sourceElementType!, destElementType!);
             }
         }
     }
 
-    private void RegisterCollectionTypeIncompatibilityFixes(CodeFixContext context, SyntaxNode root, 
-        InvocationExpressionSyntax invocation, string propertyName, string sourceType, string destType, 
-        string sourceElementType, string destElementType)
+    private void RegisterCollectionTypeIncompatibilityFixes(CodeFixContext context, SyntaxNode root,
+        InvocationExpressionSyntax invocation, string propertyName, string sourceType, string destType)
     {
         // Fix 1: Add ForMember with ToList() conversion
         if (sourceType.Contains("HashSet") && destType.Contains("List"))
@@ -87,7 +86,11 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
                 title: $"Convert {propertyName} using ToList()",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddForMemberWithConversion(root, invocation, propertyName, "src.{0}.ToList()");
+                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                        invocation,
+                        propertyName,
+                        $"src.{propertyName}.ToList()");
+                    var newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"ToList_{propertyName}");
@@ -102,7 +105,11 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
                 title: $"Convert {propertyName} using ToArray()",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddForMemberWithConversion(root, invocation, propertyName, "src.{0}.ToArray()");
+                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                        invocation,
+                        propertyName,
+                        $"src.{propertyName}.ToArray()");
+                    var newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"ToArray_{propertyName}");
@@ -116,7 +123,11 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
             createChangedDocument: cancellationToken =>
             {
                 string collectionType = GetCollectionTypeName(destType);
-                var newRoot = AddForMemberWithConversion(root, invocation, propertyName, $"new {collectionType}(src.{0})");
+                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                    invocation,
+                    propertyName,
+                    $"new {collectionType}(src.{propertyName})");
+                var newRoot = root.ReplaceNode(invocation, newInvocation);
                 return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
             },
             equivalenceKey: $"Constructor_{propertyName}");
@@ -124,152 +135,53 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
         context.RegisterCodeFix(constructorAction, context.Diagnostics);
     }
 
-    private void RegisterElementTypeIncompatibilityFixes(CodeFixContext context, SyntaxNode root, 
-        InvocationExpressionSyntax invocation, string propertyName, string sourceType, string destType, 
-        string sourceElementType, string destElementType)
+    private void RegisterElementTypeIncompatibilityFixes(CodeFixContext context, SyntaxNode root,
+        InvocationExpressionSyntax invocation, string propertyName, string sourceElementType, string destElementType)
     {
-        // Fix 1: Add ForMember with Select conversion
+        // Fix 1: Add ForMember with Select() for element type conversion
         var selectAction = CodeAction.Create(
-            title: $"Convert {propertyName} elements using Select",
+            title: $"Convert {propertyName} elements using Select()",
             createChangedDocument: cancellationToken =>
             {
                 string conversion = GetElementConversion(sourceElementType, destElementType);
-                var newRoot = AddForMemberWithConversion(root, invocation, propertyName, $"src.{0}.Select({conversion})");
+                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                    invocation,
+                    propertyName,
+                    $"src.{propertyName}.Select({conversion})");
+                var newRoot = root.ReplaceNode(invocation, newInvocation);
                 return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
             },
             equivalenceKey: $"Select_{propertyName}");
 
         context.RegisterCodeFix(selectAction, context.Diagnostics);
 
-        // Fix 2: Add CreateMap for complex element types (if both are complex types)
-        if (!IsPrimitiveType(sourceElementType) && !IsPrimitiveType(destElementType))
-        {
-            var createMapAction = CodeAction.Create(
-                title: $"Add CreateMap for element types {GetSimpleTypeName(sourceElementType)} -> {GetSimpleTypeName(destElementType)}",
-                createChangedDocument: cancellationToken =>
-                {
-                    var newRoot = AddCreateMapForElementTypes(root, invocation, sourceElementType, destElementType);
-                    return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-                },
-                equivalenceKey: $"CreateMap_{sourceElementType}_{destElementType}");
+        // Fix 2: Ignore the property
+        var ignoreAction = CodeAction.Create(
+            title: $"Ignore property '{propertyName}'",
+            createChangedDocument: cancellationToken =>
+            {
+                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
+                var newRoot = root.ReplaceNode(invocation, newInvocation);
+                return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+            },
+            equivalenceKey: $"Ignore_{propertyName}");
 
-            context.RegisterCodeFix(createMapAction, context.Diagnostics);
-        }
+        context.RegisterCodeFix(ignoreAction, context.Diagnostics);
     }
 
-    private SyntaxNode AddForMemberWithConversion(SyntaxNode root, InvocationExpressionSyntax invocation, 
-        string propertyName, string conversionTemplate)
+    private string GetCollectionTypeName(string destType)
     {
-        var conversion = string.Format(conversionTemplate, propertyName);
-        
-        var forMemberCall = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                invocation,
-                SyntaxFactory.IdentifierName("ForMember")))
-            .WithArgumentList(
-                SyntaxFactory.ArgumentList(
-                    SyntaxFactory.SeparatedList(new[]
-                    {
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("dest")),
-                                SyntaxFactory.MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    SyntaxFactory.IdentifierName("dest"),
-                                    SyntaxFactory.IdentifierName(propertyName)))),
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("opt")),
-                                SyntaxFactory.InvocationExpression(
-                                    SyntaxFactory.MemberAccessExpression(
-                                        SyntaxKind.SimpleMemberAccessExpression,
-                                        SyntaxFactory.IdentifierName("opt"),
-                                        SyntaxFactory.IdentifierName("MapFrom")))
-                                    .WithArgumentList(
-                                        SyntaxFactory.ArgumentList(
-                                            SyntaxFactory.SingletonSeparatedList(
-                                                SyntaxFactory.Argument(
-                                                    SyntaxFactory.SimpleLambdaExpression(
-                                                        SyntaxFactory.Parameter(SyntaxFactory.Identifier("src")),
-                                                        SyntaxFactory.ParseExpression(conversion))))))))
-                    })));
-
-        return root.ReplaceNode(invocation, forMemberCall);
-    }
-
-    private SyntaxNode AddCreateMapForElementTypes(SyntaxNode root, InvocationExpressionSyntax invocation, 
-        string sourceElementType, string destElementType)
-    {
-        var createMapCall = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                invocation,
-                SyntaxFactory.GenericName(SyntaxFactory.Identifier("CreateMap"))
-                    .WithTypeArgumentList(
-                        SyntaxFactory.TypeArgumentList(
-                            SyntaxFactory.SeparatedList(new TypeSyntax[]
-                            {
-                                SyntaxFactory.ParseTypeName(GetSimpleTypeName(sourceElementType)),
-                                SyntaxFactory.ParseTypeName(GetSimpleTypeName(destElementType))
-                            })))));
-
-        return root.ReplaceNode(invocation, createMapCall);
-    }
-
-    private string GetCollectionTypeName(string fullTypeName)
-    {
-        if (fullTypeName.Contains("List<"))
-            return "List<" + ExtractElementType(fullTypeName) + ">";
-        if (fullTypeName.Contains("HashSet<"))
-            return "HashSet<" + ExtractElementType(fullTypeName) + ">";
-        if (fullTypeName.Contains("Queue<"))
-            return "Queue<" + ExtractElementType(fullTypeName) + ">";
-        if (fullTypeName.Contains("Stack<"))
-            return "Stack<" + ExtractElementType(fullTypeName) + ">";
-        
-        return fullTypeName;
-    }
-
-    private string ExtractElementType(string collectionType)
-    {
-        int start = collectionType.IndexOf('<') + 1;
-        int end = collectionType.LastIndexOf('>');
-        return collectionType.Substring(start, end - start);
+        if (destType.Contains("List")) return "List<>";
+        if (destType.Contains("HashSet")) return "HashSet<>";
+        if (destType.Contains("Queue")) return "Queue<>";
+        if (destType.Contains("Stack")) return "Stack<>";
+        return "IEnumerable<>";
     }
 
     private string GetElementConversion(string sourceElementType, string destElementType)
     {
-        // Handle common conversions
-        if (sourceElementType == "string" && destElementType == "int")
-            return "x => int.Parse(x)";
-        if (sourceElementType == "int" && destElementType == "string")
-            return "x => x.ToString()";
-        if (sourceElementType == "string" && destElementType == "double")
-            return "x => double.Parse(x)";
-        if (sourceElementType == "double" && destElementType == "string")
-            return "x => x.ToString()";
-        if (sourceElementType == "string" && destElementType == "decimal")
-            return "x => decimal.Parse(x)";
-        if (sourceElementType == "decimal" && destElementType == "string")
-            return "x => x.ToString()";
-
-        // For complex types, assume mapping exists or will be created
-        return "x => x";
-    }
-
-    private bool IsPrimitiveType(string typeName)
-    {
-        string[] primitiveTypes = { "string", "int", "double", "float", "decimal", "bool", "char", "byte", "sbyte", "short", "ushort", "uint", "long", "ulong" };
-        return primitiveTypes.Contains(typeName.ToLower());
-    }
-
-    private string GetSimpleTypeName(string fullTypeName)
-    {
-        if (fullTypeName.Contains('.'))
-        {
-            return fullTypeName.Substring(fullTypeName.LastIndexOf('.') + 1);
-        }
-        return fullTypeName;
+        // Generate a simple conversion lambda
+        // This is a placeholder - in real scenarios might need more complex logic
+        return $"x => x /* TODO: Convert from {sourceElementType} to {destElementType} */";
     }
 }
