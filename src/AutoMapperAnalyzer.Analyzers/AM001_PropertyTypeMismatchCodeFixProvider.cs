@@ -10,7 +10,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 
-namespace AutoMapperAnalyzer.CodeFixes;
+namespace AutoMapperAnalyzer.Analyzers;
 
 /// <summary>
 /// Code fix provider for AM001 Property Type Mismatch diagnostics.

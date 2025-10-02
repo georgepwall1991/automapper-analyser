@@ -46,13 +46,15 @@
       Version="4.14.0"
       PrivateAssets="all"
     />
-  </ItemGroup>
-  <!-- Reference CodeFixes project to ensure build order but don't include in output -->
-  <ItemGroup>
-    <ProjectReference
-      Include="..\AutoMapperAnalyzer.CodeFixes\AutoMapperAnalyzer.CodeFixes.csproj"
+    <PackageReference
+      Include="Microsoft.CodeAnalysis.CSharp.Workspaces"
+      Version="4.14.0"
       PrivateAssets="all"
-      ReferenceOutputAssembly="false"
+    />
+    <PackageReference
+      Include="Microsoft.CodeAnalysis.Workspaces.Common"
+      Version="4.14.0"
+      PrivateAssets="all"
     />
   </ItemGroup>
   <ItemGroup>
@@ -73,32 +75,6 @@
       Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll"
       Pack="true"
       PackagePath="analyzers\dotnet\$(AssemblyName).dll"
-      Visible="false"
-    />
-    <!-- Also include for broader compatibility -->
-    <None
-      Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll"
-      Pack="true"
-      PackagePath="tools\analyzers\$(AssemblyName).dll"
-      Visible="false"
-    />
-    <!-- Include CodeFixes DLL in the analyzer package -->
-    <None
-      Include="..\AutoMapperAnalyzer.CodeFixes\bin\$(Configuration)\$(TargetFramework)\AutoMapperAnalyzer.CodeFixes.dll"
-      Pack="true"
-      PackagePath="analyzers\dotnet\cs\AutoMapperAnalyzer.CodeFixes.dll"
-      Visible="false"
-    />
-    <None
-      Include="..\AutoMapperAnalyzer.CodeFixes\bin\$(Configuration)\$(TargetFramework)\AutoMapperAnalyzer.CodeFixes.dll"
-      Pack="true"
-      PackagePath="analyzers\dotnet\AutoMapperAnalyzer.CodeFixes.dll"
-      Visible="false"
-    />
-    <None
-      Include="..\AutoMapperAnalyzer.CodeFixes\bin\$(Configuration)\$(TargetFramework)\AutoMapperAnalyzer.CodeFixes.dll"
-      Pack="true"
-      PackagePath="tools\analyzers\AutoMapperAnalyzer.CodeFixes.dll"
       Visible="false"
     />
   </ItemGroup>

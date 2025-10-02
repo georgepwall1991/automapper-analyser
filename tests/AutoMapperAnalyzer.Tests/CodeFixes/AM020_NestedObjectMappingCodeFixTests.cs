@@ -1,5 +1,5 @@
 using AutoMapperAnalyzer.Analyzers;
-using AutoMapperAnalyzer.CodeFixes;
+using AutoMapperAnalyzer.Analyzers;
 using AutoMapperAnalyzer.Tests.Framework;
 
 namespace AutoMapperAnalyzer.Tests.CodeFixes;

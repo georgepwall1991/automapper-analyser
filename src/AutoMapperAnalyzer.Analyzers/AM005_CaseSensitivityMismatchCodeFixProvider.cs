@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace AutoMapperAnalyzer.CodeFixes;
+namespace AutoMapperAnalyzer.Analyzers;
 
 /// <summary>
 /// Code fix provider for AM005 diagnostic - Case Sensitivity Mismatch.
