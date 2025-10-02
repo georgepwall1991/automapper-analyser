@@ -5,7 +5,7 @@
       <DataCollector friendlyName="XPlat code coverage">
         <Configuration>
           <Format>opencover,cobertura</Format>
-          <Include>[AutoMapperAnalyzer.Analyzers]*,[AutoMapperAnalyzer.CodeFixes]*</Include>
+          <Include>[AutoMapperAnalyzer.Analyzers]*</Include>
           <Exclude>[*.Tests]*,[*.Samples]*</Exclude>
           <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
           <ExcludeByFile>**/Migrations/**/*.cs</ExcludeByFile>
