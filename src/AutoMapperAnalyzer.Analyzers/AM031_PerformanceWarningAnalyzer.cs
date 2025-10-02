@@ -110,45 +110,97 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
-        context.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeCreateMapInvocation, SyntaxKind.InvocationExpression);
     }
 
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeCreateMapInvocation(SyntaxNodeAnalysisContext context)
     {
         var invocationExpr = (InvocationExpressionSyntax)context.Node;
 
-        // Check if this is a ForMember call
-        if (!IsForMemberInvocation(invocationExpr, context.SemanticModel))
+        // Check if this is a CreateMap<TSource, TDestination>() call
+        if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
         {
             return;
         }
 
+        // Find all ForMember calls in the method chain
+        var forMemberCalls = GetForMemberInvocations(invocationExpr);
+
+        foreach (var forMemberCall in forMemberCalls)
+        {
+            AnalyzeForMemberCall(context, forMemberCall);
+        }
+    }
+
+    private static List<InvocationExpressionSyntax> GetForMemberInvocations(InvocationExpressionSyntax createMapInvocation)
+    {
+        var forMemberCalls = new List<InvocationExpressionSyntax>();
+
+        // Find the parent expression statement or any ancestor that might contain the full chain
+        var root = createMapInvocation.AncestorsAndSelf().OfType<ExpressionStatementSyntax>().FirstOrDefault()
+                  ?? createMapInvocation.AncestorsAndSelf().OfType<VariableDeclaratorSyntax>().FirstOrDefault()?.Parent?.Parent
+                  ?? (SyntaxNode)createMapInvocation;
+
+        // Find all ForMember invocations in descendants
+        var allInvocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>();
+
+        foreach (var invocation in allInvocations)
+        {
+            if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Name.Identifier.Text == "ForMember")
+            {
+                // Check if this ForMember is part of the CreateMap chain
+                if (IsPartOfCreateMapChain(invocation, createMapInvocation))
+                {
+                    forMemberCalls.Add(invocation);
+                }
+            }
+        }
+
+        return forMemberCalls;
+    }
+
+    private static bool IsPartOfCreateMapChain(InvocationExpressionSyntax forMemberInvocation, InvocationExpressionSyntax createMapInvocation)
+    {
+        // Check if the ForMember's member access expression contains the CreateMap invocation
+        var currentExpr = forMemberInvocation.Expression;
+        while (currentExpr is MemberAccessExpressionSyntax memberAccess)
+        {
+            if (memberAccess.Expression is InvocationExpressionSyntax invocation)
+            {
+                if (invocation == createMapInvocation)
+                {
+                    return true;
+                }
+                currentExpr = invocation.Expression;
+            }
+            else
+            {
+                currentExpr = memberAccess.Expression;
+            }
+        }
+
+        return false;
+    }
+
+    private static void AnalyzeForMemberCall(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax forMemberInvocation)
+    {
         // Get the lambda expression from MapFrom
-        var mapFromLambda = GetMapFromLambda(invocationExpr);
+        var mapFromLambda = GetMapFromLambda(forMemberInvocation);
         if (mapFromLambda == null)
         {
             return;
         }
 
         // Get the destination property name
-        var propertyName = GetDestinationPropertyName(invocationExpr);
+        var propertyName = GetDestinationPropertyName(forMemberInvocation);
         if (propertyName == null)
         {
             return;
         }
 
         // Analyze the lambda body for performance issues
-        AnalyzeLambdaExpression(context, mapFromLambda, propertyName, invocationExpr);
-    }
-
-    private static bool IsForMemberInvocation(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
-        {
-            return false;
-        }
-
-        return memberAccess.Name.Identifier.Text == "ForMember";
+        AnalyzeLambdaExpression(context, mapFromLambda, propertyName, forMemberInvocation);
     }
 
     private static LambdaExpressionSyntax? GetMapFromLambda(InvocationExpressionSyntax forMemberInvocation)
@@ -212,6 +264,9 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     {
         // Check for method invocations
         var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().ToList();
+
+        // Check for member access expressions (for properties like DateTime.Now)
+        var memberAccesses = lambda.DescendantNodes().OfType<MemberAccessExpressionSyntax>().ToList();
 
         // Track collection accesses for multiple enumeration detection
         var collectionAccesses = new Dictionary<string, int>();
@@ -292,6 +347,28 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             {
                 ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName, "method call");
                 continue;
+            }
+        }
+
+        // Check member access expressions for non-deterministic properties
+        foreach (var memberAccess in memberAccesses)
+        {
+            var symbolInfo = context.SemanticModel.GetSymbolInfo(memberAccess);
+            if (symbolInfo.Symbol is IPropertySymbol propertySymbol)
+            {
+                var containingType = propertySymbol.ContainingType?.ToDisplayString() ?? "";
+                var propertyName_member = propertySymbol.Name;
+
+                // Check for DateTime.Now, DateTime.UtcNow
+                if (containingType == "System.DateTime" && (propertyName_member == "Now" || propertyName_member == "UtcNow"))
+                {
+                    var diagnostic = Diagnostic.Create(
+                        NonDeterministicOperationRule,
+                        lambda.GetLocation(),
+                        propertyName,
+                        "DateTime.Now");
+                    context.ReportDiagnostic(diagnostic);
+                }
             }
         }
 
@@ -445,7 +522,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             {
                 // Check for nested Where, Select, or other complex operations
                 var nestedInvocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().Count();
-                return nestedInvocations > 1;
+                return nestedInvocations >= 1;
             }
         }
 
