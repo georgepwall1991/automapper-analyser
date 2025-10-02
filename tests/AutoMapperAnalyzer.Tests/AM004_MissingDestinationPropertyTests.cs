@@ -398,4 +398,215 @@ public class AM004_MissingDestinationPropertyTests
                 "WorkAddress")
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM004_ShouldReportMissingCollectionProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public List<string> Tags { get; set; }
+                                        public string[] Categories { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public List<string> Tags { get; set; }
+                                        // Missing Categories array - data loss!
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 24, 13,
+                "Categories")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM004_ShouldReportMissingNullableProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public int? Age { get; set; }
+                                        public DateTime? BirthDate { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public int? Age { get; set; }
+                                        // Missing BirthDate - data loss!
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 24, 13,
+                "BirthDate")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM004_ShouldHandlePropertyHidingWithNewKeyword()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class BaseSource
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Source : BaseSource
+                                    {
+                                        public new string Name { get; set; }
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Property hiding with 'new' keyword should not cause false positives
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM004_ShouldHandleEnumProperties()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public enum Status
+                                    {
+                                        Active,
+                                        Inactive
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public Status CurrentStatus { get; set; }
+                                        public Status PreviousStatus { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public Status CurrentStatus { get; set; }
+                                        // Missing PreviousStatus - data loss!
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 29, 13,
+                "PreviousStatus")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM004_ShouldHandleMultipleForSourceMemberIgnores()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string TempData1 { get; set; }
+                                        public string TempData2 { get; set; }
+                                        public string TempData3 { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForSourceMember(src => src.TempData1, opt => opt.DoNotValidate())
+                                                .ForSourceMember(src => src.TempData2, opt => opt.DoNotValidate())
+                                                .ForSourceMember(src => src.TempData3, opt => opt.DoNotValidate());
+                                        }
+                                    }
+                                }
+                                """;
+
+        // All temp properties are explicitly ignored, so no diagnostics
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
 }
