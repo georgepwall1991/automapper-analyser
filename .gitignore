@@ -443,8 +443,12 @@ packages/
 # Project-specific ignores for AutoMapper Analyzer
 
 # Published NuGet packages (keep versioned ones in nupkg/ for releases)
+nupkg/
 nupkgs/
 *.symbols.nupkg
+
+# Test installation projects (superseded by CI/CD)
+test-install/
 
 # Test results and coverage
 TestResults/
@@ -511,8 +515,6 @@ launchSettings.json.user
 !icon.svg
 !README.md
 !*.md
-!tools/install.ps1
-!tools/uninstall.ps1
 
 # Performance profiling
 *.psess
