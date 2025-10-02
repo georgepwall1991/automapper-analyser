@@ -227,3 +227,4 @@ When working on this project:
 3. Follow TDD patterns for new analyzers
 4. Update documentation as you implement features
 5. Test package installation in test-install projects
+- Always use TDD when adding new features, before any commit ensure all tests pass and the project builds. Then wait for the CI pipeline to complete and ensure that that passes

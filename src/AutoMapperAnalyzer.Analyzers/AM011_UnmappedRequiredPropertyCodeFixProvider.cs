@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers;
 
@@ -59,7 +60,9 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : CodeFixProvider
                 title: $"Map '{propertyName}' to default value",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddForMemberWithDefaultValue(root, invocation, propertyName!, propertyType!);
+                    var defaultValue = TypeConversionHelper.GetDefaultValueForType(propertyType!);
+                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName!, defaultValue);
+                    var newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"DefaultValue_{propertyName}");
@@ -71,7 +74,9 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : CodeFixProvider
                 title: $"Map '{propertyName}' to constant value",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddForMemberWithConstantValue(root, invocation, propertyName!, propertyType!);
+                    var constantValue = TypeConversionHelper.GetSampleValueForType(propertyType!);
+                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName!, constantValue);
+                    var newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"ConstantValue_{propertyName}");
@@ -83,7 +88,10 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : CodeFixProvider
                 title: $"Map '{propertyName}' with custom logic (requires implementation)",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddForMemberWithCustomLogic(root, invocation, propertyName!, propertyType!);
+                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName!, "null")
+                        .WithLeadingTrivia(
+                            SyntaxFactory.Comment($"// TODO: Implement custom mapping logic for required property '{propertyName}'"));
+                    var newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"CustomLogic_{propertyName}");
@@ -95,185 +103,22 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : CodeFixProvider
                 title: $"Add comment to suggest adding '{propertyName}' to source class",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddSourcePropertySuggestionComment(root, invocation, propertyName!, propertyType!);
+                    var commentTrivia = SyntaxFactory.Comment($"// TODO: Consider adding '{propertyName}' property of type '{propertyType}' to source class");
+                    var secondCommentTrivia = SyntaxFactory.Comment($"// This will ensure the required property is automatically mapped");
+
+                    var newInvocation = invocation.WithLeadingTrivia(
+                        invocation.GetLeadingTrivia()
+                            .Add(commentTrivia)
+                            .Add(SyntaxFactory.EndOfLine("\n"))
+                            .Add(secondCommentTrivia)
+                            .Add(SyntaxFactory.EndOfLine("\n")));
+
+                    var newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"AddProperty_{propertyName}");
 
             context.RegisterCodeFix(addPropertyAction, context.Diagnostics);
         }
-    }
-
-    private SyntaxNode AddForMemberWithDefaultValue(SyntaxNode root, InvocationExpressionSyntax invocation, 
-        string propertyName, string propertyType)
-    {
-        string defaultValue = GetDefaultValueForType(propertyType);
-        
-        var forMemberCall = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                invocation,
-                SyntaxFactory.IdentifierName("ForMember")))
-            .WithArgumentList(
-                SyntaxFactory.ArgumentList(
-                    SyntaxFactory.SeparatedList(new[]
-                    {
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("dest")),
-                                SyntaxFactory.MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    SyntaxFactory.IdentifierName("dest"),
-                                    SyntaxFactory.IdentifierName(propertyName)))),
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("opt")),
-                                SyntaxFactory.InvocationExpression(
-                                    SyntaxFactory.MemberAccessExpression(
-                                        SyntaxKind.SimpleMemberAccessExpression,
-                                        SyntaxFactory.IdentifierName("opt"),
-                                        SyntaxFactory.IdentifierName("MapFrom")))
-                                    .WithArgumentList(
-                                        SyntaxFactory.ArgumentList(
-                                            SyntaxFactory.SingletonSeparatedList(
-                                                SyntaxFactory.Argument(
-                                                    SyntaxFactory.SimpleLambdaExpression(
-                                                        SyntaxFactory.Parameter(SyntaxFactory.Identifier("src")),
-                                                        SyntaxFactory.ParseExpression(defaultValue))))))))
-                    })));
-
-        return root.ReplaceNode(invocation, forMemberCall);
-    }
-
-    private SyntaxNode AddForMemberWithConstantValue(SyntaxNode root, InvocationExpressionSyntax invocation, 
-        string propertyName, string propertyType)
-    {
-        string constantValue = GetSampleValueForType(propertyType);
-        
-        var forMemberCall = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                invocation,
-                SyntaxFactory.IdentifierName("ForMember")))
-            .WithArgumentList(
-                SyntaxFactory.ArgumentList(
-                    SyntaxFactory.SeparatedList(new[]
-                    {
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("dest")),
-                                SyntaxFactory.MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    SyntaxFactory.IdentifierName("dest"),
-                                    SyntaxFactory.IdentifierName(propertyName)))),
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("opt")),
-                                SyntaxFactory.InvocationExpression(
-                                    SyntaxFactory.MemberAccessExpression(
-                                        SyntaxKind.SimpleMemberAccessExpression,
-                                        SyntaxFactory.IdentifierName("opt"),
-                                        SyntaxFactory.IdentifierName("MapFrom")))
-                                    .WithArgumentList(
-                                        SyntaxFactory.ArgumentList(
-                                            SyntaxFactory.SingletonSeparatedList(
-                                                SyntaxFactory.Argument(
-                                                    SyntaxFactory.SimpleLambdaExpression(
-                                                        SyntaxFactory.Parameter(SyntaxFactory.Identifier("src")),
-                                                        SyntaxFactory.ParseExpression(constantValue))))))))
-                    })));
-
-        return root.ReplaceNode(invocation, forMemberCall);
-    }
-
-    private SyntaxNode AddForMemberWithCustomLogic(SyntaxNode root, InvocationExpressionSyntax invocation, 
-        string propertyName, string propertyType)
-    {
-        var forMemberCall = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                invocation,
-                SyntaxFactory.IdentifierName("ForMember")))
-            .WithArgumentList(
-                SyntaxFactory.ArgumentList(
-                    SyntaxFactory.SeparatedList(new[]
-                    {
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("dest")),
-                                SyntaxFactory.MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    SyntaxFactory.IdentifierName("dest"),
-                                    SyntaxFactory.IdentifierName(propertyName)))),
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("opt")),
-                                SyntaxFactory.InvocationExpression(
-                                    SyntaxFactory.MemberAccessExpression(
-                                        SyntaxKind.SimpleMemberAccessExpression,
-                                        SyntaxFactory.IdentifierName("opt"),
-                                        SyntaxFactory.IdentifierName("MapFrom")))
-                                    .WithArgumentList(
-                                        SyntaxFactory.ArgumentList(
-                                            SyntaxFactory.SingletonSeparatedList(
-                                                SyntaxFactory.Argument(
-                                                    SyntaxFactory.SimpleLambdaExpression(
-                                                        SyntaxFactory.Parameter(SyntaxFactory.Identifier("src")),
-                                                        SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression))))))))
-                    })))
-            .WithLeadingTrivia(
-                SyntaxFactory.Comment($"// TODO: Implement custom mapping logic for required property '{propertyName}'"));
-
-        return root.ReplaceNode(invocation, forMemberCall);
-    }
-
-    private SyntaxNode AddSourcePropertySuggestionComment(SyntaxNode root, InvocationExpressionSyntax invocation, 
-        string propertyName, string propertyType)
-    {
-        var commentTrivia = SyntaxFactory.Comment($"// TODO: Consider adding '{propertyName}' property of type '{propertyType}' to source class");
-        var secondCommentTrivia = SyntaxFactory.Comment($"// This will ensure the required property is automatically mapped");
-        
-        var newInvocation = invocation.WithLeadingTrivia(
-            invocation.GetLeadingTrivia()
-                .Add(commentTrivia)
-                .Add(SyntaxFactory.EndOfLine("\n"))
-                .Add(secondCommentTrivia)
-                .Add(SyntaxFactory.EndOfLine("\n")));
-
-        return root.ReplaceNode(invocation, newInvocation);
-    }
-
-    private string GetDefaultValueForType(string propertyType)
-    {
-        return propertyType.ToLower() switch
-        {
-            "string" => "string.Empty",
-            "int" => "0",
-            "long" => "0L",
-            "double" => "0.0",
-            "float" => "0.0f",
-            "decimal" => "0m",
-            "bool" => "false",
-            "datetime" => "DateTime.MinValue",
-            "guid" => "Guid.Empty",
-            _ => "default"
-        };
-    }
-
-    private string GetSampleValueForType(string propertyType)
-    {
-        return propertyType.ToLower() switch
-        {
-            "string" => "\"DefaultValue\"",
-            "int" => "1",
-            "long" => "1L",
-            "double" => "1.0",
-            "float" => "1.0f",
-            "decimal" => "1.0m",
-            "bool" => "true",
-            "datetime" => "DateTime.Now",
-            "guid" => "Guid.NewGuid()",
-            _ => "new " + propertyType + "()"
-        };
     }
 }
