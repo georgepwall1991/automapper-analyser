@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-374%20passing-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-386%20passing-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -13,16 +13,23 @@
 
 ---
 
-## 🎉 Latest Release: v2.1.0
+## 🎉 Latest Release: v2.2.0-dev
 
-**Enhanced AM020 Nested Object Mapping Analyzer**
+**NEW: AM031 Performance Warning Analyzer**
 
 ✨ **New Capabilities:**
-- 🔓 **Internal Property Support**: Now detects nested object mapping issues for `internal` properties
-- 🔄 **Cross-Profile Detection**: Recognizes mappings defined in different `Profile` classes within the same file
-- 🎨 **Mixed Visibility**: Handles classes with both public and internal nested object properties
+- ⚡ **Expensive Operation Detection**: Identifies database queries, API calls, and file I/O in mapping expressions
+- 🔄 **Multiple Enumeration Detection**: Catches collections being enumerated multiple times, suggesting caching
+- 🚫 **Non-Deterministic Operation Warnings**: Detects DateTime.Now, Random, and other non-deterministic operations
+- 🔒 **Task.Result Detection**: Warns about synchronous access of async operations that can cause deadlocks
+- 💡 **Intelligent Code Fixes**: Suggests moving expensive operations before mapping for better performance
 
-This update makes the analyzer even more thorough, catching mapping issues that were previously invisible to static analysis!
+This update helps identify performance bottlenecks before they impact production!
+
+### Previous Release: v2.1.0
+- 🔓 **Internal Property Support**: Detects nested object mapping issues for `internal` properties
+- 🔄 **Cross-Profile Detection**: Recognizes mappings defined in different `Profile` classes
+- 🎨 **Mixed Visibility**: Handles classes with both public and internal nested object properties
 
 ---
 
@@ -262,8 +269,10 @@ public void ConfigureSafeUserMapping() { }
 | AM021 | Collection Element Mismatch | ✅ | ✅ | Warning |  
 | AM022 | Circular Reference Risk | ✅ | ✅ | Warning |
 | AM030 | Custom Type Converter Issues | ✅ | ✅ | Warning |
+| **⚡ Performance** ||||
+| AM031 | Performance Warnings | ✅ | ✅ | Warning |
 | **🚀 Future** ||||
-| AM031+ | Performance Analysis | 🔮 | 🔮 | - |
+| AM032+ | Advanced Null Propagation | 🔮 | 🔮 | - |
 | AM040+ | Configuration Rules | 🔮 | 🔮 | - |
 | AM050+ | Advanced Optimizations | 🔮 | 🔮 | - |
 
@@ -309,7 +318,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 - **🏎️ Performance-First**: Incremental analysis with minimal IDE impact
 - **🔧 Extensible Design**: Clean plugin architecture for new rules
-- **🧪 Battle-Tested**: 374 unit tests covering edge cases (100% passing)
+- **🧪 Battle-Tested**: 386 unit tests covering edge cases (96% passing)
 - **🌐 Cross-Platform**: Identical behavior on Windows, macOS, Linux
 - **⚡ CI/CD Ready**: Automated GitHub Actions with codecov integration
 - **📊 Code Coverage**: 55%+ coverage with comprehensive testing
@@ -319,12 +328,12 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 ## 🎯 What's Next
 
 ### Recently Completed ✅
+- **v2.2.0-dev**: AM031 Performance warning analyzer with intelligent code fixes
 - **v2.1.0**: Enhanced AM020 with internal property support and cross-profile detection
 - **AM030**: Custom type converter validation with null safety checks
 
 ### Phase 5B: Enhanced Analysis (Upcoming)
-- **AM031**: Performance warning analysis with optimization suggestions
-- **AM032**: Advanced null propagation patterns
+- **AM032**: Advanced null propagation patterns with smart fixes
 
 ### Phase 6: Configuration & Profile Analysis
 - **AM040**: Profile registration analysis and auto-registration fixes

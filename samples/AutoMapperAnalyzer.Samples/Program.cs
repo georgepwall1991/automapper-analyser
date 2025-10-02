@@ -80,5 +80,16 @@ public class Program
 
         Console.WriteLine("  - Missing null propagation");
         performanceExamples.MissingNullPropagationExample();
+
+        var am031Examples = new AM031_PerformanceExamples();
+
+        Console.WriteLine("  - AM031: Database call in mapping");
+        am031Examples.DatabaseCallInMappingExample();
+
+        Console.WriteLine("  - AM031: External method call in mapping");
+        am031Examples.ExternalMethodCallExample();
+
+        Console.WriteLine("  - AM031: Multiple collection enumerations");
+        am031Examples.MultipleEnumerationsExample();
     }
 }
