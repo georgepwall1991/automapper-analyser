@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers;
 
@@ -59,7 +60,11 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : CodeFixProvider
                 title: $"Map '{sourcePropertyName}' to '{destinationPropertyName}' explicitly",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddExplicitPropertyMapping(root, invocation, sourcePropertyName!, destinationPropertyName!);
+                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                        invocation,
+                        destinationPropertyName!,
+                        $"src.{sourcePropertyName}");
+                    var newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"ExplicitMapping_{sourcePropertyName}_{destinationPropertyName}");
@@ -71,7 +76,20 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : CodeFixProvider
                 title: "Add comment about case-insensitive configuration",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddCaseInsensitiveConfigComment(root, invocation, sourcePropertyName!, destinationPropertyName!);
+                    var commentTrivia = SyntaxFactory.Comment($"// TODO: Consider configuring case-insensitive property matching in MapperConfiguration");
+                    var secondCommentTrivia = SyntaxFactory.Comment($"// Alternative: cfg.DestinationMemberNamingConvention = LowerUnderscoreNamingConvention.Instance;");
+                    var thirdCommentTrivia = SyntaxFactory.Comment($"// or cfg.SourceMemberNamingConvention = PascalCaseNamingConvention.Instance;");
+
+                    var newInvocation = invocation.WithLeadingTrivia(
+                        invocation.GetLeadingTrivia()
+                            .Add(commentTrivia)
+                            .Add(SyntaxFactory.EndOfLine("\n"))
+                            .Add(secondCommentTrivia)
+                            .Add(SyntaxFactory.EndOfLine("\n"))
+                            .Add(thirdCommentTrivia)
+                            .Add(SyntaxFactory.EndOfLine("\n")));
+
+                    var newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"CaseInsensitiveConfig_{sourcePropertyName}_{destinationPropertyName}");
@@ -83,89 +101,22 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : CodeFixProvider
                 title: $"Add comment to standardize casing (rename '{sourcePropertyName}' to '{destinationPropertyName}')",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddCasingCorrectionComment(root, invocation, sourcePropertyName!, destinationPropertyName!);
+                    var commentTrivia = SyntaxFactory.Comment($"// TODO: Standardize property casing - consider renaming '{sourcePropertyName}' to '{destinationPropertyName}' in source class");
+                    var secondCommentTrivia = SyntaxFactory.Comment($"// This will eliminate case sensitivity issues and improve code consistency");
+
+                    var newInvocation = invocation.WithLeadingTrivia(
+                        invocation.GetLeadingTrivia()
+                            .Add(commentTrivia)
+                            .Add(SyntaxFactory.EndOfLine("\n"))
+                            .Add(secondCommentTrivia)
+                            .Add(SyntaxFactory.EndOfLine("\n")));
+
+                    var newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"CasingCorrection_{sourcePropertyName}_{destinationPropertyName}");
 
             context.RegisterCodeFix(casingCorrectionAction, context.Diagnostics);
         }
-    }
-
-    private SyntaxNode AddExplicitPropertyMapping(SyntaxNode root, InvocationExpressionSyntax invocation, 
-        string sourcePropertyName, string destinationPropertyName)
-    {
-        var forMemberCall = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                invocation,
-                SyntaxFactory.IdentifierName("ForMember")))
-            .WithArgumentList(
-                SyntaxFactory.ArgumentList(
-                    SyntaxFactory.SeparatedList(new[]
-                    {
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("dest")),
-                                SyntaxFactory.MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    SyntaxFactory.IdentifierName("dest"),
-                                    SyntaxFactory.IdentifierName(destinationPropertyName)))),
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("opt")),
-                                SyntaxFactory.InvocationExpression(
-                                    SyntaxFactory.MemberAccessExpression(
-                                        SyntaxKind.SimpleMemberAccessExpression,
-                                        SyntaxFactory.IdentifierName("opt"),
-                                        SyntaxFactory.IdentifierName("MapFrom")))
-                                    .WithArgumentList(
-                                        SyntaxFactory.ArgumentList(
-                                            SyntaxFactory.SingletonSeparatedList(
-                                                SyntaxFactory.Argument(
-                                                    SyntaxFactory.SimpleLambdaExpression(
-                                                        SyntaxFactory.Parameter(SyntaxFactory.Identifier("src")),
-                                                        SyntaxFactory.MemberAccessExpression(
-                                                            SyntaxKind.SimpleMemberAccessExpression,
-                                                            SyntaxFactory.IdentifierName("src"),
-                                                            SyntaxFactory.IdentifierName(sourcePropertyName)))))))))
-                    })));
-
-        return root.ReplaceNode(invocation, forMemberCall);
-    }
-
-    private SyntaxNode AddCaseInsensitiveConfigComment(SyntaxNode root, InvocationExpressionSyntax invocation, 
-        string sourcePropertyName, string destinationPropertyName)
-    {
-        var commentTrivia = SyntaxFactory.Comment($"// TODO: Consider configuring case-insensitive property matching in MapperConfiguration");
-        var secondCommentTrivia = SyntaxFactory.Comment($"// Alternative: cfg.DestinationMemberNamingConvention = LowerUnderscoreNamingConvention.Instance;");
-        var thirdCommentTrivia = SyntaxFactory.Comment($"// or cfg.SourceMemberNamingConvention = PascalCaseNamingConvention.Instance;");
-        
-        var newInvocation = invocation.WithLeadingTrivia(
-            invocation.GetLeadingTrivia()
-                .Add(commentTrivia)
-                .Add(SyntaxFactory.EndOfLine("\n"))
-                .Add(secondCommentTrivia)
-                .Add(SyntaxFactory.EndOfLine("\n"))
-                .Add(thirdCommentTrivia)
-                .Add(SyntaxFactory.EndOfLine("\n")));
-
-        return root.ReplaceNode(invocation, newInvocation);
-    }
-
-    private SyntaxNode AddCasingCorrectionComment(SyntaxNode root, InvocationExpressionSyntax invocation, 
-        string sourcePropertyName, string destinationPropertyName)
-    {
-        var commentTrivia = SyntaxFactory.Comment($"// TODO: Standardize property casing - consider renaming '{sourcePropertyName}' to '{destinationPropertyName}' in source class");
-        var secondCommentTrivia = SyntaxFactory.Comment($"// This will eliminate case sensitivity issues and improve code consistency");
-        
-        var newInvocation = invocation.WithLeadingTrivia(
-            invocation.GetLeadingTrivia()
-                .Add(commentTrivia)
-                .Add(SyntaxFactory.EndOfLine("\n"))
-                .Add(secondCommentTrivia)
-                .Add(SyntaxFactory.EndOfLine("\n")));
-
-        return root.ReplaceNode(invocation, newInvocation);
     }
 }
