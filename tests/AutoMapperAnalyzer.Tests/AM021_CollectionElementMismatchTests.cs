@@ -417,8 +417,119 @@ public class AM021_CollectionElementMismatchTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 30, 13, 
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 30, 13,
                 "BaseCollection", "Source", "string", "Destination", "int")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldReportDiagnostic_WhenIEnumerableToHashSetWithElementMismatch()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public IEnumerable<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public HashSet<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 20, 13,
+                "Values", "Source", "string", "Destination", "int")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldReportDiagnostic_WhenQueueToStackWithElementMismatch()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Queue<double> Measurements { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Stack<int> Measurements { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 20, 13,
+                "Measurements", "Source", "double", "Destination", "int")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldReportDiagnostic_WhenDictionaryValueTypesMismatch()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Dictionary<string, int> Data { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Dictionary<string, string> Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 20, 13,
+                "Data", "Source", "System.Collections.Generic.KeyValuePair<string, int>", "Destination", "System.Collections.Generic.KeyValuePair<string, string>")
             .RunAsync();
     }
 }

@@ -208,4 +208,211 @@ public class AM004_CodeFixTests
             .ExpectFixedCode(expectedFixedCode)
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM004_ShouldHandleMultipleUnmappedSourceProperties()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Extra1 { get; set; }
+                                        public string Extra2 { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Extra1 { get; set; }
+                                                 public string Extra2 { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForSourceMember(src => src.Extra1, opt => opt.DoNotValidate());
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixTestFramework
+            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
+            .WithCodeFix<AM004_MissingDestinationPropertyCodeFixProvider>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 16, 13)
+            .ExpectFixedCode(expectedFixedCode)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM004_ShouldHandleNumericSourceProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public int UnusedId { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public int UnusedId { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForSourceMember(src => src.UnusedId, opt => opt.DoNotValidate());
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixTestFramework
+            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
+            .WithCodeFix<AM004_MissingDestinationPropertyCodeFixProvider>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 16, 13)
+            .ExpectFixedCode(expectedFixedCode)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM004_ShouldHandleComplexTypeSourceProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Address
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public Address UnusedAddress { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Address
+                                             {
+                                                 public string Street { get; set; }
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public Address UnusedAddress { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForSourceMember(src => src.UnusedAddress, opt => opt.DoNotValidate());
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixTestFramework
+            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
+            .WithCodeFix<AM004_MissingDestinationPropertyCodeFixProvider>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 21, 13)
+            .ExpectFixedCode(expectedFixedCode)
+            .RunAsync();
+    }
 }

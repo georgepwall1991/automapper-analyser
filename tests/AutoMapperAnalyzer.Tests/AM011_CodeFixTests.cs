@@ -211,4 +211,201 @@ public class AM011_CodeFixTests
             .ExpectFixedCode(expectedFixedCode)
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM011_ShouldHandleMultipleRequiredProperties()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public required string RequiredField1 { get; set; }
+                                        public required string RequiredField2 { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public required string RequiredField1 { get; set; }
+                                                 public required string RequiredField2 { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.RequiredField1, opt => opt.MapFrom(src => string.Empty));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithCodeFix<AM011_UnmappedRequiredPropertyCodeFixProvider>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 16, 13)
+            .ExpectFixedCode(expectedFixedCode)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM011_ShouldHandleRequiredBoolProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public required bool RequiredFlag { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public required bool RequiredFlag { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.RequiredFlag, opt => opt.MapFrom(src => false));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithCodeFix<AM011_UnmappedRequiredPropertyCodeFixProvider>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 16, 13)
+            .ExpectFixedCode(expectedFixedCode)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM011_ShouldHandleRequiredDecimalProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public required decimal RequiredPrice { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public required decimal RequiredPrice { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.RequiredPrice, opt => opt.MapFrom(src => 0m));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithCodeFix<AM011_UnmappedRequiredPropertyCodeFixProvider>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 16, 13)
+            .ExpectFixedCode(expectedFixedCode)
+            .RunAsync();
+    }
 }
