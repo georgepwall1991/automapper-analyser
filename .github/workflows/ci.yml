@@ -35,11 +35,10 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore ${{ env.SOLUTION_FILE }}
 
-      - name: Build analyzer and code fixes
+      - name: Build analyzer (with CodeFixes)
         run: |
-          echo "Building analyzer and code fixes..."
+          echo "Building unified analyzer package (includes CodeFixes)..."
           dotnet build src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-restore --configuration Release
-          dotnet build src/AutoMapperAnalyzer.CodeFixes/AutoMapperAnalyzer.CodeFixes.csproj --no-restore --configuration Release
 
       - name: Build test project
         run: |
@@ -108,96 +107,64 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      - name: Build analyzer
+      - name: Build and pack analyzer
         run: |
-          echo "Building analyzer for compatibility testing..."
+          echo "Building unified analyzer package for compatibility testing..."
           dotnet build src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --configuration Release
-          dotnet build src/AutoMapperAnalyzer.CodeFixes/AutoMapperAnalyzer.CodeFixes.csproj --configuration Release
+          dotnet pack src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --configuration Release --output ./nupkg
 
-      - name: Test .NET Framework 4.8 compatibility
+      - name: Test .NET Framework 4.8 compatibility (from package)
         run: |
-          Write-Host "🧪 Testing .NET Framework 4.8 compatibility..." -ForegroundColor Cyan
+          Write-Host "🧪 Testing .NET Framework 4.8 compatibility with packaged analyzer..." -ForegroundColor Cyan
           cd test-install/NetFrameworkTest
-          dotnet restore
-          
+          dotnet restore --configfile ../nuget.config
+
           # Build and capture output - should succeed with warnings
           $output = dotnet build --no-restore --verbosity normal 2>&1
           $buildSucceeded = $LASTEXITCODE -eq 0
           $hasAnalyzerWarnings = ($output -match "AM001") -or ($output -match "AM004") -or ($output -match "AM030")
-          
+
           Write-Host "Build Output:" -ForegroundColor Yellow
           Write-Host $output
-          
+
           if ($buildSucceeded -and $hasAnalyzerWarnings) {
-            Write-Host "✅ .NET Framework 4.8 compatibility verified" -ForegroundColor Green
+            Write-Host "✅ .NET Framework 4.8 package installation verified" -ForegroundColor Green
             Write-Host "  - Build succeeded: $buildSucceeded" -ForegroundColor Cyan
-            Write-Host "  - Analyzer warnings detected: $hasAnalyzerWarnings" -ForegroundColor Cyan
+            Write-Host "  - Analyzer warnings from package: $hasAnalyzerWarnings" -ForegroundColor Cyan
           } else {
-            Write-Host "❌ .NET Framework 4.8 compatibility test failed" -ForegroundColor Red
+            Write-Host "❌ .NET Framework 4.8 package installation test failed" -ForegroundColor Red
             Write-Host "  - Build succeeded: $buildSucceeded" -ForegroundColor Red
             Write-Host "  - Analyzer warnings detected: $hasAnalyzerWarnings" -ForegroundColor Red
             exit 1
           }
         shell: pwsh
 
-      - name: Test .NET 6.0 compatibility
+      - name: Test .NET 6.0 compatibility (from package)
         run: |
-          Write-Host "🧪 Testing .NET 6.0 compatibility..." -ForegroundColor Cyan
+          Write-Host "🧪 Testing .NET 6.0 compatibility with packaged analyzer..." -ForegroundColor Cyan
           cd test-install/NetCoreTest
-          dotnet restore
-          
+          dotnet restore --configfile ../nuget.config
+
           # Build and capture output - should succeed with warnings
           $output = dotnet build --no-restore --verbosity normal 2>&1
           $buildSucceeded = $LASTEXITCODE -eq 0
           $hasAnalyzerWarnings = ($output -match "AM001") -or ($output -match "AM004") -or ($output -match "AM030")
-          
+
           Write-Host "Build Output:" -ForegroundColor Yellow
           Write-Host $output
-          
+
           if ($buildSucceeded -and $hasAnalyzerWarnings) {
-            Write-Host "✅ .NET 6.0 compatibility verified" -ForegroundColor Green
+            Write-Host "✅ .NET 6.0 package installation verified" -ForegroundColor Green
             Write-Host "  - Build succeeded: $buildSucceeded" -ForegroundColor Cyan
-            Write-Host "  - Analyzer warnings detected: $hasAnalyzerWarnings" -ForegroundColor Cyan
+            Write-Host "  - Analyzer warnings from package: $hasAnalyzerWarnings" -ForegroundColor Cyan
           } else {
-            Write-Host "❌ .NET 6.0 compatibility test failed" -ForegroundColor Red
+            Write-Host "❌ .NET 6.0 package installation test failed" -ForegroundColor Red
             Write-Host "  - Build succeeded: $buildSucceeded" -ForegroundColor Red
             Write-Host "  - Analyzer warnings detected: $hasAnalyzerWarnings" -ForegroundColor Red
             exit 1
           }
         shell: pwsh
 
-      - name: Test .NET 9.0 compatibility
-        run: |
-          Write-Host "🧪 Testing .NET 9.0 compatibility..." -ForegroundColor Cyan
-          cd test-install/TestPackage
-          dotnet restore
-          
-          # Build and capture output - should succeed with warnings
-          $output = dotnet build --no-restore --verbosity normal 2>&1
-          $buildSucceeded = $LASTEXITCODE -eq 0
-          $hasAnalyzerWarnings = ($output -match "AM001") -or ($output -match "AM004") -or ($output -match "AM030")
-          
-          Write-Host "Build Output:" -ForegroundColor Yellow
-          Write-Host $output
-          
-          if ($buildSucceeded -and $hasAnalyzerWarnings) {
-            Write-Host "✅ .NET 9.0 compatibility verified" -ForegroundColor Green
-            Write-Host "  - Build succeeded: $buildSucceeded" -ForegroundColor Cyan
-            Write-Host "  - Analyzer warnings detected: $hasAnalyzerWarnings" -ForegroundColor Cyan
-          } else {
-            Write-Host "❌ .NET 9.0 compatibility test failed" -ForegroundColor Red
-            Write-Host "  - Build succeeded: $buildSucceeded" -ForegroundColor Red
-            Write-Host "  - Analyzer warnings detected: $hasAnalyzerWarnings" -ForegroundColor Red
-            exit 1
-          }
-        shell: pwsh
-
-      - name: Run comprehensive compatibility test
-        run: |
-          Write-Host "🔍 Running comprehensive compatibility test..." -ForegroundColor Cyan
-          cd test-install
-          pwsh test-compatibility.ps1 -SkipBuild
-        shell: pwsh
 
   package:
     name: Package Analyzer
@@ -217,17 +184,13 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore ${{ env.SOLUTION_FILE }}
 
-      - name: Build solution (excluding samples)
+      - name: Build unified analyzer package
         run: |
-          # Build main projects but exclude samples to avoid analyzer errors failing the build
+          # Build unified analyzer (includes CodeFixes)
           dotnet build src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-restore --configuration Release
-          dotnet build src/AutoMapperAnalyzer.CodeFixes/AutoMapperAnalyzer.CodeFixes.csproj --no-restore --configuration Release
 
-      - name: Pack analyzer
+      - name: Pack unified analyzer
         run: dotnet pack src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-build --configuration Release --output ./packages
-
-      - name: Pack code fixes
-        run: dotnet pack src/AutoMapperAnalyzer.CodeFixes/AutoMapperAnalyzer.CodeFixes.csproj --no-build --configuration Release --output ./packages
 
       - name: Upload packages as artifacts
         uses: actions/upload-artifact@v4
