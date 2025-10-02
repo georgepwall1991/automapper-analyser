@@ -479,4 +479,203 @@ public class AM030_CustomTypeConverterTests
             .RunAsync();
     }
 
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenSameTypesUsed()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Same types don't require type converters
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldHandleConverterWithNullCheckUsingIsNullOrEmpty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class SafeConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            if (string.IsNullOrEmpty(source))
+                                                return DateTime.MinValue;
+
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string? Date { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DateTime Date { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Converter with IsNullOrEmpty check triggers null handling warning + missing converter configuration
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule, 8, 25,
+                "SafeConverter", "String")
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule, 31, 13,
+                "Date", "ITypeConverter<String, DateTime>")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldHandleIntToStringConversion()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public int Count { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Count { get; set; } = "";
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Int to string requires converter
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule, 19, 13,
+                "Count", "ITypeConverter<Int32, String>")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldHandleDoubleToStringConversion()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public double Price { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Price { get; set; } = "";
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Double to string requires converter
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule, 19, 13,
+                "Price", "ITypeConverter<Double, String>")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldReportDiagnostic_WhenStringToDecimalConversion()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Price { get; set; } = "";
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public decimal Price { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // String to decimal requires converter
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule, 19, 13,
+                "Price", "ITypeConverter<String, Decimal>")
+            .RunAsync();
+    }
 }
