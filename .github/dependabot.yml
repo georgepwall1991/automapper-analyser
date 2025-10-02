@@ -18,6 +18,10 @@ updates:
     labels:
       - "dependencies"
       - "automated"
+    ignore:
+      # AutoMapper 15.0+ requires license key and has breaking API changes
+      - dependency-name: "AutoMapper"
+        update-types: ["version-update:semver-major"]
   # GitHub Actions dependencies
   - package-ecosystem: "github-actions"
     directory: "/"

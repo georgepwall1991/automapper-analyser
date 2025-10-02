@@ -93,8 +93,8 @@ public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
             title: $"Add ConvertUsing with custom converter for '{propertyName}'",
             createChangedDocument: cancellationToken =>
             {
-                var newRoot = AddConvertUsingWithConverter(root, invocation, propertyName, 
-                    diagnostic.Properties.GetValueOrDefault("ConverterType", "CustomConverter"));
+                var newRoot = AddConvertUsingWithConverter(root, invocation, propertyName,
+                    diagnostic.Properties.GetValueOrDefault("ConverterType", "CustomConverter") ?? "CustomConverter");
                 return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
             },
             equivalenceKey: $"ConvertUsingConverter_{propertyName}");
@@ -106,8 +106,8 @@ public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
             title: $"Add ForMember with ConvertUsing for '{propertyName}'",
             createChangedDocument: cancellationToken =>
             {
-                var newRoot = AddForMemberConvertUsing(root, invocation, propertyName, 
-                    diagnostic.Properties.GetValueOrDefault("ConverterType", "CustomConverter"));
+                var newRoot = AddForMemberConvertUsing(root, invocation, propertyName,
+                    diagnostic.Properties.GetValueOrDefault("ConverterType", "CustomConverter") ?? "CustomConverter");
                 return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
             },
             equivalenceKey: $"ForMemberConvertUsing_{propertyName}");

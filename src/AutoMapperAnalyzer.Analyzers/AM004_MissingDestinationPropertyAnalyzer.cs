@@ -25,9 +25,11 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         true,
         "Source property exists but no corresponding destination property found, which may result in data loss during mapping.");
 
+    /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         [MissingDestinationPropertyRule];
 
+    /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);

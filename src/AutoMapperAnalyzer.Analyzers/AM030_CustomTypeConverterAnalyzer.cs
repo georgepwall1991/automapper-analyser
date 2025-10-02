@@ -17,6 +17,9 @@ namespace AutoMapperAnalyzer.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>
+    /// Diagnostic rule for invalid type converter implementations.
+    /// </summary>
     public static readonly DiagnosticDescriptor InvalidConverterImplementationRule = new(
         "AM030",
         "Invalid type converter implementation",
@@ -26,6 +29,9 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         true,
         "Custom type converters must implement ITypeConverter<TSource, TDestination> with proper Convert method signature.");
 
+    /// <summary>
+    /// Diagnostic rule for missing ConvertUsing configuration.
+    /// </summary>
     public static readonly DiagnosticDescriptor MissingConvertUsingConfigurationRule = new(
         "AM030",
         "Missing ConvertUsing configuration for type converter",
@@ -35,6 +41,9 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         true,
         "Type mismatches should use ConvertUsing configuration for proper conversion.");
 
+    /// <summary>
+    /// Diagnostic rule for converter null handling issues.
+    /// </summary>
     public static readonly DiagnosticDescriptor ConverterNullHandlingIssueRule = new(
         "AM030",
         "Type converter may not handle null values properly",
@@ -44,6 +53,9 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         true,
         "Type converters should handle null input values when source type is nullable.");
 
+    /// <summary>
+    /// Diagnostic rule for unused type converters.
+    /// </summary>
     public static readonly DiagnosticDescriptor UnusedTypeConverterRule = new(
         "AM030",
         "Type converter is defined but not used in mapping configuration",
@@ -53,6 +65,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         true,
         "Unused type converters can be removed or should be configured in mapping.");
 
+    /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(
             InvalidConverterImplementationRule,
@@ -61,6 +74,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             UnusedTypeConverterRule
         );
 
+    /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);

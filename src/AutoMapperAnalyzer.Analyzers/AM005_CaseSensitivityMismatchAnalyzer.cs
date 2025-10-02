@@ -27,9 +27,11 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         "Properties that differ only in casing may cause mapping issues depending on AutoMapper configuration. " +
         "Consider using explicit mapping or configure case-insensitive property matching.");
 
+    /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         [CaseSensitivityMismatchRule];
 
+    /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);

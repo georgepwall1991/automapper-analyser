@@ -25,9 +25,11 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         true,
         "Complex nested objects require explicit mapping configuration to ensure proper data transformation and avoid runtime exceptions.");
 
+    /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         [NestedObjectMappingMissingRule];
 
+    /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
