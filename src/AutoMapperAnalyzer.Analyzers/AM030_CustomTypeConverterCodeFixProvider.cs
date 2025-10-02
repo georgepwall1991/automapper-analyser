@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers;
 
@@ -38,7 +39,7 @@ public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (!diagnostic.Properties.TryGetValue("PropertyName", out var propertyName) || 
+            if (!diagnostic.Properties.TryGetValue("PropertyName", out var propertyName) ||
                 string.IsNullOrEmpty(propertyName))
             {
                 continue;
@@ -51,36 +52,41 @@ public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
                 continue;
 
             var diagnosticId = diagnostic.Id;
-            
+
             switch (diagnosticId)
             {
                 case "AM030" when diagnostic.Descriptor.Title.ToString().Contains("Missing ConvertUsing"):
                     RegisterMissingConvertUsingFixes(context, root, invocation, propertyName!, diagnostic);
                     break;
-                    
+
                 case "AM030" when diagnostic.Descriptor.Title.ToString().Contains("Invalid type converter"):
-                    RegisterInvalidConverterFixes(context, root, node, diagnostic);
+                    RegisterInvalidConverterFixes(context, root, invocation, propertyName!, diagnostic);
                     break;
-                    
+
                 case "AM030" when diagnostic.Descriptor.Title.ToString().Contains("null values"):
-                    RegisterNullHandlingFixes(context, root, node, diagnostic);
+                    RegisterNullHandlingFixes(context, root, invocation, propertyName!, diagnostic);
                     break;
             }
         }
     }
 
-    private void RegisterMissingConvertUsingFixes(CodeFixContext context, SyntaxNode root, 
+    private void RegisterMissingConvertUsingFixes(CodeFixContext context, SyntaxNode root,
         InvocationExpressionSyntax invocation, string propertyName, Diagnostic diagnostic)
     {
-        // Fix 1: Add ConvertUsing with lambda for string to primitive conversions
-        if (diagnostic.Properties.TryGetValue("ConverterType", out var converterType) && 
+        // Fix 1: Add ForMember with ConvertUsing for string to primitive conversions
+        if (diagnostic.Properties.TryGetValue("ConverterType", out var converterType) &&
             converterType!.Contains("String") && IsStringToPrimitiveConversion(converterType))
         {
             var lambdaFix = CodeAction.Create(
                 title: $"Add ConvertUsing with lambda for '{propertyName}'",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newRoot = AddConvertUsingLambda(root, invocation, propertyName, converterType!);
+                    var conversion = GetStringToPrimitiveConversion(converterType!);
+                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                        invocation,
+                        propertyName,
+                        $"{conversion}(src.{propertyName})");
+                    var newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
                 equivalenceKey: $"ConvertUsingLambda_{propertyName}");
@@ -88,295 +94,134 @@ public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
             context.RegisterCodeFix(lambdaFix, diagnostic);
         }
 
-        // Fix 2: Add ConvertUsing with custom converter class
+        // Fix 2: Add ForMember with custom converter placeholder
         var converterClassFix = CodeAction.Create(
             title: $"Add ConvertUsing with custom converter for '{propertyName}'",
             createChangedDocument: cancellationToken =>
             {
-                var newRoot = AddConvertUsingWithConverter(root, invocation, propertyName,
-                    diagnostic.Properties.GetValueOrDefault("ConverterType", "CustomConverter") ?? "CustomConverter");
+                var converterName = diagnostic.Properties.GetValueOrDefault("ConverterType", "CustomConverter") ?? "CustomConverter";
+                var comment = SyntaxFactory.Comment($"// TODO: Implement {converterName} converter class");
+                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                        invocation,
+                        propertyName,
+                        $"/* TODO: Use ConvertUsing<{converterName}>() */ src.{propertyName}")
+                    .WithLeadingTrivia(comment, SyntaxFactory.EndOfLine("\n"));
+                var newRoot = root.ReplaceNode(invocation, newInvocation);
                 return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
             },
             equivalenceKey: $"ConvertUsingConverter_{propertyName}");
 
         context.RegisterCodeFix(converterClassFix, diagnostic);
 
-        // Fix 3: Add ForMember with ConvertUsing configuration
-        var forMemberFix = CodeAction.Create(
-            title: $"Add ForMember with ConvertUsing for '{propertyName}'",
+        // Fix 3: Ignore the property if conversion is too complex
+        var ignoreFix = CodeAction.Create(
+            title: $"Ignore property '{propertyName}' (conversion too complex)",
             createChangedDocument: cancellationToken =>
             {
-                var newRoot = AddForMemberConvertUsing(root, invocation, propertyName,
-                    diagnostic.Properties.GetValueOrDefault("ConverterType", "CustomConverter") ?? "CustomConverter");
+                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
+                var newRoot = root.ReplaceNode(invocation, newInvocation);
                 return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
             },
-            equivalenceKey: $"ForMemberConvertUsing_{propertyName}");
+            equivalenceKey: $"Ignore_{propertyName}");
 
-        context.RegisterCodeFix(forMemberFix, diagnostic);
+        context.RegisterCodeFix(ignoreFix, diagnostic);
     }
 
-    private void RegisterInvalidConverterFixes(CodeFixContext context, SyntaxNode root, 
-        SyntaxNode node, Diagnostic diagnostic)
+    private void RegisterInvalidConverterFixes(CodeFixContext context, SyntaxNode root,
+        InvocationExpressionSyntax invocation, string propertyName, Diagnostic diagnostic)
     {
-        if (node.FirstAncestorOrSelf<ClassDeclarationSyntax>() is not { } classDeclaration)
-            return;
-
-        // Fix 1: Add missing Convert method
-        var addConvertMethodFix = CodeAction.Create(
-            title: "Add missing Convert method",
+        // Fix 1: Add comment about implementing proper converter
+        var commentFix = CodeAction.Create(
+            title: "Add comment about fixing converter implementation",
             createChangedDocument: cancellationToken =>
             {
-                var newRoot = AddConvertMethod(root, classDeclaration);
+                var comment = SyntaxFactory.Comment("// TODO: Ensure converter implements ITypeConverter<TSource, TDestination>");
+                var newInvocation = invocation.WithLeadingTrivia(
+                    invocation.GetLeadingTrivia()
+                        .Add(comment)
+                        .Add(SyntaxFactory.EndOfLine("\n")));
+                var newRoot = root.ReplaceNode(invocation, newInvocation);
                 return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
             },
-            equivalenceKey: "AddConvertMethod");
+            equivalenceKey: "FixConverterImplementation");
 
-        context.RegisterCodeFix(addConvertMethodFix, diagnostic);
-    }
+        context.RegisterCodeFix(commentFix, diagnostic);
 
-    private void RegisterNullHandlingFixes(CodeFixContext context, SyntaxNode root, 
-        SyntaxNode node, Diagnostic diagnostic)
-    {
-        if (node.FirstAncestorOrSelf<MethodDeclarationSyntax>() is not { } methodDeclaration)
-            return;
-
-        // Fix 1: Add null check to Convert method
-        var addNullCheckFix = CodeAction.Create(
-            title: "Add null check to Convert method",
+        // Fix 2: Replace with simple MapFrom if possible
+        var mapFromFix = CodeAction.Create(
+            title: $"Replace converter with simple MapFrom for '{propertyName}'",
             createChangedDocument: cancellationToken =>
             {
-                var newRoot = AddNullCheckToConvertMethod(root, methodDeclaration);
+                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                    invocation,
+                    propertyName,
+                    $"src.{propertyName}");
+                var newRoot = root.ReplaceNode(invocation, newInvocation);
                 return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
             },
-            equivalenceKey: "AddNullCheck");
+            equivalenceKey: $"ReplaceWithMapFrom_{propertyName}");
 
-        context.RegisterCodeFix(addNullCheckFix, diagnostic);
+        context.RegisterCodeFix(mapFromFix, diagnostic);
     }
 
-    private SyntaxNode AddConvertUsingLambda(SyntaxNode root, InvocationExpressionSyntax invocation, 
-        string propertyName, string converterType)
+    private void RegisterNullHandlingFixes(CodeFixContext context, SyntaxNode root,
+        InvocationExpressionSyntax invocation, string propertyName, Diagnostic diagnostic)
     {
-        var lambdaExpression = GetConversionLambda(propertyName, converterType);
-        
-        var forMemberCall = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                invocation,
-                SyntaxFactory.IdentifierName("ForMember")))
-            .WithArgumentList(
-                SyntaxFactory.ArgumentList(
-                    SyntaxFactory.SeparatedList<ArgumentSyntax>(new[]
-                    {
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("dest")))
-                            .WithExpressionBody(
-                                SyntaxFactory.MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    SyntaxFactory.IdentifierName("dest"),
-                                    SyntaxFactory.IdentifierName(propertyName)))),
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("opt")))
-                            .WithExpressionBody(
-                                SyntaxFactory.InvocationExpression(
-                                    SyntaxFactory.MemberAccessExpression(
-                                        SyntaxKind.SimpleMemberAccessExpression,
-                                        SyntaxFactory.IdentifierName("opt"),
-                                        SyntaxFactory.IdentifierName("ConvertUsing")))
-                                .WithArgumentList(
-                                    SyntaxFactory.ArgumentList(
-                                        SyntaxFactory.SingletonSeparatedList(
-                                            SyntaxFactory.Argument(lambdaExpression))))))
-                    })));
+        // Fix 1: Add null handling in MapFrom
+        var nullHandlingFix = CodeAction.Create(
+            title: $"Add null handling for '{propertyName}'",
+            createChangedDocument: cancellationToken =>
+            {
+                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                    invocation,
+                    propertyName,
+                    $"src.{propertyName} ?? default");
+                var newRoot = root.ReplaceNode(invocation, newInvocation);
+                return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+            },
+            equivalenceKey: $"NullHandling_{propertyName}");
 
-        return root.ReplaceNode(invocation, forMemberCall);
-    }
+        context.RegisterCodeFix(nullHandlingFix, diagnostic);
 
-    private SyntaxNode AddConvertUsingWithConverter(SyntaxNode root, InvocationExpressionSyntax invocation, 
-        string propertyName, string converterType)
-    {
-        var converterName = GetConverterClassName(propertyName, converterType);
-        
-        var convertUsingCall = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                invocation,
-                SyntaxFactory.GenericName("ConvertUsing")
-                    .WithTypeArgumentList(
-                        SyntaxFactory.TypeArgumentList(
-                            SyntaxFactory.SingletonSeparatedList<TypeSyntax>(
-                                SyntaxFactory.IdentifierName(converterName))))));
-
-        return root.ReplaceNode(invocation, convertUsingCall);
-    }
-
-    private SyntaxNode AddForMemberConvertUsing(SyntaxNode root, InvocationExpressionSyntax invocation, 
-        string propertyName, string converterType)
-    {
-        var converterName = GetConverterClassName(propertyName, converterType);
-        
-        var forMemberCall = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                invocation,
-                SyntaxFactory.IdentifierName("ForMember")))
-            .WithArgumentList(
-                SyntaxFactory.ArgumentList(
-                    SyntaxFactory.SeparatedList<ArgumentSyntax>(new[]
-                    {
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("dest")))
-                            .WithExpressionBody(
-                                SyntaxFactory.MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    SyntaxFactory.IdentifierName("dest"),
-                                    SyntaxFactory.IdentifierName(propertyName)))),
-                        SyntaxFactory.Argument(
-                            SyntaxFactory.SimpleLambdaExpression(
-                                SyntaxFactory.Parameter(SyntaxFactory.Identifier("opt")))
-                            .WithExpressionBody(
-                                SyntaxFactory.InvocationExpression(
-                                    SyntaxFactory.MemberAccessExpression(
-                                        SyntaxKind.SimpleMemberAccessExpression,
-                                        SyntaxFactory.IdentifierName("opt"),
-                                        SyntaxFactory.GenericName("ConvertUsing")
-                                            .WithTypeArgumentList(
-                                                SyntaxFactory.TypeArgumentList(
-                                                    SyntaxFactory.SingletonSeparatedList<TypeSyntax>(
-                                                        SyntaxFactory.IdentifierName(converterName))))))))
-                    })));
-
-        return root.ReplaceNode(invocation, forMemberCall);
-    }
-
-    private SyntaxNode AddConvertMethod(SyntaxNode root, ClassDeclarationSyntax classDeclaration)
-    {
-        var convertMethod = SyntaxFactory.MethodDeclaration(
-            SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ObjectKeyword)),
-            "Convert")
-            .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
-            .WithParameterList(
-                SyntaxFactory.ParameterList(
-                    SyntaxFactory.SeparatedList<ParameterSyntax>(new[]
-                    {
-                        SyntaxFactory.Parameter(SyntaxFactory.Identifier("source"))
-                            .WithType(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ObjectKeyword))),
-                        SyntaxFactory.Parameter(SyntaxFactory.Identifier("destination"))
-                            .WithType(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ObjectKeyword))),
-                        SyntaxFactory.Parameter(SyntaxFactory.Identifier("context"))
-                            .WithType(SyntaxFactory.IdentifierName("ResolutionContext"))
-                    })))
-            .WithBody(
-                SyntaxFactory.Block(
-                    SyntaxFactory.SingletonList<StatementSyntax>(
-                        SyntaxFactory.ThrowStatement(
-                            SyntaxFactory.ObjectCreationExpression(
-                                SyntaxFactory.IdentifierName("NotImplementedException"))
-                            .WithArgumentList(
-                                SyntaxFactory.ArgumentList(
-                                    SyntaxFactory.SingletonSeparatedList(
-                                        SyntaxFactory.Argument(
-                                            SyntaxFactory.LiteralExpression(
-                                                SyntaxKind.StringLiteralExpression,
-                                                SyntaxFactory.Literal("TODO: Implement conversion logic"))))))))));
-
-        var newClassDeclaration = classDeclaration.AddMembers(convertMethod);
-        return root.ReplaceNode(classDeclaration, newClassDeclaration);
-    }
-
-    private SyntaxNode AddNullCheckToConvertMethod(SyntaxNode root, MethodDeclarationSyntax methodDeclaration)
-    {
-        var nullCheck = SyntaxFactory.IfStatement(
-            SyntaxFactory.BinaryExpression(
-                SyntaxKind.EqualsExpression,
-                SyntaxFactory.IdentifierName("source"),
-                SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
-            SyntaxFactory.ReturnStatement(
-                SyntaxFactory.IdentifierName("destination")));
-
-        if (methodDeclaration.Body != null)
+        // Fix 2: Use null coalescing operator with specific default
+        if (diagnostic.Properties.TryGetValue("PropertyType", out var propertyType))
         {
-            var newBody = methodDeclaration.Body.WithStatements(
-                methodDeclaration.Body.Statements.Insert(0, nullCheck));
-            var newMethod = methodDeclaration.WithBody(newBody);
-            return root.ReplaceNode(methodDeclaration, newMethod);
+            var defaultValueFix = CodeAction.Create(
+                title: $"Add null handling with default value for '{propertyName}'",
+                createChangedDocument: cancellationToken =>
+                {
+                    var defaultValue = TypeConversionHelper.GetDefaultValueForType(propertyType!);
+                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                        invocation,
+                        propertyName,
+                        $"src.{propertyName} ?? {defaultValue}");
+                    var newRoot = root.ReplaceNode(invocation, newInvocation);
+                    return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+                },
+                equivalenceKey: $"NullHandlingWithDefault_{propertyName}");
+
+            context.RegisterCodeFix(defaultValueFix, diagnostic);
         }
-
-        return root;
-    }
-
-    private ExpressionSyntax GetConversionLambda(string propertyName, string converterType)
-    {
-        if (converterType.Contains("String") && converterType.Contains("DateTime"))
-        {
-            return SyntaxFactory.SimpleLambdaExpression(
-                SyntaxFactory.Parameter(SyntaxFactory.Identifier("src")))
-                .WithExpressionBody(
-                    SyntaxFactory.ConditionalExpression(
-                        SyntaxFactory.InvocationExpression(
-                            SyntaxFactory.MemberAccessExpression(
-                                SyntaxKind.SimpleMemberAccessExpression,
-                                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword)),
-                                SyntaxFactory.IdentifierName("IsNullOrEmpty")))
-                        .WithArgumentList(
-                            SyntaxFactory.ArgumentList(
-                                SyntaxFactory.SingletonSeparatedList(
-                                    SyntaxFactory.Argument(
-                                        SyntaxFactory.MemberAccessExpression(
-                                            SyntaxKind.SimpleMemberAccessExpression,
-                                            SyntaxFactory.IdentifierName("src"),
-                                            SyntaxFactory.IdentifierName(propertyName)))))),
-                        SyntaxFactory.MemberAccessExpression(
-                            SyntaxKind.SimpleMemberAccessExpression,
-                            SyntaxFactory.IdentifierName("DateTime"),
-                            SyntaxFactory.IdentifierName("MinValue")),
-                        SyntaxFactory.InvocationExpression(
-                            SyntaxFactory.MemberAccessExpression(
-                                SyntaxKind.SimpleMemberAccessExpression,
-                                SyntaxFactory.IdentifierName("DateTime"),
-                                SyntaxFactory.IdentifierName("Parse")))
-                        .WithArgumentList(
-                            SyntaxFactory.ArgumentList(
-                                SyntaxFactory.SingletonSeparatedList(
-                                    SyntaxFactory.Argument(
-                                        SyntaxFactory.MemberAccessExpression(
-                                            SyntaxKind.SimpleMemberAccessExpression,
-                                            SyntaxFactory.IdentifierName("src"),
-                                            SyntaxFactory.IdentifierName(propertyName))))))));
-        }
-
-        // Default lambda for other conversions
-        return SyntaxFactory.SimpleLambdaExpression(
-            SyntaxFactory.Parameter(SyntaxFactory.Identifier("src")))
-            .WithExpressionBody(
-                SyntaxFactory.MemberAccessExpression(
-                    SyntaxKind.SimpleMemberAccessExpression,
-                    SyntaxFactory.IdentifierName("src"),
-                    SyntaxFactory.IdentifierName(propertyName)));
     }
 
     private bool IsStringToPrimitiveConversion(string converterType)
     {
-        return converterType.Contains("String") && 
-               (converterType.Contains("DateTime") || 
-                converterType.Contains("Int") || 
-                converterType.Contains("Decimal") || 
-                converterType.Contains("Double") || 
-                converterType.Contains("Float"));
+        return converterType.Contains("Int") ||
+               converterType.Contains("Double") ||
+               converterType.Contains("Decimal") ||
+               converterType.Contains("Boolean") ||
+               converterType.Contains("DateTime") ||
+               converterType.Contains("Guid");
     }
 
-    private string GetConverterClassName(string propertyName, string converterType)
+    private string GetStringToPrimitiveConversion(string converterType)
     {
-        var parts = converterType.Replace("ITypeConverter<", "").Replace(">", "").Split(',');
-        if (parts.Length == 2)
-        {
-            var sourceType = parts[0].Trim().Split('.').Last();
-            var destType = parts[1].Trim().Split('.').Last();
-            return $"{sourceType}To{destType}Converter";
-        }
-        
-        return $"{propertyName}Converter";
+        if (converterType.Contains("Int")) return "int.Parse";
+        if (converterType.Contains("Double")) return "double.Parse";
+        if (converterType.Contains("Decimal")) return "decimal.Parse";
+        if (converterType.Contains("Boolean")) return "bool.Parse";
+        if (converterType.Contains("DateTime")) return "DateTime.Parse";
+        if (converterType.Contains("Guid")) return "Guid.Parse";
+        return "Convert.ChangeType";
     }
 }

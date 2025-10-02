@@ -12,29 +12,16 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace AutoMapperAnalyzer.Analyzers;
 
 /// <summary>
-/// Code fix provider for AM020: Missing nested object mapping configurations
-/// Automatically adds CreateMap statements for missing nested type mappings
+/// Code fix provider for AM020: Missing nested object mapping configurations.
+/// Automatically adds CreateMap statements for missing nested type mappings.
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM020_NestedObjectMappingCodeFixProvider)), Shared]
 public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
 {
-    /// <summary>
-    /// Gets the diagnostic IDs that this code fix provider can fix.
-    /// </summary>
-    public sealed override ImmutableArray<string> FixableDiagnosticIds =>
-        ImmutableArray.Create("AM020");
+    public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM020");
 
-    /// <summary>
-    /// Gets the fix all provider for batch fixes.
-    /// </summary>
-    /// <returns>The batch fixer provider.</returns>
     public sealed override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
-    /// <summary>
-    /// Registers code fixes for the specified context.
-    /// </summary>
-    /// <param name="context">The code fix context.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
@@ -45,8 +32,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
 
         foreach (var diagnostic in context.Diagnostics.Where(d => FixableDiagnosticIds.Contains(d.Id)))
         {
-            var diagnosticSpan = diagnostic.Location.SourceSpan;
-            var node = root.FindNode(diagnosticSpan);
+            var node = root.FindNode(diagnostic.Location.SourceSpan);
 
             if (node is InvocationExpressionSyntax invocation)
             {
@@ -69,42 +55,29 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         if (root == null) return document;
 
-        // Get the type arguments from the CreateMap call
         var typeArguments = GetCreateMapTypeArguments(createMapInvocation, semanticModel);
         if (typeArguments.sourceType == null || typeArguments.destinationType == null)
-        {
             return document;
-        }
 
-        // Find all missing nested mappings
         var missingMappings = GetMissingNestedMappings(
-            createMapInvocation, 
-            typeArguments.sourceType, 
-            typeArguments.destinationType, 
+            createMapInvocation,
+            typeArguments.sourceType,
+            typeArguments.destinationType,
             semanticModel);
 
         if (!missingMappings.Any())
-        {
             return document;
-        }
 
-        // Find the constructor containing the CreateMap call
         var constructor = createMapInvocation.Ancestors().OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
         if (constructor?.Body == null)
-        {
             return document;
-        }
 
-        // Create new CreateMap statements
-        var newStatements = missingMappings.Select(mapping => 
-            CreateCreateMapStatement(mapping.sourceType, mapping.destinationType)).ToArray();
+        var newStatements = missingMappings.Select(m =>
+            CreateCreateMapStatement(m.sourceType, m.destinationType)).ToArray();
 
-        // Insert the new statements after the original CreateMap call
         var originalStatement = createMapInvocation.Ancestors().OfType<ExpressionStatementSyntax>().FirstOrDefault();
         if (originalStatement == null)
-        {
             return document;
-        }
 
         var originalIndex = constructor.Body.Statements.IndexOf(originalStatement);
         var newBody = constructor.Body.WithStatements(
@@ -120,11 +93,9 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
         InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
         var symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is IMethodSymbol method && method.IsGenericMethod && method.TypeArguments.Length == 2)
+        if (symbolInfo.Symbol is IMethodSymbol { IsGenericMethod: true, TypeArguments.Length: 2 } method)
         {
-            var sourceType = method.TypeArguments[0] as INamedTypeSymbol;
-            var destinationType = method.TypeArguments[1] as INamedTypeSymbol;
-            return (sourceType, destinationType);
+            return (method.TypeArguments[0] as INamedTypeSymbol, method.TypeArguments[1] as INamedTypeSymbol);
         }
 
         return (null, null);
@@ -142,27 +113,23 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
         var sourceProperties = GetMappableProperties(sourceType);
         var destinationProperties = GetMappableProperties(destinationType);
 
-        foreach (var sourceProperty in sourceProperties)
+        foreach (var sourceProp in sourceProperties)
         {
-            var destinationProperty = destinationProperties
-                .FirstOrDefault(p => string.Equals(p.Name, sourceProperty.Name, System.StringComparison.OrdinalIgnoreCase));
+            var destProp = destinationProperties
+                .FirstOrDefault(p => string.Equals(p.Name, sourceProp.Name, System.StringComparison.OrdinalIgnoreCase));
 
-            if (destinationProperty == null) continue;
+            if (destProp == null || !RequiresNestedObjectMapping(sourceProp.Type, destProp.Type))
+                continue;
 
-            if (RequiresNestedObjectMapping(sourceProperty.Type, destinationProperty.Type))
+            var sourceNestedType = GetUnderlyingType(sourceProp.Type) as INamedTypeSymbol;
+            var destNestedType = GetUnderlyingType(destProp.Type) as INamedTypeSymbol;
+
+            if (sourceNestedType != null && destNestedType != null)
             {
-                var sourceNestedType = GetUnderlyingType(sourceProperty.Type) as INamedTypeSymbol;
-                var destNestedType = GetUnderlyingType(destinationProperty.Type) as INamedTypeSymbol;
+                var mappingKey = (sourceNestedType.Name, destNestedType.Name);
 
-                if (sourceNestedType != null && destNestedType != null)
-                {
-                    var mappingKey = (sourceNestedType.Name, destNestedType.Name);
-                    
-                    if (!existingMappings.Contains(mappingKey))
-                    {
-                        missingMappings.Add((sourceNestedType, destNestedType));
-                    }
-                }
+                if (!existingMappings.Contains(mappingKey))
+                    missingMappings.Add((sourceNestedType, destNestedType));
             }
         }
 
@@ -173,7 +140,6 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
         InvocationExpressionSyntax currentInvocation, SemanticModel semanticModel)
     {
         var mappings = new HashSet<(string, string)>();
-
         var containingClass = currentInvocation.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
         if (containingClass == null) return mappings;
 
@@ -185,9 +151,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
         {
             var typeArgs = GetCreateMapTypeArguments(invocation, semanticModel);
             if (typeArgs.sourceType != null && typeArgs.destinationType != null)
-            {
                 mappings.Add((typeArgs.sourceType.Name, typeArgs.destinationType.Name));
-            }
         }
 
         return mappings;
@@ -198,28 +162,25 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
         var symbolInfo = semanticModel.GetSymbolInfo(invocation);
         return symbolInfo.Symbol is IMethodSymbol method &&
                method.Name == "CreateMap" &&
-               (method.ContainingType?.Name == "IMappingExpression" ||
-                method.ContainingType?.Name == "Profile");
+               (method.ContainingType?.Name == "IMappingExpression" || method.ContainingType?.Name == "Profile");
     }
 
     private static IPropertySymbol[] GetMappableProperties(INamedTypeSymbol type)
     {
         var properties = new List<IPropertySymbol>();
-        
         var currentType = type;
+
         while (currentType != null && currentType.SpecialType != SpecialType.System_Object)
         {
-            var typeProperties = currentType.GetMembers()
+            properties.AddRange(currentType.GetMembers()
                 .OfType<IPropertySymbol>()
                 .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
                             p.CanBeReferencedByName &&
                             !p.IsStatic &&
                             p.GetMethod != null &&
                             p.SetMethod != null &&
-                            p.ContainingType.Equals(currentType, SymbolEqualityComparer.Default))
-                .ToArray();
+                            p.ContainingType.Equals(currentType, SymbolEqualityComparer.Default)));
 
-            properties.AddRange(typeProperties);
             currentType = currentType.BaseType;
         }
 
@@ -228,80 +189,58 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
 
     private static bool RequiresNestedObjectMapping(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
-        var sourceUnderlyingType = GetUnderlyingType(sourceType);
-        var destUnderlyingType = GetUnderlyingType(destinationType);
+        var sourceUnderlying = GetUnderlyingType(sourceType);
+        var destUnderlying = GetUnderlyingType(destinationType);
 
-        if (SymbolEqualityComparer.Default.Equals(sourceUnderlyingType, destUnderlyingType))
-        {
+        if (SymbolEqualityComparer.Default.Equals(sourceUnderlying, destUnderlying))
             return false;
-        }
 
-        if (IsBuiltInType(sourceUnderlyingType) || IsBuiltInType(destUnderlyingType))
-        {
+        if (IsBuiltInType(sourceUnderlying) || IsBuiltInType(destUnderlying))
             return false;
-        }
 
-        if (IsCollectionType(sourceUnderlyingType) || IsCollectionType(destUnderlyingType))
-        {
+        if (IsCollectionType(sourceUnderlying) || IsCollectionType(destUnderlying))
             return false;
-        }
 
-        return sourceUnderlyingType.TypeKind == TypeKind.Class && 
-               destUnderlyingType.TypeKind == TypeKind.Class;
+        return sourceUnderlying.TypeKind == TypeKind.Class && destUnderlying.TypeKind == TypeKind.Class;
     }
 
     private static ITypeSymbol GetUnderlyingType(ITypeSymbol type)
     {
-        if (type is INamedTypeSymbol namedType && namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
-        {
+        if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } namedType)
             return namedType.TypeArguments[0];
-        }
 
         if (type.CanBeReferencedByName && type.NullableAnnotation == NullableAnnotation.Annotated)
-        {
             return type.WithNullableAnnotation(NullableAnnotation.NotAnnotated);
-        }
 
         return type;
     }
 
     private static bool IsBuiltInType(ITypeSymbol type)
     {
-        return type.SpecialType != SpecialType.None || 
-               type.Name == "String" ||
-               type.Name == "DateTime" ||
-               type.Name == "DateTimeOffset" ||
-               type.Name == "TimeSpan" ||
-               type.Name == "Guid" ||
-               type.Name == "Decimal";
+        return type.SpecialType != SpecialType.None ||
+               type.Name is "String" or "DateTime" or "DateTimeOffset" or "TimeSpan" or "Guid" or "Decimal";
     }
 
     private static bool IsCollectionType(ITypeSymbol type)
     {
         if (type.SpecialType == SpecialType.System_String)
-        {
             return false;
-        }
 
-        return type.AllInterfaces.Any(i => 
-            i.Name == "IEnumerable" || 
-            i.Name == "ICollection" || 
-            i.Name == "IList");
+        return type.AllInterfaces.Any(i => i.Name is "IEnumerable" or "ICollection" or "IList");
     }
 
     private static ExpressionStatementSyntax CreateCreateMapStatement(INamedTypeSymbol sourceType, INamedTypeSymbol destinationType)
     {
         var createMapCall = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.GenericName(
-                SyntaxFactory.Identifier("CreateMap"))
-            .WithTypeArgumentList(
-                SyntaxFactory.TypeArgumentList(
-                    SyntaxFactory.SeparatedList<TypeSyntax>(new[]
-                    {
-                        SyntaxFactory.IdentifierName(sourceType.Name),
-                        SyntaxFactory.IdentifierName(destinationType.Name)
-                    }))))
-            .WithArgumentList(SyntaxFactory.ArgumentList());
+            SyntaxFactory.GenericName(SyntaxFactory.Identifier("CreateMap"))
+                .WithTypeArgumentList(
+                    SyntaxFactory.TypeArgumentList(
+                        SyntaxFactory.SeparatedList<TypeSyntax>(new[]
+                        {
+                            SyntaxFactory.IdentifierName(sourceType.Name),
+                            SyntaxFactory.IdentifierName(destinationType.Name)
+                        }))))
+                .WithArgumentList(SyntaxFactory.ArgumentList());
 
         return SyntaxFactory.ExpressionStatement(createMapCall);
     }
