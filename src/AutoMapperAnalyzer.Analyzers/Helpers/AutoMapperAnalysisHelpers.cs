@@ -114,8 +114,13 @@ namespace AutoMapperAnalyzer.Analyzers.Helpers
         /// Gets all public properties from a type that can be mapped by AutoMapper.
         /// </summary>
         /// <param name="typeSymbol">The type to analyze.</param>
+        /// <param name="requireGetter">When true, only include properties with an accessible getter.</param>
+        /// <param name="requireSetter">When true, only include properties with an accessible setter (set or init).</param>
         /// <returns>A collection of mappable properties.</returns>
-        public static IEnumerable<IPropertySymbol> GetMappableProperties(ITypeSymbol? typeSymbol)
+        public static IEnumerable<IPropertySymbol> GetMappableProperties(
+            ITypeSymbol? typeSymbol,
+            bool requireGetter = true,
+            bool requireSetter = true)
         {
             if (typeSymbol == null)
                 return Enumerable.Empty<IPropertySymbol>();
@@ -131,8 +136,8 @@ namespace AutoMapperAnalyzer.Analyzers.Helpers
                         (property.DeclaredAccessibility == Accessibility.Public || property.DeclaredAccessibility == Accessibility.Internal) &&
                         !property.IsStatic &&
                         !property.IsIndexer &&
-                        property.GetMethod != null &&
-                        property.SetMethod != null)
+                        (!requireGetter || property.GetMethod != null) &&
+                        (!requireSetter || property.SetMethod != null))
                     {
                         // Only include if not already in the list (handles property hiding)
                         if (!properties.Any(p => p.Name == property.Name))

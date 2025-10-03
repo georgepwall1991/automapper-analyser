@@ -44,6 +44,49 @@ public class AM002_NullableCompatibilityTests
     }
 
     [Fact]
+    public async Task AM002_ShouldReportDiagnostic_ForReadOnlyNullableSourceProperty()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public Source(string? name)
+                                  {
+                                      Name = name;
+                                  }
+
+                                  public string? Name { get; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>();
+                                  }
+                              }
+                          }
+                          """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 26, 13, "Name", "Source",
+                "string?", "Destination", "string")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM002_ShouldReportInfo_WhenNonNullableStringToNullableString()
     {
         string testCode = """

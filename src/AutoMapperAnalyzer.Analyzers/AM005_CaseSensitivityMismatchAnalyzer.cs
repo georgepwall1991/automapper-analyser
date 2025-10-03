@@ -72,8 +72,8 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
 
         // Check each source property for case sensitivity mismatches
         foreach (IPropertySymbol sourceProperty in sourceProperties)

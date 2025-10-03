@@ -304,11 +304,12 @@ public class AM004_MissingDestinationPropertyTests
                                 }
                                 """;
 
-        // Read-only properties (no setter) should not be considered for mapping
         await DiagnosticTestFramework
             .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
             .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 20, 13,
+                "ReadOnlyProp")
+            .RunAsync();
     }
 
     [Fact]

@@ -70,8 +70,8 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
 
         // Get all CreateMap configurations in the same profile
         HashSet<(string sourceType, string destType)> existingMappings = GetExistingMappings(context, invocation);
@@ -117,32 +117,6 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
                 context.ReportDiagnostic(diagnostic);
             }
         }
-    }
-
-    private static IPropertySymbol[] GetMappableProperties(INamedTypeSymbol type)
-    {
-        var properties = new List<IPropertySymbol>();
-
-        // Get properties from the type and all its base types
-        INamedTypeSymbol? currentType = type;
-        while (currentType != null && currentType.SpecialType != SpecialType.System_Object)
-        {
-            // Get declared properties (not inherited ones to avoid duplicates)
-            IPropertySymbol[] typeProperties = currentType.GetMembers()
-                .OfType<IPropertySymbol>()
-                .Where(p => (p.DeclaredAccessibility == Accessibility.Public || p.DeclaredAccessibility == Accessibility.Internal) &&
-                            p.CanBeReferencedByName &&
-                            !p.IsStatic &&
-                            p.GetMethod != null && // Must be readable
-                            p.SetMethod != null && // Must be writable
-                            p.ContainingType.Equals(currentType, SymbolEqualityComparer.Default)) // Only direct members
-                .ToArray();
-
-            properties.AddRange(typeProperties);
-            currentType = currentType.BaseType;
-        }
-
-        return properties.ToArray();
     }
 
     private static bool RequiresNestedObjectMapping(ITypeSymbol sourceType, ITypeSymbol destinationType)

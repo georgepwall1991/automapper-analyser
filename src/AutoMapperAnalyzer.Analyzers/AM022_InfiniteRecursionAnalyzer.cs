@@ -221,7 +221,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
     private static bool IsSelfReferencing(ITypeSymbol? type)
     {
         if (type == null) return false;
-        var properties = AutoMapperAnalysisHelpers.GetMappableProperties(type);
+        var properties = AutoMapperAnalysisHelpers.GetMappableProperties(type, requireSetter: false);
 
         foreach (var property in properties)
         {
@@ -266,7 +266,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
 
         visited.Add(currentSourceType);
 
-        var properties = AutoMapperAnalysisHelpers.GetMappableProperties(currentSourceType);
+        var properties = AutoMapperAnalysisHelpers.GetMappableProperties(currentSourceType, requireSetter: false);
 
         foreach (var property in properties)
         {
@@ -311,7 +311,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
     )
     {
         var circularProperties = new HashSet<string>();
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
 
         foreach (var property in sourceProperties)
         {

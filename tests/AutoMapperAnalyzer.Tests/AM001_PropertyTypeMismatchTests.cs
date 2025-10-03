@@ -79,6 +79,48 @@ public class AM001_PropertyTypeMismatchTests
     }
 
     [Fact]
+    public async Task AM001_ShouldReportDiagnostic_WhenSourcePropertyIsReadOnly()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Source(string age)
+                                        {
+                                            Age = age;
+                                        }
+
+                                        public string Age { get; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 25, 13, "Age", "Source",
+                "string", "Destination", "int")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM001_ShouldNotReportDiagnostic_WhenTypesAreCompatible()
     {
         const string testCode = """

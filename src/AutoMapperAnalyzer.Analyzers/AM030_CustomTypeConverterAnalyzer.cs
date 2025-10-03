@@ -115,8 +115,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
 
         foreach (var sourceProperty in sourceProperties)
         {

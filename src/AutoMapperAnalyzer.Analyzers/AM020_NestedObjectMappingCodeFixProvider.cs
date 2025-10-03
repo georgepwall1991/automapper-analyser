@@ -110,8 +110,8 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
         var missingMappings = new List<(INamedTypeSymbol, INamedTypeSymbol)>();
         var existingMappings = GetExistingMappings(createMapInvocation, semanticModel);
 
-        var sourceProperties = GetMappableProperties(sourceType);
-        var destinationProperties = GetMappableProperties(destinationType);
+        var sourceProperties = GetMappableProperties(sourceType, requireSetter: false);
+        var destinationProperties = GetMappableProperties(destinationType, requireGetter: false);
 
         foreach (var sourceProp in sourceProperties)
         {
@@ -165,7 +165,10 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
                (method.ContainingType?.Name == "IMappingExpression" || method.ContainingType?.Name == "Profile");
     }
 
-    private static IPropertySymbol[] GetMappableProperties(INamedTypeSymbol type)
+    private static IPropertySymbol[] GetMappableProperties(
+        INamedTypeSymbol type,
+        bool requireGetter = true,
+        bool requireSetter = true)
     {
         var properties = new List<IPropertySymbol>();
         var currentType = type;
@@ -177,8 +180,8 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
                 .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
                             p.CanBeReferencedByName &&
                             !p.IsStatic &&
-                            p.GetMethod != null &&
-                            p.SetMethod != null &&
+                            (!requireGetter || p.GetMethod != null) &&
+                            (!requireSetter || p.SetMethod != null) &&
                             p.ContainingType.Equals(currentType, SymbolEqualityComparer.Default)));
 
             currentType = currentType.BaseType;

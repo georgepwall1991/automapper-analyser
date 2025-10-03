@@ -118,8 +118,8 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType).ToArray();
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType).ToArray();
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToArray();
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false).ToArray();
 
         // Check each source property for mapping compatibility
         foreach (IPropertySymbol sourceProp in sourceProperties)

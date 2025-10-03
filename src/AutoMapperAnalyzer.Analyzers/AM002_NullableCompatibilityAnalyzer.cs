@@ -85,8 +85,8 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType).ToArray();
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType).ToArray();
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToArray();
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false).ToArray();
 
         foreach (IPropertySymbol sourceProperty in sourceProperties)
         {

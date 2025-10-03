@@ -70,8 +70,8 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
 
         // Check each source property to see if it has a corresponding destination property
         foreach (IPropertySymbol sourceProperty in sourceProperties)

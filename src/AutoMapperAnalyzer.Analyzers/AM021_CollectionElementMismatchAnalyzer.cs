@@ -60,8 +60,8 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeCollectionElementCompatibility(SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation, ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
 
         foreach (IPropertySymbol sourceProperty in sourceProperties)
         {
