@@ -258,6 +258,68 @@ public class AM020_NestedObjectMappingTests
     }
 
     [Fact]
+    public async Task AM020_ShouldRespectMappingsDefinedInSeparateProfiles()
+    {
+        const string mainProfile = """
+                                   using AutoMapper;
+
+                                   namespace TestNamespace
+                                   {
+                                       public class SourceAddress
+                                       {
+                                           public string Street { get; set; }
+                                       }
+
+                                       public class DestAddress
+                                       {
+                                           public string Street { get; set; }
+                                       }
+
+                                       public class Source
+                                       {
+                                           public SourceAddress Address { get; set; }
+                                       }
+
+                                       public class Destination
+                                       {
+                                           public DestAddress Address { get; set; }
+                                       }
+
+                                       public class ParentProfile : Profile
+                                       {
+                                           public ParentProfile()
+                                           {
+                                               CreateMap<Source, Destination>();
+                                           }
+                                       }
+                                   }
+                                   """;
+
+        const string secondaryProfile = """
+                                        using AutoMapper;
+
+                                        namespace TestNamespace.Inner
+                                        {
+                                            using TestNamespace;
+
+                                            public class AddressProfile : Profile
+                                            {
+                                                public AddressProfile()
+                                                {
+                                                    CreateMap<SourceAddress, DestAddress>();
+                                                }
+                                            }
+                                        }
+                                        """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(mainProfile, "MainProfile.cs")
+            .WithSource(secondaryProfile, "AddressProfile.cs")
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
     public async Task AM020_ShouldIgnoreValueTypes()
     {
         const string testCode = """

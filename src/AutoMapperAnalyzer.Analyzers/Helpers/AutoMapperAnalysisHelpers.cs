@@ -172,28 +172,8 @@ namespace AutoMapperAnalyzer.Analyzers.Helpers
             if (compilation == null || sourceType == null || destType == null)
                 return false;
 
-            foreach (var syntaxTree in compilation.SyntaxTrees)
-            {
-                var root = syntaxTree.GetRoot();
-                var semanticModel = compilation.GetSemanticModel(syntaxTree);
-
-                var createMapInvocations = root.DescendantNodes()
-                    .OfType<InvocationExpressionSyntax>()
-                    .Where(inv => IsCreateMapInvocation(inv, semanticModel));
-
-                foreach (var invocation in createMapInvocations)
-                {
-                    var (mappedSource, mappedDest) = GetCreateMapTypeArguments(invocation, semanticModel);
-                    if (mappedSource != null && mappedDest != null &&
-                        SymbolEqualityComparer.Default.Equals(mappedSource, sourceType) &&
-                        SymbolEqualityComparer.Default.Equals(mappedDest, destType))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
+            var registry = CreateMapRegistry.FromCompilation(compilation);
+            return registry.Contains(sourceType, destType);
         }
 
         /// <summary>

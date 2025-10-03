@@ -158,6 +158,68 @@ public class AM001_PropertyTypeMismatchTests
     }
 
     [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenNestedMappingExistsInSeparateProfile()
+    {
+        const string mainProfile = """
+
+                                   using AutoMapper;
+
+                                   namespace TestNamespace
+                                   {
+                                       public class Address
+                                       {
+                                           public string Street { get; set; }
+                                       }
+
+                                       public class AddressDto
+                                       {
+                                           public string Street { get; set; }
+                                       }
+
+                                       public class Source
+                                       {
+                                           public Address HomeAddress { get; set; }
+                                       }
+
+                                       public class Destination
+                                       {
+                                           public AddressDto HomeAddress { get; set; }
+                                       }
+
+                                       public class MappingProfile : Profile
+                                       {
+                                           public MappingProfile()
+                                           {
+                                               CreateMap<Source, Destination>();
+                                           }
+                                       }
+                                   }
+                                   """;
+
+        const string secondaryProfile = """
+
+                                        using AutoMapper;
+
+                                        namespace TestNamespace
+                                        {
+                                            public class AddressProfile : Profile
+                                            {
+                                                public AddressProfile()
+                                                {
+                                                    CreateMap<Address, AddressDto>();
+                                                }
+                                            }
+                                        }
+                                        """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
+            .WithSource(mainProfile, "ProfileOne.cs")
+            .WithSource(secondaryProfile, "ProfileTwo.cs")
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
     public async Task AM001_ShouldNotReportDiagnostic_WhenExplicitConversionProvided()
     {
         const string testCode = """

@@ -291,26 +291,10 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        // For now, just check within the current syntax tree
-        // In a more complete implementation, we'd check across the compilation
-        var root = context.Node.SyntaxTree.GetRoot();
-        var allInvocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>();
-
-        foreach (var invocation in allInvocations)
-        {
-            if (AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocation, context.SemanticModel))
-            {
-                var (mappedSource, mappedDest) = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, context.SemanticModel);
-                if (mappedSource != null && mappedDest != null &&
-                    SymbolEqualityComparer.Default.Equals(mappedSource, sourceType) &&
-                    SymbolEqualityComparer.Default.Equals(mappedDest, destinationType))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return AutoMapperAnalysisHelpers.HasExistingCreateMapForTypes(
+            context.Compilation,
+            sourceType,
+            destinationType);
     }
 
     private static bool AreTypesCompatible(ITypeSymbol sourceType, ITypeSymbol destinationType)

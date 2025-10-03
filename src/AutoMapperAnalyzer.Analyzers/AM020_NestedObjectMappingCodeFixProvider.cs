@@ -8,6 +8,7 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers;
 
@@ -107,8 +108,8 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
         INamedTypeSymbol destinationType,
         SemanticModel semanticModel)
     {
-        var missingMappings = new List<(INamedTypeSymbol, INamedTypeSymbol)>();
-        var existingMappings = GetExistingMappings(createMapInvocation, semanticModel);
+        var missingMappings = new List<(INamedTypeSymbol Source, INamedTypeSymbol Destination)>();
+        var registry = CreateMapRegistry.FromCompilation(semanticModel.Compilation);
 
         var sourceProperties = GetMappableProperties(sourceType, requireSetter: false);
         var destinationProperties = GetMappableProperties(destinationType, requireGetter: false);
@@ -126,35 +127,21 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
 
             if (sourceNestedType != null && destNestedType != null)
             {
-                var mappingKey = (sourceNestedType.Name, destNestedType.Name);
+                if (registry.Contains(sourceNestedType, destNestedType))
+                {
+                    continue;
+                }
 
-                if (!existingMappings.Contains(mappingKey))
+                if (!missingMappings.Any(m =>
+                        SymbolEqualityComparer.Default.Equals(m.Source, sourceNestedType) &&
+                        SymbolEqualityComparer.Default.Equals(m.Destination, destNestedType)))
+                {
                     missingMappings.Add((sourceNestedType, destNestedType));
+                }
             }
         }
 
-        return missingMappings.Distinct().ToList();
-    }
-
-    private static HashSet<(string sourceType, string destType)> GetExistingMappings(
-        InvocationExpressionSyntax currentInvocation, SemanticModel semanticModel)
-    {
-        var mappings = new HashSet<(string, string)>();
-        var containingClass = currentInvocation.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
-        if (containingClass == null) return mappings;
-
-        var createMapInvocations = containingClass.DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .Where(inv => IsCreateMapInvocation(inv, semanticModel));
-
-        foreach (var invocation in createMapInvocations)
-        {
-            var typeArgs = GetCreateMapTypeArguments(invocation, semanticModel);
-            if (typeArgs.sourceType != null && typeArgs.destinationType != null)
-                mappings.Add((typeArgs.sourceType.Name, typeArgs.destinationType.Name));
-        }
-
-        return mappings;
+        return missingMappings;
     }
 
     private static bool IsCreateMapInvocation(InvocationExpressionSyntax invocation, SemanticModel semanticModel)

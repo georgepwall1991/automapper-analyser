@@ -73,8 +73,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
         var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
 
-        // Get all CreateMap configurations in the same profile
-        HashSet<(string sourceType, string destType)> existingMappings = GetExistingMappings(context, invocation);
+        var createMapRegistry = CreateMapRegistry.FromCompilation(context.Compilation);
 
         // Check each property pair for nested object mapping requirements
         foreach (IPropertySymbol sourceProperty in sourceProperties)
@@ -91,11 +90,11 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
             // Check if this property requires nested object mapping
             if (RequiresNestedObjectMapping(sourceProperty.Type, destinationProperty.Type))
             {
-                // Check if mapping already exists
-                string sourceTypeName = GetTypeNameWithoutNullability(sourceProperty.Type);
-                string destTypeName = GetTypeNameWithoutNullability(destinationProperty.Type);
+                var sourceNestedType = GetUnderlyingType(sourceProperty.Type);
+                var destNestedType = GetUnderlyingType(destinationProperty.Type);
 
-                if (HasExistingMapping(existingMappings, sourceTypeName, destTypeName))
+                // Check if mapping already exists
+                if (createMapRegistry.Contains(sourceNestedType, destNestedType))
                 {
                     continue; // Mapping already configured
                 }
@@ -111,8 +110,8 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
                     NestedObjectMappingMissingRule,
                     invocation.GetLocation(),
                     sourceProperty.Name,
-                    sourceTypeName,
-                    destTypeName);
+                    GetTypeNameWithoutNullability(sourceProperty.Type),
+                    GetTypeNameWithoutNullability(destinationProperty.Type));
 
                 context.ReportDiagnostic(diagnostic);
             }
@@ -196,38 +195,6 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
     {
         ITypeSymbol underlyingType = GetUnderlyingType(type);
         return underlyingType.Name;
-    }
-
-    private static HashSet<(string sourceType, string destType)> GetExistingMappings(
-        SyntaxNodeAnalysisContext context, InvocationExpressionSyntax currentInvocation)
-    {
-        var mappings = new HashSet<(string, string)>();
-
-        // Find the root of the syntax tree to search across all Profile classes
-        SyntaxNode root = currentInvocation.SyntaxTree.GetRoot();
-
-        // Find all CreateMap invocations across all Profile classes in the file
-        IEnumerable<InvocationExpressionSyntax> createMapInvocations = root.DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .Where(inv => AutoMapperAnalysisHelpers.IsCreateMapInvocation(inv, context.SemanticModel));
-
-        foreach (InvocationExpressionSyntax? invocation in createMapInvocations)
-        {
-            (ITypeSymbol? sourceType, ITypeSymbol? destinationType) typeArgs =
-                AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, context.SemanticModel);
-            if (typeArgs.sourceType != null && typeArgs.destinationType != null)
-            {
-                mappings.Add((typeArgs.sourceType.Name, typeArgs.destinationType.Name));
-            }
-        }
-
-        return mappings;
-    }
-
-    private static bool HasExistingMapping(HashSet<(string sourceType, string destType)> existingMappings,
-        string sourceTypeName, string destTypeName)
-    {
-        return existingMappings.Contains((sourceTypeName, destTypeName));
     }
 
     /// <summary>
