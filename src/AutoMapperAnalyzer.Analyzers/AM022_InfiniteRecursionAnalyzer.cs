@@ -114,11 +114,43 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
     )
     {
         if (sourceType == null || destinationType == null) return false;
-        var circularProperties = FindCircularProperties(sourceType, destinationType);
         var ignoredProperties = GetIgnoredProperties(invocation);
 
-        // Check if any circular property is explicitly ignored
-        return circularProperties.Any(prop => ignoredProperties.Contains(prop));
+        // Check circular properties between types
+        var circularProperties = FindCircularProperties(sourceType, destinationType);
+        if (circularProperties.Any(prop => ignoredProperties.Contains(prop)))
+            return true;
+
+        // Check self-referencing properties in destination type
+        var selfReferencingDestProperties = FindSelfReferencingProperties(destinationType);
+        if (selfReferencingDestProperties.Any(prop => ignoredProperties.Contains(prop)))
+            return true;
+
+        return false;
+    }
+
+    private static HashSet<string> FindSelfReferencingProperties(INamedTypeSymbol type)
+    {
+        var selfRefProps = new HashSet<string>();
+        var properties = AutoMapperAnalysisHelpers.GetMappableProperties(type, requireSetter: false);
+
+        foreach (var property in properties)
+        {
+            // Check if property type is same as the containing type
+            if (SymbolEqualityComparer.Default.Equals(property.Type, type))
+            {
+                selfRefProps.Add(property.Name);
+            }
+
+            // Check collection element types
+            var elementType = AutoMapperAnalysisHelpers.GetCollectionElementType(property.Type);
+            if (elementType != null && SymbolEqualityComparer.Default.Equals(elementType, type))
+            {
+                selfRefProps.Add(property.Name);
+            }
+        }
+
+        return selfRefProps;
     }
 
     private static HashSet<string> GetIgnoredProperties(InvocationExpressionSyntax invocation)
