@@ -1,10 +1,30 @@
 using AutoMapperAnalyzer.Analyzers;
-using AutoMapperAnalyzer.Tests.Framework;
+using AutoMapperAnalyzer.Tests.Infrastructure;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests;
 
 public class AM002_CodeFixTests
 {
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
+    {
+        var result = new DiagnosticResult(descriptor).WithLocation(line, column);
+        if (messageArgs.Length > 0)
+        {
+            result = result.WithArguments(messageArgs);
+        }
+
+        return result;
+    }
+
+    private static Task VerifyFixAsync(string source, DiagnosticDescriptor descriptor, int line, int column, string fixedCode, params object[] messageArgs)
+        => VerifyFixAsync(source, descriptor, line, column, fixedCode, null, messageArgs);
+
+    private static Task VerifyFixAsync(string source, DiagnosticDescriptor descriptor, int line, int column, string fixedCode, DiagnosticResult[]? remainingDiagnostics, params object[] messageArgs)
+        => CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixAsync(source, Diagnostic(descriptor, line, column, messageArgs), fixedCode, remainingDiagnostics);
+
     [Fact]
     public async Task AM002_ShouldFixNullableToNonNullableWithNullCoalescing()
     {
@@ -52,20 +72,23 @@ public class AM002_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>()
-                                                         .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? default));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty));
                                                  }
                                              }
                                          }
                                          """;
 
-        await CodeFixTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithCodeFix<AM002_NullableCompatibilityCodeFixProvider>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 14, 13)
-            .ExpectFixedCode(expectedFixedCode)
-            .RunAsync();
+        await VerifyFixAsync(
+            testCode,
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            19,
+            13,
+            expectedFixedCode,
+            "Name",
+            "Source",
+            "string?",
+            "Destination",
+            "string");
     }
 
     [Fact]
@@ -115,20 +138,23 @@ public class AM002_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>()
-                                                         .ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age ?? default));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age ?? 0));
                                                  }
                                              }
                                          }
                                          """;
 
-        await CodeFixTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithCodeFix<AM002_NullableCompatibilityCodeFixProvider>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 14, 13)
-            .ExpectFixedCode(expectedFixedCode)
-            .RunAsync();
+        await VerifyFixAsync(
+            testCode,
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            19,
+            13,
+            expectedFixedCode,
+            "Age",
+            "Source",
+            "int?",
+            "Destination",
+            "int");
     }
 
     [Fact]
@@ -178,20 +204,23 @@ public class AM002_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>()
-                                                         .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive ?? default));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive ?? false));
                                                  }
                                              }
                                          }
                                          """;
 
-        await CodeFixTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithCodeFix<AM002_NullableCompatibilityCodeFixProvider>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 14, 13)
-            .ExpectFixedCode(expectedFixedCode)
-            .RunAsync();
+        await VerifyFixAsync(
+            testCode,
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            19,
+            13,
+            expectedFixedCode,
+            "IsActive",
+            "Source",
+            "bool?",
+            "Destination",
+            "bool");
     }
 
     [Fact]
@@ -246,20 +275,36 @@ public class AM002_CodeFixTests
                                                            {
                                                                public TestProfile()
                                                                {
-                                                                   CreateMap<Source, Destination>()
-                                                                       .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? default));
+                                                                   CreateMap<Source, Destination>().ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty)).ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age ?? 0));
                                                                }
                                                            }
                                                        }
                                                        """;
 
-        await CodeFixTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithCodeFix<AM002_NullableCompatibilityCodeFixProvider>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 15, 13)
-            .ExpectFixedCode(expectedFixedCodeAfterFirstFix)
-            .RunAsync();
+        var ageDiagnostic = Diagnostic(
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            21,
+            13,
+            "Age",
+            "Source",
+            "int?",
+            "Destination",
+            "int");
+
+        var nameDiagnostic = Diagnostic(
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            21,
+            13,
+            "Name",
+            "Source",
+            "string?",
+            "Destination",
+            "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>.VerifyFixAsync(
+            testCode,
+            new[] { ageDiagnostic, nameDiagnostic },
+            expectedFixedCodeAfterFirstFix);
     }
 
     [Fact]
@@ -309,20 +354,23 @@ public class AM002_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>()
-                                                         .ForMember(dest => dest.Count, opt => opt.MapFrom(src => src.Count ?? default));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Count, opt => opt.MapFrom(src => src.Count ?? 0));
                                                  }
                                              }
                                          }
                                          """;
 
-        await CodeFixTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithCodeFix<AM002_NullableCompatibilityCodeFixProvider>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 14, 13)
-            .ExpectFixedCode(expectedFixedCode)
-            .RunAsync();
+        await VerifyFixAsync(
+            testCode,
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            19,
+            13,
+            expectedFixedCode,
+            "Count",
+            "Source",
+            "int?",
+            "Destination",
+            "int");
     }
 
     [Fact]
@@ -372,19 +420,22 @@ public class AM002_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>()
-                                                         .ForMember(dest => dest.Amount, opt => opt.MapFrom(src => src.Amount ?? default));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Amount, opt => opt.MapFrom(src => src.Amount ?? 0m));
                                                  }
                                              }
                                          }
                                          """;
 
-        await CodeFixTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithCodeFix<AM002_NullableCompatibilityCodeFixProvider>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 14, 13)
-            .ExpectFixedCode(expectedFixedCode)
-            .RunAsync();
+        await VerifyFixAsync(
+            testCode,
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            19,
+            13,
+            expectedFixedCode,
+            "Amount",
+            "Source",
+            "decimal?",
+            "Destination",
+            "decimal");
     }
 }

@@ -1,11 +1,27 @@
 using AutoMapperAnalyzer.Analyzers;
-using AutoMapperAnalyzer.Analyzers;
-using AutoMapperAnalyzer.Tests.Framework;
+using AutoMapperAnalyzer.Tests.Infrastructure;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests;
 
 public class AM004_CodeFixTests
 {
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
+    {
+        var result = new DiagnosticResult(descriptor).WithLocation(line, column);
+        if (messageArgs.Length > 0)
+        {
+            result = result.WithArguments(messageArgs);
+        }
+
+        return result;
+    }
+
+    private static Task VerifyFixAsync(string source, DiagnosticDescriptor descriptor, int line, int column, string fixedCode, params object[] messageArgs)
+        => CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(source, Diagnostic(descriptor, line, column, messageArgs), fixedCode);
+
     [Fact]
     public async Task AM004_ShouldAddIgnoreForSourceProperty()
     {
@@ -57,20 +73,19 @@ public class AM004_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>()
-                                                         .ForSourceMember(src => src.UnusedProperty, opt => opt.DoNotValidate());
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.UnusedProperty, opt => opt.DoNotValidate());
                                                  }
                                              }
                                          }
                                          """;
 
-        await CodeFixTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithCodeFix<AM004_MissingDestinationPropertyCodeFixProvider>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 29)
-            .ExpectFixedCode(expectedFixedCode)
-            .RunAsync();
+        await VerifyFixAsync(
+            testCode,
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            21,
+            13,
+            expectedFixedCode,
+            "UnusedProperty");
     }
 
     [Fact]
@@ -124,21 +139,19 @@ public class AM004_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     // TODO: Add 'ImportantData' property of type 'string' to destination class
-                                                     CreateMap<Source, Destination>()
-                                                         .ForMember(dest => dest.ImportantData, opt => opt.MapFrom(src => src.ImportantData));
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.ImportantData, opt => opt.DoNotValidate());
                                                  }
                                              }
                                          }
                                          """;
 
-        await CodeFixTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithCodeFix<AM004_MissingDestinationPropertyCodeFixProvider>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 29)
-            .ExpectFixedCode(expectedFixedCode)
-            .RunAsync();
+        await VerifyFixAsync(
+            testCode,
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            21,
+            13,
+            expectedFixedCode,
+            "ImportantData");
     }
 
     [Fact]
@@ -192,21 +205,19 @@ public class AM004_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     // TODO: Replace 'CombinedProperty' with actual destination property name
-                                                     CreateMap<Source, Destination>()
-                                                         .ForMember(dest => dest.CombinedProperty, opt => opt.MapFrom(src => $"{src.Description}"));
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.Description, opt => opt.DoNotValidate());
                                                  }
                                              }
                                          }
                                          """;
 
-        await CodeFixTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithCodeFix<AM004_MissingDestinationPropertyCodeFixProvider>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 29)
-            .ExpectFixedCode(expectedFixedCode)
-            .RunAsync();
+        await VerifyFixAsync(
+            testCode,
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            21,
+            13,
+            expectedFixedCode,
+            "Description");
     }
 
     [Fact]
@@ -260,20 +271,28 @@ public class AM004_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>()
-                                                         .ForSourceMember(src => src.Extra1, opt => opt.DoNotValidate());
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.Extra2, opt => opt.DoNotValidate()).ForSourceMember(src => src.Extra1, opt => opt.DoNotValidate());
                                                  }
                                              }
                                          }
                                          """;
 
-        await CodeFixTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithCodeFix<AM004_MissingDestinationPropertyCodeFixProvider>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 16, 13)
-            .ExpectFixedCode(expectedFixedCode)
-            .RunAsync();
+        var extra1Diagnostic = Diagnostic(
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            21,
+            13,
+            "Extra1");
+
+        var extra2Diagnostic = Diagnostic(
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            21,
+            13,
+            "Extra2");
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>.VerifyFixAsync(
+            testCode,
+            new[] { extra1Diagnostic, extra2Diagnostic },
+            expectedFixedCode);
     }
 
     [Fact]
@@ -325,20 +344,19 @@ public class AM004_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>()
-                                                         .ForSourceMember(src => src.UnusedId, opt => opt.DoNotValidate());
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.UnusedId, opt => opt.DoNotValidate());
                                                  }
                                              }
                                          }
                                          """;
 
-        await CodeFixTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithCodeFix<AM004_MissingDestinationPropertyCodeFixProvider>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 16, 13)
-            .ExpectFixedCode(expectedFixedCode)
-            .RunAsync();
+        await VerifyFixAsync(
+            testCode,
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            20,
+            13,
+            expectedFixedCode,
+            "UnusedId");
     }
 
     [Fact]
@@ -400,19 +418,18 @@ public class AM004_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>()
-                                                         .ForSourceMember(src => src.UnusedAddress, opt => opt.DoNotValidate());
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.UnusedAddress, opt => opt.DoNotValidate());
                                                  }
                                              }
                                          }
                                          """;
 
-        await CodeFixTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithCodeFix<AM004_MissingDestinationPropertyCodeFixProvider>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 21, 13)
-            .ExpectFixedCode(expectedFixedCode)
-            .RunAsync();
+        await VerifyFixAsync(
+            testCode,
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            25,
+            13,
+            expectedFixedCode,
+            "UnusedAddress");
     }
 }

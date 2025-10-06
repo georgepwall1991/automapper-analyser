@@ -14,16 +14,31 @@ public static class TypeConversionHelper
     /// <returns>A C# expression representing the default value for the type.</returns>
     public static string GetDefaultValueForType(string propertyType)
     {
-        return propertyType.ToLower() switch
+        var normalized = NormalizeTypeName(propertyType);
+
+        return normalized switch
         {
             "string" => "string.Empty",
+            "char" => "'\0'",
             "int" => "0",
+            "int16" => "0",
+            "int32" => "0",
+            "int64" => "0L",
+            "uint16" => "0",
+            "uint32" => "0u",
+            "uint64" => "0UL",
             "long" => "0L",
+            "short" => "0",
+            "ushort" => "0",
+            "byte" => "0",
+            "sbyte" => "0",
             "double" => "0.0",
             "float" => "0.0f",
+            "single" => "0.0f",
             "decimal" => "0m",
             "bool" => "false",
             "datetime" => "DateTime.MinValue",
+            "datetimeoffset" => "DateTimeOffset.MinValue",
             "guid" => "Guid.Empty",
             _ => "default"
         };
@@ -37,18 +52,24 @@ public static class TypeConversionHelper
     /// <returns>A C# expression representing a sample value for the type.</returns>
     public static string GetSampleValueForType(string propertyType)
     {
-        return propertyType.ToLower() switch
+        var normalized = NormalizeTypeName(propertyType);
+
+        return normalized switch
         {
             "string" => "\"DefaultValue\"",
-            "int" => "1",
-            "long" => "1L",
+            "char" => "'a'",
+            "int" or "int16" or "int32" => "1",
+            "int64" or "long" => "1L",
+            "uint16" or "uint32" => "1u",
+            "uint64" => "1UL",
             "double" => "1.0",
-            "float" => "1.0f",
+            "float" or "single" => "1.0f",
             "decimal" => "1.0m",
             "bool" => "true",
             "datetime" => "DateTime.Now",
+            "datetimeoffset" => "DateTimeOffset.UtcNow",
             "guid" => "Guid.NewGuid()",
-            _ => $"new {propertyType}()"
+            _ => $"new {propertyType.Trim()}()"
         };
     }
 
@@ -59,7 +80,39 @@ public static class TypeConversionHelper
     /// <returns>True if the type is string; otherwise, false.</returns>
     public static bool IsStringType(string propertyType)
     {
-        return propertyType.Equals("string", StringComparison.OrdinalIgnoreCase) ||
-               propertyType.Equals("System.String", StringComparison.OrdinalIgnoreCase);
+        var normalized = NormalizeTypeName(propertyType);
+        return normalized.Equals("string", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Normalizes a type name to a simple invariant for comparison.
+    /// </summary>
+    public static string NormalizeTypeName(string propertyType)
+    {
+        var value = propertyType?.Trim() ?? string.Empty;
+
+        if (value.EndsWith("?", StringComparison.Ordinal))
+        {
+            value = value.Substring(0, value.Length - 1);
+        }
+
+        // Strip namespace prefixes we know about
+        if (value.StartsWith("System.", StringComparison.OrdinalIgnoreCase))
+        {
+            value = value.Substring("System.".Length);
+        }
+
+        if (value.StartsWith("Collections.Generic.", StringComparison.OrdinalIgnoreCase))
+        {
+            value = value.Substring("Collections.Generic.".Length);
+        }
+
+        // Handle fully qualified System.Collections.Generic.* that may remain
+        if (value.StartsWith("Collections.", StringComparison.OrdinalIgnoreCase))
+        {
+            value = value.Substring("Collections.".Length);
+        }
+
+        return value.ToLowerInvariant();
     }
 }

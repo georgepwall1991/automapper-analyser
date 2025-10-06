@@ -1,10 +1,14 @@
 using AutoMapperAnalyzer.Analyzers;
-using AutoMapperAnalyzer.Tests.Framework;
+using AutoMapperAnalyzer.Tests.Infrastructure;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests;
 
 public class AM004_MissingDestinationPropertyTests
 {
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
+        => new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
     [Fact]
     public async Task AM004_ShouldReportDiagnostic_WhenSourcePropertyMissingInDestination()
     {
@@ -37,12 +41,9 @@ public class AM004_MissingDestinationPropertyTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13,
-                "ImportantData")
-            .RunAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13, "ImportantData"));
     }
 
     [Fact]
@@ -77,10 +78,7 @@ public class AM004_MissingDestinationPropertyTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -115,10 +113,7 @@ public class AM004_MissingDestinationPropertyTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -153,10 +148,7 @@ public class AM004_MissingDestinationPropertyTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -190,16 +182,11 @@ public class AM004_MissingDestinationPropertyTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 22, 13,
-                "MissingProperty1")
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 22, 13,
-                "MissingProperty2")
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 22, 13,
-                "MissingNumber")
-            .RunAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 22, 13, "MissingProperty1"),
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 22, 13, "MissingProperty2"),
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 22, 13, "MissingNumber"));
     }
 
     [Fact]
@@ -233,10 +220,7 @@ public class AM004_MissingDestinationPropertyTests
                                 """;
 
         // AutoMapper uses case-insensitive matching by default, so userName should map to UserName
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -269,10 +253,7 @@ public class AM004_MissingDestinationPropertyTests
                                 """;
 
         // Static properties should not be considered for mapping
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -304,12 +285,9 @@ public class AM004_MissingDestinationPropertyTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 20, 13,
-                "ReadOnlyProp")
-            .RunAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 20, 13, "ReadOnlyProp"));
     }
 
     [Fact]
@@ -347,12 +325,9 @@ public class AM004_MissingDestinationPropertyTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 26, 13,
-                "MissingInDest")
-            .RunAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 26, 13, "MissingInDest"));
     }
 
     [Fact]
@@ -392,12 +367,9 @@ public class AM004_MissingDestinationPropertyTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 28, 13,
-                "WorkAddress")
-            .RunAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 28, 13, "WorkAddress"));
     }
 
     [Fact]
@@ -433,12 +405,9 @@ public class AM004_MissingDestinationPropertyTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 24, 13,
-                "Categories")
-            .RunAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 24, 13, "Categories"));
     }
 
     [Fact]
@@ -474,12 +443,9 @@ public class AM004_MissingDestinationPropertyTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 24, 13,
-                "BirthDate")
-            .RunAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 24, 13, "BirthDate"));
     }
 
     [Fact]
@@ -518,10 +484,7 @@ public class AM004_MissingDestinationPropertyTests
                                 """;
 
         // Property hiding with 'new' keyword should not cause false positives
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -562,12 +525,9 @@ public class AM004_MissingDestinationPropertyTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 29, 13,
-                "PreviousStatus")
-            .RunAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 29, 13, "PreviousStatus"));
     }
 
     [Fact]
@@ -605,9 +565,6 @@ public class AM004_MissingDestinationPropertyTests
                                 """;
 
         // All temp properties are explicitly ignored, so no diagnostics
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 }

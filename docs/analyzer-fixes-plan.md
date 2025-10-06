@@ -38,6 +38,7 @@ This document captures the incremental plan to address the issues identified dur
 - Replace the placeholder `CodeFixTestFramework` and `MultiAnalyzerTestRunner` with standard `CSharpAnalysisTest`/`CSharpCodeFixTest` harnesses from `Microsoft.CodeAnalysis.Testing`.
 - Port existing analyzer and code-fix tests to the new harness, ensuring they execute both diagnostics and code fixes end-to-end.
 - Add CI-friendly helpers for adding common references (AutoMapper assemblies, etc.).
+- Current progress: AM003 and AM002 code-fix suites migrated to `CodeFixVerifier`. AM001 and AM004 code-fix suites also migrated and passing with dynamic fix-all iteration handling. Tests remain skipped where the generated fixes are not yet compilable (e.g., expression-tree limitations) or where analyzers don't yet emit diagnostics. Remaining suites (AM005, AM011, AM020, AM030, AM031) still rely on the legacy framework.
 
 ### 6. Verification & Documentation
 - Run the full test suite (analyzers + code fixes) and ensure consistent success locally.

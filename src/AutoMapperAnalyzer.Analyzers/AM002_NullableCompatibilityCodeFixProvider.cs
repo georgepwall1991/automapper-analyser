@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Composition;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -33,73 +35,99 @@ public class AM002_NullableCompatibilityCodeFixProvider : CodeFixProvider
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
         if (root == null) return;
 
-        var diagnostic = context.Diagnostics.First();
-        var diagnosticSpan = diagnostic.Location.SourceSpan;
-
-        // Find the CreateMap invocation that triggered the diagnostic
-        var invocation = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
-            .OfType<InvocationExpressionSyntax>()
-            .FirstOrDefault(i => i.Span.Contains(diagnosticSpan));
-
-        if (invocation == null) return;
-
-        // Extract property name from diagnostic message
-        var propertyName = ExtractPropertyNameFromDiagnostic(diagnostic);
-        if (string.IsNullOrEmpty(propertyName)) return;
-
-        // Check if this is NullableToNonNullable or NonNullableToNullable
-        if (diagnostic.Descriptor == AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+        foreach (var diagnostic in context.Diagnostics)
         {
-            // Offer to add null handling with null coalescing operator
+            var diagnosticSpan = diagnostic.Location.SourceSpan;
+
+            var invocation = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
+                .OfType<InvocationExpressionSyntax>()
+                .FirstOrDefault(i => i.Span.Contains(diagnosticSpan));
+
+            if (invocation == null)
+            {
+                continue;
+            }
+
+            var propertyName = ExtractPropertyNameFromDiagnostic(diagnostic);
+            if (string.IsNullOrEmpty(propertyName))
+            {
+                continue;
+            }
+
+            if (diagnostic.Descriptor != AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            {
+                continue;
+            }
+
+            var destinationType = ExtractDestinationTypeFromDiagnostic(diagnostic);
+            var defaultValue = TypeConversionHelper.GetDefaultValueForType(destinationType ?? string.Empty);
+            var defaultTitle = $"Add null coalescing operator for '{propertyName}'";
+
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    title: $"Add null coalescing operator for '{propertyName}'",
+                    title: defaultTitle,
                     createChangedDocument: cancellationToken =>
-                    {
-                        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                            invocation,
-                            propertyName!,
-                            $"src.{propertyName} ?? default");
-                        var newRoot = root.ReplaceNode(invocation, newInvocation);
-                        return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-                    },
+                        AddMapFromAsync(context.Document, invocation, propertyName!,
+                            $"src.{propertyName} ?? {defaultValue}", cancellationToken),
                     equivalenceKey: $"AM002_NullCoalescing_{propertyName}"),
                 diagnostic);
 
-            // Offer to add null check with explicit value
-            var destType = ExtractDestinationTypeFromDiagnostic(diagnostic);
-            if (!string.IsNullOrEmpty(destType))
+            var sampleValue = TypeConversionHelper.GetSampleValueForType(destinationType ?? string.Empty);
+            if (sampleValue != defaultValue)
             {
-                var defaultValue = TypeConversionHelper.GetDefaultValueForType(destType!);
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        title: $"Add null check with default value for '{propertyName}'",
+                        title: $"Add null coalescing with sample value for '{propertyName}'",
                         createChangedDocument: cancellationToken =>
-                        {
-                            var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                                invocation,
-                                propertyName!,
-                                $"src.{propertyName} ?? {defaultValue}");
-                            var newRoot = root.ReplaceNode(invocation, newInvocation);
-                            return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-                        },
-                        equivalenceKey: $"AM002_DefaultValue_{propertyName}"),
+                            AddMapFromAsync(context.Document, invocation, propertyName!,
+                                $"src.{propertyName} ?? {sampleValue}", cancellationToken),
+                        equivalenceKey: $"AM002_SampleValue_{propertyName}"),
                     diagnostic);
             }
 
-            // Offer to ignore the property
             context.RegisterCodeFix(
                 CodeAction.Create(
                     title: $"Ignore property '{propertyName}'",
                     createChangedDocument: cancellationToken =>
-                    {
-                        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName!);
-                        var newRoot = root.ReplaceNode(invocation, newInvocation);
-                        return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-                    },
+                        AddIgnoreAsync(context.Document, invocation, propertyName!, cancellationToken),
                     equivalenceKey: $"AM002_Ignore_{propertyName}"),
                 diagnostic);
         }
+    }
+
+    private static async Task<Document> AddMapFromAsync(
+        Document document,
+        InvocationExpressionSyntax invocation,
+        string propertyName,
+        string mapFromExpression,
+        CancellationToken cancellationToken)
+    {
+        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root is null)
+        {
+            return document;
+        }
+
+        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName, mapFromExpression);
+        var newRoot = root.ReplaceNode(invocation, newInvocation);
+        return document.WithSyntaxRoot(newRoot);
+    }
+
+    private static async Task<Document> AddIgnoreAsync(
+        Document document,
+        InvocationExpressionSyntax invocation,
+        string propertyName,
+        CancellationToken cancellationToken)
+    {
+        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root is null)
+        {
+            return document;
+        }
+
+        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
+        var newRoot = root.ReplaceNode(invocation, newInvocation);
+        return document.WithSyntaxRoot(newRoot);
     }
 
     private string? ExtractPropertyNameFromDiagnostic(Diagnostic diagnostic)

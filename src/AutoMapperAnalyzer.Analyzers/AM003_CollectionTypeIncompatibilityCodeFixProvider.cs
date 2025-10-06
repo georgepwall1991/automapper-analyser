@@ -1,8 +1,13 @@
+using System;
 using System.Collections.Immutable;
 using System.Composition;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using AutoMapperAnalyzer.Analyzers.Helpers;
 
@@ -15,173 +20,249 @@ namespace AutoMapperAnalyzer.Analyzers;
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM003_CollectionTypeIncompatibilityCodeFixProvider)), Shared]
 public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvider
 {
-    /// <summary>
-    /// Gets the diagnostic IDs that this code fix provider can fix.
-    /// </summary>
     public override ImmutableArray<string> FixableDiagnosticIds => ["AM003"];
 
-    /// <summary>
-    /// Gets the fix all provider for batch fixes.
-    /// </summary>
-    /// <returns>The batch fixer provider.</returns>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
-    /// <summary>
-    /// Registers code fixes for the specified context.
-    /// </summary>
-    /// <param name="context">The code fix context.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null)
-        {
-            return;
-        }
-
         foreach (var diagnostic in context.Diagnostics)
         {
+            var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+            if (root is null)
+            {
+                continue;
+            }
+
             if (!diagnostic.Properties.TryGetValue("PropertyName", out var propertyName) ||
                 !diagnostic.Properties.TryGetValue("SourceType", out var sourceType) ||
                 !diagnostic.Properties.TryGetValue("DestType", out var destType) ||
                 !diagnostic.Properties.TryGetValue("SourceElementType", out var sourceElementType) ||
                 !diagnostic.Properties.TryGetValue("DestElementType", out var destElementType) ||
-                string.IsNullOrEmpty(propertyName) || string.IsNullOrEmpty(sourceType) ||
-                string.IsNullOrEmpty(destType) || string.IsNullOrEmpty(sourceElementType) ||
-                string.IsNullOrEmpty(destElementType))
+                string.IsNullOrWhiteSpace(propertyName) ||
+                string.IsNullOrWhiteSpace(sourceType) ||
+                string.IsNullOrWhiteSpace(destType) ||
+                string.IsNullOrWhiteSpace(sourceElementType) ||
+                string.IsNullOrWhiteSpace(destElementType))
             {
                 continue;
             }
 
-            var node = root.FindNode(diagnostic.Location.SourceSpan);
-            if (node is not InvocationExpressionSyntax invocation)
+            if (root.FindNode(diagnostic.Location.SourceSpan) is not InvocationExpressionSyntax invocation)
             {
                 continue;
             }
 
-            // Check if this is a collection type incompatibility vs element type incompatibility
-            bool isCollectionTypeIncompatibility = !string.IsNullOrEmpty(sourceType) &&
-                (sourceType!.Contains("HashSet") || sourceType.Contains("Queue") || sourceType.Contains("Stack"));
-
-            if (isCollectionTypeIncompatibility)
+            if (diagnostic.Descriptor == AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule)
             {
-                // Collection type incompatibility fixes
-                RegisterCollectionTypeIncompatibilityFixes(context, root, invocation, propertyName!, sourceType!, destType!);
+                foreach (var fix in CreateCollectionFixes(propertyName!, sourceType!, destType!))
+                {
+                    context.RegisterCodeFix(
+                        CodeAction.Create(
+                            title: fix.Title,
+                            createChangedDocument: ct => AddMapFromAsync(context.Document, invocation, propertyName, fix.Expression, fix.RequiresLinq, ct),
+                            equivalenceKey: fix.EquivalenceKey),
+                        diagnostic);
+                }
             }
             else
             {
-                // Element type incompatibility fixes
-                RegisterElementTypeIncompatibilityFixes(context, root, invocation, propertyName!, sourceElementType!, destElementType!);
+                var conversionLambda = GetElementConversion(sourceElementType!, destElementType!);
+                if (!string.IsNullOrEmpty(conversionLambda))
+                {
+                    context.RegisterCodeFix(
+                        CodeAction.Create(
+                            title: $"Convert {propertyName} elements using Select()",
+                            createChangedDocument: ct => AddMapFromAsync(
+                                context.Document,
+                                invocation,
+                                propertyName,
+                                $"src.{propertyName}.Select({conversionLambda})",
+                                requiresLinq: true,
+                                ct),
+                            equivalenceKey: $"Select_{propertyName}"),
+                        diagnostic);
+                }
+
+                context.RegisterCodeFix(
+                    CodeAction.Create(
+                        title: $"Ignore property '{propertyName}'",
+                        createChangedDocument: ct => AddIgnoreAsync(context.Document, invocation, propertyName, ct),
+                        equivalenceKey: $"Ignore_{propertyName}"),
+                    diagnostic);
             }
         }
     }
 
-    private void RegisterCollectionTypeIncompatibilityFixes(CodeFixContext context, SyntaxNode root,
-        InvocationExpressionSyntax invocation, string propertyName, string sourceType, string destType)
+    private static async Task<Document> AddMapFromAsync(
+        Document document,
+        InvocationExpressionSyntax invocation,
+        string propertyName,
+        string mapFromExpression,
+        bool requiresLinq,
+        CancellationToken cancellationToken)
     {
-        // Fix 1: Add ForMember with ToList() conversion
-        if (sourceType.Contains("HashSet") && destType.Contains("List"))
+        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root is not CompilationUnitSyntax compilationUnit)
         {
-            var toListAction = CodeAction.Create(
-                title: $"Convert {propertyName} using ToList()",
-                createChangedDocument: cancellationToken =>
-                {
-                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                        invocation,
-                        propertyName,
-                        $"src.{propertyName}.ToList()");
-                    var newRoot = root.ReplaceNode(invocation, newInvocation);
-                    return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-                },
-                equivalenceKey: $"ToList_{propertyName}");
-
-            context.RegisterCodeFix(toListAction, context.Diagnostics);
+            return document;
         }
 
-        // Fix 2: Add ForMember with ToArray() conversion
-        if ((sourceType.Contains("Queue") || sourceType.Contains("Stack")) && destType.Contains("List"))
-        {
-            var toArrayAction = CodeAction.Create(
-                title: $"Convert {propertyName} using ToArray()",
-                createChangedDocument: cancellationToken =>
-                {
-                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                        invocation,
-                        propertyName,
-                        $"src.{propertyName}.ToArray()");
-                    var newRoot = root.ReplaceNode(invocation, newInvocation);
-                    return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-                },
-                equivalenceKey: $"ToArray_{propertyName}");
+        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName, mapFromExpression);
+        SyntaxNode newRoot = compilationUnit.ReplaceNode(invocation, newInvocation);
 
-            context.RegisterCodeFix(toArrayAction, context.Diagnostics);
+        if (requiresLinq && newRoot is CompilationUnitSyntax updatedCompilationUnit)
+        {
+            newRoot = AddUsingIfMissing(updatedCompilationUnit, "System.Linq");
         }
 
-        // Fix 3: Add ForMember with specific collection constructor
-        var constructorAction = CodeAction.Create(
-            title: $"Convert {propertyName} using collection constructor",
-            createChangedDocument: cancellationToken =>
-            {
-                string collectionType = GetCollectionTypeName(destType);
-                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                    invocation,
-                    propertyName,
-                    $"new {collectionType}(src.{propertyName})");
-                var newRoot = root.ReplaceNode(invocation, newInvocation);
-                return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-            },
-            equivalenceKey: $"Constructor_{propertyName}");
-
-        context.RegisterCodeFix(constructorAction, context.Diagnostics);
+        return document.WithSyntaxRoot(newRoot);
     }
 
-    private void RegisterElementTypeIncompatibilityFixes(CodeFixContext context, SyntaxNode root,
-        InvocationExpressionSyntax invocation, string propertyName, string sourceElementType, string destElementType)
+    private static async Task<Document> AddIgnoreAsync(
+        Document document,
+        InvocationExpressionSyntax invocation,
+        string propertyName,
+        CancellationToken cancellationToken)
     {
-        // Fix 1: Add ForMember with Select() for element type conversion
-        var selectAction = CodeAction.Create(
-            title: $"Convert {propertyName} elements using Select()",
-            createChangedDocument: cancellationToken =>
-            {
-                string conversion = GetElementConversion(sourceElementType, destElementType);
-                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                    invocation,
-                    propertyName,
-                    $"src.{propertyName}.Select({conversion})");
-                var newRoot = root.ReplaceNode(invocation, newInvocation);
-                return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-            },
-            equivalenceKey: $"Select_{propertyName}");
+        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root is null)
+        {
+            return document;
+        }
 
-        context.RegisterCodeFix(selectAction, context.Diagnostics);
-
-        // Fix 2: Ignore the property
-        var ignoreAction = CodeAction.Create(
-            title: $"Ignore property '{propertyName}'",
-            createChangedDocument: cancellationToken =>
-            {
-                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
-                var newRoot = root.ReplaceNode(invocation, newInvocation);
-                return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-            },
-            equivalenceKey: $"Ignore_{propertyName}");
-
-        context.RegisterCodeFix(ignoreAction, context.Diagnostics);
+        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
+        var newRoot = root.ReplaceNode(invocation, newInvocation);
+        return document.WithSyntaxRoot(newRoot);
     }
 
-    private string GetCollectionTypeName(string destType)
+    private static IEnumerable<(string Title, string Expression, bool RequiresLinq, string EquivalenceKey)> CreateCollectionFixes(
+        string propertyName,
+        string sourceType,
+        string destType)
     {
-        if (destType.Contains("List")) return "List<>";
-        if (destType.Contains("HashSet")) return "HashSet<>";
-        if (destType.Contains("Queue")) return "Queue<>";
-        if (destType.Contains("Stack")) return "Stack<>";
-        return "IEnumerable<>";
+        var fixes = new List<(string Title, string Expression, bool RequiresLinq, string EquivalenceKey)>();
+        var simplifiedDestType = SimplifyCollectionType(destType);
+
+        if (Contains(sourceType, "HashSet") && Contains(destType, "List"))
+        {
+            fixes.Add((
+                $"Convert {propertyName} using ToList()",
+                $"src.{propertyName}.ToList()",
+                true,
+                $"ToList_{propertyName}"));
+        }
+
+        if (Contains(sourceType, "Queue") && Contains(destType, "List"))
+        {
+            fixes.Add(CreateConstructorFix(propertyName, simplifiedDestType));
+        }
+
+        if (Contains(sourceType, "Stack") && Contains(destType, "List"))
+        {
+            fixes.Add(CreateConstructorFix(propertyName, simplifiedDestType));
+        }
+
+        if (Contains(sourceType, "List") && Contains(destType, "Queue"))
+        {
+            fixes.Add(CreateConstructorFix(propertyName, simplifiedDestType));
+        }
+
+        if (Contains(sourceType, "IEnumerable") && (Contains(destType, "Stack") || Contains(destType, "HashSet")))
+        {
+            fixes.Add(CreateConstructorFix(propertyName, simplifiedDestType));
+        }
+
+        if (IsArrayType(sourceType) && Contains(destType, "IEnumerable"))
+        {
+            fixes.Add((
+                $"Convert {propertyName} using AsEnumerable()",
+                $"src.{propertyName}.AsEnumerable()",
+                true,
+                $"AsEnumerable_{propertyName}"));
+        }
+
+        if (!fixes.Any())
+        {
+            fixes.Add(CreateConstructorFix(propertyName, simplifiedDestType));
+        }
+
+        return fixes;
+
+        static (string Title, string Expression, bool RequiresLinq, string EquivalenceKey) CreateConstructorFix(string propertyName, string simplifiedDestType)
+        {
+            var targetType = string.IsNullOrWhiteSpace(simplifiedDestType) ? "System.Collections.Generic.List<object>" : simplifiedDestType;
+            return ($"Convert {propertyName} using collection constructor", $"new {targetType}(src.{propertyName})", false, $"Constructor_{propertyName}");
+        }
     }
 
-    private string GetElementConversion(string sourceElementType, string destElementType)
+    private static string GetElementConversion(string sourceElementType, string destElementType)
     {
-        // Generate a simple conversion lambda
-        // This is a placeholder - in real scenarios might need more complex logic
-        return $"x => x /* TODO: Convert from {sourceElementType} to {destElementType} */";
+        var source = TypeConversionHelper.NormalizeTypeName(sourceElementType);
+        var destination = TypeConversionHelper.NormalizeTypeName(destElementType);
+
+        if (string.Equals(source, destination, StringComparison.Ordinal))
+        {
+            return "x => x";
+        }
+
+        return (source, destination) switch
+        {
+            ("string", "int") or ("string", "int32") => "x => int.Parse(x)",
+            ("string", "long") or ("string", "int64") => "x => long.Parse(x)",
+            ("string", "double") => "x => double.Parse(x)",
+            ("string", "decimal") => "x => decimal.Parse(x)",
+            ("string", "bool") => "x => bool.Parse(x)",
+            ("string", "datetime") => "x => global::System.DateTime.Parse(x)",
+            ("string", "guid") => "x => global::System.Guid.Parse(x)",
+            ("object", "string") => "x => x != null ? x.ToString() : string.Empty",
+            (_, "string") => "x => x != null ? x.ToString() : string.Empty",
+            ("double", "int") or ("double", "int32") => "x => global::System.Convert.ToInt32(x)",
+            ("double", "long") or ("double", "int64") => "x => global::System.Convert.ToInt64(x)",
+            ("float", "int") or ("single", "int") => "x => global::System.Convert.ToInt32(x)",
+            _ => $"x => ({destElementType})x"
+        };
+    }
+
+    private static bool Contains(string typeName, string value)
+        => typeName?.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
+
+    private static bool IsArrayType(string typeName)
+        => typeName?.EndsWith("[]", StringComparison.Ordinal) == true;
+
+    private static string SimplifyCollectionType(string typeName)
+    {
+        if (string.IsNullOrWhiteSpace(typeName))
+        {
+            return typeName;
+        }
+
+        const string collectionsPrefix = "System.Collections.Generic.";
+        const string systemPrefix = "System.";
+
+        if (typeName.StartsWith(collectionsPrefix, StringComparison.Ordinal))
+        {
+            return typeName.Substring(collectionsPrefix.Length);
+        }
+
+        if (typeName.StartsWith(systemPrefix, StringComparison.Ordinal))
+        {
+            return typeName.Substring(systemPrefix.Length);
+        }
+
+        return typeName;
+    }
+
+    private static CompilationUnitSyntax AddUsingIfMissing(CompilationUnitSyntax root, string namespaceName)
+    {
+        if (root.Usings.Any(u => string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
+        {
+            return root;
+        }
+
+        var usingDirective = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(namespaceName))
+            .WithTrailingTrivia(SyntaxFactory.ElasticLineFeed);
+
+        return root.AddUsings(usingDirective);
     }
 }

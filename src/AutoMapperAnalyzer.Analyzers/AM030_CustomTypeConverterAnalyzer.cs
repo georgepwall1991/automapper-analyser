@@ -126,22 +126,33 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             if (destinationProperty == null)
                 continue;
 
-            if (RequiresTypeConverter(sourceProperty.Type, destinationProperty.Type) && 
-                !HasConvertUsingConfiguration(invocation, sourceProperty.Name))
+            if (!RequiresTypeConverter(sourceProperty.Type, destinationProperty.Type))
             {
-                var properties = ImmutableDictionary.CreateBuilder<string, string?>();
-                properties.Add("PropertyName", sourceProperty.Name);
-                properties.Add("ConverterType", GetConverterTypeName(sourceProperty.Type, destinationProperty.Type));
-
-                var diagnostic = Diagnostic.Create(
-                    MissingConvertUsingConfigurationRule,
-                    invocation.GetLocation(),
-                    properties.ToImmutable(),
-                    sourceProperty.Name,
-                    GetConverterTypeName(sourceProperty.Type, destinationProperty.Type));
-
-                context.ReportDiagnostic(diagnostic);
+                continue;
             }
+
+            if (IsTypeCoveredByCreateMap(context.Compilation, sourceProperty.Type, destinationProperty.Type))
+            {
+                continue;
+            }
+
+            if (HasConvertUsingConfiguration(invocation, sourceProperty.Name))
+            {
+                continue;
+            }
+
+            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            properties.Add("PropertyName", sourceProperty.Name);
+            properties.Add("ConverterType", GetConverterTypeName(sourceProperty.Type, destinationProperty.Type));
+
+            var diagnostic = Diagnostic.Create(
+                MissingConvertUsingConfigurationRule,
+                invocation.GetLocation(),
+                properties.ToImmutable(),
+                sourceProperty.Name,
+                GetConverterTypeName(sourceProperty.Type, destinationProperty.Type));
+
+            context.ReportDiagnostic(diagnostic);
         }
     }
 
@@ -226,7 +237,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
     {
         // Look for chained method calls starting from the CreateMap invocation
         var current = createMapInvocation.Parent;
-        
+
         while (current != null)
         {
             if (current is MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax chainedInvocation } memberAccess)
@@ -252,6 +263,25 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             else
             {
                 current = current.Parent;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsTypeCoveredByCreateMap(Compilation compilation, ITypeSymbol sourceType, ITypeSymbol destinationType)
+    {
+        if (sourceType == null || destinationType == null)
+        {
+            return false;
+        }
+
+        if (sourceType is INamedTypeSymbol sourceNamed && destinationType is INamedTypeSymbol destNamed)
+        {
+            var registry = CreateMapRegistry.FromCompilation(compilation);
+            if (registry.Contains(sourceNamed, destNamed))
+            {
+                return true;
             }
         }
 

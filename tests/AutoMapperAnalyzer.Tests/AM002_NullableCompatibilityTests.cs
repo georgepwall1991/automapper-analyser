@@ -1,10 +1,15 @@
 using AutoMapperAnalyzer.Analyzers;
-using AutoMapperAnalyzer.Tests.Framework;
+using AutoMapperAnalyzer.Tests.Infrastructure;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests;
 
 public class AM002_NullableCompatibilityTests
 {
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
+        => new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
+
     [Fact]
     public async Task AM002_ShouldReportDiagnostic_WhenNullableStringToNonNullableString()
     {
@@ -35,12 +40,9 @@ public class AM002_NullableCompatibilityTests
                           }
                           """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Name", "Source",
-                "string?", "Destination", "string")
-            .RunAsync();
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Name", "Source", "string?", "Destination", "string"));
     }
 
     [Fact]
@@ -78,12 +80,9 @@ public class AM002_NullableCompatibilityTests
                           }
                           """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 26, 13, "Name", "Source",
-                "string?", "Destination", "string")
-            .RunAsync();
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 26, 13, "Name", "Source", "string?", "Destination", "string"));
     }
 
     [Fact]
@@ -116,12 +115,9 @@ public class AM002_NullableCompatibilityTests
                           }
                           """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NonNullableToNullableRule, 21, 13, "Name", "Source",
-                "string", "Destination", "string?")
-            .RunAsync();
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NonNullableToNullableRule, 21, 13, "Name", "Source", "string", "Destination", "string?"));
     }
 
     [Fact]
@@ -154,12 +150,9 @@ public class AM002_NullableCompatibilityTests
                           }
                           """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Age", "Source",
-                "int?", "Destination", "int")
-            .RunAsync();
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Age", "Source", "int?", "Destination", "int"));
     }
 
     [Fact]
@@ -194,10 +187,7 @@ public class AM002_NullableCompatibilityTests
                           }
                           """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -231,10 +221,7 @@ public class AM002_NullableCompatibilityTests
                           }
                           """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -268,12 +255,9 @@ public class AM002_NullableCompatibilityTests
                           }
                           """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 22, 13, "CreatedDate",
-                "Source", "System.DateTime?", "Destination", "System.DateTime")
-            .RunAsync();
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 22, 13, "CreatedDate", "Source", "System.DateTime?", "Destination", "System.DateTime"));
     }
 
     [Fact]
@@ -310,14 +294,10 @@ public class AM002_NullableCompatibilityTests
                           }
                           """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 25, 13, "Name", "Source",
-                "string?", "Destination", "string")
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 25, 13, "Age", "Source",
-                "int?", "Destination", "int")
-            .RunAsync();
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 25, 13, "Name", "Source", "string?", "Destination", "string"),
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 25, 13, "Age", "Source", "int?", "Destination", "int"));
     }
 
     [Fact]
@@ -364,12 +344,9 @@ public class AM002_NullableCompatibilityTests
                           """;
 
         // Should detect nullable -> non-nullable issue in SourceAddress.Street -> DestinationAddress.Street
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 34, 13, "Street",
-                "SourceAddress", "string?", "DestinationAddress", "string")
-            .RunAsync();
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 34, 13, "Street", "SourceAddress", "string?", "DestinationAddress", "string"));
     }
 
     [Fact]
@@ -403,11 +380,8 @@ public class AM002_NullableCompatibilityTests
                           }
                           """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM002_NullableCompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 22, 13, "Items", "Source",
-                "System.Collections.Generic.List<string>?", "Destination", "System.Collections.Generic.List<string>")
-            .RunAsync();
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 22, 13, "Items", "Source", "System.Collections.Generic.List<string>?", "Destination", "System.Collections.Generic.List<string>"));
     }
 }

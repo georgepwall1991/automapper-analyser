@@ -47,81 +47,143 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : CodeFixProvider
         var propertyName = ExtractPropertyNameFromDiagnostic(diagnostic);
         if (string.IsNullOrEmpty(propertyName)) return;
 
-        // Register different fix strategies based on the diagnostic descriptor
-        if (diagnostic.Descriptor.Id == "AM001")
+        if (diagnostic.Descriptor != AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule)
         {
-            // Check which specific rule was triggered
-            var messageFormat = diagnostic.Descriptor.MessageFormat.ToString();
-
-            if (messageFormat.Contains("incompatible types"))
-            {
-                // Property Type Mismatch - offer ForMember with conversion
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        title: $"Add ForMember configuration for '{propertyName}' with type conversion",
-                        createChangedDocument: cancellationToken =>
-                        {
-                            var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                                invocation,
-                                propertyName!,
-                                $"src.{propertyName}.ToString()");
-                            var newRoot = root.ReplaceNode(invocation, newInvocation);
-                            return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-                        },
-                        equivalenceKey: $"AM001_ForMember_{propertyName}"),
-                    diagnostic);
-
-                // Offer to ignore the property if types are incompatible
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        title: $"Ignore property '{propertyName}'",
-                        createChangedDocument: cancellationToken =>
-                        {
-                            var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName!);
-                            var newRoot = root.ReplaceNode(invocation, newInvocation);
-                            return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-                        },
-                        equivalenceKey: $"AM001_Ignore_{propertyName}"),
-                    diagnostic);
-            }
-            else if (messageFormat.Contains("nullable compatibility"))
-            {
-                // Nullable Compatibility Issue - offer null handling
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        title: $"Add null handling for property '{propertyName}'",
-                        createChangedDocument: cancellationToken =>
-                        {
-                            var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                                invocation,
-                                propertyName!,
-                                $"src.{propertyName} ?? default");
-                            var newRoot = root.ReplaceNode(invocation, newInvocation);
-                            return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-                        },
-                        equivalenceKey: $"AM001_NullHandling_{propertyName}"),
-                    diagnostic);
-            }
-            else if (messageFormat.Contains("Complex type mapping"))
-            {
-                // Complex Type Mapping Missing - offer to create mapping
-                var types = ExtractTypesFromDiagnostic(diagnostic);
-                if (!string.IsNullOrEmpty(types.sourceType) && !string.IsNullOrEmpty(types.destType))
-                {
-                    context.RegisterCodeFix(
-                        CodeAction.Create(
-                            title: $"Add CreateMap<{types.sourceType}, {types.destType}>() configuration",
-                            createChangedDocument: cancellationToken =>
-                            {
-                                // TODO: Implement complex type mapping creation
-                                // This would require more sophisticated syntax manipulation
-                                return Task.FromResult(context.Document);
-                            },
-                            equivalenceKey: $"AM001_CreateMap_{types.sourceType}_{types.destType}"),
-                        diagnostic);
-                }
-            }
+            return;
         }
+
+        var semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+        if (semanticModel == null)
+        {
+            return;
+        }
+
+        var semanticInfo = semanticModel.GetSymbolInfo(invocation, context.CancellationToken);
+        if (semanticInfo.Symbol is not IMethodSymbol methodSymbol || methodSymbol.TypeArguments.Length != 2)
+        {
+            return;
+        }
+
+        var sourceType = methodSymbol.TypeArguments[0];
+        var destinationType = methodSymbol.TypeArguments[1];
+
+        var sourceProperty = FindProperty(sourceType, propertyName!, expectSetter: false);
+        var destinationProperty = FindProperty(destinationType, propertyName!, expectSetter: true);
+        if (sourceProperty == null || destinationProperty == null)
+        {
+            return;
+        }
+
+        var sourcePropertyType = sourceProperty.Type;
+        var destinationPropertyType = destinationProperty.Type;
+
+        if (SymbolEqualityComparer.Default.Equals(sourcePropertyType, destinationPropertyType))
+        {
+            return;
+        }
+
+        // Prepare map-from expression that either converts or casts.
+        var conversionExpression = CreateConversionExpression(sourcePropertyType, destinationPropertyType, propertyName!);
+        if (conversionExpression != null)
+        {
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    title: $"Map '{propertyName}' with conversion",
+                    createChangedDocument: cancellationToken =>
+                    {
+                        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                            invocation,
+                            propertyName!,
+                            conversionExpression);
+                        var newRoot = root.ReplaceNode(invocation, newInvocation);
+                        return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+                    },
+                    equivalenceKey: $"AM001_MapWithConversion_{propertyName}"),
+                diagnostic);
+        }
+
+        // Always provide ignore option as a safe fallback.
+        context.RegisterCodeFix(
+            CodeAction.Create(
+                title: $"Ignore property '{propertyName}'",
+                createChangedDocument: cancellationToken =>
+                {
+                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName!);
+                    var newRoot = root.ReplaceNode(invocation, newInvocation);
+                    return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+                },
+                equivalenceKey: $"AM001_Ignore_{propertyName}"),
+            diagnostic);
+    }
+
+    private static IPropertySymbol? FindProperty(ITypeSymbol typeSymbol, string name, bool expectSetter)
+    {
+        if (typeSymbol is not INamedTypeSymbol namedType)
+        {
+            return null;
+        }
+
+        return AutoMapperAnalysisHelpers
+            .GetMappableProperties(namedType, requireSetter: expectSetter)
+            .FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string? CreateConversionExpression(ITypeSymbol sourceType, ITypeSymbol destinationType, string propertyName)
+    {
+        if (SymbolEqualityComparer.Default.Equals(sourceType, destinationType))
+        {
+            return null;
+        }
+
+        var destinationTypeName = destinationType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+        // Nullable source to non-nullable destination -> coalesce to default literal
+        if (sourceType.NullableAnnotation == NullableAnnotation.Annotated)
+        {
+            var fallback = TypeConversionHelper.GetDefaultValueForType(destinationTypeName);
+            return $"src.{propertyName} ?? {fallback}";
+        }
+
+        // Numeric conversions: add cast
+        if (IsNumericConversion(sourceType.SpecialType) && IsNumericConversion(destinationType.SpecialType))
+        {
+            return $"({destinationTypeName})src.{propertyName}";
+        }
+
+        // String -> primitive: use parse pattern inside MapFrom
+        if (IsString(sourceType) && IsNumericConversion(destinationType.SpecialType))
+        {
+            return $"src.{propertyName} is not null ? {destinationTypeName}.Parse(src.{propertyName}) : {TypeConversionHelper.GetDefaultValueForType(destinationTypeName)}";
+        }
+
+        // Primitive -> string: use ToString with invariant culture for numeric types
+        if (IsNumericConversion(sourceType.SpecialType) && IsString(destinationType))
+        {
+            return $"src.{propertyName}.ToString()";
+        }
+
+        // As a safe catch-all, allow cast when the destination is assignable from source
+        if (destinationType.IsReferenceType && sourceType.IsReferenceType)
+        {
+            return $"({destinationTypeName})src.{propertyName}";
+        }
+
+        return null;
+    }
+
+    private static bool IsNumericConversion(SpecialType specialType)
+    {
+        return specialType is SpecialType.System_Byte or SpecialType.System_SByte or
+            SpecialType.System_Int16 or SpecialType.System_UInt16 or
+            SpecialType.System_Int32 or SpecialType.System_UInt32 or
+            SpecialType.System_Int64 or SpecialType.System_UInt64 or
+            SpecialType.System_Single or SpecialType.System_Double or
+            SpecialType.System_Decimal;
+    }
+
+    private static bool IsString(ITypeSymbol typeSymbol)
+    {
+        return typeSymbol.SpecialType == SpecialType.System_String;
     }
 
     private string? ExtractPropertyNameFromDiagnostic(Diagnostic diagnostic)

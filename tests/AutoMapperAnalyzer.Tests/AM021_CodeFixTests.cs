@@ -1,29 +1,28 @@
 using AutoMapperAnalyzer.Analyzers;
 using AutoMapperAnalyzer.Tests.Infrastructure;
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests;
 
-public class AM030_CodeFixTests
+public class AM021_CodeFixTests
 {
     [Fact]
-    public async Task AM030_ShouldFixMissingConvertUsingWithLambda()
+    public async Task AM021_ShouldFixSimpleElementConversion_WithSelect()
     {
         const string testCode = """
                                 using AutoMapper;
-                                using System;
+                                using System.Collections.Generic;
 
                                 namespace TestNamespace
                                 {
                                     public class Source
                                     {
-                                        public string CreatedDate { get; set; } = "2023-01-01";
+                                        public List<string> Numbers { get; set; }
                                     }
 
                                     public class Destination
                                     {
-                                        public DateTime CreatedDate { get; set; }
+                                        public List<int> Numbers { get; set; }
                                     }
 
                                     public class TestProfile : Profile
@@ -38,56 +37,142 @@ public class AM030_CodeFixTests
 
         const string expectedFixedCode = """
                                          using AutoMapper;
-                                         using System;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
 
                                          namespace TestNamespace
                                          {
                                              public class Source
                                              {
-                                                 public string CreatedDate { get; set; } = "2023-01-01";
+                                                 public List<string> Numbers { get; set; }
                                              }
 
                                              public class Destination
                                              {
-                                                 public DateTime CreatedDate { get; set; }
+                                                 public List<int> Numbers { get; set; }
                                              }
 
                                              public class TestProfile : Profile
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(src => DateTime.Parse(src.CreatedDate)));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Numbers, opt => opt.MapFrom(src => src.Numbers.Select(x => int.Parse(x)).ToList()));
                                                  }
                                              }
                                          }
                                          """;
 
-        await CodeFixVerifier<AM030_CustomTypeConverterAnalyzer, AM030_CustomTypeConverterCodeFixProvider>
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule)
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
                     .WithLocation(20, 13)
-                    .WithArguments("CreatedDate", "ITypeConverter<String, DateTime>"),
+                    .WithArguments("Numbers", "Source", "string", "Destination", "int"),
+                expectedFixedCode);
+    }
+
+    [Fact(Skip = "Complex element mapping requires analyzer enhancement to detect element CreateMaps")]
+    public async Task AM021_ShouldFixComplexElementMapping_WithNestedMapCall()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class DestPerson
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<SourcePerson> People { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<DestPerson> People { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class SourcePerson
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class DestPerson
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public List<SourcePerson> People { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public List<DestPerson> People { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                     CreateMap<SourcePerson, DestPerson>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(30, 13)
+                    .WithArguments("People", "Source", "TestNamespace.SourcePerson", "Destination", "TestNamespace.DestPerson"),
                 expectedFixedCode);
     }
 
     [Fact]
-    public async Task AM030_ShouldFixMissingConvertUsingWithConverter()
+    public async Task AM021_ShouldFixArrayToHashSet_WithSelect()
     {
         const string testCode = """
                                 using AutoMapper;
-                                using System;
+                                using System.Collections.Generic;
 
                                 namespace TestNamespace
                                 {
                                     public class Source
                                     {
-                                        public string Price { get; set; } = "19.99";
+                                        public string[] Tags { get; set; }
                                     }
 
                                     public class Destination
                                     {
-                                        public decimal Price { get; set; }
+                                        public HashSet<int> Tags { get; set; }
                                     }
 
                                     public class TestProfile : Profile
@@ -102,100 +187,37 @@ public class AM030_CodeFixTests
 
         const string expectedFixedCode = """
                                          using AutoMapper;
-                                         using System;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
 
                                          namespace TestNamespace
                                          {
                                              public class Source
                                              {
-                                                 public string Price { get; set; } = "19.99";
+                                                 public string[] Tags { get; set; }
                                              }
 
                                              public class Destination
                                              {
-                                                 public decimal Price { get; set; }
+                                                 public HashSet<int> Tags { get; set; }
                                              }
 
                                              public class TestProfile : Profile
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Price, opt => opt.MapFrom(src => decimal.Parse(src.Price)));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.Tags.Select(x => int.Parse(x)).ToHashSet()));
                                                  }
                                              }
                                          }
                                          """;
 
-        await CodeFixVerifier<AM030_CustomTypeConverterAnalyzer, AM030_CustomTypeConverterCodeFixProvider>
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule)
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
                     .WithLocation(20, 13)
-                    .WithArguments("Price", "ITypeConverter<String, Decimal>"),
+                    .WithArguments("Tags", "Source", "string", "Destination", "int"),
                 expectedFixedCode);
     }
-
-    [Fact]
-    public async Task AM030_ShouldFixMissingConvertUsingWithForMember()
-    {
-        const string testCode = """
-                                using AutoMapper;
-                                using System;
-
-                                namespace TestNamespace
-                                {
-                                    public class Source
-                                    {
-                                        public string UpdatedDate { get; set; } = "2023-01-02";
-                                    }
-
-                                    public class Destination
-                                    {
-                                        public DateTime UpdatedDate { get; set; }
-                                    }
-
-                                    public class TestProfile : Profile
-                                    {
-                                        public TestProfile()
-                                        {
-                                            CreateMap<Source, Destination>();
-                                        }
-                                    }
-                                }
-                                """;
-
-        const string expectedFixedCode = """
-                                         using AutoMapper;
-                                         using System;
-
-                                         namespace TestNamespace
-                                         {
-                                             public class Source
-                                             {
-                                                 public string UpdatedDate { get; set; } = "2023-01-02";
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public DateTime UpdatedDate { get; set; }
-                                             }
-
-                                             public class TestProfile : Profile
-                                             {
-                                                 public TestProfile()
-                                                 {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.UpdatedDate, opt => opt.MapFrom(src => DateTime.Parse(src.UpdatedDate)));
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        await CodeFixVerifier<AM030_CustomTypeConverterAnalyzer, AM030_CustomTypeConverterCodeFixProvider>
-            .VerifyFixAsync(
-                testCode,
-                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule)
-                    .WithLocation(20, 13)
-                    .WithArguments("UpdatedDate", "ITypeConverter<String, DateTime>"),
-                expectedFixedCode);
-}
 }

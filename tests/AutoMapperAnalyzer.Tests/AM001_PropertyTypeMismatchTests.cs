@@ -1,10 +1,16 @@
 using AutoMapperAnalyzer.Analyzers;
 using AutoMapperAnalyzer.Tests.Framework;
+using AutoMapperAnalyzer.Tests.Infrastructure;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests;
 
 public class AM001_PropertyTypeMismatchTests
 {
+    private static DiagnosticResult CreateDiagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
+        => new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
+
     [Fact]
     public async Task Debug_AM001_SimpleTest()
     {
@@ -33,12 +39,9 @@ public class AM001_PropertyTypeMismatchTests
                        """;
 
         // Expect the analyzer to detect the string -> int type mismatch for Age property
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 18, 9, "Age", "Source",
-                "string", "Destination", "int")
-            .RunAsync();
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 18, 9, "Age", "Source", "string", "Destination", "int"));
     }
 
     [Fact]
@@ -70,12 +73,9 @@ public class AM001_PropertyTypeMismatchTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Age", "Source",
-                "string", "Destination", "int")
-            .RunAsync();
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Age", "Source", "string", "Destination", "int"));
     }
 
     [Fact]
@@ -112,12 +112,9 @@ public class AM001_PropertyTypeMismatchTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 25, 13, "Age", "Source",
-                "string", "Destination", "int")
-            .RunAsync();
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 25, 13, "Age", "Source", "string", "Destination", "int"));
     }
 
     [Fact]
@@ -151,10 +148,7 @@ public class AM001_PropertyTypeMismatchTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -212,11 +206,12 @@ public class AM001_PropertyTypeMismatchTests
                                         }
                                         """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
-            .WithSource(mainProfile, "ProfileOne.cs")
-            .WithSource(secondaryProfile, "ProfileTwo.cs")
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            new[]
+            {
+                ("ProfileOne.cs", mainProfile),
+                ("ProfileTwo.cs", secondaryProfile)
+            });
     }
 
     [Fact]
@@ -249,10 +244,7 @@ public class AM001_PropertyTypeMismatchTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -285,12 +277,9 @@ public class AM001_PropertyTypeMismatchTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 21, 13, "CreatedDate",
-                "Source", "System.DateTime", "Destination", "string")
-            .RunAsync();
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 21, 13, "CreatedDate", "Source", "System.DateTime", "Destination", "string"));
     }
 
     [Fact]
@@ -323,12 +312,10 @@ public class AM001_PropertyTypeMismatchTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM001_PropertyTypeMismatchAnalyzer.GenericTypeMismatchRule, 21, 13, "Items", "Source",
-                "System.Collections.Generic.List<string>", "Destination", "System.Collections.Generic.List<int>")
-            .RunAsync();
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.GenericTypeMismatchRule, 21, 13, "Items", "Source",
+                "System.Collections.Generic.List<string>", "Destination", "System.Collections.Generic.List<int>"));
     }
 
     [Fact]
@@ -372,10 +359,7 @@ public class AM001_PropertyTypeMismatchTests
                                 """;
 
         // When both mappings are configured, no diagnostics should be reported
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -418,11 +402,9 @@ public class AM001_PropertyTypeMismatchTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM001_PropertyTypeMismatchAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM001_PropertyTypeMismatchAnalyzer.ComplexTypeMappingMissingRule, 30, 13, "Address",
-                "Source", "TestNamespace.SourceAddress", "Destination", "TestNamespace.DestinationAddress")
-            .RunAsync();
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.ComplexTypeMappingMissingRule, 30, 13, "Address",
+                "Source", "TestNamespace.SourceAddress", "Destination", "TestNamespace.DestinationAddress"));
     }
 }

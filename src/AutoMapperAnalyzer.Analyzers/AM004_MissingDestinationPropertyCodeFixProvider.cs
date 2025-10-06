@@ -66,7 +66,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
                 },
                 equivalenceKey: $"Ignore_{propertyName}");
 
-            context.RegisterCodeFix(ignoreAction, context.Diagnostics);
+            context.RegisterCodeFix(ignoreAction, diagnostic);
 
             // Fix 2: Add custom mapping using ForMember (if destination property doesn't exist)
             var customMappingAction = CodeAction.Create(
@@ -84,7 +84,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
                 },
                 equivalenceKey: $"CustomMapping_{propertyName}");
 
-            context.RegisterCodeFix(customMappingAction, context.Diagnostics);
+            context.RegisterCodeFix(customMappingAction, diagnostic);
 
             // Fix 3: Add ForMember with MapFrom to combine multiple properties (for string types)
             if (!string.IsNullOrEmpty(propertyType) && TypeConversionHelper.IsStringType(propertyType!))
@@ -103,7 +103,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
                     },
                     equivalenceKey: $"Combine_{propertyName}");
 
-                context.RegisterCodeFix(combineAction, context.Diagnostics);
+                context.RegisterCodeFix(combineAction, diagnostic);
             }
         }
     }

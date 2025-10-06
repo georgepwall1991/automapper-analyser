@@ -1,10 +1,14 @@
 using AutoMapperAnalyzer.Analyzers;
-using AutoMapperAnalyzer.Tests.Framework;
+using AutoMapperAnalyzer.Tests.Infrastructure;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests;
 
 public class AM003_CollectionTypeIncompatibilityTests
 {
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
+        => new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
     [Fact]
     public async Task AM003_ShouldReportDiagnostic_WhenHashSetToList()
     {
@@ -35,13 +39,10 @@ public class AM003_CollectionTypeIncompatibilityTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM003_CollectionTypeIncompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 21, 13,
-                "Tags", "Source", "System.Collections.Generic.HashSet<string>", "Destination",
-                "System.Collections.Generic.List<string>")
-            .RunAsync();
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 21, 13,
+                "Tags", "Source", "System.Collections.Generic.HashSet<string>", "Destination", "System.Collections.Generic.List<string>"));
     }
 
     [Fact]
@@ -74,12 +75,10 @@ public class AM003_CollectionTypeIncompatibilityTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM003_CollectionTypeIncompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionElementIncompatibilityRule, 21, 13,
-                "Items", "Source", "string", "Destination", "int")
-            .RunAsync();
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionElementIncompatibilityRule, 21, 13,
+                "Items", "Source", "string", "Destination", "int"));
     }
 
     [Fact]
@@ -114,10 +113,7 @@ public class AM003_CollectionTypeIncompatibilityTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM003_CollectionTypeIncompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -152,10 +148,7 @@ public class AM003_CollectionTypeIncompatibilityTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM003_CollectionTypeIncompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -188,13 +181,10 @@ public class AM003_CollectionTypeIncompatibilityTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM003_CollectionTypeIncompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 21, 13,
-                "Messages", "Source", "System.Collections.Generic.Queue<string>", "Destination",
-                "System.Collections.Generic.List<string>")
-            .RunAsync();
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 21, 13,
+                "Messages", "Source", "System.Collections.Generic.Queue<string>", "Destination", "System.Collections.Generic.List<string>"));
     }
 
     [Fact]
@@ -226,10 +216,7 @@ public class AM003_CollectionTypeIncompatibilityTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM003_CollectionTypeIncompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -262,12 +249,10 @@ public class AM003_CollectionTypeIncompatibilityTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM003_CollectionTypeIncompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionElementIncompatibilityRule, 21, 13,
-                "Numbers", "Source", "int", "Destination", "string")
-            .RunAsync();
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionElementIncompatibilityRule, 21, 13,
+                "Numbers", "Source", "int", "Destination", "string"));
     }
 
     [Fact]
@@ -300,10 +285,7 @@ public class AM003_CollectionTypeIncompatibilityTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM003_CollectionTypeIncompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -336,10 +318,7 @@ public class AM003_CollectionTypeIncompatibilityTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM003_CollectionTypeIncompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -374,15 +353,11 @@ public class AM003_CollectionTypeIncompatibilityTests
                                 }
                                 """;
 
-        await DiagnosticTestFramework
-            .ForAnalyzer<AM003_CollectionTypeIncompatibilityAnalyzer>()
-            .WithSource(testCode)
-            .ExpectDiagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 23, 13,
-                "Tags", "Source", "System.Collections.Generic.HashSet<string>", "Destination",
-                "System.Collections.Generic.List<string>")
-            .ExpectDiagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 23, 13,
-                "Numbers", "Source", "System.Collections.Generic.Queue<int>", "Destination",
-                "System.Collections.Generic.List<int>")
-            .RunAsync();
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 23, 13,
+                "Tags", "Source", "System.Collections.Generic.HashSet<string>", "Destination", "System.Collections.Generic.List<string>"),
+            Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 23, 13,
+                "Numbers", "Source", "System.Collections.Generic.Queue<int>", "Destination", "System.Collections.Generic.List<int>"));
     }
 }

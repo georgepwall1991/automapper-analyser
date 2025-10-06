@@ -42,6 +42,68 @@ public class AM030_CustomTypeConverterTests
             .RunAsync();
     }
 
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenNestedMappingExists()
+    {
+        const string mainProfile = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Address
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class AddressDto
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Address HomeAddress { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public AddressDto HomeAddress { get; set; }
+                                    }
+
+                                    public class PrimaryProfile : Profile
+                                    {
+                                        public PrimaryProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string addressProfile = """
+                                     using AutoMapper;
+
+                                     namespace TestNamespace.Inner
+                                     {
+                                         using TestNamespace;
+
+                                         public class AddressProfile : Profile
+                                         {
+                                             public AddressProfile()
+                                             {
+                                                 CreateMap<Address, AddressDto>();
+                                             }
+                                         }
+                                     }
+                                     """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(mainProfile, "PrimaryProfile.cs")
+            .WithSource(addressProfile, "AddressProfile.cs")
+            .RunWithNoDiagnosticsAsync();
+    }
+
     [Fact(Skip = "Test produces compiler errors that interfere with analyzer testing")]
     public async Task AM030_ShouldReportDiagnostic_WhenInvalidTypeConverterImplementation()
     {
