@@ -73,7 +73,7 @@ namespace TestNamespace
                 expectedFixedCode);
     }
 
-    [Fact(Skip = "AM001 analyzer does not currently emit nullable diagnostics without additional context")]
+    [Fact(Skip = "Analyzer limitation: nullable flow analysis - see docs/TEST_LIMITATIONS.md #3")]
     public async Task AM001_ShouldFixNullableCompatibilityWithNullCoalescing()
     {
         const string testCode = """
@@ -196,7 +196,7 @@ namespace TestNamespace
                 expectedFixedCode);
     }
 
-    [Fact(Skip = "Pending fix: generated code uses expression patterns unsupported in expression trees")]
+    [Fact(Skip = "Analyzer limitation: expression tree patterns - see docs/TEST_LIMITATIONS.md #3")]
     public async Task AM001_ShouldFixStringToIntConversionWithParse()
     {
         const string testCode = """
@@ -257,7 +257,7 @@ namespace TestNamespace
                 expectedFixedCode);
     }
 
-    [Fact(Skip = "Pending fix: need multi-diagnostic support for incremental code fix application")]
+    [Fact(Skip = "Analyzer limitation: multi-diagnostic coordination - see docs/TEST_LIMITATIONS.md #3")]
     public async Task AM001_ShouldFixMultiplePropertyTypeMismatches()
     {
         const string testCode = """

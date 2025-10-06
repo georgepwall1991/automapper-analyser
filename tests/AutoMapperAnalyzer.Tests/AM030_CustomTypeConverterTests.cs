@@ -104,7 +104,7 @@ public class AM030_CustomTypeConverterTests
             .RunWithNoDiagnosticsAsync();
     }
 
-    [Fact(Skip = "Test produces compiler errors that interfere with analyzer testing")]
+    [Fact(Skip = "Future feature: invalid converter detection - see docs/TEST_LIMITATIONS.md #4")]
     public async Task AM030_ShouldReportDiagnostic_WhenInvalidTypeConverterImplementation()
     {
         const string testCode = """
@@ -201,7 +201,7 @@ public class AM030_CustomTypeConverterTests
             .RunAsync();
     }
 
-    [Fact(Skip = "Unused converter detection requires cross-compilation analysis - advanced feature for future implementation")]
+    [Fact(Skip = "Future feature: unused converter detection - see docs/TEST_LIMITATIONS.md #4")]
     public async Task AM030_ShouldReportDiagnostic_WhenTypeConverterIsUnused()
     {
         const string testCode = """

@@ -7,7 +7,7 @@ namespace AutoMapperAnalyzer.Tests;
 
 public class AM031_CodeFixTests
 {
-    [Fact(Skip = "Test framework limitation: field type resolution not available in semantic model")]
+    [Fact(Skip = "Test framework limitation: field type resolution - see docs/TEST_LIMITATIONS.md #1")]
     public async Task AM031_ShouldSuggestMovingDatabaseCallOutsideMapping()
     {
         const string testCode = """
@@ -100,7 +100,7 @@ public class AM031_CodeFixTests
                 expectedFixedCode);
     }
 
-    [Fact(Skip = "Test framework limitation: field type resolution not available in semantic model")]
+    [Fact(Skip = "Test framework limitation: field type resolution - see docs/TEST_LIMITATIONS.md #1")]
     public async Task AM031_ShouldSuggestMovingMethodCallOutsideMapping()
     {
         const string testCode = """
@@ -181,7 +181,7 @@ public class AM031_CodeFixTests
                 expectedFixedCode);
     }
 
-    [Fact(Skip = "Code fix implemented but test has diagnostic location mismatch - needs test framework adjustment")]
+    [Fact(Skip = "Test framework limitation: diagnostic span verification - see docs/TEST_LIMITATIONS.md #2")]
     public async Task AM031_ShouldSuggestCachingForMultipleEnumerations()
     {
         const string testCode = """
@@ -253,7 +253,7 @@ public class AM031_CodeFixTests
                 expectedFixedCode);
     }
 
-    [Fact(Skip = "Code fix implemented but test has diagnostic location mismatch - needs test framework adjustment")]
+    [Fact(Skip = "Test framework limitation: diagnostic span verification - see docs/TEST_LIMITATIONS.md #2")]
     public async Task AM031_ShouldSuggestInjectingTimeProvider()
     {
         const string testCode = """
@@ -319,7 +319,7 @@ public class AM031_CodeFixTests
                 expectedFixedCode);
     }
 
-    [Fact(Skip = "Test framework limitation: field type resolution not available in semantic model")]
+    [Fact(Skip = "Test framework limitation: field type resolution - see docs/TEST_LIMITATIONS.md #1")]
     public async Task AM031_ShouldSuggestMovingTaskResultOutsideMapping()
     {
         const string testCode = """

@@ -71,7 +71,7 @@ public class AM021_CodeFixTests
                 expectedFixedCode);
     }
 
-    [Fact(Skip = "Complex element mapping requires analyzer enhancement to detect element CreateMaps")]
+    [Fact(Skip = "Future enhancement: element CreateMap tracking - see docs/TEST_LIMITATIONS.md #5")]
     public async Task AM021_ShouldFixComplexElementMapping_WithNestedMapCall()
     {
         const string testCode = """

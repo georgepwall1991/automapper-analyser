@@ -5,7 +5,7 @@ namespace AutoMapperAnalyzer.Tests;
 
 public class AM031_PerformanceWarningTests
 {
-    [Fact(Skip = "Test framework limitation: field type resolution not available in semantic model")]
+    [Fact(Skip = "Test framework limitation: field type resolution - see docs/TEST_LIMITATIONS.md #1")]
     public async Task AM031_ShouldReportDiagnostic_WhenDatabaseCallInMapFrom()
     {
         const string testCode = """
@@ -411,7 +411,7 @@ public class AM031_PerformanceWarningTests
             .RunAsync();
     }
 
-    [Fact(Skip = "Test framework limitation: field type resolution not available in semantic model")]
+    [Fact(Skip = "Test framework limitation: field type resolution - see docs/TEST_LIMITATIONS.md #1")]
     public async Task AM031_ShouldReportDiagnostic_WhenTaskResultUsedInMapFrom()
     {
         const string testCode = """
