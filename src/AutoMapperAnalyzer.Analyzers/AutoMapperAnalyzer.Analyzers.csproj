@@ -16,7 +16,7 @@
     <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
     <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
     <MajorVersion>2</MajorVersion>
-    <MinorVersion>2</MinorVersion>
+    <MinorVersion>3</MinorVersion>
     <BuildNumber Condition="'$(BuildNumber)' == ''"
       >$([System.DateTime]::Now.ToString('yyyyMMdd'))</BuildNumber
     >
@@ -30,37 +30,36 @@
     <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Version 2.2.0 - AM031 Performance Warning Analyzer
+    <PackageReleaseNotes>Version 2.3.0 - Code Quality &amp; Bidirectional Collection Detection
 
-⚡ New Analyzers - AM031 Performance Warnings:
-• AM031.001: Detects expensive operations (database queries, file I/O, HTTP requests, reflection)
-• AM031.002: Multiple collection enumerations warning with caching suggestions
-• AM031.003: Task.Result synchronous access (deadlock risk detection)
-• AM031.004: Non-deterministic operations (DateTime.Now, Random, Guid.NewGuid)
-• AM031.005: Complex LINQ operations (SelectMany with nested Where/Select)
-• AM031.006: Expensive computational patterns in mappings
+✨ New Features:
+• Enhanced bidirectional collection type incompatibility detection (AM003)
+• Detects HashSet ↔ List, Queue ↔ Stack, and other bidirectional issues
+• 4 additional test scenarios now passing
 
-✨ Key Features:
-• Intelligent code fixes that suggest moving expensive operations before mapping
-• Collection enumeration caching recommendations
-• DateTime.Now detection via property access analysis
-• Enhanced lambda expression analysis for both invocations and property accesses
+🛠️ Code Quality Improvements:
+• Fixed all 9 CS8604/CS8602 null reference warnings in CodeFix providers
+• Added complete XML documentation (6 CS1591 warnings resolved)
+• Removed 20 lines of duplicate type conversion logic in AM001
+• Consolidated to centralized AutoMapperAnalysisHelpers.AreTypesCompatible
 
-📊 Test Coverage:
-• 397 passing tests (99% pass rate)
-• 30 new AM031 tests (28 passing, 2 skipped due to test framework limitations)
-• Comprehensive samples demonstrating all detected scenarios
+📚 Documentation (4,000+ lines):
+• ARCHITECTURE.md (883 lines) - System design and component overview
+• DIAGNOSTIC_RULES.md (1,140 lines) - Complete rule reference with examples
+• TEST_LIMITATIONS.md (246 lines) - Analysis of 13 skipped tests with root causes
+• TROUBLESHOOTING.md (812 lines) - Common issues and solutions
 
-🛠️ Technical Improvements:
-• Added MemberAccessExpression analysis for property-based operations
-• Enhanced IsComplexLinqOperation to detect SelectMany patterns
-• Improved semantic model traversal for nested lambda expressions
+🧪 Test Results:
+• 399 passing tests (97% pass rate)
+• 13 skipped tests (all documented with root cause analysis)
+• 0 failing tests
+• Zero critical warnings in production code
 
-Previous Release (2.1.0):
-• Enhanced AM020 with internal property and cross-profile detection
-• 374 passing tests
+Previous Release (2.2.0):
+• AM031 Performance Warning Analyzer with 6 detection patterns
+• 397 passing tests
 
-🔗 Full Release Notes: https://github.com/georgepwall1991/automapper-analyser/releases</PackageReleaseNotes>
+🔗 Full Release Notes: https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.3.0</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
     <!-- Remove strict PackageType for broader compatibility -->
