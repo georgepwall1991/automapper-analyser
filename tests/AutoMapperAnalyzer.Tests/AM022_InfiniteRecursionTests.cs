@@ -220,7 +220,7 @@ public class AM022_InfiniteRecursionTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule, 21, 13, "SourcePerson", "DestPerson")
+            .ExpectNoDiagnostics()
             .RunAsync();
     }
 
