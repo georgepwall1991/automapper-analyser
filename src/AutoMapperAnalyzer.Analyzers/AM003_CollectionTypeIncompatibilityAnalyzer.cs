@@ -194,15 +194,40 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         string sourceTypeName = sourceType.ToDisplayString();
         string destTypeName = destType.ToDisplayString();
 
-        // HashSet to List is generally incompatible without custom handling
-        if (sourceTypeName.Contains("HashSet") && destTypeName.Contains("List"))
+        // Detect specific collection types
+        bool sourceIsHashSet = sourceTypeName.Contains("HashSet");
+        bool destIsHashSet = destTypeName.Contains("HashSet");
+        bool sourceIsQueue = sourceTypeName.Contains("Queue");
+        bool destIsQueue = destTypeName.Contains("Queue");
+        bool sourceIsStack = sourceTypeName.Contains("Stack");
+        bool destIsStack = destTypeName.Contains("Stack");
+
+        // HashSet ↔ List/Array/IEnumerable bidirectional incompatibility
+        if (sourceIsHashSet && !destIsHashSet)
+        {
+            return true;
+        }
+        if (!sourceIsHashSet && destIsHashSet)
         {
             return true;
         }
 
-        // Queue/Stack to other collections need special handling
-        if ((sourceTypeName.Contains("Queue") || sourceTypeName.Contains("Stack")) &&
-            !destTypeName.Contains("Queue") && !destTypeName.Contains("Stack"))
+        // Queue ↔ other collections bidirectional incompatibility
+        if (sourceIsQueue && !destIsQueue)
+        {
+            return true;
+        }
+        if (!sourceIsQueue && destIsQueue)
+        {
+            return true;
+        }
+
+        // Stack ↔ other collections bidirectional incompatibility
+        if (sourceIsStack && !destIsStack)
+        {
+            return true;
+        }
+        if (!sourceIsStack && destIsStack)
         {
             return true;
         }

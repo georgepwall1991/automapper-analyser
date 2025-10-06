@@ -303,7 +303,7 @@ public class AM003_CodeFixTests
             "System.Collections.Generic.IEnumerable<string>");
     }
 
-    [Fact(Skip = "AM003 analyzer does not currently report ICollection<int> → HashSet<int> mismatches.")]
+    [Fact]
     public async Task AM003_ShouldFixICollectionToHashSetConversion()
     {
         const string testCode = """
@@ -364,11 +364,11 @@ public class AM003_CodeFixTests
             20,
             13,
             expectedFixedCode,
-            "Messages",
+            "Values",
             "Source",
-            "System.Collections.Generic.Queue<string>",
+            "System.Collections.Generic.ICollection<int>",
             "Destination",
-            "System.Collections.Generic.List<string>");
+            "System.Collections.Generic.HashSet<int>");
     }
 
     [Fact]
@@ -577,7 +577,7 @@ public class AM003_CodeFixTests
             "bool");
     }
 
-    [Fact(Skip = "AM003 analyzer does not currently report List<int> → Queue<int> mismatches.")]
+    [Fact]
     public async Task AM003_ShouldHandleListToQueueConversion()
     {
         const string testCode = """
@@ -635,12 +635,17 @@ public class AM003_CodeFixTests
         await VerifyFixAsync(
             testCode,
             AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
-            16,
+            20,
             13,
-            expectedFixedCode);
+            expectedFixedCode,
+            "Items",
+            "Source",
+            "System.Collections.Generic.List<int>",
+            "Destination",
+            "System.Collections.Generic.Queue<int>");
     }
 
-    [Fact(Skip = "AM003 analyzer does not currently report IEnumerable<string> → Stack<string> mismatches.")]
+    [Fact]
     public async Task AM003_ShouldHandleIEnumerableToStackConversion()
     {
         const string testCode = """
@@ -698,9 +703,14 @@ public class AM003_CodeFixTests
         await VerifyFixAsync(
             testCode,
             AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
-            16,
+            20,
             13,
-            expectedFixedCode);
+            expectedFixedCode,
+            "Data",
+            "Source",
+            "System.Collections.Generic.IEnumerable<string>",
+            "Destination",
+            "System.Collections.Generic.Stack<string>");
     }
 
     [Fact]
@@ -772,7 +782,7 @@ public class AM003_CodeFixTests
             "int");
     }
 
-    [Fact(Skip = "AM003 analyzer does not currently report IEnumerable<int> → HashSet<int> mismatches.")]
+    [Fact]
     public async Task AM003_ShouldHandleEnumerableToHashSetWithTypeConversion()
     {
         const string testCode = """
@@ -830,8 +840,13 @@ public class AM003_CodeFixTests
         await VerifyFixAsync(
             testCode,
             AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
-            16,
+            20,
             13,
-            expectedFixedCode);
+            expectedFixedCode,
+            "UniqueIds",
+            "Source",
+            "System.Collections.Generic.IEnumerable<int>",
+            "Destination",
+            "System.Collections.Generic.HashSet<int>");
     }
 }
