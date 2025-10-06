@@ -20,10 +20,20 @@ namespace AutoMapperAnalyzer.Analyzers;
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM003_CollectionTypeIncompatibilityCodeFixProvider)), Shared]
 public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvider
 {
+    /// <summary>
+    /// Gets the diagnostic IDs that this code fix provider can fix.
+    /// </summary>
     public override ImmutableArray<string> FixableDiagnosticIds => ["AM003"];
 
+    /// <summary>
+    /// Gets the fix all provider for batch fixing multiple diagnostics.
+    /// </summary>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
+    /// <summary>
+    /// Registers code fixes for AM003 diagnostics.
+    /// </summary>
+    /// <param name="context">The code fix context containing diagnostic information.</param>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         foreach (var diagnostic in context.Diagnostics)
