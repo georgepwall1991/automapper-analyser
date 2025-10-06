@@ -101,6 +101,14 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
         // Check if element types are compatible
         if (!AutoMapperAnalysisHelpers.AreTypesCompatible(sourceElementType, destElementType))
         {
+            // Check if there's an explicit CreateMap for the element types
+            var registry = CreateMapRegistry.FromCompilation(context.Compilation);
+            if (registry.Contains(sourceElementType, destElementType))
+            {
+                // Element mapping exists, so AutoMapper can handle this collection mapping
+                return;
+            }
+
             var diagnostic = Diagnostic.Create(
                 CollectionElementIncompatibilityRule,
                 invocation.GetLocation(),

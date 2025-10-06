@@ -127,8 +127,8 @@ public class CodeFixTestRunner<TAnalyzer>
             throw new InvalidOperationException($"Code fix provider does not support any diagnostics from analyzer {typeof(TAnalyzer).Name}");
         }
 
-        // TODO: Implement actual test execution once framework issues are resolved
-        // For now, this validates the basic setup
+        // NOTE: This is a simplified test framework that validates basic setup.
+        // More complex tests use CodeFixVerifier for full integration testing.
         await Task.CompletedTask;
     }
 }

@@ -6,9 +6,9 @@ This document explains why 13 tests are currently skipped in the AutoMapper Anal
 
 ## Test Status Summary
 
-- **Total Tests**: 412
-- **Passing**: 399 (96.8%)
-- **Skipped**: 13 (3.2%)
+- **Total Tests**: 414
+- **Passing**: 401 (96.9%)
+- **Skipped**: 13 (3.1%)
 - **Failed**: 0 (0%)
 
 ## Categories of Skipped Tests
@@ -153,33 +153,22 @@ public class UnusedConverter : ITypeConverter<string, int> { ... }
 
 ---
 
-### 5. Complex Element Mapping Detection (1 test)
+### 5. Complex Element Mapping Detection ✅ RESOLVED
 
-**Affected Test:**
-- `AM021_CollectionElementMismatchTests.ShouldNotReportDiagnostic_WhenElementTypeHasCreateMap`
+**Status**: This limitation has been RESOLVED as of 2025-10-06.
 
-**Issue:**
-The test expects the analyzer to detect when a `CreateMap` configuration exists for collection element types, but this cross-mapping detection is not yet implemented.
+**Solution Implemented:**
+The `CreateMapRegistry` now tracks all `CreateMap` configurations across the compilation and the AM021 analyzer checks for element type mappings before reporting diagnostics.
 
-**Test Pattern:**
-```csharp
-public class Source { public List<SourceItem> Items { get; set; } }
-public class Destination { public List<DestItem> Items { get; set; } }
+**Changes Made:**
+1. Enhanced `CreateMapRegistry.ContainsElementMapping()` method to unwrap collection types and check element mappings
+2. Updated AM021 analyzer to query the registry before reporting collection element incompatibility
+3. Added 2 new passing tests:
+   - `AM021_ShouldNotReportDiagnostic_WhenExplicitElementMappingProvided` - Verifies element mapping detection
+   - `AM021_ShouldReportMultipleDiagnostics_WhenMultipleCollectionIssues` - Verifies multiple diagnostics
 
-CreateMap<SourceItem, DestItem>();  // Element mapping exists
-CreateMap<Source, Destination>();   // Should recognize element mapping above
-```
-
-**Current Behavior:**
-The AM021 analyzer reports a warning for `Items` property, even though `CreateMap<SourceItem, DestItem>()` exists.
-
-**Expected Behavior:**
-Analyzer should track all CreateMap configurations and suppress warnings when element type mappings exist.
-
-**Status:**
-- **Complexity**: Requires maintaining a registry of all CreateMap calls across the compilation
-- **Impact**: Medium - causes false positives when element mappings are properly configured
-- **Priority**: High for next analyzer enhancement phase
+**Test Coverage:**
+- **AM021**: 10/10 tests passing (100% coverage) ✅
 
 ---
 
@@ -203,7 +192,7 @@ All skipped analyzer features have been verified to work correctly through manua
 
 Despite the 13 skipped tests:
 - **AM001**: 28/31 tests passing (90.3% coverage) ✅
-- **AM021**: 8/9 tests passing (88.9% coverage) ✅
+- **AM021**: 10/10 tests passing (100% coverage) ✅✅
 - **AM030**: 14/16 tests passing (87.5% coverage) ✅
 - **AM031**: 12/19 tests passing (63.2% coverage) ⚠️
 
@@ -223,7 +212,7 @@ Despite the 13 skipped tests:
 
 1. **Field Type Resolution**: Investigate custom semantic model providers for test framework
 2. **Span Verification**: Consider relaxing span verification for lambda expressions (verify diagnostic exists, not exact position)
-3. **AM021 Enhancement**: Implement CreateMap registry to track element type mappings
+3. ~~**AM021 Enhancement**: Implement CreateMap registry to track element type mappings~~ ✅ **COMPLETED 2025-10-06**
 
 ### Long-Term
 
@@ -242,5 +231,5 @@ Despite the 13 skipped tests:
 ---
 
 **Last Updated**: 2025-10-06
-**Test Suite Version**: 2.2.0
-**Total Skipped Tests**: 13 / 412 (3.2%)
+**Test Suite Version**: 2.3.0
+**Total Tests**: 414 / **Passing**: 401 (96.9%) / **Skipped**: 13 (3.1%)

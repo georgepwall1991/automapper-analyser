@@ -36,6 +36,29 @@ internal sealed class CreateMapRegistry
         return false;
     }
 
+    /// <summary>
+    /// Checks if a CreateMap exists for the element types of collections.
+    /// Unwraps collection types (IEnumerable&lt;T&gt;, List&lt;T&gt;, etc.) to check element mappings.
+    /// </summary>
+    public bool ContainsElementMapping(ITypeSymbol? sourceCollection, ITypeSymbol? destinationCollection)
+    {
+        if (sourceCollection == null || destinationCollection == null)
+        {
+            return false;
+        }
+
+        var sourceElementType = AutoMapperAnalysisHelpers.GetCollectionElementType(sourceCollection);
+        var destElementType = AutoMapperAnalysisHelpers.GetCollectionElementType(destinationCollection);
+
+        if (sourceElementType == null || destElementType == null)
+        {
+            return false;
+        }
+
+        // Check if a mapping exists for the element types
+        return Contains(sourceElementType, destElementType);
+    }
+
     public static CreateMapRegistry Build(Compilation compilation)
     {
         var builder = ImmutableArray.CreateBuilder<(ITypeSymbol, ITypeSymbol)>();
