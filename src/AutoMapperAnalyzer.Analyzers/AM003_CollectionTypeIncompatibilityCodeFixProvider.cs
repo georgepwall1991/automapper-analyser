@@ -53,42 +53,49 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
                 continue;
             }
 
+            // After the null checks above, we know these are not null
+            var safePropertyName = propertyName!;
+            var safeSourceType = sourceType!;
+            var safeDestType = destType!;
+            var safeSourceElementType = sourceElementType!;
+            var safeDestElementType = destElementType!;
+
             if (diagnostic.Descriptor == AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule)
             {
-                foreach (var fix in CreateCollectionFixes(propertyName!, sourceType!, destType!))
+                foreach (var fix in CreateCollectionFixes(safePropertyName, safeSourceType, safeDestType))
                 {
                     context.RegisterCodeFix(
                         CodeAction.Create(
                             title: fix.Title,
-                            createChangedDocument: ct => AddMapFromAsync(context.Document, invocation, propertyName, fix.Expression, fix.RequiresLinq, ct),
+                            createChangedDocument: ct => AddMapFromAsync(context.Document, invocation, safePropertyName, fix.Expression, fix.RequiresLinq, ct),
                             equivalenceKey: fix.EquivalenceKey),
                         diagnostic);
                 }
             }
             else
             {
-                var conversionLambda = GetElementConversion(sourceElementType!, destElementType!);
+                var conversionLambda = GetElementConversion(safeSourceElementType, safeDestElementType);
                 if (!string.IsNullOrEmpty(conversionLambda))
                 {
                     context.RegisterCodeFix(
                         CodeAction.Create(
-                            title: $"Convert {propertyName} elements using Select()",
+                            title: $"Convert {safePropertyName} elements using Select()",
                             createChangedDocument: ct => AddMapFromAsync(
                                 context.Document,
                                 invocation,
-                                propertyName,
-                                $"src.{propertyName}.Select({conversionLambda})",
+                                safePropertyName,
+                                $"src.{safePropertyName}.Select({conversionLambda})",
                                 requiresLinq: true,
                                 ct),
-                            equivalenceKey: $"Select_{propertyName}"),
+                            equivalenceKey: $"Select_{safePropertyName}"),
                         diagnostic);
                 }
 
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        title: $"Ignore property '{propertyName}'",
-                        createChangedDocument: ct => AddIgnoreAsync(context.Document, invocation, propertyName, ct),
-                        equivalenceKey: $"Ignore_{propertyName}"),
+                        title: $"Ignore property '{safePropertyName}'",
+                        createChangedDocument: ct => AddIgnoreAsync(context.Document, invocation, safePropertyName, ct),
+                        equivalenceKey: $"Ignore_{safePropertyName}"),
                     diagnostic);
             }
         }
@@ -255,7 +262,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
 
     private static CompilationUnitSyntax AddUsingIfMissing(CompilationUnitSyntax root, string namespaceName)
     {
-        if (root.Usings.Any(u => string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
+        if (root.Usings.Any(u => u.Name != null && string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
         {
             return root;
         }

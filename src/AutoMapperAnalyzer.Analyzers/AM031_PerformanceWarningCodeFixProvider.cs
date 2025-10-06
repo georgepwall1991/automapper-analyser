@@ -61,12 +61,15 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         var semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
         if (semanticModel == null) return;
 
+        // After null check, we know propertyName is not null
+        var safePropertyName = propertyName!;
+
         // Register fixes based on diagnostic descriptor
         var descriptor = diagnostic.Descriptor;
 
         if (descriptor == AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule)
         {
-            RegisterExpensiveOperationFix(context, root, forMemberInvocation, propertyName, diagnostic, semanticModel);
+            RegisterExpensiveOperationFix(context, root, forMemberInvocation, safePropertyName, diagnostic, semanticModel);
         }
         else if (descriptor == AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule)
         {
@@ -74,11 +77,11 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         }
         else if (descriptor == AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule)
         {
-            RegisterTaskResultFix(context, root, forMemberInvocation, propertyName, diagnostic, semanticModel);
+            RegisterTaskResultFix(context, root, forMemberInvocation, safePropertyName, diagnostic, semanticModel);
         }
         else if (descriptor == AM031_PerformanceWarningAnalyzer.NonDeterministicOperationRule)
         {
-            RegisterNonDeterministicOperationFix(context, root, forMemberInvocation, propertyName, diagnostic, semanticModel);
+            RegisterNonDeterministicOperationFix(context, root, forMemberInvocation, safePropertyName, diagnostic, semanticModel);
         }
     }
 
@@ -249,8 +252,11 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
             return Task.FromResult(document);
         }
 
+        // After null check, we know collectionName is not null
+        var safeCollectionName = collectionName!;
+
         // Create a new lambda body with caching
-        var cachedVariableName = $"{collectionName.ToLowerInvariant()}Cache";
+        var cachedVariableName = $"{safeCollectionName.ToLowerInvariant()}Cache";
 
         // Create the new lambda with block body
         var newLambdaBody = SyntaxFactory.Block(
@@ -264,10 +270,10 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
                             SyntaxFactory.Identifier(cachedVariableName))
                         .WithInitializer(
                             SyntaxFactory.EqualsValueClause(
-                                SyntaxFactory.ParseExpression($"src.{collectionName}.ToList()")))))),
+                                SyntaxFactory.ParseExpression($"src.{safeCollectionName}.ToList()")))))),
             // return cachedVariable.Sum() + cachedVariable.Average();
             SyntaxFactory.ReturnStatement(
-                ReplaceCollectionReferencesWithCache(lambda.Body as ExpressionSyntax, collectionName, cachedVariableName)));
+                ReplaceCollectionReferencesWithCache(lambda.Body as ExpressionSyntax, safeCollectionName, cachedVariableName)));
 
         SimpleLambdaExpressionSyntax newLambda;
         if (lambda is SimpleLambdaExpressionSyntax simpleLambda)

@@ -359,7 +359,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
 
     private static CompilationUnitSyntax AddUsingIfMissing(CompilationUnitSyntax root, string namespaceName)
     {
-        if (root.Usings.Any(u => string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
+        if (root.Usings.Any(u => u.Name != null && string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
         {
             return root;
         }
