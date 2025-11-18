@@ -172,6 +172,12 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
         if (newRoot is CompilationUnitSyntax compilationUnit)
         {
             newRoot = AddUsingIfMissing(compilationUnit, "System.Linq");
+
+            // Add using System if Convert is used
+            if (mapFromExpression.Contains("Convert."))
+            {
+                newRoot = AddUsingIfMissing((CompilationUnitSyntax)newRoot, "System");
+            }
         }
 
         return document.WithSyntaxRoot(newRoot);
@@ -301,18 +307,29 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
     private static string GetConversionMethod(string sourceElementType, string destElementType)
     {
         // Determine the conversion method based on destination type
+        // using Convert class for better null handling compared to Parse
         if (destElementType.Contains("int") || destElementType.Contains("Int32"))
-            return "int.Parse";
+            return "Convert.ToInt32";
         if (destElementType.Contains("long") || destElementType.Contains("Int64"))
-            return "long.Parse";
+            return "Convert.ToInt64";
         if (destElementType.Contains("double") || destElementType.Contains("Double"))
-            return "double.Parse";
+            return "Convert.ToDouble";
         if (destElementType.Contains("float") || destElementType.Contains("Single"))
-            return "float.Parse";
+            return "Convert.ToSingle";
         if (destElementType.Contains("decimal") || destElementType.Contains("Decimal"))
-            return "decimal.Parse";
+            return "Convert.ToDecimal";
         if (destElementType.Contains("bool") || destElementType.Contains("Boolean"))
-            return "bool.Parse";
+            return "Convert.ToBoolean";
+        if (destElementType.Contains("byte") || destElementType.Contains("Byte"))
+            return "Convert.ToByte";
+        if (destElementType.Contains("short") || destElementType.Contains("Int16"))
+            return "Convert.ToInt16";
+
+        // Types not supported by Convert directly or needing Parse
+        if (destElementType.Contains("DateTime"))
+            return "DateTime.Parse";
+        if (destElementType.Contains("Guid"))
+            return "Guid.Parse";
 
         return "Convert.ToString"; // Default fallback
     }

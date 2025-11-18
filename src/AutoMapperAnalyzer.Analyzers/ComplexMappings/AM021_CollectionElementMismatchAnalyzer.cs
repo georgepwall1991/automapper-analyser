@@ -109,9 +109,15 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
                 return;
             }
 
+            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            properties.Add("PropertyName", sourceProperty.Name);
+            properties.Add("SourceElementType", sourceElementType.ToDisplayString());
+            properties.Add("DestElementType", destElementType.ToDisplayString());
+
             var diagnostic = Diagnostic.Create(
                 CollectionElementIncompatibilityRule,
                 invocation.GetLocation(),
+                properties.ToImmutable(),
                 sourceProperty.Name,
                 GetTypeName(sourceType),
                 sourceElementType.ToDisplayString(),

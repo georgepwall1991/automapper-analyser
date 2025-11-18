@@ -88,9 +88,12 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : CodeFixProvider
                 title: $"Map '{propertyName}' with custom logic (requires implementation)",
                 createChangedDocument: cancellationToken =>
                 {
-                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName!, "null")
+                    // Use default(T) as a safe placeholder that compiles for both reference and value types
+                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName!, $"default({propertyType})")
                         .WithLeadingTrivia(
-                            SyntaxFactory.Comment($"// TODO: Implement custom mapping logic for required property '{propertyName}'"));
+                            invocation.GetLeadingTrivia()
+                                .Add(SyntaxFactory.Comment($"// TODO: Implement custom mapping logic for required property '{propertyName}'"))
+                                .Add(SyntaxFactory.ElasticCarriageReturnLineFeed));
                     var newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },

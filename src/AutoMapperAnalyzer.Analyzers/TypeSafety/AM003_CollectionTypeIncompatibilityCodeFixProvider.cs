@@ -72,7 +72,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
 
             if (diagnostic.Descriptor == AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule)
             {
-                foreach (var fix in CreateCollectionFixes(safePropertyName, safeSourceType, safeDestType))
+                foreach (var fix in CreateCollectionFixes(safePropertyName, safeSourceType, safeDestType, safeSourceElementType, safeDestElementType))
                 {
                     context.RegisterCodeFix(
                         CodeAction.Create(
@@ -156,52 +156,87 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
     private static IEnumerable<(string Title, string Expression, bool RequiresLinq, string EquivalenceKey)> CreateCollectionFixes(
         string propertyName,
         string sourceType,
-        string destType)
+        string destType,
+        string sourceElementType,
+        string destElementType)
     {
         var fixes = new List<(string Title, string Expression, bool RequiresLinq, string EquivalenceKey)>();
         var simplifiedDestType = SimplifyCollectionType(destType);
+        
+        // Determine if element conversion is needed
+        var elementConversionLambda = GetElementConversion(sourceElementType, destElementType);
+        var needsElementConversion = !string.IsNullOrEmpty(elementConversionLambda) && elementConversionLambda != "x => x";
+        
+        // Helper to build expression with optional element conversion
+        string BuildExpression(string collectionConversion, bool isConstructor = false)
+        {
+            if (needsElementConversion)
+            {
+                if (isConstructor)
+                {
+                    // new List<T>(src.Prop.Select(x => ...))
+                    return collectionConversion.Replace($"src.{propertyName}", $"src.{propertyName}.Select({elementConversionLambda})");
+                }
+                else
+                {
+                    // src.Prop.Select(x => ...).ToList()
+                    return $"src.{propertyName}.Select({elementConversionLambda}).{collectionConversion.Split('.').Last()}";
+                }
+            }
+            return collectionConversion;
+        }
 
         if (Contains(sourceType, "HashSet") && Contains(destType, "List"))
         {
             fixes.Add((
                 $"Convert {propertyName} using ToList()",
-                $"src.{propertyName}.ToList()",
-                true,
+                BuildExpression($"src.{propertyName}.ToList()"),
+                true, // Always true if using ToList or Select
                 $"ToList_{propertyName}"));
         }
 
         if (Contains(sourceType, "Queue") && Contains(destType, "List"))
         {
-            fixes.Add(CreateConstructorFix(propertyName, simplifiedDestType));
+             var (title, expr, _, key) = CreateConstructorFix(propertyName, simplifiedDestType);
+             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         if (Contains(sourceType, "Stack") && Contains(destType, "List"))
         {
-            fixes.Add(CreateConstructorFix(propertyName, simplifiedDestType));
+             var (title, expr, _, key) = CreateConstructorFix(propertyName, simplifiedDestType);
+             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         if (Contains(sourceType, "List") && Contains(destType, "Queue"))
         {
-            fixes.Add(CreateConstructorFix(propertyName, simplifiedDestType));
+             var (title, expr, _, key) = CreateConstructorFix(propertyName, simplifiedDestType);
+             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         if (Contains(sourceType, "IEnumerable") && (Contains(destType, "Stack") || Contains(destType, "HashSet")))
         {
-            fixes.Add(CreateConstructorFix(propertyName, simplifiedDestType));
+             var (title, expr, _, key) = CreateConstructorFix(propertyName, simplifiedDestType);
+             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         if (IsArrayType(sourceType) && Contains(destType, "IEnumerable"))
         {
+            // Arrays are IEnumerable, so AsEnumerable is fine, but if we need element conversion, we need Select
+            string expr = needsElementConversion 
+                ? $"src.{propertyName}.Select({elementConversionLambda})" 
+                : $"src.{propertyName}.AsEnumerable()";
+                
             fixes.Add((
-                $"Convert {propertyName} using AsEnumerable()",
-                $"src.{propertyName}.AsEnumerable()",
+                $"Convert {propertyName} using {(needsElementConversion ? "Select" : "AsEnumerable")}()",
+                expr,
                 true,
                 $"AsEnumerable_{propertyName}"));
         }
 
         if (!fixes.Any())
         {
-            fixes.Add(CreateConstructorFix(propertyName, simplifiedDestType));
+             var (title, expr, _, key) = CreateConstructorFix(propertyName, simplifiedDestType);
+             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         return fixes;

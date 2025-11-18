@@ -39,6 +39,7 @@ public class AM021_CodeFixTests
                                          using AutoMapper;
                                          using System.Collections.Generic;
                                          using System.Linq;
+                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -56,7 +57,7 @@ public class AM021_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Numbers, opt => opt.MapFrom(src => src.Numbers.Select(x => int.Parse(x)).ToList()));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Numbers, opt => opt.MapFrom(src => src.Numbers.Select(x => Convert.ToInt32(x)).ToList()));
                                                  }
                                              }
                                          }
@@ -189,6 +190,7 @@ public class AM021_CodeFixTests
                                          using AutoMapper;
                                          using System.Collections.Generic;
                                          using System.Linq;
+                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -206,7 +208,7 @@ public class AM021_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.Tags.Select(x => int.Parse(x)).ToHashSet()));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.Tags.Select(x => Convert.ToInt32(x)).ToHashSet()));
                                                  }
                                              }
                                          }

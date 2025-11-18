@@ -13,15 +13,22 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
     where TCodeFix : CodeFixProvider, new()
 {
     public static Task VerifyFixAsync(string source, DiagnosticResult expectedDiagnostic, string fixedSource, DiagnosticResult[]? remainingDiagnostics = null)
-        => VerifyFixAsync(source, new[] { expectedDiagnostic }, fixedSource, remainingDiagnostics);
+        => VerifyFixAsync(source, new[] { expectedDiagnostic }, fixedSource, null, remainingDiagnostics);
+
+    public static Task VerifyFixAsync(string source, DiagnosticResult expectedDiagnostic, string fixedSource, int? codeActionIndex, DiagnosticResult[]? remainingDiagnostics = null)
+        => VerifyFixAsync(source, new[] { expectedDiagnostic }, fixedSource, codeActionIndex, remainingDiagnostics);
 
     public static async Task VerifyFixAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource, DiagnosticResult[]? remainingDiagnostics = null)
+        => await VerifyFixAsync(source, expectedDiagnostics, fixedSource, null, remainingDiagnostics);
+
+    public static async Task VerifyFixAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource, int? codeActionIndex, DiagnosticResult[]? remainingDiagnostics = null)
     {
         var test = new CSharpCodeFixTest<TAnalyzer, TCodeFix, DefaultVerifier>
         {
             TestCode = source,
             FixedCode = fixedSource,
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            CodeActionIndex = codeActionIndex
         };
 
         AddAutoMapperReferences(test.TestState);

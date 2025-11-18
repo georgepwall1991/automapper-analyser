@@ -140,7 +140,82 @@ public class AM011_CodeFixTests
                 new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
                     .WithLocation(21, 13)
                     .WithArguments("RequiredNumber"),
-                expectedFixedCode);
+                expectedFixedCode,
+                // Select the 2nd action (index 1) which corresponds to "Constant Value" (Fix 2 in provider) if default value logic matches constant value logic for int.
+                // Actually provider has:
+                // Fix 1: Default Value (0)
+                // Fix 2: Constant Value (1) - Wait, helper says GetSampleValueForType("int") is "1".
+                // Let's check expected code above: "src => 0". So this test is actually testing Fix 1 (Default Value).
+                codeActionIndex: 0); 
+    }
+    
+    [Fact]
+    public async Task AM011_ShouldAddCustomLogicMapping()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public required string RequiredField { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public required string RequiredField { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     // TODO: Implement custom mapping logic for required property 'RequiredField'
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredField, opt => opt.MapFrom(src => default(string)));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        // This tests the 3rd fix option (Custom Logic) which should now produce 'default' instead of 'null'
+        await CodeFixVerifier<AM011_UnmappedRequiredPropertyAnalyzer, AM011_UnmappedRequiredPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
+                    .WithLocation(21, 13)
+                    .WithArguments("RequiredField"),
+                expectedFixedCode,
+                codeActionIndex: 2);
     }
 
     [Fact]

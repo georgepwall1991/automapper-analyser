@@ -120,7 +120,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Price, opt => opt.MapFrom(src => decimal.Parse(src.Price)));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Price, opt => opt.MapFrom(src => Convert.ToDecimal(src.Price)));
                                                  }
                                              }
                                          }

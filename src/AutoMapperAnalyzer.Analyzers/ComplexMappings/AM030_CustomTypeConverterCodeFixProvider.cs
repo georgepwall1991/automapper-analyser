@@ -216,11 +216,11 @@ public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
 
     private string GetStringToPrimitiveConversion(string converterType)
     {
-        if (converterType.Contains("Int")) return "int.Parse";
-        if (converterType.Contains("Double")) return "double.Parse";
-        if (converterType.Contains("Decimal")) return "decimal.Parse";
-        if (converterType.Contains("Boolean")) return "bool.Parse";
-        if (converterType.Contains("DateTime")) return "DateTime.Parse";
+        if (converterType.Contains("Int")) return "Convert.ToInt32";
+        if (converterType.Contains("Double")) return "Convert.ToDouble";
+        if (converterType.Contains("Decimal")) return "Convert.ToDecimal";
+        if (converterType.Contains("Boolean")) return "Convert.ToBoolean";
+        if (converterType.Contains("DateTime")) return "DateTime.Parse"; // Convert.ToDateTime also exists but Parse is idiomatic
         if (converterType.Contains("Guid")) return "Guid.Parse";
         return "Convert.ChangeType";
     }
