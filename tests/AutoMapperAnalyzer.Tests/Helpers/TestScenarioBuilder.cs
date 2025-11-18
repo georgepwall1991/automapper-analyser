@@ -119,7 +119,7 @@ public class TestScenarioBuilder
             mappingBuilder.Append($".{config}");
         }
 
-        mappingBuilder.Append(";");
+        mappingBuilder.Append(';');
 
         string profileName = $"TestProfile_{sourceType}To{destType}";
         return AddProfile(profileName, mappingBuilder.ToString());

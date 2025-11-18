@@ -32,7 +32,6 @@ public class CodeFixTestRunner<TAnalyzer>
     private string _source = string.Empty;
     private string _expectedFixedCode = string.Empty;
     private readonly List<DiagnosticResult> _expectedDiagnostics = new();
-    private bool _expectNoDiagnostics = false;
     private Type? _codeFixType;
 
     /// <summary>
@@ -83,7 +82,6 @@ public class CodeFixTestRunner<TAnalyzer>
     /// </summary>
     public CodeFixTestRunner<TAnalyzer> ExpectNoDiagnostics()
     {
-        _expectNoDiagnostics = true;
         _expectedDiagnostics.Clear();
         return this;
     }

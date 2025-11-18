@@ -217,7 +217,7 @@ public class MultiAnalyzerTestRunner
 ///     Empty analyzer used as a placeholder for multi-analyzer tests
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
-internal class EmptyDiagnosticAnalyzer : DiagnosticAnalyzer
+internal sealed class EmptyDiagnosticAnalyzer : DiagnosticAnalyzer
 {
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray<DiagnosticDescriptor>.Empty;

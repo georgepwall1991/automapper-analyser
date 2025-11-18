@@ -1,5 +1,4 @@
 using AutoMapperAnalyzer.Analyzers.DataIntegrity;
-using AutoMapperAnalyzer.Analyzers.DataIntegrity;
 using AutoMapperAnalyzer.Tests.Framework;
 
 namespace AutoMapperAnalyzer.Tests.DataIntegrity;

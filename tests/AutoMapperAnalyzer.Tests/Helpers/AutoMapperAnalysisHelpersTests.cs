@@ -304,7 +304,7 @@ public class AutoMapperAnalysisHelpersTests
         var properties = AutoMapperAnalysisHelpers.GetMappableProperties(typeSymbol);
 
         // Should only include one "Name" property (the most derived one)
-        Assert.Single(properties.Where(p => p.Name == "Name"));
+        Assert.Single(properties, p => p.Name == "Name");
     }
 
     [Fact]

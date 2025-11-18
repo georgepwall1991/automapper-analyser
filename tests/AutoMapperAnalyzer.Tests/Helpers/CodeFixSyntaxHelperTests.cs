@@ -250,7 +250,7 @@ public class CodeFixSyntaxHelperTests
         // Verify the syntax tree has no errors
         var syntaxTree = SyntaxFactory.SyntaxTree(result);
         var diagnostics = syntaxTree.GetDiagnostics();
-        Assert.Empty(diagnostics.Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error));
+        Assert.DoesNotContain(diagnostics, d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
     }
 
     [Fact]
@@ -267,7 +267,7 @@ public class CodeFixSyntaxHelperTests
         // Assert
         var syntaxTree = SyntaxFactory.SyntaxTree(result);
         var diagnostics = syntaxTree.GetDiagnostics();
-        Assert.Empty(diagnostics.Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error));
+        Assert.DoesNotContain(diagnostics, d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
     }
 
     [Fact]
@@ -284,7 +284,7 @@ public class CodeFixSyntaxHelperTests
         // Assert
         var syntaxTree = SyntaxFactory.SyntaxTree(result);
         var diagnostics = syntaxTree.GetDiagnostics();
-        Assert.Empty(diagnostics.Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error));
+        Assert.DoesNotContain(diagnostics, d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
     }
 
     [Fact]
@@ -311,7 +311,7 @@ public class CodeFixSyntaxHelperTests
 
         var syntaxTree = SyntaxFactory.SyntaxTree(result);
         var diagnostics = syntaxTree.GetDiagnostics();
-        Assert.Empty(diagnostics.Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error));
+        Assert.DoesNotContain(diagnostics, d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
     }
 
     #endregion
