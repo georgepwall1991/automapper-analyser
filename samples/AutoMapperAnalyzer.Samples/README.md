@@ -11,7 +11,7 @@ These samples serve two key purposes:
 
 ## 📋 Analyzer Rules Reference
 
-### ✅ Implemented Rules (10 total)
+### ✅ Implemented Rules (13 total)
 
 | Rule ID | Category | Description | Demo File | Pragma? |
 |---------|----------|-------------|-----------|---------|
@@ -25,17 +25,17 @@ These samples serve two key purposes:
 | **AM021** | Complex Types | Collection Element Mismatch | ComplexTypes/ComplexTypeMappingExamples.cs | ✅ |
 | **AM022** | Complex Types | Infinite Recursion Risk | ComplexTypes/ComplexTypeMappingExamples.cs | ✅ |
 | **AM030** | Conversions | Custom Type Converter Issues | Conversions/TypeConverterExamples.cs | ✅ |
+| **AM031** | Performance | Performance Warning | Performance/PerformanceExamples.cs | ✅ |
+| **AM041** | Configuration | Duplicate Mapping Registration | Configuration/AM041_DuplicateMappingExamples.cs | ✅ |
+| **AM050** | Configuration | Redundant MapFrom Configuration | Configuration/AM050_RedundantMapFromExamples.cs | ✅ |
 
 ### 🔮 Future Implementation (Planned)
 
 The following rules are demonstrated in sample files but **not yet implemented** in the analyzer:
 
+- **AM032** - Advanced Null Propagation
 - **AM040** - Missing Profile Registration (Configuration/)
-- **AM041** - Conflicting Mapping Rules (Configuration/)
-- **AM042** - Ignore vs MapFrom Conflict (Configuration/)
-- **AM050** - Static Mapper Usage (Performance/)
-- **AM051** - Repeated Mapping Configuration (Performance/)
-- **AM052** - Missing Null Propagation (Performance/)
+
 
 ## 🔧 Understanding #pragma Warnings
 
@@ -238,11 +238,14 @@ To add a new example:
 | AM021 | Collection elements mismatch | Add mapping for element types |
 | AM022 | Circular reference | Use `.PreserveReferences()` or break cycle |
 | AM030 | Converter needed | Use `.ConvertUsing()` or `.MapFrom()` |
+| AM031 | Performance issue | Cache result or compute before mapping |
+| AM041 | Duplicate mapping | Remove duplicate `CreateMap` |
+| AM050 | Redundant MapFrom | Remove `ForMember` call |
 
 ---
 
-**Last Updated**: 2025-10-02
-**Analyzer Version**: 2.0.0+
+**Last Updated**: 2025-11-18
+**Analyzer Version**: 2.4.0+
 **AutoMapper Version**: 14.0.0
 
 For more information, see the [main project README](../../README.md).

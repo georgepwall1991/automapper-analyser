@@ -16,51 +16,39 @@
     <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
     <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
     <MajorVersion>2</MajorVersion>
-    <MinorVersion>3</MinorVersion>
-    <PatchVersion>2</PatchVersion>
+    <MinorVersion>4</MinorVersion>
+    <PatchVersion>0</PatchVersion>
     <BuildNumber Condition="'$(BuildNumber)' == ''"
       >$([System.DateTime]::Now.ToString('yyyyMMdd'))</BuildNumber
     >
     <PackageVersion Condition="'$(PackageVersion)' == ''">$(MajorVersion).$(MinorVersion).$(PatchVersion)</PackageVersion>
     <Title>AutoMapper Roslyn Analyzer</Title>
     <Authors>George Wall</Authors>
-    <Description>Catch AutoMapper configuration errors at compile-time before they cause runtime chaos! This Roslyn analyzer detects type mismatches, nullable issues, missing properties, collection incompatibilities, and complex mapping problems - all with intelligent code fixes. Transform AutoMapper development from reactive debugging to proactive prevention. Features 10 analyzer rules with smart fixes for type safety, data integrity, and complex mappings. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, and 9.0+.</Description>
+    <Description>Catch AutoMapper configuration errors at compile-time before they cause runtime chaos! This Roslyn analyzer detects type mismatches, nullable issues, missing properties, collection incompatibilities, and complex mapping problems - all with intelligent code fixes. Transform AutoMapper development from reactive debugging to proactive prevention. Features 13 analyzer rules with smart fixes for type safety, data integrity, complex mappings, performance, and configuration. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, and 9.0+.</Description>
     <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis;code-quality;diagnostics;code-fix;type-safety;compile-time;netframework;netcore;dotnet;dotnet6;dotnet8;dotnet9</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/georgepwall1991/automapper-analyser</PackageProjectUrl>
     <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Version 2.3.0 - Code Quality &amp; Bidirectional Collection Detection
+    <PackageReleaseNotes>Version 2.4.0 - Configuration Analysis &amp; Redundancy Checks
 
-✨ New Features:
-• Enhanced bidirectional collection type incompatibility detection (AM003)
-• Detects HashSet ↔ List, Queue ↔ Stack, and other bidirectional issues
-• 4 additional test scenarios now passing
+⚙️ New Features:
+• AM041: Duplicate Mapping Detector - Identifies multiple CreateMap definitions for the same types
+• AM050: Redundant MapFrom Detector - Finds explicit mappings where property names already match
+• Improved syntax-based detection for AM011 and AM005, eliminating false positives
 
-🛠️ Code Quality Improvements:
-• Fixed all 9 CS8604/CS8602 null reference warnings in CodeFix providers
-• Added complete XML documentation (6 CS1591 warnings resolved)
-• Removed 20 lines of duplicate type conversion logic in AM001
-• Consolidated to centralized AutoMapperAnalysisHelpers.AreTypesCompatible
+✨ Enhancements:
+• Comprehensive restructuring into functional categories (TypeSafety, DataIntegrity, etc.)
+• Updated samples project with new configuration rule examples
+• Enhanced documentation and rule reference
 
-📚 Documentation (4,000+ lines):
-• ARCHITECTURE.md (883 lines) - System design and component overview
-• DIAGNOSTIC_RULES.md (1,140 lines) - Complete rule reference with examples
-• TEST_LIMITATIONS.md (246 lines) - Analysis of 13 skipped tests with root causes
-• TROUBLESHOOTING.md (812 lines) - Common issues and solutions
+📚 Documentation:
+• Updated README.md with new rules and quick reference
+• Detailed examples in DIAGNOSTIC_RULES.md
 
-🧪 Test Results:
-• 399 passing tests (97% pass rate)
-• 13 skipped tests (all documented with root cause analysis)
-• 0 failing tests
-• Zero critical warnings in production code
-
-Previous Release (2.2.0):
-• AM031 Performance Warning Analyzer with 6 detection patterns
-• 397 passing tests
-
-🔗 Full Release Notes: https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.3.0</PackageReleaseNotes>
+Previous Release (2.3.2):
+• ReverseMap support &amp; Performance optimizations</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
     <!-- Remove strict PackageType for broader compatibility -->

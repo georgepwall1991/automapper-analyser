@@ -266,6 +266,9 @@ public void ConfigureSafeUserMapping() { }
 | AM030 | Custom Type Converter Issues | ✅ | ✅ | Warning |
 | **⚡ Performance** ||||
 | AM031 | Performance Warnings | ✅ | ✅ | Warning |
+| **⚙️ Configuration** ||||
+| AM041 | Duplicate Mapping Registration | ✅ | ✅ | Warning |
+| AM050 | Redundant MapFrom | ✅ | ✅ | Info |
 | **🚀 Future** ||||
 | AM032+ | Advanced Null Propagation | 🔮 | 🔮 | - |
 | AM040+ | Configuration Rules | 🔮 | 🔮 | - |
@@ -323,16 +326,15 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 ## 🎯 What's Next
 
 ### Recently Completed ✅
+- **v2.4.0**: Configuration & Redundancy Analysis (AM041, AM050)
 - **v2.3.2**: ReverseMap support & Performance optimizations
 - **v2.2.0**: AM031 Performance warning analyzer
-- **v2.1.0**: Enhanced AM020 with internal property support
 
 ### Phase 5B: Enhanced Analysis (Upcoming)
 - **AM032**: Advanced null propagation patterns with smart fixes
 
 ### Phase 6: Configuration & Profile Analysis
 - **AM040**: Profile registration analysis and auto-registration fixes
-- **AM041**: Conflicting mapping rule detection and resolution
 
 ### Beyond Code Analysis
 - **NuGet Package Templates**: Project templates with pre-configured analyzers

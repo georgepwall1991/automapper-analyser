@@ -955,6 +955,86 @@ dotnet_diagnostic.AM031.004.severity = warning  # Non-deterministic
 
 ---
 
+## Configuration Analysis Rules
+
+### AM041: Duplicate Mapping Registration
+
+**Severity**: Warning 🟡
+**Category**: AutoMapper.Configuration
+
+#### Description
+
+Detects multiple `CreateMap<TSource, TDest>()` definitions for the same types within the compilation, which creates ambiguity and runtime issues.
+
+#### Problem
+
+```csharp
+public class MyProfile : Profile
+{
+    public MyProfile()
+    {
+        CreateMap<Source, Destination>();
+        CreateMap<Source, Destination>(); // ❌ AM041: Duplicate mapping
+    }
+}
+```
+
+#### Solution
+
+**Code Fix: Remove Duplicate Registration**
+
+```csharp
+public class MyProfile : Profile
+{
+    public MyProfile()
+    {
+        CreateMap<Source, Destination>();
+        // Duplicate removed
+    }
+}
+```
+
+#### Configuration
+
+```ini
+dotnet_diagnostic.AM041.severity = warning
+```
+
+---
+
+### AM050: Redundant MapFrom Configuration
+
+**Severity**: Info 🔵
+**Category**: AutoMapper.Configuration
+
+#### Description
+
+Detects explicit `MapFrom` calls where the source and destination properties have the same name. AutoMapper maps these automatically by default.
+
+#### Problem
+
+```csharp
+CreateMap<Source, Destination>()
+    .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name)); // ℹ️ AM050: Redundant
+```
+
+#### Solution
+
+**Code Fix: Remove Redundant Configuration**
+
+```csharp
+CreateMap<Source, Destination>();
+// AutoMapper automatically maps 'Name' to 'Name'
+```
+
+#### Configuration
+
+```ini
+dotnet_diagnostic.AM050.severity = suggestion
+```
+
+---
+
 ## Configuration
 
 ### Global Configuration
