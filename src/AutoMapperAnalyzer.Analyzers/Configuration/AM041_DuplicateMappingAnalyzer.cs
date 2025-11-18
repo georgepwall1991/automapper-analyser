@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -30,7 +28,9 @@ public class AM041_DuplicateMappingAnalyzer : DiagnosticAnalyzer
         
         context.RegisterCompilationStartAction(compilationContext =>
         {
-            var duplicates = FindDuplicateMappings(compilationContext.Compilation);
+            // Use the shared registry which now handles duplicate detection
+            var registry = CreateMapRegistry.FromCompilation(compilationContext.Compilation);
+            var duplicates = registry.GetDuplicateMappings();
             
             compilationContext.RegisterSyntaxNodeAction(ctx =>
             {
@@ -46,102 +46,5 @@ public class AM041_DuplicateMappingAnalyzer : DiagnosticAnalyzer
                 }
             }, SyntaxKind.InvocationExpression);
         });
-    }
-
-    private struct DuplicateInfo
-    {
-        public string Source;
-        public string Dest;
-        public Location Location;
-    }
-
-    private Dictionary<InvocationExpressionSyntax, DuplicateInfo> FindDuplicateMappings(Compilation compilation)
-    {
-        var mappings = new List<(ITypeSymbol Source, ITypeSymbol Dest, Location Location, InvocationExpressionSyntax Node, bool IsReverseMap)>();
-
-        foreach (var syntaxTree in compilation.SyntaxTrees)
-        {
-            var root = syntaxTree.GetRoot();
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
-
-            var invocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>();
-
-            foreach (var invocation in invocations)
-            {
-                if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocation, semanticModel))
-                {
-                    continue;
-                }
-
-                var (sourceType, destType) = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
-                if (sourceType != null && destType != null)
-                {
-                    mappings.Add((sourceType, destType, invocation.GetLocation(), invocation, false));
-
-                    if (AutoMapperAnalysisHelpers.HasReverseMap(invocation))
-                    {
-                        var reverseMapInvocation = AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
-                        if (reverseMapInvocation != null)
-                        {
-                            Location loc;
-                            if (reverseMapInvocation.Expression is MemberAccessExpressionSyntax ma)
-                            {
-                                loc = ma.Name.GetLocation();
-                            }
-                            else
-                            {
-                                loc = reverseMapInvocation.GetLocation();
-                            }
-                            
-                            mappings.Add((destType, sourceType, loc, reverseMapInvocation, true));
-                        }
-                    }
-                }
-            }
-        }
-
-        var duplicates = new Dictionary<InvocationExpressionSyntax, DuplicateInfo>();
-        var groups = mappings.GroupBy(m => (m.Source, m.Dest), new MappingComparer());
-
-        foreach (var group in groups)
-        {
-            if (group.Count() > 1)
-            {
-                // Sort by location to have deterministic reporting
-                var sorted = group.OrderBy(x => x.Location.SourceTree?.FilePath)
-                                  .ThenBy(x => x.Location.SourceSpan.Start)
-                                  .ToList();
-
-                // Report on all except the first one
-                for (int i = 1; i < sorted.Count; i++)
-                {
-                    var duplicate = sorted[i];
-                    duplicates[duplicate.Node] = new DuplicateInfo
-                    {
-                        Source = duplicate.Source.Name,
-                        Dest = duplicate.Dest.Name,
-                        Location = duplicate.Location
-                    };
-                }
-            }
-        }
-
-        return duplicates;
-    }
-
-    private class MappingComparer : IEqualityComparer<(ITypeSymbol Source, ITypeSymbol Dest)>
-    {
-        public bool Equals((ITypeSymbol Source, ITypeSymbol Dest) x, (ITypeSymbol Source, ITypeSymbol Dest) y)
-        {
-            return SymbolEqualityComparer.Default.Equals(x.Source, y.Source) &&
-                   SymbolEqualityComparer.Default.Equals(x.Dest, y.Dest);
-        }
-
-        public int GetHashCode((ITypeSymbol Source, ITypeSymbol Dest) obj)
-        {
-            int h1 = SymbolEqualityComparer.Default.GetHashCode(obj.Source);
-            int h2 = SymbolEqualityComparer.Default.GetHashCode(obj.Dest);
-            return h1 ^ h2;
-        }
     }
 }

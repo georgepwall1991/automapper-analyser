@@ -5,7 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.4.0] - 2025-11-18
+
+### Added
+- **AM041 Duplicate Mapping Detector**: Identifies multiple `CreateMap` definitions for the same types to prevent ambiguous behavior.
+- **AM050 Redundant MapFrom Detector**: Detects explicit `MapFrom` configurations where the property name already matches the source, encouraging cleaner code.
+
+### Fixed
+- **False Positives**: Fixed issue where `IsCreateMapInvocation` could incorrectly identify methods like `mapper.ToString()` as mapping configurations.
+- **AM030 Complex Types**: Fixed regression where custom type converters were not suggested for incompatible complex types (Class <-> Class).
+
+### Changed
+- **Performance**: Optimized `AM041` and general mapping discovery by centralizing `CreateMap` parsing in a shared registry, reducing compilation scanning overhead.
 
 ## [2.3.2] - 2025-11-18
 

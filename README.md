@@ -13,18 +13,19 @@
 
 ---
 
-## 🎉 Latest Release: v2.3.2
+## 🎉 Latest Release: v2.4.0
 
-**NEW: ReverseMap Support & Performance Boost**
+**Configuration Analysis & Performance Boost**
 
 ✨ **New Capabilities:**
-- 🔄 **ReverseMap Intelligence**: Correctly analyzes bidirectional mappings defined with `.ReverseMap()`, fixing false positives for nested objects (`AM020`) and missing properties (`AM004`).
-- ⚡ **Fast-Path Performance**: Optimized scanning to skip files without AutoMapper code, significantly speeding up analysis in large solutions.
-- 🔄 **Bidirectional Collection Checks**: Enhanced detection of incompatible collection types in both directions (e.g., HashSet ↔ List).
+- ⚙️ **Duplicate Mapping Detection (AM041)**: Identifies ambiguous multiple CreateMap definitions for the same types.
+- 🧹 **Redundant MapFrom Detection (AM050)**: Finds explicit mappings that are unnecessary because property names already match.
+- ⚡ **Optimized Performance**: Centralized mapping registry significantly reduces compilation scanning overhead in large solutions.
+- 🐛 **Improved Accuracy**: Fixed false positives in `CreateMap` detection and improved complex type converter suggestions.
 
-### Previous Release: v2.2.0
-- ⚡ **Performance Warning Analyzer (AM031)**: Detects expensive operations like DB queries, I/O, and multiple enumerations in mappings.
-- 🔓 **Internal Property Support**: Detects nested object mapping issues for `internal` properties.
+### Previous Release: v2.3.2
+- 🔄 **ReverseMap Intelligence**: Correctly analyzes bidirectional mappings defined with `.ReverseMap()`.
+- ⚡ **Fast-Path Performance**: Optimized scanning to skip files without AutoMapper code.
 
 ---
 

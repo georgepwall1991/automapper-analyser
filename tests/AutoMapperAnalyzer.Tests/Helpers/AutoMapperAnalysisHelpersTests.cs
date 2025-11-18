@@ -126,8 +126,47 @@ public class AutoMapperAnalysisHelpersTests
         {
             var result = AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocation, semanticModel);
             // This test verifies the fallback syntax pattern matching works
-            Assert.False(result); // Should be false because it's not actually AutoMapper
+            // Since it matches "CreateMap" but symbol resolution fails (it's not AutoMapper),
+            // we expect False because the helper checks if method name is CreateMap AND (namespace is AutoMapper OR syntax fallback matches)
+            // Wait, the fallback logic is: IF symbol resolution fails, THEN check syntax.
+            // In this case, symbol resolution might succeed for local method CreateMap but it won't match AutoMapper namespace.
+            // Actually, IsCreateMapInvocation checks symbol first.
+            // If symbol is found and not AutoMapper -> returns false.
+            // If symbol is NOT found (e.g. missing assembly ref) -> fallback.
+            
+            // In this test setup, the local method exists, so symbol resolution works. 
+            // The containing type is TestClass, not Profile. Namespace is not AutoMapper.
+            // So the first part of IsCreateMapInvocation returns FALSE.
+            // It doesn't reach fallback.
+            
+            Assert.False(result); 
         }
+    }
+    
+    [Fact]
+    public void IsCreateMapInvocation_ShouldReturnFalse_WhenMethodIsNotCreateMap_EvenIfVariableIsMapper()
+    {
+        const string code = @"
+            public class TestClass
+            {
+                public void Configure()
+                {
+                    var mapper = new object();
+                    mapper.ToString(); // Contains 'mapper' but method is not CreateMap
+                }
+            }";
+
+        var compilation = CreateCompilation(code);
+        var tree = compilation.SyntaxTrees.First();
+        var semanticModel = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .First(inv => inv.Expression.ToString().Contains("mapper"));
+
+        var result = AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocation, semanticModel);
+
+        Assert.False(result);
     }
 
     #endregion

@@ -225,6 +225,17 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         if (IsPrimitiveType(sourceType) && destinationType.SpecialType == SpecialType.System_String)
             return true;
 
+        // Check for incompatible class types which might need a converter
+        if (sourceType.TypeKind == TypeKind.Class && destinationType.TypeKind == TypeKind.Class &&
+            !SymbolEqualityComparer.Default.Equals(sourceType, destinationType))
+        {
+            // Exclude System.Object (handled by other rules like AM001)
+            if (sourceType.SpecialType == SpecialType.System_Object || destinationType.SpecialType == SpecialType.System_Object)
+                return false;
+
+            return true;
+        }
+
         return false;
     }
 

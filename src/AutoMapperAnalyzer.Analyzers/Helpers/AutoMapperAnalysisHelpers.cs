@@ -59,7 +59,7 @@ namespace AutoMapperAnalyzer.Analyzers.Helpers
                     expressionText.Contains("cfg") ||
                     expressionText.Contains("config"))
                 {
-                    return true;
+                    return memberAccess.Name.Identifier.Text == "CreateMap";
                 }
             }
 

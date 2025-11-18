@@ -38,17 +38,13 @@
 • AM050: Redundant MapFrom Detector - Finds explicit mappings where property names already match
 • Improved syntax-based detection for AM011 and AM005, eliminating false positives
 
-✨ Enhancements:
-• Comprehensive restructuring into functional categories (TypeSafety, DataIntegrity, etc.)
-• Updated samples project with new configuration rule examples
-• Enhanced documentation and rule reference
+🐛 Fixes:
+• Fixed false positives in CreateMap detection (e.g. mapper.ToString())
+• Fixed AM030 detection for complex type incompatibilities
 
-📚 Documentation:
-• Updated README.md with new rules and quick reference
-• Detailed examples in DIAGNOSTIC_RULES.md
-
-Previous Release (2.3.2):
-• ReverseMap support &amp; Performance optimizations</PackageReleaseNotes>
+⚡ Performance:
+• Optimized mapping discovery with centralized registry
+• Reduced duplicate compilation scanning in AM041</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
     <!-- Remove strict PackageType for broader compatibility -->
