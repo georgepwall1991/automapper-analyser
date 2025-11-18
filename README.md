@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-395%20passing%2C%2017%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-418%20passing%2C%2013%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -13,23 +13,18 @@
 
 ---
 
-## 🎉 Latest Release: v2.2.0-dev
+## 🎉 Latest Release: v2.3.2
 
-**NEW: AM031 Performance Warning Analyzer**
+**NEW: ReverseMap Support & Performance Boost**
 
 ✨ **New Capabilities:**
-- ⚡ **Expensive Operation Detection**: Identifies database queries, API calls, and file I/O in mapping expressions
-- 🔄 **Multiple Enumeration Detection**: Catches collections being enumerated multiple times, suggesting caching
-- 🚫 **Non-Deterministic Operation Warnings**: Detects DateTime.Now, Random, and other non-deterministic operations
-- 🔒 **Task.Result Detection**: Warns about synchronous access of async operations that can cause deadlocks
-- 💡 **Intelligent Code Fixes**: Suggests moving expensive operations before mapping for better performance
+- 🔄 **ReverseMap Intelligence**: Correctly analyzes bidirectional mappings defined with `.ReverseMap()`, fixing false positives for nested objects (`AM020`) and missing properties (`AM004`).
+- ⚡ **Fast-Path Performance**: Optimized scanning to skip files without AutoMapper code, significantly speeding up analysis in large solutions.
+- 🔄 **Bidirectional Collection Checks**: Enhanced detection of incompatible collection types in both directions (e.g., HashSet ↔ List).
 
-This update helps identify performance bottlenecks before they impact production!
-
-### Previous Release: v2.1.0
-- 🔓 **Internal Property Support**: Detects nested object mapping issues for `internal` properties
-- 🔄 **Cross-Profile Detection**: Recognizes mappings defined in different `Profile` classes
-- 🎨 **Mixed Visibility**: Handles classes with both public and internal nested object properties
+### Previous Release: v2.2.0
+- ⚡ **Performance Warning Analyzer (AM031)**: Detects expensive operations like DB queries, I/O, and multiple enumerations in mappings.
+- 🔓 **Internal Property Support**: Detects nested object mapping issues for `internal` properties.
 
 ---
 
@@ -121,14 +116,14 @@ cfg.CreateMap<Source, Dest>()
 
 ## 🎯 Real-World Impact
 
-| Before | After |
-|--------|--------|
-| 🐛 Runtime mapping failures | ✅ Compile-time validation |
-| 🔍 Manual debugging sessions | ✅ Instant error highlights |  
-| 📝 Guessing correct configurations | ✅ Code fixes with best practices |
-| ⚠️ Production NullReferenceExceptions | ✅ Null safety enforcement |
-| 📊 Silent data loss | ✅ Missing property detection |
-| 🌐 Cross-platform mapping inconsistencies | ✅ Case sensitivity validation |
+| | Before | After |
+|---|--------|--------|
+|🐛| Runtime mapping failures | ✅ Compile-time validation |
+|🔍| Manual debugging sessions | ✅ Instant error highlights |  
+|📝| Guessing correct configurations | ✅ Code fixes with best practices |
+|⚠️| Production NullReferenceExceptions | ✅ Null safety enforcement |
+|📊| Silent data loss | ✅ Missing property detection |
+|🌐| Cross-platform mapping inconsistencies | ✅ Case sensitivity validation |
 
 ---
 
@@ -146,7 +141,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 
 ### Project File (For CI/CD)
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.1.0">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.3.2">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -318,7 +313,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 - **🏎️ Performance-First**: Incremental analysis with minimal IDE impact
 - **🔧 Extensible Design**: Clean plugin architecture for new rules
-- **🧪 Battle-Tested**: 412 unit tests with 395 passing, 17 skipped for known limitations (96% passing)
+- **🧪 Battle-Tested**: 418 unit tests with 405 passing, 13 skipped for known limitations (97% passing)
 - **🌐 Cross-Platform**: Identical behavior on Windows, macOS, Linux
 - **⚡ CI/CD Ready**: Automated GitHub Actions with codecov integration
 - **📊 Code Coverage**: 55%+ coverage with comprehensive testing
@@ -328,9 +323,9 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 ## 🎯 What's Next
 
 ### Recently Completed ✅
-- **v2.2.0-dev**: AM031 Performance warning analyzer with intelligent code fixes
-- **v2.1.0**: Enhanced AM020 with internal property support and cross-profile detection
-- **AM030**: Custom type converter validation with null safety checks
+- **v2.3.2**: ReverseMap support & Performance optimizations
+- **v2.2.0**: AM031 Performance warning analyzer
+- **v2.1.0**: Enhanced AM020 with internal property support
 
 ### Phase 5B: Enhanced Analysis (Upcoming)
 - **AM032**: Advanced null propagation patterns with smart fixes
@@ -355,7 +350,7 @@ We're building something special, and **your expertise makes it better**.
 ```bash
 git clone https://github.com/georgepwall1991/automapper-analyser.git
 cd automapper-analyser
-dotnet test  # 395 passing, 17 skipped for known limitations
+dotnet test
 ```
 
 **What We Need:**
