@@ -19,7 +19,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor NestedObjectMappingMissingRule = new(
         "AM020",
         "Nested object mapping configuration missing",
-        "Property '{0}' requires mapping configuration between '{1}' and '{2}'. Consider adding CreateMap<{1}, {2}>() or explicit ForMember configuration",
+        "Property '{0}' requires mapping configuration between '{1}' and '{2}'. Consider adding CreateMap<{1}, {2}>() or explicit ForMember configuration.",
         "AutoMapper.NestedObjects",
         DiagnosticSeverity.Warning,
         true,

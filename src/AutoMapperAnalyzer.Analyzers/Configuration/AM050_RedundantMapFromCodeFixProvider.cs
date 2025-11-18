@@ -10,13 +10,19 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace AutoMapperAnalyzer.Analyzers.Configuration;
 
+/// <summary>
+/// Code fix provider for removing redundant MapFrom configurations.
+/// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM050_RedundantMapFromCodeFixProvider)), Shared]
 public class AM050_RedundantMapFromCodeFixProvider : CodeFixProvider
 {
+    /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM050");
 
+    /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
+    /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         foreach (var diagnostic in context.Diagnostics)

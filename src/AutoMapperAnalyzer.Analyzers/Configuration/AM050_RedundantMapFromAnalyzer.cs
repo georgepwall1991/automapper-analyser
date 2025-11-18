@@ -8,9 +8,16 @@ using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.Configuration;
 
+/// <summary>
+/// Analyzer that detects redundant MapFrom configurations where the source and destination property names match.
+/// AutoMapper automatically maps matching property names, so explicit configuration is unnecessary.
+/// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>
+    /// Diagnostic descriptor for redundant MapFrom detection.
+    /// </summary>
     public static readonly DiagnosticDescriptor RedundantMapFromRule = new(
         "AM050",
         "Redundant MapFrom configuration",
@@ -20,8 +27,10 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         true,
         "AutoMapper automatically maps properties with the same name. Explicit MapFrom configuration is unnecessary.");
 
+    /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [RedundantMapFromRule];
 
+    /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);

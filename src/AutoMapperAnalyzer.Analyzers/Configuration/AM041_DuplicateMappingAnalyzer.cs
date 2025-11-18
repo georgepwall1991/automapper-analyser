@@ -7,9 +7,16 @@ using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.Configuration;
 
+/// <summary>
+/// Analyzer that detects duplicate mapping registrations in AutoMapper configuration.
+/// Duplicates can cause ambiguous behavior and runtime errors.
+/// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM041_DuplicateMappingAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>
+    /// Diagnostic descriptor for duplicate mapping detection.
+    /// </summary>
     public static readonly DiagnosticDescriptor DuplicateMappingRule = new(
         "AM041",
         "Duplicate mapping registration",
@@ -19,8 +26,10 @@ public class AM041_DuplicateMappingAnalyzer : DiagnosticAnalyzer
         true,
         "Duplicate mapping registrations can cause ambiguous behavior and should be removed.");
 
+    /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [DuplicateMappingRule];
 
+    /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);

@@ -10,13 +10,19 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace AutoMapperAnalyzer.Analyzers.Configuration;
 
+/// <summary>
+/// Code fix provider for removing duplicate mapping registrations.
+/// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM041_DuplicateMappingCodeFixProvider)), Shared]
 public class AM041_DuplicateMappingCodeFixProvider : CodeFixProvider
 {
+    /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM041");
 
+    /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
+    /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         foreach (var diagnostic in context.Diagnostics)

@@ -35,7 +35,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor MultipleEnumerationRule = new(
         "AM031",
         "Multiple enumeration of collection in mapping",
-        "Property '{0}' mapping enumerates collection '{1}' multiple times. Consider caching the result with ToList() or ToArray()",
+        "Property '{0}' mapping enumerates collection '{1}' multiple times. Consider caching the result with ToList() or ToArray().",
         "AutoMapper.Performance",
         DiagnosticSeverity.Warning,
         true,
@@ -47,7 +47,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor ExpensiveComputationRule = new(
         "AM031",
         "Expensive computation in mapping expression",
-        "Property '{0}' mapping contains expensive computation that may impact performance. Consider computing before mapping",
+        "Property '{0}' mapping contains expensive computation that may impact performance. Consider computing before mapping.",
         "AutoMapper.Performance",
         DiagnosticSeverity.Warning,
         true,
@@ -59,7 +59,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor TaskResultSynchronousAccessRule = new(
         "AM031",
         "Synchronous access of async operation in mapping",
-        "Property '{0}' mapping uses Task.Result which can cause deadlocks. Perform async operations before mapping",
+        "Property '{0}' mapping uses Task.Result which can cause deadlocks. Perform async operations before mapping.",
         "AutoMapper.Performance",
         DiagnosticSeverity.Warning,
         true,
@@ -71,7 +71,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor ComplexLinqOperationRule = new(
         "AM031",
         "Complex LINQ operation in mapping",
-        "Property '{0}' mapping contains complex LINQ operation that may impact performance. Consider simplifying or computing before mapping",
+        "Property '{0}' mapping contains complex LINQ operation that may impact performance. Consider simplifying or computing before mapping.",
         "AutoMapper.Performance",
         DiagnosticSeverity.Warning,
         true,
@@ -83,7 +83,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor NonDeterministicOperationRule = new(
         "AM031",
         "Non-deterministic operation in mapping",
-        "Property '{0}' mapping uses {1} which produces non-deterministic results. Consider computing before mapping for testability",
+        "Property '{0}' mapping uses {1} which produces non-deterministic results. Consider computing before mapping for testability.",
         "AutoMapper.Performance",
         DiagnosticSeverity.Info,
         true,
