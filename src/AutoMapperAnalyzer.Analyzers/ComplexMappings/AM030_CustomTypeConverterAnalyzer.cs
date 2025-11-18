@@ -35,7 +35,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor MissingConvertUsingConfigurationRule = new(
         "AM030",
         "Missing ConvertUsing configuration for type converter",
-        "Property '{0}' has incompatible types but no ConvertUsing configuration. Consider using ConvertUsing<{1}> or ConvertUsing(converter => ...)",
+        "Property '{0}' has incompatible types but no ConvertUsing configuration. Consider using ConvertUsing<{1}> or ConvertUsing(converter => ...).",
         "AutoMapper.Converters",
         DiagnosticSeverity.Warning,
         true,
@@ -47,7 +47,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor ConverterNullHandlingIssueRule = new(
         "AM030",
         "Type converter may not handle null values properly",
-        "Converter for '{0}' may not handle null values. Source type '{1}' is nullable but converter doesn't check for null",
+        "Converter for '{0}' may not handle null values. Source type '{1}' is nullable but converter doesn't check for null.",
         "AutoMapper.Converters",
         DiagnosticSeverity.Warning,
         true,

@@ -324,7 +324,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                     HasCircularReferenceRecursive(
                         namedPropertyType,
                         targetDestType,
-                        new HashSet<ITypeSymbol>(visited),
+                        new HashSet<ITypeSymbol>(visited, SymbolEqualityComparer.Default),
                         depth + 1,
                         maxDepth
                     )
