@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -12,16 +11,26 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
     where TAnalyzer : DiagnosticAnalyzer, new()
     where TCodeFix : CodeFixProvider, new()
 {
-    public static Task VerifyFixAsync(string source, DiagnosticResult expectedDiagnostic, string fixedSource, DiagnosticResult[]? remainingDiagnostics = null)
-        => VerifyFixAsync(source, new[] { expectedDiagnostic }, fixedSource, null, remainingDiagnostics);
+    public static Task VerifyFixAsync(string source, DiagnosticResult expectedDiagnostic, string fixedSource,
+        DiagnosticResult[]? remainingDiagnostics = null)
+    {
+        return VerifyFixAsync(source, new[] { expectedDiagnostic }, fixedSource, null, remainingDiagnostics);
+    }
 
-    public static Task VerifyFixAsync(string source, DiagnosticResult expectedDiagnostic, string fixedSource, int? codeActionIndex, DiagnosticResult[]? remainingDiagnostics = null)
-        => VerifyFixAsync(source, new[] { expectedDiagnostic }, fixedSource, codeActionIndex, remainingDiagnostics);
+    public static Task VerifyFixAsync(string source, DiagnosticResult expectedDiagnostic, string fixedSource,
+        int? codeActionIndex, DiagnosticResult[]? remainingDiagnostics = null)
+    {
+        return VerifyFixAsync(source, new[] { expectedDiagnostic }, fixedSource, codeActionIndex, remainingDiagnostics);
+    }
 
-    public static async Task VerifyFixAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource, DiagnosticResult[]? remainingDiagnostics = null)
-        => await VerifyFixAsync(source, expectedDiagnostics, fixedSource, null, remainingDiagnostics);
+    public static async Task VerifyFixAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource,
+        DiagnosticResult[]? remainingDiagnostics = null)
+    {
+        await VerifyFixAsync(source, expectedDiagnostics, fixedSource, null, remainingDiagnostics);
+    }
 
-    public static async Task VerifyFixAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource, int? codeActionIndex, DiagnosticResult[]? remainingDiagnostics = null)
+    public static async Task VerifyFixAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource,
+        int? codeActionIndex, DiagnosticResult[]? remainingDiagnostics = null)
     {
         var test = new CSharpCodeFixTest<TAnalyzer, TCodeFix, DefaultVerifier>
         {
@@ -34,9 +43,9 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
         AddAutoMapperReferences(test.TestState);
         AddAutoMapperReferences(test.FixedState);
 
-        var remainingCount = remainingDiagnostics?.Length ?? 0;
-        var expectedCount = expectedDiagnostics?.Length ?? 1;
-        var iterations = Math.Max(1, Math.Max(remainingCount + 1, expectedCount));
+        int remainingCount = remainingDiagnostics?.Length ?? 0;
+        int expectedCount = expectedDiagnostics?.Length ?? 1;
+        int iterations = Math.Max(1, Math.Max(remainingCount + 1, expectedCount));
         test.NumberOfFixAllIterations = iterations;
         test.NumberOfIncrementalIterations = iterations;
         test.ExpectedDiagnostics.AddRange(expectedDiagnostics);
@@ -49,7 +58,8 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
         await test.RunAsync();
     }
 
-    public static async Task VerifyFixWithIterationsAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource, int iterations)
+    public static async Task VerifyFixWithIterationsAsync(string source, DiagnosticResult[] expectedDiagnostics,
+        string fixedSource, int iterations)
     {
         var test = new CSharpCodeFixTest<TAnalyzer, TCodeFix, DefaultVerifier>
         {
@@ -66,7 +76,8 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
         await test.RunAsync();
     }
 
-    public static async Task VerifyFixAsync((string filename, string source)[] sources, DiagnosticResult expectedDiagnostic, string fixedSource, DiagnosticResult[]? remainingDiagnostics = null)
+    public static async Task VerifyFixAsync((string filename, string source)[] sources,
+        DiagnosticResult expectedDiagnostic, string fixedSource, DiagnosticResult[]? remainingDiagnostics = null)
     {
         var test = new CSharpCodeFixTest<TAnalyzer, TCodeFix, DefaultVerifier>
         {
@@ -88,7 +99,7 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
         AddAutoMapperReferences(test.TestState);
         AddAutoMapperReferences(test.FixedState);
 
-        var iterations2 = Math.Max(1, (remainingDiagnostics?.Length ?? 0) + 1);
+        int iterations2 = Math.Max(1, (remainingDiagnostics?.Length ?? 0) + 1);
         test.NumberOfFixAllIterations = iterations2;
         test.NumberOfIncrementalIterations = iterations2;
         test.ExpectedDiagnostics.Add(expectedDiagnostic);
@@ -100,7 +111,8 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
         await test.RunAsync();
     }
 
-    public static async Task VerifyFixWithIterationsAsync((string filename, string source)[] sources, DiagnosticResult expectedDiagnostic, string fixedSource, int iterations)
+    public static async Task VerifyFixWithIterationsAsync((string filename, string source)[] sources,
+        DiagnosticResult expectedDiagnostic, string fixedSource, int iterations)
     {
         var test = new CSharpCodeFixTest<TAnalyzer, TCodeFix, DefaultVerifier>
         {

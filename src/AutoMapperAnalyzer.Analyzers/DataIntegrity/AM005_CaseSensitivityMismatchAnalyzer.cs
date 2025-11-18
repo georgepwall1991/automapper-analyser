@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.DataIntegrity;
 
@@ -27,11 +27,11 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         "Properties that differ only in casing may cause mapping issues depending on AutoMapper configuration. " +
         "Consider using explicit mapping or configure case-insensitive property matching.");
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         [CaseSensitivityMismatchRule];
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -72,8 +72,10 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
+        IEnumerable<IPropertySymbol> sourceProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        IEnumerable<IPropertySymbol> destinationProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
 
         // Check each source property for case sensitivity mismatches
         foreach (IPropertySymbol sourceProperty in sourceProperties)
@@ -103,13 +105,15 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if explicit mapping is configured for this property
-            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, caseInsensitiveMatch.Name, context.SemanticModel))
+            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, caseInsensitiveMatch.Name,
+                    context.SemanticModel))
             {
                 continue; // Explicit mapping handles the case sensitivity issue
             }
 
             // Report diagnostic for case sensitivity mismatch
-            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            ImmutableDictionary<string, string?>.Builder properties =
+                ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add("SourcePropertyName", sourceProperty.Name);
             properties.Add("DestinationPropertyName", caseInsensitiveMatch.Name);
             properties.Add("PropertyType", sourceProperty.Type.ToDisplayString());
@@ -129,7 +133,7 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
 
 
     /// <summary>
-    /// Gets the type name from an ITypeSymbol.
+    ///     Gets the type name from an ITypeSymbol.
     /// </summary>
     /// <param name="type">The type symbol.</param>
     /// <returns>The type name.</returns>

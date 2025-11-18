@@ -1,20 +1,20 @@
 using System.Collections.Immutable;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 
 /// <summary>
-/// Analyzer for detecting nullable reference type compatibility issues in AutoMapper configurations.
+///     Analyzer for detecting nullable reference type compatibility issues in AutoMapper configurations.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>
-    /// AM002: Nullable to non-nullable assignment without proper handling.
+    ///     AM002: Nullable to non-nullable assignment without proper handling.
     /// </summary>
     public static readonly DiagnosticDescriptor NullableToNonNullableRule = new(
         "AM002",
@@ -26,7 +26,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         "Source property is nullable but destination property is non-nullable, which could cause null reference exceptions at runtime.");
 
     /// <summary>
-    /// AM002: Non-nullable to nullable assignment (informational).
+    ///     AM002: Non-nullable to nullable assignment (informational).
     /// </summary>
     public static readonly DiagnosticDescriptor NonNullableToNullableRule = new(
         "AM002",
@@ -38,13 +38,13 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         "Non-nullable source property is being mapped to nullable destination property.");
 
     /// <summary>
-    /// Gets the supported diagnostics for this analyzer.
+    ///     Gets the supported diagnostics for this analyzer.
     /// </summary>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         [NullableToNonNullableRule, NonNullableToNullableRule];
 
     /// <summary>
-    /// Initializes the analyzer.
+    ///     Initializes the analyzer.
     /// </summary>
     /// <param name="context">The analysis context.</param>
     public override void Initialize(AnalysisContext context)
@@ -64,7 +64,8 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var (sourceType, destinationType) = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
+        (ITypeSymbol? sourceType, ITypeSymbol? destinationType) =
+            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
         if (sourceType == null || destinationType == null)
         {
             return;
@@ -85,8 +86,10 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToArray();
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false).ToArray();
+        IPropertySymbol[] sourceProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToArray();
+        IPropertySymbol[] destinationProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false).ToArray();
 
         foreach (IPropertySymbol sourceProperty in sourceProperties)
         {
@@ -96,7 +99,8 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             if (destinationProperty != null)
             {
                 // Check for explicit property mapping that might handle nullability
-                if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProperty.Name, context.SemanticModel))
+                if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProperty.Name,
+                        context.SemanticModel))
                 {
                     continue;
                 }
@@ -208,7 +212,10 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
     private static string GetTypeName(ITypeSymbol type)
     {
         if (type is INamedTypeSymbol namedType)
+        {
             return namedType.Name;
+        }
+
         return type.Name;
     }
 }

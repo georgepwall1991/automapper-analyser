@@ -1,75 +1,95 @@
 using System.Collections.Immutable;
 using System.Composition;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Analyzers.Performance;
 
 /// <summary>
-/// Code fix provider for AM031 Performance Warning diagnostics.
-/// Provides fixes for expensive operations in mapping expressions.
+///     Code fix provider for AM031 Performance Warning diagnostics.
+///     Provides fixes for expensive operations in mapping expressions.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM031_PerformanceWarningCodeFixProvider)), Shared]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM031_PerformanceWarningCodeFixProvider))]
+[Shared]
 public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
 {
     /// <summary>
-    /// Gets the diagnostic IDs that this provider can fix.
+    ///     Gets the diagnostic IDs that this provider can fix.
     /// </summary>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM031");
 
     /// <summary>
-    /// Gets whether this provider can fix multiple diagnostics in a single code action.
+    ///     Gets whether this provider can fix multiple diagnostics in a single code action.
     /// </summary>
-    public sealed override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public sealed override FixAllProvider GetFixAllProvider()
+    {
+        return WellKnownFixAllProviders.BatchFixer;
+    }
 
     /// <summary>
-    /// Registers code fixes for the diagnostics.
+    ///     Registers code fixes for the diagnostics.
     /// </summary>
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null) return;
+        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root == null)
+        {
+            return;
+        }
 
-        var diagnostic = context.Diagnostics.First();
-        var diagnosticSpan = diagnostic.Location.SourceSpan;
+        Diagnostic diagnostic = context.Diagnostics.First();
+        TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
 
         // Find the lambda expression that triggered the diagnostic
-        var lambda = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
+        LambdaExpressionSyntax? lambda = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
             .OfType<LambdaExpressionSyntax>()
             .FirstOrDefault();
 
-        if (lambda == null) return;
+        if (lambda == null)
+        {
+            return;
+        }
 
         // Find the ForMember invocation
-        var forMemberInvocation = lambda.AncestorsAndSelf()
+        InvocationExpressionSyntax? forMemberInvocation = lambda.AncestorsAndSelf()
             .OfType<InvocationExpressionSyntax>()
             .FirstOrDefault(inv => inv.Expression is MemberAccessExpressionSyntax mae &&
-                                  mae.Name.Identifier.Text == "ForMember");
+                                   mae.Name.Identifier.Text == "ForMember");
 
-        if (forMemberInvocation == null) return;
+        if (forMemberInvocation == null)
+        {
+            return;
+        }
 
         // Extract property name from diagnostic message
-        var propertyName = ExtractPropertyNameFromDiagnostic(diagnostic);
-        if (string.IsNullOrEmpty(propertyName)) return;
+        string? propertyName = ExtractPropertyNameFromDiagnostic(diagnostic);
+        if (string.IsNullOrEmpty(propertyName))
+        {
+            return;
+        }
 
-        var semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (semanticModel == null) return;
+        SemanticModel? semanticModel =
+            await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+        if (semanticModel == null)
+        {
+            return;
+        }
 
         // After null check, we know propertyName is not null
-        var safePropertyName = propertyName!;
+        string safePropertyName = propertyName!;
 
         // Register fixes based on diagnostic descriptor
-        var descriptor = diagnostic.Descriptor;
+        DiagnosticDescriptor descriptor = diagnostic.Descriptor;
 
         if (descriptor == AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule)
         {
-            RegisterExpensiveOperationFix(context, root, forMemberInvocation, safePropertyName, diagnostic, semanticModel);
+            RegisterExpensiveOperationFix(context, root, forMemberInvocation, safePropertyName, diagnostic,
+                semanticModel);
         }
         else if (descriptor == AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule)
         {
@@ -81,7 +101,8 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         }
         else if (descriptor == AM031_PerformanceWarningAnalyzer.NonDeterministicOperationRule)
         {
-            RegisterNonDeterministicOperationFix(context, root, forMemberInvocation, safePropertyName, diagnostic, semanticModel);
+            RegisterNonDeterministicOperationFix(context, root, forMemberInvocation, safePropertyName, diagnostic,
+                semanticModel);
         }
     }
 
@@ -95,8 +116,8 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
     {
         context.RegisterCodeFix(
             CodeAction.Create(
-                title: $"Move computation to source property '{propertyName}'",
-                createChangedDocument: cancellationToken =>
+                $"Move computation to source property '{propertyName}'",
+                cancellationToken =>
                     MoveComputationToSourceProperty(
                         context.Document,
                         root,
@@ -105,7 +126,7 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
                         "TODO: Populate this property before mapping",
                         semanticModel,
                         cancellationToken),
-                equivalenceKey: $"AM031_MoveToSource_{propertyName}"),
+                $"AM031_MoveToSource_{propertyName}"),
             diagnostic);
     }
 
@@ -118,10 +139,10 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
     {
         context.RegisterCodeFix(
             CodeAction.Create(
-                title: "Cache collection with ToList() to avoid multiple enumerations",
-                createChangedDocument: cancellationToken =>
+                "Cache collection with ToList() to avoid multiple enumerations",
+                cancellationToken =>
                     AddCollectionCaching(context.Document, root, lambda, forMemberInvocation, cancellationToken),
-                equivalenceKey: "AM031_CacheCollection"),
+                "AM031_CacheCollection"),
             diagnostic);
     }
 
@@ -135,8 +156,8 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
     {
         context.RegisterCodeFix(
             CodeAction.Create(
-                title: $"Move async operation to source property '{propertyName}'",
-                createChangedDocument: cancellationToken =>
+                $"Move async operation to source property '{propertyName}'",
+                cancellationToken =>
                     MoveComputationToSourceProperty(
                         context.Document,
                         root,
@@ -145,7 +166,7 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
                         "TODO: Await async operation before mapping",
                         semanticModel,
                         cancellationToken),
-                equivalenceKey: $"AM031_MoveAsync_{propertyName}"),
+                $"AM031_MoveAsync_{propertyName}"),
             diagnostic);
     }
 
@@ -157,12 +178,12 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         Diagnostic diagnostic,
         SemanticModel semanticModel)
     {
-        var operationType = ExtractOperationTypeFromDiagnostic(diagnostic);
+        string operationType = ExtractOperationTypeFromDiagnostic(diagnostic);
 
         context.RegisterCodeFix(
             CodeAction.Create(
-                title: $"Move {operationType} calculation to source property '{propertyName}'",
-                createChangedDocument: cancellationToken =>
+                $"Move {operationType} calculation to source property '{propertyName}'",
+                cancellationToken =>
                     MoveComputationToSourceProperty(
                         context.Document,
                         root,
@@ -171,7 +192,7 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
                         $"TODO: Calculate before mapping using {operationType}",
                         semanticModel,
                         cancellationToken),
-                equivalenceKey: $"AM031_MoveNonDeterministic_{propertyName}"),
+                $"AM031_MoveNonDeterministic_{propertyName}"),
             diagnostic);
     }
 
@@ -185,7 +206,7 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         CancellationToken cancellationToken)
     {
         // Find the CreateMap invocation
-        var createMapInvocation = forMemberInvocation.AncestorsAndSelf()
+        InvocationExpressionSyntax? createMapInvocation = forMemberInvocation.AncestorsAndSelf()
             .OfType<InvocationExpressionSyntax>()
             .FirstOrDefault(inv =>
             {
@@ -193,10 +214,12 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
                 {
                     return genericName.Identifier.Text == "CreateMap";
                 }
+
                 if (inv.Expression is MemberAccessExpressionSyntax memberAccess)
                 {
                     return memberAccess.Name.Identifier.Text == "CreateMap";
                 }
+
                 return false;
             });
 
@@ -206,21 +229,22 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         }
 
         // Find the Source class
-        var sourceClass = FindSourceClass(root, createMapInvocation, semanticModel);
+        ClassDeclarationSyntax? sourceClass = FindSourceClass(root, createMapInvocation, semanticModel);
         if (sourceClass == null)
         {
             return Task.FromResult(document);
         }
 
         // Add property to source class with TODO comment
-        var newProperty = CreatePropertyWithComment(propertyName, todoComment);
-        var newSourceClass = sourceClass.AddMembers(newProperty);
+        PropertyDeclarationSyntax newProperty = CreatePropertyWithComment(propertyName, todoComment);
+        ClassDeclarationSyntax newSourceClass = sourceClass.AddMembers(newProperty);
 
         // Remove the ForMember call by finding the chain and removing this link
-        var newCreateMapInvocation = RemoveForMemberFromChain(createMapInvocation, forMemberInvocation);
+        InvocationExpressionSyntax newCreateMapInvocation =
+            RemoveForMemberFromChain(createMapInvocation, forMemberInvocation);
 
         // Replace both nodes
-        var newRoot = root.ReplaceNodes(
+        SyntaxNode newRoot = root.ReplaceNodes(
             new SyntaxNode[] { sourceClass, createMapInvocation },
             (original, _) =>
             {
@@ -228,10 +252,12 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
                 {
                     return newSourceClass;
                 }
+
                 if (original == createMapInvocation)
                 {
                     return newCreateMapInvocation;
                 }
+
                 return original;
             });
 
@@ -246,34 +272,35 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         CancellationToken cancellationToken)
     {
         // Find the collection name that's being enumerated multiple times
-        var collectionName = ExtractCollectionNameFromLambda(lambda);
+        string? collectionName = ExtractCollectionNameFromLambda(lambda);
         if (string.IsNullOrEmpty(collectionName))
         {
             return Task.FromResult(document);
         }
 
         // After null check, we know collectionName is not null
-        var safeCollectionName = collectionName!;
+        string safeCollectionName = collectionName!;
 
         // Create a new lambda body with caching
-        var cachedVariableName = $"{safeCollectionName.ToLowerInvariant()}Cache";
+        string cachedVariableName = $"{safeCollectionName.ToLowerInvariant()}Cache";
 
         // Create the new lambda with block body
-        var newLambdaBody = SyntaxFactory.Block(
+        BlockSyntax newLambdaBody = SyntaxFactory.Block(
             // var collectionCache = src.Collection.ToList();
             SyntaxFactory.LocalDeclarationStatement(
                 SyntaxFactory.VariableDeclaration(
-                    SyntaxFactory.IdentifierName("var"))
-                .WithVariables(
-                    SyntaxFactory.SingletonSeparatedList(
-                        SyntaxFactory.VariableDeclarator(
-                            SyntaxFactory.Identifier(cachedVariableName))
-                        .WithInitializer(
-                            SyntaxFactory.EqualsValueClause(
-                                SyntaxFactory.ParseExpression($"src.{safeCollectionName}.ToList()")))))),
+                        SyntaxFactory.IdentifierName("var"))
+                    .WithVariables(
+                        SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.VariableDeclarator(
+                                    SyntaxFactory.Identifier(cachedVariableName))
+                                .WithInitializer(
+                                    SyntaxFactory.EqualsValueClause(
+                                        SyntaxFactory.ParseExpression($"src.{safeCollectionName}.ToList()")))))),
             // return cachedVariable.Sum() + cachedVariable.Average();
             SyntaxFactory.ReturnStatement(
-                ReplaceCollectionReferencesWithCache(lambda.Body as ExpressionSyntax, safeCollectionName, cachedVariableName)));
+                ReplaceCollectionReferencesWithCache(lambda.Body as ExpressionSyntax, safeCollectionName,
+                    cachedVariableName)));
 
         SimpleLambdaExpressionSyntax newLambda;
         if (lambda is SimpleLambdaExpressionSyntax simpleLambda)
@@ -289,21 +316,22 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         }
 
         // Replace the lambda in the tree
-        var newRoot = root.ReplaceNode(lambda, newLambda);
+        SyntaxNode newRoot = root.ReplaceNode(lambda, newLambda);
         return Task.FromResult(document.WithSyntaxRoot(newRoot));
     }
 
-    private ClassDeclarationSyntax? FindSourceClass(SyntaxNode root, InvocationExpressionSyntax createMapInvocation, SemanticModel semanticModel)
+    private ClassDeclarationSyntax? FindSourceClass(SyntaxNode root, InvocationExpressionSyntax createMapInvocation,
+        SemanticModel semanticModel)
     {
         // Get the source type from CreateMap<TSource, TDest>()
-        var symbolInfo = semanticModel.GetSymbolInfo(createMapInvocation);
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(createMapInvocation);
         if (symbolInfo.Symbol is not IMethodSymbol methodSymbol || methodSymbol.TypeArguments.Length < 1)
         {
             return null;
         }
 
-        var sourceType = methodSymbol.TypeArguments[0];
-        var sourceTypeName = sourceType.Name;
+        ITypeSymbol sourceType = methodSymbol.TypeArguments[0];
+        string sourceTypeName = sourceType.Name;
 
         // Find the class declaration
         return root.DescendantNodes()
@@ -314,8 +342,8 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
     private PropertyDeclarationSyntax CreatePropertyWithComment(string propertyName, string comment)
     {
         return SyntaxFactory.PropertyDeclaration(
-            SyntaxFactory.IdentifierName("string"),
-            SyntaxFactory.Identifier(propertyName))
+                SyntaxFactory.IdentifierName("string"),
+                SyntaxFactory.Identifier(propertyName))
             .WithModifiers(
                 SyntaxFactory.TokenList(
                     SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
@@ -337,13 +365,14 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         InvocationExpressionSyntax forMemberToRemove)
     {
         // If the ForMember is directly on CreateMap, just return CreateMap
-        if (createMapInvocation == forMemberToRemove.DescendantNodes().OfType<InvocationExpressionSyntax>().FirstOrDefault())
+        if (createMapInvocation ==
+            forMemberToRemove.DescendantNodes().OfType<InvocationExpressionSyntax>().FirstOrDefault())
         {
             return createMapInvocation;
         }
 
         // Navigate through the chain and find the node to remove
-        var current = createMapInvocation;
+        InvocationExpressionSyntax? current = createMapInvocation;
         InvocationExpressionSyntax? previous = null;
 
         while (current != null)
@@ -381,7 +410,7 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
 
         if (memberAccesses.Any())
         {
-            var first = memberAccesses.First().Name.Identifier.Text;
+            string first = memberAccesses.First().Name.Identifier.Text;
             return first;
         }
 
@@ -399,33 +428,36 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         }
 
         // Replace all occurrences of src.CollectionName with cachedVariableName
-        var expressionString = expression.ToString().Replace($"src.{collectionName}", cachedVariableName);
+        string expressionString = expression.ToString().Replace($"src.{collectionName}", cachedVariableName);
         return SyntaxFactory.ParseExpression(expressionString);
     }
 
     private string? ExtractPropertyNameFromDiagnostic(Diagnostic diagnostic)
     {
         // Extract from diagnostic message
-        var message = diagnostic.GetMessage();
-        var match = System.Text.RegularExpressions.Regex.Match(message, @"Property '(\w+)'");
+        string message = diagnostic.GetMessage();
+        Match match = Regex.Match(message, @"Property '(\w+)'");
         return match.Success ? match.Groups[1].Value : null;
     }
 
     private string ExtractOperationTypeFromDiagnostic(Diagnostic diagnostic)
     {
-        var message = diagnostic.GetMessage();
+        string message = diagnostic.GetMessage();
         if (message.Contains("DateTime.Now"))
         {
             return "DateTime.Now";
         }
+
         if (message.Contains("Random"))
         {
             return "Random";
         }
+
         if (message.Contains("Guid.NewGuid"))
         {
             return "Guid.NewGuid";
         }
+
         return "non-deterministic operation";
     }
 }

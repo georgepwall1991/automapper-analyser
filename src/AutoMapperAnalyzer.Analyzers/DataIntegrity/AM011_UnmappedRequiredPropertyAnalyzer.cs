@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.DataIntegrity;
 
@@ -25,11 +25,11 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         true,
         "Required destination properties must be mapped from source properties or explicitly configured to prevent runtime exceptions during mapping.");
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         [UnmappedRequiredPropertyRule];
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -70,8 +70,10 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
+        IEnumerable<IPropertySymbol> sourceProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        IEnumerable<IPropertySymbol> destinationProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
 
         // Check each required destination property to see if it's mapped from source
         foreach (IPropertySymbol destinationProperty in destinationProperties)
@@ -93,13 +95,15 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if this destination property is explicitly mapped via ForMember
-            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, destinationProperty.Name, context.SemanticModel))
+            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, destinationProperty.Name,
+                    context.SemanticModel))
             {
                 continue; // Property is explicitly mapped, no issue
             }
 
             // Report diagnostic for unmapped required property
-            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            ImmutableDictionary<string, string?>.Builder properties =
+                ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add("PropertyName", destinationProperty.Name);
             properties.Add("PropertyType", destinationProperty.Type.ToDisplayString());
             properties.Add("SourceTypeName", GetTypeName(sourceType));
@@ -116,7 +120,7 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    /// Gets the type name from an ITypeSymbol.
+    ///     Gets the type name from an ITypeSymbol.
     /// </summary>
     /// <param name="type">The type symbol.</param>
     /// <returns>The type name.</returns>

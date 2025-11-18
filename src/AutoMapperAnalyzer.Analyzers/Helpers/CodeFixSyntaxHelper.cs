@@ -1,18 +1,17 @@
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace AutoMapperAnalyzer.Analyzers.Helpers;
 
 /// <summary>
-/// Helper class for creating common AutoMapper code fix syntax patterns.
-/// Reduces duplication across multiple CodeFix providers.
+///     Helper class for creating common AutoMapper code fix syntax patterns.
+///     Reduces duplication across multiple CodeFix providers.
 /// </summary>
 public static class CodeFixSyntaxHelper
 {
     /// <summary>
-    /// Creates a ForMember call with MapFrom configuration.
-    /// Example: .ForMember(dest => dest.PropertyName, opt => opt.MapFrom(src => expression))
+    ///     Creates a ForMember call with MapFrom configuration.
+    ///     Example: .ForMember(dest => dest.PropertyName, opt => opt.MapFrom(src => expression))
     /// </summary>
     /// <param name="invocation">The original CreateMap invocation to chain from.</param>
     /// <param name="propertyName">The destination property name.</param>
@@ -24,10 +23,10 @@ public static class CodeFixSyntaxHelper
         string mapFromExpression)
     {
         return SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                invocation,
-                SyntaxFactory.IdentifierName("ForMember")))
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    invocation,
+                    SyntaxFactory.IdentifierName("ForMember")))
             .WithArgumentList(
                 SyntaxFactory.ArgumentList(
                     SyntaxFactory.SeparatedList(new[]
@@ -42,8 +41,8 @@ public static class CodeFixSyntaxHelper
     }
 
     /// <summary>
-    /// Creates a ForMember call with Ignore configuration.
-    /// Example: .ForMember(dest => dest.PropertyName, opt => opt.Ignore())
+    ///     Creates a ForMember call with Ignore configuration.
+    ///     Example: .ForMember(dest => dest.PropertyName, opt => opt.Ignore())
     /// </summary>
     /// <param name="invocation">The original CreateMap invocation to chain from.</param>
     /// <param name="propertyName">The destination property name to ignore.</param>
@@ -53,10 +52,10 @@ public static class CodeFixSyntaxHelper
         string propertyName)
     {
         return SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                invocation,
-                SyntaxFactory.IdentifierName("ForMember")))
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    invocation,
+                    SyntaxFactory.IdentifierName("ForMember")))
             .WithArgumentList(
                 SyntaxFactory.ArgumentList(
                     SyntaxFactory.SeparatedList(new[]
@@ -77,8 +76,8 @@ public static class CodeFixSyntaxHelper
     }
 
     /// <summary>
-    /// Creates a ForSourceMember call with DoNotValidate configuration.
-    /// Example: .ForSourceMember(src => src.PropertyName, opt => opt.DoNotValidate())
+    ///     Creates a ForSourceMember call with DoNotValidate configuration.
+    ///     Example: .ForSourceMember(src => src.PropertyName, opt => opt.DoNotValidate())
     /// </summary>
     /// <param name="invocation">The original CreateMap invocation to chain from.</param>
     /// <param name="propertyName">The source property name.</param>
@@ -88,10 +87,10 @@ public static class CodeFixSyntaxHelper
         string propertyName)
     {
         return SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                invocation,
-                SyntaxFactory.IdentifierName("ForSourceMember")))
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    invocation,
+                    SyntaxFactory.IdentifierName("ForSourceMember")))
             .WithArgumentList(
                 SyntaxFactory.ArgumentList(
                     SyntaxFactory.SeparatedList(new[]
@@ -112,8 +111,8 @@ public static class CodeFixSyntaxHelper
     }
 
     /// <summary>
-    /// Creates a simple lambda expression for property selection.
-    /// Example: param => param.PropertyName
+    ///     Creates a simple lambda expression for property selection.
+    ///     Example: param => param.PropertyName
     /// </summary>
     /// <param name="parameterName">The lambda parameter name (e.g., "dest" or "src").</param>
     /// <param name="propertyName">The property to access.</param>
@@ -131,8 +130,8 @@ public static class CodeFixSyntaxHelper
     }
 
     /// <summary>
-    /// Creates a lambda for opt.MapFrom configuration.
-    /// Example: opt => opt.MapFrom(src => expression)
+    ///     Creates a lambda for opt.MapFrom configuration.
+    ///     Example: opt => opt.MapFrom(src => expression)
     /// </summary>
     /// <param name="mapFromExpression">The expression to use in the MapFrom lambda.</param>
     /// <returns>A SimpleLambdaExpressionSyntax.</returns>
@@ -141,10 +140,10 @@ public static class CodeFixSyntaxHelper
         return SyntaxFactory.SimpleLambdaExpression(
             SyntaxFactory.Parameter(SyntaxFactory.Identifier("opt")),
             SyntaxFactory.InvocationExpression(
-                SyntaxFactory.MemberAccessExpression(
-                    SyntaxKind.SimpleMemberAccessExpression,
-                    SyntaxFactory.IdentifierName("opt"),
-                    SyntaxFactory.IdentifierName("MapFrom")))
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.IdentifierName("opt"),
+                        SyntaxFactory.IdentifierName("MapFrom")))
                 .WithArgumentList(
                     SyntaxFactory.ArgumentList(
                         SyntaxFactory.SingletonSeparatedList(

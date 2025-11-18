@@ -1,5 +1,4 @@
 using AutoMapperAnalyzer.Analyzers.TypeSafety;
-using AutoMapperAnalyzer.Tests.Framework;
 using AutoMapperAnalyzer.Tests.Infrastructure;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Testing;
@@ -8,8 +7,11 @@ namespace AutoMapperAnalyzer.Tests.TypeSafety;
 
 public class AM001_PropertyTypeMismatchTests
 {
-    private static DiagnosticResult CreateDiagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
-        => new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
+    private static DiagnosticResult CreateDiagnostic(DiagnosticDescriptor descriptor, int line, int column,
+        params object[] messageArgs)
+    {
+        return new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
+    }
 
     [Fact]
     public async Task Debug_AM001_SimpleTest()
@@ -41,7 +43,8 @@ public class AM001_PropertyTypeMismatchTests
         // Expect the analyzer to detect the string -> int type mismatch for Age property
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 18, 9, "Age", "Source", "string", "Destination", "int"));
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 18, 9, "Age", "Source",
+                "string", "Destination", "int"));
     }
 
     [Fact]
@@ -75,7 +78,8 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Age", "Source", "string", "Destination", "int"));
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Age", "Source",
+                "string", "Destination", "int"));
     }
 
     [Fact]
@@ -114,7 +118,8 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 25, 13, "Age", "Source", "string", "Destination", "int"));
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 25, 13, "Age", "Source",
+                "string", "Destination", "int"));
     }
 
     [Fact]
@@ -207,11 +212,7 @@ public class AM001_PropertyTypeMismatchTests
                                         """;
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
-            new[]
-            {
-                ("ProfileOne.cs", mainProfile),
-                ("ProfileTwo.cs", secondaryProfile)
-            });
+            new[] { ("ProfileOne.cs", mainProfile), ("ProfileTwo.cs", secondaryProfile) });
     }
 
     [Fact]
@@ -279,7 +280,8 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 21, 13, "CreatedDate", "Source", "System.DateTime", "Destination", "string"));
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 21, 13, "CreatedDate",
+                "Source", "System.DateTime", "Destination", "string"));
     }
 
     [Fact]

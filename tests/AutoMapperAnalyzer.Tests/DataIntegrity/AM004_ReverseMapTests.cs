@@ -7,8 +7,11 @@ namespace AutoMapperAnalyzer.Tests.DataIntegrity;
 
 public class AM004_ReverseMapTests
 {
-    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
-        => new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column,
+        params object[] messageArgs)
+    {
+        return new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
+    }
 
     [Fact]
     public async Task AM004_ShouldReportDiagnostic_WhenReverseMapMissingPropertyInSource()
@@ -108,4 +111,3 @@ public class AM004_ReverseMapTests
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 }
-

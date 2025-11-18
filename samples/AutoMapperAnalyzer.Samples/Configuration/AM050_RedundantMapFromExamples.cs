@@ -24,4 +24,3 @@ public class AM050_RedundantMapFromExamples
         }
     }
 }
-

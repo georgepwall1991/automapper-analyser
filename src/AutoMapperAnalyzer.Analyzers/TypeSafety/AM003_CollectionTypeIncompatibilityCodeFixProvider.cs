@@ -1,54 +1,55 @@
-using System;
 using System.Collections.Immutable;
 using System.Composition;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 
 /// <summary>
-/// Code fix provider for AM003 diagnostic - Collection Type Incompatibility.
-/// Provides fixes for collection type mismatches and element type conversions.
+///     Code fix provider for AM003 diagnostic - Collection Type Incompatibility.
+///     Provides fixes for collection type mismatches and element type conversions.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM003_CollectionTypeIncompatibilityCodeFixProvider)), Shared]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM003_CollectionTypeIncompatibilityCodeFixProvider))]
+[Shared]
 public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvider
 {
     /// <summary>
-    /// Gets the diagnostic IDs that this code fix provider can fix.
+    ///     Gets the diagnostic IDs that this code fix provider can fix.
     /// </summary>
     public override ImmutableArray<string> FixableDiagnosticIds => ["AM003"];
 
     /// <summary>
-    /// Gets the fix all provider for batch fixing multiple diagnostics.
+    ///     Gets the fix all provider for batch fixing multiple diagnostics.
     /// </summary>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider()
+    {
+        return WellKnownFixAllProviders.BatchFixer;
+    }
 
     /// <summary>
-    /// Registers code fixes for AM003 diagnostics.
+    ///     Registers code fixes for AM003 diagnostics.
     /// </summary>
     /// <param name="context">The code fix context containing diagnostic information.</param>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        foreach (var diagnostic in context.Diagnostics)
+        foreach (Diagnostic? diagnostic in context.Diagnostics)
         {
-            var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+            SyntaxNode? root =
+                await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
             if (root is null)
             {
                 continue;
             }
 
-            if (!diagnostic.Properties.TryGetValue("PropertyName", out var propertyName) ||
-                !diagnostic.Properties.TryGetValue("SourceType", out var sourceType) ||
-                !diagnostic.Properties.TryGetValue("DestType", out var destType) ||
-                !diagnostic.Properties.TryGetValue("SourceElementType", out var sourceElementType) ||
-                !diagnostic.Properties.TryGetValue("DestElementType", out var destElementType) ||
+            if (!diagnostic.Properties.TryGetValue("PropertyName", out string? propertyName) ||
+                !diagnostic.Properties.TryGetValue("SourceType", out string? sourceType) ||
+                !diagnostic.Properties.TryGetValue("DestType", out string? destType) ||
+                !diagnostic.Properties.TryGetValue("SourceElementType", out string? sourceElementType) ||
+                !diagnostic.Properties.TryGetValue("DestElementType", out string? destElementType) ||
                 string.IsNullOrWhiteSpace(propertyName) ||
                 string.IsNullOrWhiteSpace(sourceType) ||
                 string.IsNullOrWhiteSpace(destType) ||
@@ -64,48 +65,51 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
             }
 
             // After the null checks above, we know these are not null
-            var safePropertyName = propertyName!;
-            var safeSourceType = sourceType!;
-            var safeDestType = destType!;
-            var safeSourceElementType = sourceElementType!;
-            var safeDestElementType = destElementType!;
+            string safePropertyName = propertyName!;
+            string safeSourceType = sourceType!;
+            string safeDestType = destType!;
+            string safeSourceElementType = sourceElementType!;
+            string safeDestElementType = destElementType!;
 
             if (diagnostic.Descriptor == AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule)
             {
-                foreach (var fix in CreateCollectionFixes(safePropertyName, safeSourceType, safeDestType, safeSourceElementType, safeDestElementType))
+                foreach ((string Title, string Expression, bool RequiresLinq, string EquivalenceKey) fix in
+                         CreateCollectionFixes(safePropertyName, safeSourceType, safeDestType, safeSourceElementType,
+                             safeDestElementType))
                 {
                     context.RegisterCodeFix(
                         CodeAction.Create(
-                            title: fix.Title,
-                            createChangedDocument: ct => AddMapFromAsync(context.Document, invocation, safePropertyName, fix.Expression, fix.RequiresLinq, ct),
-                            equivalenceKey: fix.EquivalenceKey),
+                            fix.Title,
+                            ct => AddMapFromAsync(context.Document, invocation, safePropertyName, fix.Expression,
+                                fix.RequiresLinq, ct),
+                            fix.EquivalenceKey),
                         diagnostic);
                 }
             }
             else
             {
-                var conversionLambda = GetElementConversion(safeSourceElementType, safeDestElementType);
+                string conversionLambda = GetElementConversion(safeSourceElementType, safeDestElementType);
                 if (!string.IsNullOrEmpty(conversionLambda))
                 {
                     context.RegisterCodeFix(
                         CodeAction.Create(
-                            title: $"Convert {safePropertyName} elements using Select()",
-                            createChangedDocument: ct => AddMapFromAsync(
+                            $"Convert {safePropertyName} elements using Select()",
+                            ct => AddMapFromAsync(
                                 context.Document,
                                 invocation,
                                 safePropertyName,
                                 $"src.{safePropertyName}.Select({conversionLambda})",
-                                requiresLinq: true,
+                                true,
                                 ct),
-                            equivalenceKey: $"Select_{safePropertyName}"),
+                            $"Select_{safePropertyName}"),
                         diagnostic);
                 }
 
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        title: $"Ignore property '{safePropertyName}'",
-                        createChangedDocument: ct => AddIgnoreAsync(context.Document, invocation, safePropertyName, ct),
-                        equivalenceKey: $"Ignore_{safePropertyName}"),
+                        $"Ignore property '{safePropertyName}'",
+                        ct => AddIgnoreAsync(context.Document, invocation, safePropertyName, ct),
+                        $"Ignore_{safePropertyName}"),
                     diagnostic);
             }
         }
@@ -119,13 +123,14 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
         bool requiresLinq,
         CancellationToken cancellationToken)
     {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         if (root is not CompilationUnitSyntax compilationUnit)
         {
             return document;
         }
 
-        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName, mapFromExpression);
+        InvocationExpressionSyntax newInvocation =
+            CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName, mapFromExpression);
         SyntaxNode newRoot = compilationUnit.ReplaceNode(invocation, newInvocation);
 
         if (requiresLinq && newRoot is CompilationUnitSyntax updatedCompilationUnit)
@@ -142,31 +147,34 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
         string propertyName,
         CancellationToken cancellationToken)
     {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         if (root is null)
         {
             return document;
         }
 
-        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
-        var newRoot = root.ReplaceNode(invocation, newInvocation);
+        InvocationExpressionSyntax newInvocation =
+            CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
+        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
         return document.WithSyntaxRoot(newRoot);
     }
 
-    private static IEnumerable<(string Title, string Expression, bool RequiresLinq, string EquivalenceKey)> CreateCollectionFixes(
-        string propertyName,
-        string sourceType,
-        string destType,
-        string sourceElementType,
-        string destElementType)
+    private static IEnumerable<(string Title, string Expression, bool RequiresLinq, string EquivalenceKey)>
+        CreateCollectionFixes(
+            string propertyName,
+            string sourceType,
+            string destType,
+            string sourceElementType,
+            string destElementType)
     {
         var fixes = new List<(string Title, string Expression, bool RequiresLinq, string EquivalenceKey)>();
-        var simplifiedDestType = SimplifyCollectionType(destType);
-        
+        string simplifiedDestType = SimplifyCollectionType(destType);
+
         // Determine if element conversion is needed
-        var elementConversionLambda = GetElementConversion(sourceElementType, destElementType);
-        var needsElementConversion = !string.IsNullOrEmpty(elementConversionLambda) && elementConversionLambda != "x => x";
-        
+        string elementConversionLambda = GetElementConversion(sourceElementType, destElementType);
+        bool needsElementConversion =
+            !string.IsNullOrEmpty(elementConversionLambda) && elementConversionLambda != "x => x";
+
         // Helper to build expression with optional element conversion
         string BuildExpression(string collectionConversion, bool isConstructor = false)
         {
@@ -175,14 +183,14 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
                 if (isConstructor)
                 {
                     // new List<T>(src.Prop.Select(x => ...))
-                    return collectionConversion.Replace($"src.{propertyName}", $"src.{propertyName}.Select({elementConversionLambda})");
+                    return collectionConversion.Replace($"src.{propertyName}",
+                        $"src.{propertyName}.Select({elementConversionLambda})");
                 }
-                else
-                {
-                    // src.Prop.Select(x => ...).ToList()
-                    return $"src.{propertyName}.Select({elementConversionLambda}).{collectionConversion.Split('.').Last()}";
-                }
+
+                // src.Prop.Select(x => ...).ToList()
+                return $"src.{propertyName}.Select({elementConversionLambda}).{collectionConversion.Split('.').Last()}";
             }
+
             return collectionConversion;
         }
 
@@ -197,35 +205,35 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
 
         if (Contains(sourceType, "Queue") && Contains(destType, "List"))
         {
-             var (title, expr, _, key) = CreateConstructorFix(propertyName, simplifiedDestType);
-             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
+            (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
+            fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         if (Contains(sourceType, "Stack") && Contains(destType, "List"))
         {
-             var (title, expr, _, key) = CreateConstructorFix(propertyName, simplifiedDestType);
-             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
+            (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
+            fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         if (Contains(sourceType, "List") && Contains(destType, "Queue"))
         {
-             var (title, expr, _, key) = CreateConstructorFix(propertyName, simplifiedDestType);
-             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
+            (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
+            fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         if (Contains(sourceType, "IEnumerable") && (Contains(destType, "Stack") || Contains(destType, "HashSet")))
         {
-             var (title, expr, _, key) = CreateConstructorFix(propertyName, simplifiedDestType);
-             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
+            (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
+            fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         if (IsArrayType(sourceType) && Contains(destType, "IEnumerable"))
         {
             // Arrays are IEnumerable, so AsEnumerable is fine, but if we need element conversion, we need Select
-            string expr = needsElementConversion 
-                ? $"src.{propertyName}.Select({elementConversionLambda})" 
+            string expr = needsElementConversion
+                ? $"src.{propertyName}.Select({elementConversionLambda})"
                 : $"src.{propertyName}.AsEnumerable()";
-                
+
             fixes.Add((
                 $"Convert {propertyName} using {(needsElementConversion ? "Select" : "AsEnumerable")}()",
                 expr,
@@ -235,23 +243,27 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
 
         if (!fixes.Any())
         {
-             var (title, expr, _, key) = CreateConstructorFix(propertyName, simplifiedDestType);
-             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
+            (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
+            fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         return fixes;
 
-        static (string Title, string Expression, bool RequiresLinq, string EquivalenceKey) CreateConstructorFix(string propertyName, string simplifiedDestType)
+        static (string Title, string Expression, bool RequiresLinq, string EquivalenceKey) CreateConstructorFix(
+            string propertyName, string simplifiedDestType)
         {
-            var targetType = string.IsNullOrWhiteSpace(simplifiedDestType) ? "System.Collections.Generic.List<object>" : simplifiedDestType;
-            return ($"Convert {propertyName} using collection constructor", $"new {targetType}(src.{propertyName})", false, $"Constructor_{propertyName}");
+            string targetType = string.IsNullOrWhiteSpace(simplifiedDestType)
+                ? "System.Collections.Generic.List<object>"
+                : simplifiedDestType;
+            return ($"Convert {propertyName} using collection constructor", $"new {targetType}(src.{propertyName})",
+                false, $"Constructor_{propertyName}");
         }
     }
 
     private static string GetElementConversion(string sourceElementType, string destElementType)
     {
-        var source = TypeConversionHelper.NormalizeTypeName(sourceElementType);
-        var destination = TypeConversionHelper.NormalizeTypeName(destElementType);
+        string source = TypeConversionHelper.NormalizeTypeName(sourceElementType);
+        string destination = TypeConversionHelper.NormalizeTypeName(destElementType);
 
         if (string.Equals(source, destination, StringComparison.Ordinal))
         {
@@ -277,10 +289,14 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
     }
 
     private static bool Contains(string typeName, string value)
-        => typeName?.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
+    {
+        return typeName?.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
 
     private static bool IsArrayType(string typeName)
-        => typeName?.EndsWith("[]", StringComparison.Ordinal) == true;
+    {
+        return typeName?.EndsWith("[]", StringComparison.Ordinal) == true;
+    }
 
     private static string SimplifyCollectionType(string typeName)
     {
@@ -307,12 +323,13 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
 
     private static CompilationUnitSyntax AddUsingIfMissing(CompilationUnitSyntax root, string namespaceName)
     {
-        if (root.Usings.Any(u => u.Name != null && string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
+        if (root.Usings.Any(u =>
+                u.Name != null && string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
         {
             return root;
         }
 
-        var usingDirective = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(namespaceName))
+        UsingDirectiveSyntax usingDirective = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(namespaceName))
             .WithTrailingTrivia(SyntaxFactory.ElasticLineFeed);
 
         return root.AddUsings(usingDirective);

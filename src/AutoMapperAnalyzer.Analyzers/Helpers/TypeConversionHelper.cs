@@ -1,20 +1,20 @@
 namespace AutoMapperAnalyzer.Analyzers.Helpers;
 
 /// <summary>
-/// Helper class for type conversion and default value generation in CodeFix providers.
-/// Centralizes logic for determining default and sample values for common types.
+///     Helper class for type conversion and default value generation in CodeFix providers.
+///     Centralizes logic for determining default and sample values for common types.
 /// </summary>
 public static class TypeConversionHelper
 {
     /// <summary>
-    /// Gets a default value expression for the specified type.
-    /// Returns expressions like "string.Empty", "0", "false", etc.
+    ///     Gets a default value expression for the specified type.
+    ///     Returns expressions like "string.Empty", "0", "false", etc.
     /// </summary>
     /// <param name="propertyType">The type name (e.g., "string", "int", "DateTime").</param>
     /// <returns>A C# expression representing the default value for the type.</returns>
     public static string GetDefaultValueForType(string propertyType)
     {
-        var normalized = NormalizeTypeName(propertyType);
+        string normalized = NormalizeTypeName(propertyType);
 
         return normalized switch
         {
@@ -45,14 +45,14 @@ public static class TypeConversionHelper
     }
 
     /// <summary>
-    /// Gets a sample/example value expression for the specified type.
-    /// Returns expressions like "1", "true", "DateTime.Now", etc.
+    ///     Gets a sample/example value expression for the specified type.
+    ///     Returns expressions like "1", "true", "DateTime.Now", etc.
     /// </summary>
     /// <param name="propertyType">The type name (e.g., "string", "int", "DateTime").</param>
     /// <returns>A C# expression representing a sample value for the type.</returns>
     public static string GetSampleValueForType(string propertyType)
     {
-        var normalized = NormalizeTypeName(propertyType);
+        string normalized = NormalizeTypeName(propertyType);
 
         return normalized switch
         {
@@ -74,22 +74,22 @@ public static class TypeConversionHelper
     }
 
     /// <summary>
-    /// Checks if the specified type is a string type.
+    ///     Checks if the specified type is a string type.
     /// </summary>
     /// <param name="propertyType">The type name to check.</param>
     /// <returns>True if the type is string; otherwise, false.</returns>
     public static bool IsStringType(string propertyType)
     {
-        var normalized = NormalizeTypeName(propertyType);
+        string normalized = NormalizeTypeName(propertyType);
         return normalized.Equals("string", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
-    /// Normalizes a type name to a simple invariant for comparison.
+    ///     Normalizes a type name to a simple invariant for comparison.
     /// </summary>
     public static string NormalizeTypeName(string propertyType)
     {
-        var value = propertyType?.Trim() ?? string.Empty;
+        string value = propertyType?.Trim() ?? string.Empty;
 
         if (value.EndsWith("?", StringComparison.Ordinal))
         {

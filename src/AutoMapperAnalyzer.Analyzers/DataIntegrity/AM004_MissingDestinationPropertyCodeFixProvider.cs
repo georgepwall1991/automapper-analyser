@@ -1,55 +1,59 @@
 using System.Collections.Immutable;
 using System.Composition;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.DataIntegrity;
 
 /// <summary>
-/// Code fix provider for AM004 diagnostic - Missing Destination Property.
-/// Provides fixes for source properties that don't have corresponding destination properties.
+///     Code fix provider for AM004 diagnostic - Missing Destination Property.
+///     Provides fixes for source properties that don't have corresponding destination properties.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM004_MissingDestinationPropertyCodeFixProvider)), Shared]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM004_MissingDestinationPropertyCodeFixProvider))]
+[Shared]
 public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
 {
     /// <summary>
-    /// Gets the diagnostic IDs that this code fix provider can fix.
+    ///     Gets the diagnostic IDs that this code fix provider can fix.
     /// </summary>
     public override ImmutableArray<string> FixableDiagnosticIds => ["AM004"];
 
     /// <summary>
-    /// Gets the fix all provider for batch fixes.
+    ///     Gets the fix all provider for batch fixes.
     /// </summary>
     /// <returns>The batch fixer provider.</returns>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider()
+    {
+        return WellKnownFixAllProviders.BatchFixer;
+    }
 
     /// <summary>
-    /// Registers code fixes for the specified context.
+    ///     Registers code fixes for the specified context.
     /// </summary>
     /// <param name="context">The code fix context.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
         if (root == null)
         {
             return;
         }
 
-        foreach (var diagnostic in context.Diagnostics)
+        foreach (Diagnostic? diagnostic in context.Diagnostics)
         {
-            if (!diagnostic.Properties.TryGetValue("PropertyName", out var propertyName) ||
-                !diagnostic.Properties.TryGetValue("PropertyType", out var propertyType) ||
+            if (!diagnostic.Properties.TryGetValue("PropertyName", out string? propertyName) ||
+                !diagnostic.Properties.TryGetValue("PropertyType", out string? propertyType) ||
                 string.IsNullOrEmpty(propertyName) || string.IsNullOrEmpty(propertyType))
             {
                 continue;
             }
 
-            var node = root.FindNode(diagnostic.Location.SourceSpan);
+            SyntaxNode node = root.FindNode(diagnostic.Location.SourceSpan);
             if (node is not InvocationExpressionSyntax invocation)
             {
                 continue;
@@ -57,32 +61,34 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
 
             // Fix 1: Ignore the source property using ForSourceMember with DoNotValidate
             var ignoreAction = CodeAction.Create(
-                title: $"Ignore source property '{propertyName}' (prevent data loss warning)",
-                createChangedDocument: cancellationToken =>
+                $"Ignore source property '{propertyName}' (prevent data loss warning)",
+                cancellationToken =>
                 {
-                    var newInvocation = CodeFixSyntaxHelper.CreateForSourceMemberWithDoNotValidate(invocation, propertyName!);
-                    var newRoot = root.ReplaceNode(invocation, newInvocation);
+                    InvocationExpressionSyntax newInvocation =
+                        CodeFixSyntaxHelper.CreateForSourceMemberWithDoNotValidate(invocation, propertyName!);
+                    SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
-                equivalenceKey: $"Ignore_{propertyName}");
+                $"Ignore_{propertyName}");
 
             context.RegisterCodeFix(ignoreAction, diagnostic);
 
             // Fix 2: Add custom mapping using ForMember (if destination property doesn't exist)
             var customMappingAction = CodeAction.Create(
-                title: $"Add custom mapping for '{propertyName}' (requires destination property)",
-                createChangedDocument: cancellationToken =>
+                $"Add custom mapping for '{propertyName}' (requires destination property)",
+                cancellationToken =>
                 {
-                    var commentTrivia = SyntaxFactory.Comment($"// TODO: Create destination property or map '{propertyName}' to an existing property");
-                    var newInvocation = invocation.WithLeadingTrivia(
+                    SyntaxTrivia commentTrivia = SyntaxFactory.Comment(
+                        $"// TODO: Create destination property or map '{propertyName}' to an existing property");
+                    InvocationExpressionSyntax newInvocation = invocation.WithLeadingTrivia(
                         invocation.GetLeadingTrivia()
                             .Add(commentTrivia)
                             .Add(SyntaxFactory.EndOfLine("\n")));
 
-                    var newRoot = root.ReplaceNode(invocation, newInvocation);
+                    SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
-                equivalenceKey: $"CustomMapping_{propertyName}");
+                $"CustomMapping_{propertyName}");
 
             context.RegisterCodeFix(customMappingAction, diagnostic);
 
@@ -90,18 +96,20 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
             if (!string.IsNullOrEmpty(propertyType) && TypeConversionHelper.IsStringType(propertyType!))
             {
                 var combineAction = CodeAction.Create(
-                    title: $"Map '{propertyName}' to existing property with custom logic",
-                    createChangedDocument: cancellationToken =>
+                    $"Map '{propertyName}' to existing property with custom logic",
+                    cancellationToken =>
                     {
                         // Create a placeholder mapping that concatenates properties
-                        var newInvocation = CodeFixSyntaxHelper.CreateForSourceMemberWithDoNotValidate(invocation, propertyName!)
+                        InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper
+                            .CreateForSourceMemberWithDoNotValidate(invocation, propertyName!)
                             .WithLeadingTrivia(
-                                SyntaxFactory.Comment($"// TODO: Map '{propertyName}' to destination property with custom logic"));
+                                SyntaxFactory.Comment(
+                                    $"// TODO: Map '{propertyName}' to destination property with custom logic"));
 
-                        var newRoot = root.ReplaceNode(invocation, newInvocation);
+                        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
                         return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                     },
-                    equivalenceKey: $"Combine_{propertyName}");
+                    $"Combine_{propertyName}");
 
                 context.RegisterCodeFix(combineAction, diagnostic);
             }

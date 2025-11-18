@@ -5,7 +5,6 @@ namespace AutoMapperAnalyzer.Samples.Configuration;
 /// <summary>
 ///     ⚠️ FUTURE IMPLEMENTATION - These analyzers (AM040-AM042) are NOT yet implemented.
 ///     These examples are included for future development reference and documentation.
-///
 ///     Examples of configuration issues that AutoMapper analyzer will detect (when implemented)
 /// </summary>
 public class ConfigurationExamples
@@ -23,13 +22,13 @@ public class ConfigurationExamples
             cfg.CreateMap<User, UserDto>();
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var user = new User { Id = 1, FirstName = "John", LastName = "Doe", Email = "john@example.com" };
 
         try
         {
-            UserDto? userDto = mapper.Map<UserDto>(user);
+            var userDto = mapper.Map<UserDto>(user);
             Console.WriteLine($"Mapped: {userDto.FullName}, Email: {userDto.Email}");
         }
         catch (Exception ex)
@@ -52,11 +51,11 @@ public class ConfigurationExamples
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Title)); // Conflict!
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var product = new Product { Id = 1, ProductName = "Widget", Title = "Amazing Widget", Price = 19.99m };
 
-        ProductDto? productDto = mapper.Map<ProductDto>(product);
+        var productDto = mapper.Map<ProductDto>(product);
         Console.WriteLine($"Mapped: Name={productDto.Name}, Price={productDto.Price}");
         Console.WriteLine("❌ Which Name mapping was used? Behavior is undefined!");
     }
@@ -75,11 +74,11 @@ public class ConfigurationExamples
                 .ForMember(dest => dest.CustomerName, opt => opt.MapFrom(src => src.Customer.Name)); // Conflict!
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var order = new Order { Id = 1, Amount = 100.00m, Customer = new Customer { Name = "John Doe" } };
 
-        OrderDto? orderDto = mapper.Map<OrderDto>(order);
+        var orderDto = mapper.Map<OrderDto>(order);
         Console.WriteLine($"Mapped: Order ID={orderDto.Id}, Customer={orderDto.CustomerName}");
         Console.WriteLine("❌ Is CustomerName ignored or mapped? Behavior is undefined!");
     }
@@ -161,9 +160,9 @@ public class CorrectConfigurationExamples
             cfg.AddProfile<UserMappingProfile>();
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
         var user = new User { Id = 1, FirstName = "John", LastName = "Doe", Email = "john@example.com" };
-        UserDto? userDto = mapper.Map<UserDto>(user);
+        var userDto = mapper.Map<UserDto>(user);
 
         Console.WriteLine($"✅ Correctly mapped: {userDto.FullName}, Email: {userDto.Email}");
     }
@@ -178,9 +177,9 @@ public class CorrectConfigurationExamples
                     string.IsNullOrEmpty(src.Title) ? src.ProductName : src.Title));
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
         var product = new Product { Id = 1, ProductName = "Widget", Title = "Amazing Widget", Price = 19.99m };
-        ProductDto? productDto = mapper.Map<ProductDto>(product);
+        var productDto = mapper.Map<ProductDto>(product);
 
         Console.WriteLine($"✅ Correctly mapped: Name={productDto.Name}, Price={productDto.Price}");
     }
@@ -195,9 +194,9 @@ public class CorrectConfigurationExamples
             // OR: .ForMember(dest => dest.CustomerName, opt => opt.Ignore());
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
         var order = new Order { Id = 1, Amount = 100.00m, Customer = new Customer { Name = "John Doe" } };
-        OrderDto? orderDto = mapper.Map<OrderDto>(order);
+        var orderDto = mapper.Map<OrderDto>(order);
 
         Console.WriteLine($"✅ Correctly mapped: Order ID={orderDto.Id}, Customer={orderDto.CustomerName}");
     }

@@ -1,10 +1,9 @@
 using System.Collections.Immutable;
-using System.Linq;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 
@@ -19,18 +18,18 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
     /// </summary>
     public static readonly DiagnosticDescriptor CollectionElementIncompatibilityRule = new(
         "AM021",
-        "Collection element type incompatibility in AutoMapper configuration", 
+        "Collection element type incompatibility in AutoMapper configuration",
         "Property '{0}' has incompatible collection element types: {1}.{0} ({2}) elements cannot be mapped to {3}.{0} ({4}) elements without explicit conversion",
         "AutoMapper.Collections",
         DiagnosticSeverity.Warning,
         true,
         "Collection properties have compatible collection types but incompatible element types that may require custom mapping.");
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(CollectionElementIncompatibilityRule);
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -41,16 +40,22 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
     {
         if (context.Node is not InvocationExpressionSyntax invocationExpr)
+        {
             return;
+        }
 
         // Check if this is a CreateMap<TSource, TDestination>() call
         if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
+        {
             return;
+        }
 
         (ITypeSymbol? sourceType, ITypeSymbol? destinationType) typeArguments =
             AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
         if (typeArguments.sourceType == null || typeArguments.destinationType == null)
+        {
             return;
+        }
 
         // Analyze collection element compatibility for property mappings
         AnalyzeCollectionElementCompatibility(context, invocationExpr, typeArguments.sourceType,
@@ -60,8 +65,10 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeCollectionElementCompatibility(SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation, ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
+        IEnumerable<IPropertySymbol> sourceProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        IEnumerable<IPropertySymbol> destinationProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
 
         foreach (IPropertySymbol sourceProperty in sourceProperties)
         {
@@ -69,14 +76,20 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
                 .FirstOrDefault(p => p.Name == sourceProperty.Name);
 
             if (destinationProperty == null)
+            {
                 continue;
+            }
 
             // Check for explicit property mapping that might handle collection conversion
-            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProperty.Name, context.SemanticModel))
+            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProperty.Name,
+                    context.SemanticModel))
+            {
                 continue;
+            }
 
             // Check if both properties are collections and analyze element types
-            if (AutoMapperAnalysisHelpers.IsCollectionType(sourceProperty.Type) && AutoMapperAnalysisHelpers.IsCollectionType(destinationProperty.Type))
+            if (AutoMapperAnalysisHelpers.IsCollectionType(sourceProperty.Type) &&
+                AutoMapperAnalysisHelpers.IsCollectionType(destinationProperty.Type))
             {
                 AnalyzeCollectionElementTypes(context, invocation, sourceProperty, destinationProperty,
                     sourceType, destinationType);
@@ -96,7 +109,9 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
         ITypeSymbol? destElementType = AutoMapperAnalysisHelpers.GetCollectionElementType(destinationProperty.Type);
 
         if (sourceElementType == null || destElementType == null)
+        {
             return;
+        }
 
         // Check if element types are compatible
         if (!AutoMapperAnalysisHelpers.AreTypesCompatible(sourceElementType, destElementType))
@@ -109,7 +124,8 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
                 return;
             }
 
-            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            ImmutableDictionary<string, string?>.Builder properties =
+                ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add("PropertyName", sourceProperty.Name);
             properties.Add("SourceElementType", sourceElementType.ToDisplayString());
             properties.Add("DestElementType", destElementType.ToDisplayString());
@@ -129,7 +145,7 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    /// Gets the type name from an ITypeSymbol.
+    ///     Gets the type name from an ITypeSymbol.
     /// </summary>
     /// <param name="type">The type symbol.</param>
     /// <returns>The type name.</returns>

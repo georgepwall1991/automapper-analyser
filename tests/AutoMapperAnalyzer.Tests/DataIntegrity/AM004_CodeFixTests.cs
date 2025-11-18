@@ -7,9 +7,10 @@ namespace AutoMapperAnalyzer.Tests.DataIntegrity;
 
 public class AM004_CodeFixTests
 {
-    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column,
+        params object[] messageArgs)
     {
-        var result = new DiagnosticResult(descriptor).WithLocation(line, column);
+        DiagnosticResult result = new DiagnosticResult(descriptor).WithLocation(line, column);
         if (messageArgs.Length > 0)
         {
             result = result.WithArguments(messageArgs);
@@ -18,9 +19,13 @@ public class AM004_CodeFixTests
         return result;
     }
 
-    private static Task VerifyFixAsync(string source, DiagnosticDescriptor descriptor, int line, int column, string fixedCode, params object[] messageArgs)
-        => CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+    private static Task VerifyFixAsync(string source, DiagnosticDescriptor descriptor, int line, int column,
+        string fixedCode, params object[] messageArgs)
+    {
+        return CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer,
+                AM004_MissingDestinationPropertyCodeFixProvider>
             .VerifyFixAsync(source, Diagnostic(descriptor, line, column, messageArgs), fixedCode);
+    }
 
     [Fact]
     public async Task AM004_ShouldAddIgnoreForSourceProperty()
@@ -277,22 +282,23 @@ public class AM004_CodeFixTests
                                          }
                                          """;
 
-        var extra1Diagnostic = Diagnostic(
+        DiagnosticResult extra1Diagnostic = Diagnostic(
             AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
             21,
             13,
             "Extra1");
 
-        var extra2Diagnostic = Diagnostic(
+        DiagnosticResult extra2Diagnostic = Diagnostic(
             AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
             21,
             13,
             "Extra2");
 
-        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>.VerifyFixAsync(
-            testCode,
-            new[] { extra1Diagnostic, extra2Diagnostic },
-            expectedFixedCode);
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[] { extra1Diagnostic, extra2Diagnostic },
+                expectedFixedCode);
     }
 
     [Fact]

@@ -1,6 +1,5 @@
 using AutoMapperAnalyzer.Analyzers.ComplexMappings;
 using AutoMapperAnalyzer.Tests.Infrastructure;
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests.ComplexMappings;
@@ -197,5 +196,5 @@ public class AM030_CodeFixTests
                     .WithLocation(20, 13)
                     .WithArguments("UpdatedDate", "ITypeConverter<String, DateTime>"),
                 expectedFixedCode);
-}
+    }
 }

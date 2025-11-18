@@ -145,5 +145,4 @@ public class AM022_CodeFixTests
                     .WithArguments("SourcePerson", "DestPerson"),
                 expectedFixedCode);
     }
-
 }

@@ -19,13 +19,13 @@ public class TypeSafetyExamples
             cfg.CreateMap<PersonWithStringAge, PersonWithIntAge>();
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var source = new PersonWithStringAge { Name = "John", Age = "25" };
 
         try
         {
-            PersonWithIntAge? destination = mapper.Map<PersonWithIntAge>(source);
+            var destination = mapper.Map<PersonWithIntAge>(source);
             Console.WriteLine($"Mapped: {destination.Name}, Age: {destination.Age}");
         }
         catch (Exception ex)
@@ -40,18 +40,16 @@ public class TypeSafetyExamples
     /// </summary>
     public void NullableToNonNullableExample()
     {
-        var config = new MapperConfiguration(cfg =>
-        {
-            cfg.CreateMap<PersonWithNullableName, PersonWithRequiredName>();
-        });
+        var config =
+            new MapperConfiguration(cfg => { cfg.CreateMap<PersonWithNullableName, PersonWithRequiredName>(); });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var source = new PersonWithNullableName { Id = 1, Name = null }; // Name is null!
 
         try
         {
-            PersonWithRequiredName? destination = mapper.Map<PersonWithRequiredName>(source);
+            var destination = mapper.Map<PersonWithRequiredName>(source);
             Console.WriteLine($"Mapped: ID={destination.Id}, Name='{destination.Name}'");
         }
         catch (Exception ex)
@@ -72,17 +70,17 @@ public class TypeSafetyExamples
             cfg.CreateMap<ArticleWithStringTags, ArticleWithIntTags>();
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var source = new ArticleWithStringTags
         {
             Title = "Sample Article",
-            Tags = new List<string> { "tech", "programming", "csharp" },
+            Tags = new List<string> { "tech", "programming", "csharp" }
         };
 
         try
         {
-            ArticleWithIntTags? destination = mapper.Map<ArticleWithIntTags>(source);
+            var destination = mapper.Map<ArticleWithIntTags>(source);
             Console.WriteLine(
                 $"Mapped: {destination.Title}, Tags: [{string.Join(", ", destination.Tags)}]"
             );
@@ -152,9 +150,9 @@ public class CorrectTypeSafetyExamples
                 );
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
         var source = new PersonWithStringAge { Name = "John", Age = "25" };
-        PersonWithIntAge? destination = mapper.Map<PersonWithIntAge>(source);
+        var destination = mapper.Map<PersonWithIntAge>(source);
 
         Console.WriteLine($"✅ Correctly mapped: {destination.Name}, Age: {destination.Age}");
     }
@@ -168,9 +166,9 @@ public class CorrectTypeSafetyExamples
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? "Unknown"));
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
         var source = new PersonWithNullableName { Id = 1, Name = null };
-        PersonWithRequiredName? destination = mapper.Map<PersonWithRequiredName>(source);
+        var destination = mapper.Map<PersonWithRequiredName>(source);
 
         Console.WriteLine($"✅ Correctly mapped: ID={destination.Id}, Name='{destination.Name}'");
     }

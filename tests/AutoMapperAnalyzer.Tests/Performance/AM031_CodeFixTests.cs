@@ -1,6 +1,5 @@
 using AutoMapperAnalyzer.Analyzers.Performance;
 using AutoMapperAnalyzer.Tests.Infrastructure;
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests.Performance;

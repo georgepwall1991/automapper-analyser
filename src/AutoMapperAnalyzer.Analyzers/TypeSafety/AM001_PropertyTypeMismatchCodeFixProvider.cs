@@ -1,81 +1,96 @@
 using System.Collections.Immutable;
 using System.Composition;
-using System.Linq;
+using System.Text.RegularExpressions;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using AutoMapperAnalyzer.Analyzers.Helpers;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 
 /// <summary>
-/// Code fix provider for AM001 Property Type Mismatch diagnostics.
+///     Code fix provider for AM001 Property Type Mismatch diagnostics.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM001_PropertyTypeMismatchCodeFixProvider)), Shared]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM001_PropertyTypeMismatchCodeFixProvider))]
+[Shared]
 public class AM001_PropertyTypeMismatchCodeFixProvider : CodeFixProvider
 {
     /// <summary>
-    /// Gets the diagnostic IDs that this provider can fix.
+    ///     Gets the diagnostic IDs that this provider can fix.
     /// </summary>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM001");
 
     /// <summary>
-    /// Gets whether this provider can fix multiple diagnostics in a single code action.
+    ///     Gets whether this provider can fix multiple diagnostics in a single code action.
     /// </summary>
-    public sealed override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public sealed override FixAllProvider GetFixAllProvider()
+    {
+        return WellKnownFixAllProviders.BatchFixer;
+    }
 
     /// <summary>
-    /// Registers code fixes for the diagnostics.
+    ///     Registers code fixes for the diagnostics.
     /// </summary>
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null) return;
+        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root == null)
+        {
+            return;
+        }
 
-        var diagnostic = context.Diagnostics.First();
-        var diagnosticSpan = diagnostic.Location.SourceSpan;
+        Diagnostic diagnostic = context.Diagnostics.First();
+        TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
 
         // Find the CreateMap invocation that triggered the diagnostic
-        var invocation = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
+        InvocationExpressionSyntax? invocation = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
             .OfType<InvocationExpressionSyntax>()
             .FirstOrDefault(i => i.Span.Contains(diagnosticSpan));
 
-        if (invocation == null) return;
+        if (invocation == null)
+        {
+            return;
+        }
 
         // Extract property name from diagnostic message
-        var propertyName = ExtractPropertyNameFromDiagnostic(diagnostic);
-        if (string.IsNullOrEmpty(propertyName)) return;
+        string? propertyName = ExtractPropertyNameFromDiagnostic(diagnostic);
+        if (string.IsNullOrEmpty(propertyName))
+        {
+            return;
+        }
 
         if (diagnostic.Descriptor != AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule)
         {
             return;
         }
 
-        var semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+        SemanticModel? semanticModel =
+            await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
         if (semanticModel == null)
         {
             return;
         }
 
-        var semanticInfo = semanticModel.GetSymbolInfo(invocation, context.CancellationToken);
+        SymbolInfo semanticInfo = semanticModel.GetSymbolInfo(invocation, context.CancellationToken);
         if (semanticInfo.Symbol is not IMethodSymbol methodSymbol || methodSymbol.TypeArguments.Length != 2)
         {
             return;
         }
 
-        var sourceType = methodSymbol.TypeArguments[0];
-        var destinationType = methodSymbol.TypeArguments[1];
+        ITypeSymbol sourceType = methodSymbol.TypeArguments[0];
+        ITypeSymbol destinationType = methodSymbol.TypeArguments[1];
 
-        var sourceProperty = FindProperty(sourceType, propertyName!, expectSetter: false);
-        var destinationProperty = FindProperty(destinationType, propertyName!, expectSetter: true);
+        IPropertySymbol? sourceProperty = FindProperty(sourceType, propertyName!, false);
+        IPropertySymbol? destinationProperty = FindProperty(destinationType, propertyName!, true);
         if (sourceProperty == null || destinationProperty == null)
         {
             return;
         }
 
-        var sourcePropertyType = sourceProperty.Type;
-        var destinationPropertyType = destinationProperty.Type;
+        ITypeSymbol sourcePropertyType = sourceProperty.Type;
+        ITypeSymbol destinationPropertyType = destinationProperty.Type;
 
         if (SymbolEqualityComparer.Default.Equals(sourcePropertyType, destinationPropertyType))
         {
@@ -83,36 +98,38 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : CodeFixProvider
         }
 
         // Prepare map-from expression that either converts or casts.
-        var conversionExpression = CreateConversionExpression(sourcePropertyType, destinationPropertyType, propertyName!);
+        string? conversionExpression =
+            CreateConversionExpression(sourcePropertyType, destinationPropertyType, propertyName!);
         if (conversionExpression != null)
         {
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    title: $"Map '{propertyName}' with conversion",
-                    createChangedDocument: cancellationToken =>
+                    $"Map '{propertyName}' with conversion",
+                    cancellationToken =>
                     {
-                        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                        InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
                             invocation,
                             propertyName!,
                             conversionExpression);
-                        var newRoot = root.ReplaceNode(invocation, newInvocation);
+                        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
                         return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                     },
-                    equivalenceKey: $"AM001_MapWithConversion_{propertyName}"),
+                    $"AM001_MapWithConversion_{propertyName}"),
                 diagnostic);
         }
 
         // Always provide ignore option as a safe fallback.
         context.RegisterCodeFix(
             CodeAction.Create(
-                title: $"Ignore property '{propertyName}'",
-                createChangedDocument: cancellationToken =>
+                $"Ignore property '{propertyName}'",
+                cancellationToken =>
                 {
-                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName!);
-                    var newRoot = root.ReplaceNode(invocation, newInvocation);
+                    InvocationExpressionSyntax newInvocation =
+                        CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName!);
+                    SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
-                equivalenceKey: $"AM001_Ignore_{propertyName}"),
+                $"AM001_Ignore_{propertyName}"),
             diagnostic);
     }
 
@@ -128,19 +145,20 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : CodeFixProvider
             .FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static string? CreateConversionExpression(ITypeSymbol sourceType, ITypeSymbol destinationType, string propertyName)
+    private static string? CreateConversionExpression(ITypeSymbol sourceType, ITypeSymbol destinationType,
+        string propertyName)
     {
         if (SymbolEqualityComparer.Default.Equals(sourceType, destinationType))
         {
             return null;
         }
 
-        var destinationTypeName = destinationType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        string destinationTypeName = destinationType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
         // Nullable source to non-nullable destination -> coalesce to default literal
         if (sourceType.NullableAnnotation == NullableAnnotation.Annotated)
         {
-            var fallback = TypeConversionHelper.GetDefaultValueForType(destinationTypeName);
+            string fallback = TypeConversionHelper.GetDefaultValueForType(destinationTypeName);
             return $"src.{propertyName} ?? {fallback}";
         }
 
@@ -153,7 +171,8 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : CodeFixProvider
         // String -> primitive: use parse pattern inside MapFrom
         if (IsString(sourceType) && IsNumericConversion(destinationType.SpecialType))
         {
-            return $"src.{propertyName} is not null ? {destinationTypeName}.Parse(src.{propertyName}) : {TypeConversionHelper.GetDefaultValueForType(destinationTypeName)}";
+            return
+                $"src.{propertyName} is not null ? {destinationTypeName}.Parse(src.{propertyName}) : {TypeConversionHelper.GetDefaultValueForType(destinationTypeName)}";
         }
 
         // Primitive -> string: use ToString with invariant culture for numeric types
@@ -189,22 +208,22 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : CodeFixProvider
     private string? ExtractPropertyNameFromDiagnostic(Diagnostic diagnostic)
     {
         // Try to get property name from diagnostic properties
-        if (diagnostic.Properties.TryGetValue("PropertyName", out var propertyName))
+        if (diagnostic.Properties.TryGetValue("PropertyName", out string? propertyName))
         {
             return propertyName;
         }
 
         // Fallback: extract from diagnostic message
-        var message = diagnostic.GetMessage();
-        var match = System.Text.RegularExpressions.Regex.Match(message, @"Property '(\w+)'");
+        string message = diagnostic.GetMessage();
+        Match match = Regex.Match(message, @"Property '(\w+)'");
         return match.Success ? match.Groups[1].Value : null;
     }
 
     private (string? sourceType, string? destType) ExtractTypesFromDiagnostic(Diagnostic diagnostic)
     {
         // Try to get from diagnostic properties first
-        var sourceType = diagnostic.Properties.TryGetValue("SourceType", out var st) ? st : null;
-        var destType = diagnostic.Properties.TryGetValue("DestType", out var dt) ? dt : null;
+        string? sourceType = diagnostic.Properties.TryGetValue("SourceType", out string? st) ? st : null;
+        string? destType = diagnostic.Properties.TryGetValue("DestType", out string? dt) ? dt : null;
 
         if (!string.IsNullOrEmpty(sourceType) && !string.IsNullOrEmpty(destType))
         {
@@ -212,8 +231,8 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : CodeFixProvider
         }
 
         // Fallback: extract from diagnostic message
-        var message = diagnostic.GetMessage();
-        var match = System.Text.RegularExpressions.Regex.Match(message, @"from '(\w+)' to '(\w+)'");
+        string message = diagnostic.GetMessage();
+        Match match = Regex.Match(message, @"from '(\w+)' to '(\w+)'");
         if (match.Success && match.Groups.Count >= 3)
         {
             return (match.Groups[1].Value, match.Groups[2].Value);

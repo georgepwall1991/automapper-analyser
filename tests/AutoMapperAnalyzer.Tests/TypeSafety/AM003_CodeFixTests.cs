@@ -7,9 +7,10 @@ namespace AutoMapperAnalyzer.Tests.TypeSafety;
 
 public class AM003_CodeFixTests
 {
-    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column,
+        params object[] messageArgs)
     {
-        var result = new DiagnosticResult(descriptor).WithLocation(line, column);
+        DiagnosticResult result = new DiagnosticResult(descriptor).WithLocation(line, column);
         if (messageArgs.Length > 0)
         {
             result = result.WithArguments(messageArgs);
@@ -18,9 +19,13 @@ public class AM003_CodeFixTests
         return result;
     }
 
-    private static Task VerifyFixAsync(string source, DiagnosticDescriptor descriptor, int line, int column, string fixedCode, params object[] messageArgs)
-        => CodeFixVerifier<AM003_CollectionTypeIncompatibilityAnalyzer, AM003_CollectionTypeIncompatibilityCodeFixProvider>
+    private static Task VerifyFixAsync(string source, DiagnosticDescriptor descriptor, int line, int column,
+        string fixedCode, params object[] messageArgs)
+    {
+        return CodeFixVerifier<AM003_CollectionTypeIncompatibilityAnalyzer,
+                AM003_CollectionTypeIncompatibilityCodeFixProvider>
             .VerifyFixAsync(source, Diagnostic(descriptor, line, column, messageArgs), fixedCode);
+    }
 
     [Fact]
     public async Task AM003_ShouldFixHashSetToListWithToList()

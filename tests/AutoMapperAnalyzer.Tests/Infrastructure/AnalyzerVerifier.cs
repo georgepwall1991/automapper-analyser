@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Testing;
@@ -14,13 +13,12 @@ internal static class AnalyzerVerifier<TAnalyzer>
     {
         var test = new CSharpAnalyzerTest<TAnalyzer, DefaultVerifier>
         {
-            TestCode = source,
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80
+            TestCode = source, ReferenceAssemblies = ReferenceAssemblies.Net.Net80
         };
 
         AddAutoMapperReferences(test.TestState);
 
-        foreach (var diagnostic in expected)
+        foreach (DiagnosticResult diagnostic in expected)
         {
             test.ExpectedDiagnostics.Add(diagnostic);
         }
@@ -28,7 +26,8 @@ internal static class AnalyzerVerifier<TAnalyzer>
         await test.RunAsync();
     }
 
-    public static async Task VerifyAnalyzerAsync((string filename, string source)[] sources, params DiagnosticResult[] expected)
+    public static async Task VerifyAnalyzerAsync((string filename, string source)[] sources,
+        params DiagnosticResult[] expected)
     {
         var test = new CSharpAnalyzerTest<TAnalyzer, DefaultVerifier>
         {
@@ -46,7 +45,7 @@ internal static class AnalyzerVerifier<TAnalyzer>
             }
         }
 
-        foreach (var diagnostic in expected)
+        foreach (DiagnosticResult diagnostic in expected)
         {
             test.ExpectedDiagnostics.Add(diagnostic);
         }

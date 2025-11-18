@@ -153,7 +153,8 @@ public class AM021_CodeFixTests
                 testCode,
                 new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
                     .WithLocation(30, 13)
-                    .WithArguments("People", "Source", "TestNamespace.SourcePerson", "Destination", "TestNamespace.DestPerson"),
+                    .WithArguments("People", "Source", "TestNamespace.SourcePerson", "Destination",
+                        "TestNamespace.DestPerson"),
                 expectedFixedCode);
     }
 

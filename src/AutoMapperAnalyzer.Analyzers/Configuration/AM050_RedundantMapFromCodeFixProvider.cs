@@ -1,74 +1,81 @@
 using System.Collections.Immutable;
 using System.Composition;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Analyzers.Configuration;
 
 /// <summary>
-/// Code fix provider for removing redundant MapFrom configurations.
+///     Code fix provider for removing redundant MapFrom configurations.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM050_RedundantMapFromCodeFixProvider)), Shared]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM050_RedundantMapFromCodeFixProvider))]
+[Shared]
 public class AM050_RedundantMapFromCodeFixProvider : CodeFixProvider
 {
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM050");
 
-    /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    /// <inheritdoc />
+    public override FixAllProvider GetFixAllProvider()
+    {
+        return WellKnownFixAllProviders.BatchFixer;
+    }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        foreach (var diagnostic in context.Diagnostics)
+        foreach (Diagnostic? diagnostic in context.Diagnostics)
         {
-            var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-            var diagnosticSpan = diagnostic.Location.SourceSpan;
-            var node = root?.FindNode(diagnosticSpan);
+            SyntaxNode? root =
+                await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+            TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
+            SyntaxNode? node = root?.FindNode(diagnosticSpan);
 
             // The analyzer reports on the 'MapFrom' invocation, which is inside ForMember
             // We need to find the outer ForMember invocation
-            var forMemberInvocation = node?.AncestorsAndSelf()
+            InvocationExpressionSyntax? forMemberInvocation = node?.AncestorsAndSelf()
                 .OfType<InvocationExpressionSyntax>()
-                .FirstOrDefault(inv => 
-                    inv.Expression is MemberAccessExpressionSyntax ma && 
+                .FirstOrDefault(inv =>
+                    inv.Expression is MemberAccessExpressionSyntax ma &&
                     ma.Name.Identifier.Text == "ForMember");
-            
+
             if (forMemberInvocation != null)
             {
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        title: "Remove redundant mapping",
-                        createChangedDocument: c => RemoveRedundantMapping(context.Document, forMemberInvocation, c),
-                        equivalenceKey: "RemoveRedundantMapping"),
+                        "Remove redundant mapping",
+                        c => RemoveRedundantMapping(context.Document, forMemberInvocation, c),
+                        "RemoveRedundantMapping"),
                     diagnostic);
             }
         }
     }
 
-    private async Task<Document> RemoveRedundantMapping(Document document, InvocationExpressionSyntax invocation, CancellationToken cancellationToken)
+    private async Task<Document> RemoveRedundantMapping(Document document, InvocationExpressionSyntax invocation,
+        CancellationToken cancellationToken)
     {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null) return document;
+        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root == null)
+        {
+            return document;
+        }
 
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
         {
             // Replace the whole ForMember(...) invocation with the expression it was called on
             // e.g. CreateMap<A,B>().ForMember(...) -> CreateMap<A,B>()
-            
+
             // We assume the chain structure invocation -> memberAccess -> expression
             // Replacing invocation with expression effectively removes ".ForMember(...)"
-            
-            var newRoot = root.ReplaceNode(invocation, memberAccess.Expression.WithTrailingTrivia(invocation.GetTrailingTrivia()));
+
+            SyntaxNode newRoot = root.ReplaceNode(invocation,
+                memberAccess.Expression.WithTrailingTrivia(invocation.GetTrailingTrivia()));
             return document.WithSyntaxRoot(newRoot);
         }
 
         return document;
     }
 }
-

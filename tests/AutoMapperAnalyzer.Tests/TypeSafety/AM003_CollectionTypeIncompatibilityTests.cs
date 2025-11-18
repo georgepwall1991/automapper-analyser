@@ -7,8 +7,12 @@ namespace AutoMapperAnalyzer.Tests.TypeSafety;
 
 public class AM003_CollectionTypeIncompatibilityTests
 {
-    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
-        => new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column,
+        params object[] messageArgs)
+    {
+        return new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
+    }
+
     [Fact]
     public async Task AM003_ShouldReportDiagnostic_WhenHashSetToList()
     {
@@ -42,7 +46,8 @@ public class AM003_CollectionTypeIncompatibilityTests
         await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(
             testCode,
             Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 21, 13,
-                "Tags", "Source", "System.Collections.Generic.HashSet<string>", "Destination", "System.Collections.Generic.List<string>"));
+                "Tags", "Source", "System.Collections.Generic.HashSet<string>", "Destination",
+                "System.Collections.Generic.List<string>"));
     }
 
     [Fact]
@@ -184,7 +189,8 @@ public class AM003_CollectionTypeIncompatibilityTests
         await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(
             testCode,
             Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 21, 13,
-                "Messages", "Source", "System.Collections.Generic.Queue<string>", "Destination", "System.Collections.Generic.List<string>"));
+                "Messages", "Source", "System.Collections.Generic.Queue<string>", "Destination",
+                "System.Collections.Generic.List<string>"));
     }
 
     [Fact]
@@ -356,8 +362,10 @@ public class AM003_CollectionTypeIncompatibilityTests
         await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(
             testCode,
             Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 23, 13,
-                "Tags", "Source", "System.Collections.Generic.HashSet<string>", "Destination", "System.Collections.Generic.List<string>"),
+                "Tags", "Source", "System.Collections.Generic.HashSet<string>", "Destination",
+                "System.Collections.Generic.List<string>"),
             Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 23, 13,
-                "Numbers", "Source", "System.Collections.Generic.Queue<int>", "Destination", "System.Collections.Generic.List<int>"));
+                "Numbers", "Source", "System.Collections.Generic.Queue<int>", "Destination",
+                "System.Collections.Generic.List<int>"));
     }
 }

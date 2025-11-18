@@ -7,8 +7,12 @@ namespace AutoMapperAnalyzer.Tests.DataIntegrity;
 
 public class AM005_CaseSensitivityMismatchTests
 {
-    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
-        => new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column,
+        params object[] messageArgs)
+    {
+        return new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
+    }
+
     [Fact]
     public async Task AM005_ShouldReportDiagnostic_WhenPropertiesDifferInCasingOnly()
     {
@@ -43,9 +47,12 @@ public class AM005_CaseSensitivityMismatchTests
 
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "firstName", "FirstName"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "lastName", "LastName"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "userName", "UserName"));
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "firstName",
+                "FirstName"),
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "lastName",
+                "LastName"),
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "userName",
+                "UserName"));
     }
 
     [Fact]
@@ -152,7 +159,8 @@ public class AM005_CaseSensitivityMismatchTests
         // Only lastName should trigger diagnostic since firstName is explicitly mapped
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "lastName", "LastName"));
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "lastName",
+                "LastName"));
     }
 
     [Fact]
@@ -193,8 +201,10 @@ public class AM005_CaseSensitivityMismatchTests
             testCode,
             Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "userID", "UserID"),
             Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "eMail", "Email"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "phoneNumber", "PhoneNumber"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "HTTPStatus", "HttpStatus"));
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "phoneNumber",
+                "PhoneNumber"),
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "HTTPStatus",
+                "HttpStatus"));
     }
 
     [Fact]
@@ -237,8 +247,10 @@ public class AM005_CaseSensitivityMismatchTests
 
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 29, 13, "baseName", "BaseName"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 29, 13, "firstName", "FirstName"));
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 29, 13, "baseName",
+                "BaseName"),
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 29, 13, "firstName",
+                "FirstName"));
     }
 
     [Fact]
@@ -274,7 +286,8 @@ public class AM005_CaseSensitivityMismatchTests
         // Only instance properties should be analyzed, static properties should be ignored
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName", "FirstName"));
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName",
+                "FirstName"));
     }
 
     [Fact]
@@ -310,7 +323,8 @@ public class AM005_CaseSensitivityMismatchTests
         // Only read-write properties should be analyzed
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName", "FirstName"));
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName",
+                "FirstName"));
     }
 
     [Fact]
@@ -349,10 +363,12 @@ public class AM005_CaseSensitivityMismatchTests
 
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "XMLHttpRequest", "XmlHttpRequest"),
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "XMLHttpRequest",
+                "XmlHttpRequest"),
             Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "URLPath", "UrlPath"),
             Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "iDCard", "IdCard"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "aCRONYM", "Acronym"));
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "aCRONYM",
+                "Acronym"));
     }
 
     [Fact]
@@ -389,6 +405,7 @@ public class AM005_CaseSensitivityMismatchTests
         // ageValue should NOT trigger AM005 because it has type mismatch (would be handled by AM001)
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName", "FirstName"));
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName",
+                "FirstName"));
     }
 }

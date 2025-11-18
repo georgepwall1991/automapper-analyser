@@ -1,48 +1,53 @@
-using System;
 using System.Collections.Immutable;
 using System.Composition;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using AutoMapperAnalyzer.Analyzers.Helpers;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 
 /// <summary>
-/// Code fix provider for AM021 Collection Element Mismatch diagnostics.
-/// Provides fixes for incompatible collection element types.
+///     Code fix provider for AM021 Collection Element Mismatch diagnostics.
+///     Provides fixes for incompatible collection element types.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM021_CollectionElementMismatchCodeFixProvider)), Shared]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM021_CollectionElementMismatchCodeFixProvider))]
+[Shared]
 public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
 {
     /// <summary>
-    /// Gets the diagnostic IDs that this provider can fix.
+    ///     Gets the diagnostic IDs that this provider can fix.
     /// </summary>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM021");
 
     /// <summary>
-    /// Gets whether this provider can fix multiple diagnostics in a single code action.
+    ///     Gets whether this provider can fix multiple diagnostics in a single code action.
     /// </summary>
-    public sealed override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public sealed override FixAllProvider GetFixAllProvider()
+    {
+        return WellKnownFixAllProviders.BatchFixer;
+    }
 
     /// <summary>
-    /// Registers code fixes for the diagnostics.
+    ///     Registers code fixes for the diagnostics.
     /// </summary>
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null) return;
-
-        foreach (var diagnostic in context.Diagnostics)
+        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root == null)
         {
-            var diagnosticSpan = diagnostic.Location.SourceSpan;
+            return;
+        }
 
-            var invocation = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
+        foreach (Diagnostic? diagnostic in context.Diagnostics)
+        {
+            TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
+
+            InvocationExpressionSyntax? invocation = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
                 .OfType<InvocationExpressionSyntax>()
                 .FirstOrDefault(i => i.Span.Contains(diagnosticSpan));
 
@@ -52,7 +57,8 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
             }
 
             // Extract diagnostic properties
-            if (!diagnostic.Properties.TryGetValue("PropertyName", out var propertyName) || string.IsNullOrEmpty(propertyName))
+            if (!diagnostic.Properties.TryGetValue("PropertyName", out string? propertyName) ||
+                string.IsNullOrEmpty(propertyName))
             {
                 // Fall back to parsing from diagnostic message
                 propertyName = ExtractPropertyNameFromDiagnostic(diagnostic);
@@ -62,10 +68,11 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
                 }
             }
 
-            var sourceElementType = diagnostic.Properties.TryGetValue("SourceElementType", out var sourceElemType)
-                ? sourceElemType
-                : ExtractSourceElementTypeFromDiagnostic(diagnostic);
-            var destElementType = diagnostic.Properties.TryGetValue("DestElementType", out var destElemType)
+            string? sourceElementType =
+                diagnostic.Properties.TryGetValue("SourceElementType", out string? sourceElemType)
+                    ? sourceElemType
+                    : ExtractSourceElementTypeFromDiagnostic(diagnostic);
+            string? destElementType = diagnostic.Properties.TryGetValue("DestElementType", out string? destElemType)
                 ? destElemType
                 : ExtractDestElementTypeFromDiagnostic(diagnostic);
 
@@ -74,7 +81,8 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+            SemanticModel? semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken)
+                .ConfigureAwait(false);
             if (semanticModel == null)
             {
                 continue;
@@ -86,21 +94,23 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
             if (isSimpleConversion)
             {
                 // Offer simple conversion with Parse/Convert
-                RegisterSimpleConversionFix(context, invocation, propertyName!, sourceElementType!, destElementType!, diagnostic, semanticModel);
+                RegisterSimpleConversionFix(context, invocation, propertyName!, sourceElementType!, destElementType!,
+                    diagnostic, semanticModel);
             }
             else
             {
                 // Offer complex mapping with mapper.Map<T>
-                RegisterComplexMappingFix(context, invocation, propertyName!, sourceElementType!, destElementType!, diagnostic, semanticModel);
+                RegisterComplexMappingFix(context, invocation, propertyName!, sourceElementType!, destElementType!,
+                    diagnostic, semanticModel);
             }
 
             // Always offer ignore option
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    title: $"Ignore property '{propertyName}'",
-                    createChangedDocument: cancellationToken =>
+                    $"Ignore property '{propertyName}'",
+                    cancellationToken =>
                         AddIgnoreAsync(context.Document, invocation, propertyName!, cancellationToken),
-                    equivalenceKey: $"AM021_Ignore_{propertyName}"),
+                    $"AM021_Ignore_{propertyName}"),
                 diagnostic);
         }
     }
@@ -114,17 +124,18 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
         Diagnostic diagnostic,
         SemanticModel semanticModel)
     {
-        var conversionMethod = GetConversionMethod(sourceElementType, destElementType);
-        var collectionMethod = GetCollectionMaterializationMethod(invocation, propertyName, semanticModel);
+        string conversionMethod = GetConversionMethod(sourceElementType, destElementType);
+        string collectionMethod = GetCollectionMaterializationMethod(invocation, propertyName, semanticModel);
 
-        var mapFromExpression = $"src.{propertyName}.Select(x => {conversionMethod}(x)).{collectionMethod}()";
+        string mapFromExpression = $"src.{propertyName}.Select(x => {conversionMethod}(x)).{collectionMethod}()";
 
         context.RegisterCodeFix(
             CodeAction.Create(
-                title: $"Add Select with {conversionMethod} for '{propertyName}'",
-                createChangedDocument: cancellationToken =>
-                    AddMapFromWithLinqAsync(context.Document, invocation, propertyName, mapFromExpression, cancellationToken),
-                equivalenceKey: $"AM021_SimpleConversion_{propertyName}"),
+                $"Add Select with {conversionMethod} for '{propertyName}'",
+                cancellationToken =>
+                    AddMapFromWithLinqAsync(context.Document, invocation, propertyName, mapFromExpression,
+                        cancellationToken),
+                $"AM021_SimpleConversion_{propertyName}"),
             diagnostic);
     }
 
@@ -137,16 +148,16 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
         Diagnostic diagnostic,
         SemanticModel semanticModel)
     {
-        var sourceTypeShortName = GetShortTypeName(sourceElementType);
-        var destTypeShortName = GetShortTypeName(destElementType);
+        string sourceTypeShortName = GetShortTypeName(sourceElementType);
+        string destTypeShortName = GetShortTypeName(destElementType);
 
         context.RegisterCodeFix(
             CodeAction.Create(
-                title: $"Add CreateMap<{sourceTypeShortName}, {destTypeShortName}>() for element mapping",
-                createChangedDocument: cancellationToken =>
+                $"Add CreateMap<{sourceTypeShortName}, {destTypeShortName}>() for element mapping",
+                cancellationToken =>
                     AddElementCreateMapAsync(context.Document, invocation,
                         sourceTypeShortName, destTypeShortName, cancellationToken),
-                equivalenceKey: $"AM021_ComplexMapping_{propertyName}"),
+                $"AM021_ComplexMapping_{propertyName}"),
             diagnostic);
     }
 
@@ -157,16 +168,19 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
         string mapFromExpression,
         CancellationToken cancellationToken)
     {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null) return document;
+        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root == null)
+        {
+            return document;
+        }
 
         // Add ForMember with MapFrom
-        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+        InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
             invocation,
             propertyName,
             mapFromExpression);
 
-        var newRoot = root.ReplaceNode(invocation, newInvocation);
+        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
 
         // Add using System.Linq if not present
         if (newRoot is CompilationUnitSyntax compilationUnit)
@@ -190,36 +204,41 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
         string destTypeName,
         CancellationToken cancellationToken)
     {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null) return document;
+        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root == null)
+        {
+            return document;
+        }
 
         // Find the class/profile containing this CreateMap
-        var classDeclaration = invocation.FirstAncestorOrSelf<ClassDeclarationSyntax>();
+        ClassDeclarationSyntax? classDeclaration = invocation.FirstAncestorOrSelf<ClassDeclarationSyntax>();
         if (classDeclaration != null)
         {
             // Add CreateMap for element types after the current CreateMap
-            var createMapStatement = CreateElementCreateMapStatement(sourceTypeName, destTypeName);
+            ExpressionStatementSyntax createMapStatement =
+                CreateElementCreateMapStatement(sourceTypeName, destTypeName);
 
-            var constructor = classDeclaration.DescendantNodes()
+            ConstructorDeclarationSyntax? constructor = classDeclaration.DescendantNodes()
                 .OfType<ConstructorDeclarationSyntax>()
-                .FirstOrDefault(c => c.Body != null && c.Body.Statements.Any(s => s.DescendantNodes().Contains(invocation)));
+                .FirstOrDefault(c =>
+                    c.Body != null && c.Body.Statements.Any(s => s.DescendantNodes().Contains(invocation)));
 
             if (constructor?.Body != null)
             {
-                var statementWithInvocation = constructor.Body.Statements
+                StatementSyntax? statementWithInvocation = constructor.Body.Statements
                     .FirstOrDefault(s => s.DescendantNodes().Contains(invocation));
 
                 if (statementWithInvocation != null)
                 {
-                    var indexOfStatement = constructor.Body.Statements.IndexOf(statementWithInvocation);
+                    int indexOfStatement = constructor.Body.Statements.IndexOf(statementWithInvocation);
 
                     // Insert the new CreateMap statement after the existing one
                     var newStatements = constructor.Body.Statements.ToList();
                     newStatements.Insert(indexOfStatement + 1, createMapStatement);
 
-                    var newBody = constructor.Body.WithStatements(SyntaxFactory.List(newStatements));
-                    var newConstructor = constructor.WithBody(newBody);
-                    var newClass = classDeclaration.ReplaceNode(constructor, newConstructor);
+                    BlockSyntax newBody = constructor.Body.WithStatements(SyntaxFactory.List(newStatements));
+                    ConstructorDeclarationSyntax newConstructor = constructor.WithBody(newBody);
+                    ClassDeclarationSyntax newClass = classDeclaration.ReplaceNode(constructor, newConstructor);
                     root = root!.ReplaceNode(classDeclaration, newClass);
                 }
             }
@@ -234,11 +253,15 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
         string propertyName,
         CancellationToken cancellationToken)
     {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null) return document;
+        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root == null)
+        {
+            return document;
+        }
 
-        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
-        var newRoot = root.ReplaceNode(invocation, newInvocation);
+        InvocationExpressionSyntax newInvocation =
+            CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
+        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
 
         return document.WithSyntaxRoot(newRoot);
     }
@@ -247,29 +270,30 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
     {
         return SyntaxFactory.ExpressionStatement(
             SyntaxFactory.InvocationExpression(
-                SyntaxFactory.GenericName(
-                    SyntaxFactory.Identifier("CreateMap"))
-                .WithTypeArgumentList(
-                    SyntaxFactory.TypeArgumentList(
-                        SyntaxFactory.SeparatedList<TypeSyntax>(new[]
-                        {
-                            SyntaxFactory.ParseTypeName(sourceType),
-                            SyntaxFactory.ParseTypeName(destType)
-                        }))))
-            .WithArgumentList(SyntaxFactory.ArgumentList())
+                    SyntaxFactory.GenericName(
+                            SyntaxFactory.Identifier("CreateMap"))
+                        .WithTypeArgumentList(
+                            SyntaxFactory.TypeArgumentList(
+                                SyntaxFactory.SeparatedList<TypeSyntax>(new[]
+                                {
+                                    SyntaxFactory.ParseTypeName(sourceType), SyntaxFactory.ParseTypeName(destType)
+                                }))))
+                .WithArgumentList(SyntaxFactory.ArgumentList())
         );
     }
 
-    private static string GetCollectionMaterializationMethod(InvocationExpressionSyntax invocation, string propertyName, SemanticModel semanticModel)
+    private static string GetCollectionMaterializationMethod(InvocationExpressionSyntax invocation, string propertyName,
+        SemanticModel semanticModel)
     {
         // Get the destination property type to determine the appropriate collection method
-        var createMapTypes = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+        (ITypeSymbol? sourceType, ITypeSymbol? destType) createMapTypes =
+            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
         if (createMapTypes.Item2 == null)
         {
             return "ToList"; // Default
         }
 
-        var destProperty = createMapTypes.Item2.GetMembers()
+        IPropertySymbol? destProperty = createMapTypes.Item2.GetMembers()
             .OfType<IPropertySymbol>()
             .FirstOrDefault(p => p.Name == propertyName);
 
@@ -278,16 +302,27 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
             return "ToList";
         }
 
-        var destTypeName = destProperty.Type.ToDisplayString();
+        string destTypeName = destProperty.Type.ToDisplayString();
 
         if (destTypeName.Contains("HashSet"))
+        {
             return "ToHashSet";
+        }
+
         if (destTypeName.Contains("[]"))
+        {
             return "ToArray";
+        }
+
         if (destTypeName.Contains("Stack"))
+        {
             return "ToList"; // Stack doesn't have ToStack, use ToList + new Stack<T>
+        }
+
         if (destTypeName.Contains("Queue"))
+        {
             return "ToList"; // Queue doesn't have ToQueue, use ToList + new Queue<T>
+        }
 
         return "ToList";
     }
@@ -295,11 +330,14 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
     private static bool IsSimpleTypeConversion(string sourceElementType, string destElementType)
     {
         // Check if both are primitive/built-in types
-        var primitiveTypes = new[] { "string", "int", "long", "double", "float", "decimal", "bool", "byte", "short", "char",
-            "String", "Int32", "Int64", "Double", "Single", "Decimal", "Boolean", "Byte", "Int16", "Char" };
+        string[] primitiveTypes = new[]
+        {
+            "string", "int", "long", "double", "float", "decimal", "bool", "byte", "short", "char", "String",
+            "Int32", "Int64", "Double", "Single", "Decimal", "Boolean", "Byte", "Int16", "Char"
+        };
 
-        var sourceIsPrimitive = primitiveTypes.Any(p => sourceElementType.Contains(p));
-        var destIsPrimitive = primitiveTypes.Any(p => destElementType.Contains(p));
+        bool sourceIsPrimitive = primitiveTypes.Any(p => sourceElementType.Contains(p));
+        bool destIsPrimitive = primitiveTypes.Any(p => destElementType.Contains(p));
 
         return sourceIsPrimitive && destIsPrimitive;
     }
@@ -309,27 +347,55 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
         // Determine the conversion method based on destination type
         // using Convert class for better null handling compared to Parse
         if (destElementType.Contains("int") || destElementType.Contains("Int32"))
+        {
             return "Convert.ToInt32";
+        }
+
         if (destElementType.Contains("long") || destElementType.Contains("Int64"))
+        {
             return "Convert.ToInt64";
+        }
+
         if (destElementType.Contains("double") || destElementType.Contains("Double"))
+        {
             return "Convert.ToDouble";
+        }
+
         if (destElementType.Contains("float") || destElementType.Contains("Single"))
+        {
             return "Convert.ToSingle";
+        }
+
         if (destElementType.Contains("decimal") || destElementType.Contains("Decimal"))
+        {
             return "Convert.ToDecimal";
+        }
+
         if (destElementType.Contains("bool") || destElementType.Contains("Boolean"))
+        {
             return "Convert.ToBoolean";
+        }
+
         if (destElementType.Contains("byte") || destElementType.Contains("Byte"))
+        {
             return "Convert.ToByte";
+        }
+
         if (destElementType.Contains("short") || destElementType.Contains("Int16"))
+        {
             return "Convert.ToInt16";
+        }
 
         // Types not supported by Convert directly or needing Parse
         if (destElementType.Contains("DateTime"))
+        {
             return "DateTime.Parse";
+        }
+
         if (destElementType.Contains("Guid"))
+        {
             return "Guid.Parse";
+        }
 
         return "Convert.ToString"; // Default fallback
     }
@@ -337,51 +403,59 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
     private static string GetShortTypeName(string fullTypeName)
     {
         // Extract the simple type name from fully qualified name
-        var lastDot = fullTypeName.LastIndexOf('.');
+        int lastDot = fullTypeName.LastIndexOf('.');
         if (lastDot >= 0)
         {
             return fullTypeName.Substring(lastDot + 1);
         }
+
         return fullTypeName;
     }
 
     private static string? ExtractPropertyNameFromDiagnostic(Diagnostic diagnostic)
     {
-        var message = diagnostic.GetMessage();
-        var startIndex = message.IndexOf("Property '");
-        if (startIndex < 0) return null;
+        string message = diagnostic.GetMessage();
+        int startIndex = message.IndexOf("Property '");
+        if (startIndex < 0)
+        {
+            return null;
+        }
 
         startIndex += "Property '".Length;
-        var endIndex = message.IndexOf("'", startIndex);
-        if (endIndex < 0) return null;
+        int endIndex = message.IndexOf("'", startIndex);
+        if (endIndex < 0)
+        {
+            return null;
+        }
 
         return message.Substring(startIndex, endIndex - startIndex);
     }
 
     private static string? ExtractSourceElementTypeFromDiagnostic(Diagnostic diagnostic)
     {
-        var message = diagnostic.GetMessage();
-        var pattern = @"\(([^)]+)\) elements cannot";
-        var match = System.Text.RegularExpressions.Regex.Match(message, pattern);
+        string message = diagnostic.GetMessage();
+        string pattern = @"\(([^)]+)\) elements cannot";
+        Match match = Regex.Match(message, pattern);
         return match.Success ? match.Groups[1].Value : null;
     }
 
     private static string? ExtractDestElementTypeFromDiagnostic(Diagnostic diagnostic)
     {
-        var message = diagnostic.GetMessage();
-        var pattern = @"to [^(]+\(([^)]+)\) elements";
-        var match = System.Text.RegularExpressions.Regex.Match(message, pattern);
+        string message = diagnostic.GetMessage();
+        string pattern = @"to [^(]+\(([^)]+)\) elements";
+        Match match = Regex.Match(message, pattern);
         return match.Success ? match.Groups[1].Value : null;
     }
 
     private static CompilationUnitSyntax AddUsingIfMissing(CompilationUnitSyntax root, string namespaceName)
     {
-        if (root.Usings.Any(u => u.Name != null && string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
+        if (root.Usings.Any(u =>
+                u.Name != null && string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
         {
             return root;
         }
 
-        var usingDirective = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(namespaceName))
+        UsingDirectiveSyntax usingDirective = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(namespaceName))
             .WithTrailingTrivia(SyntaxFactory.ElasticLineFeed);
 
         return root.AddUsings(usingDirective);

@@ -1,21 +1,21 @@
 using System.Collections.Immutable;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.Configuration;
 
 /// <summary>
-/// Analyzer that detects duplicate mapping registrations in AutoMapper configuration.
-/// Duplicates can cause ambiguous behavior and runtime errors.
+///     Analyzer that detects duplicate mapping registrations in AutoMapper configuration.
+///     Duplicates can cause ambiguous behavior and runtime errors.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM041_DuplicateMappingAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>
-    /// Diagnostic descriptor for duplicate mapping detection.
+    ///     Diagnostic descriptor for duplicate mapping detection.
     /// </summary>
     public static readonly DiagnosticDescriptor DuplicateMappingRule = new(
         "AM041",
@@ -26,25 +26,26 @@ public class AM041_DuplicateMappingAnalyzer : DiagnosticAnalyzer
         true,
         "Duplicate mapping registrations can cause ambiguous behavior and should be removed.");
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [DuplicateMappingRule];
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
-        
+
         context.RegisterCompilationStartAction(compilationContext =>
         {
             // Use the shared registry which now handles duplicate detection
             var registry = CreateMapRegistry.FromCompilation(compilationContext.Compilation);
-            var duplicates = registry.GetDuplicateMappings();
-            
+            Dictionary<InvocationExpressionSyntax, (string Source, string Dest, Location Location)> duplicates =
+                registry.GetDuplicateMappings();
+
             compilationContext.RegisterSyntaxNodeAction(ctx =>
             {
                 var invocation = (InvocationExpressionSyntax)ctx.Node;
-                if (duplicates.TryGetValue(invocation, out var info))
+                if (duplicates.TryGetValue(invocation, out (string Source, string Dest, Location Location) info))
                 {
                     var diagnostic = Diagnostic.Create(
                         DuplicateMappingRule,

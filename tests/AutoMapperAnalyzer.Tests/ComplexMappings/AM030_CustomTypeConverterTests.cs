@@ -46,56 +46,56 @@ public class AM030_CustomTypeConverterTests
     public async Task AM030_ShouldNotReportDiagnostic_WhenNestedMappingExists()
     {
         const string mainProfile = """
-                                using AutoMapper;
+                                   using AutoMapper;
 
-                                namespace TestNamespace
-                                {
-                                    public class Address
-                                    {
-                                        public string Street { get; set; }
-                                    }
+                                   namespace TestNamespace
+                                   {
+                                       public class Address
+                                       {
+                                           public string Street { get; set; }
+                                       }
 
-                                    public class AddressDto
-                                    {
-                                        public string Street { get; set; }
-                                    }
+                                       public class AddressDto
+                                       {
+                                           public string Street { get; set; }
+                                       }
 
-                                    public class Source
-                                    {
-                                        public Address HomeAddress { get; set; }
-                                    }
+                                       public class Source
+                                       {
+                                           public Address HomeAddress { get; set; }
+                                       }
 
-                                    public class Destination
-                                    {
-                                        public AddressDto HomeAddress { get; set; }
-                                    }
+                                       public class Destination
+                                       {
+                                           public AddressDto HomeAddress { get; set; }
+                                       }
 
-                                    public class PrimaryProfile : Profile
-                                    {
-                                        public PrimaryProfile()
-                                        {
-                                            CreateMap<Source, Destination>();
-                                        }
-                                    }
-                                }
-                                """;
+                                       public class PrimaryProfile : Profile
+                                       {
+                                           public PrimaryProfile()
+                                           {
+                                               CreateMap<Source, Destination>();
+                                           }
+                                       }
+                                   }
+                                   """;
 
         const string addressProfile = """
-                                     using AutoMapper;
+                                      using AutoMapper;
 
-                                     namespace TestNamespace.Inner
-                                     {
-                                         using TestNamespace;
+                                      namespace TestNamespace.Inner
+                                      {
+                                          using TestNamespace;
 
-                                         public class AddressProfile : Profile
-                                         {
-                                             public AddressProfile()
-                                             {
-                                                 CreateMap<Address, AddressDto>();
-                                             }
-                                         }
-                                     }
-                                     """;
+                                          public class AddressProfile : Profile
+                                          {
+                                              public AddressProfile()
+                                              {
+                                                  CreateMap<Address, AddressDto>();
+                                              }
+                                          }
+                                      }
+                                      """;
 
         await DiagnosticTestFramework
             .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()

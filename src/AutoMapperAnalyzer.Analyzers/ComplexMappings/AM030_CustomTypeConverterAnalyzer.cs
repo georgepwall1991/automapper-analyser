@@ -1,24 +1,22 @@
-using System;
 using System.Collections.Immutable;
-using System.Linq;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 
 /// <summary>
-/// Analyzer for AM030: Custom Type Converter issues in AutoMapper configurations.
-/// Detects invalid converter implementations, missing ConvertUsing configurations,
-/// and incorrect converter method signatures.
+///     Analyzer for AM030: Custom Type Converter issues in AutoMapper configurations.
+///     Detects invalid converter implementations, missing ConvertUsing configurations,
+///     and incorrect converter method signatures.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>
-    /// Diagnostic rule for invalid type converter implementations.
+    ///     Diagnostic rule for invalid type converter implementations.
     /// </summary>
     public static readonly DiagnosticDescriptor InvalidConverterImplementationRule = new(
         "AM030",
@@ -30,7 +28,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         "Custom type converters must implement ITypeConverter<TSource, TDestination> with proper Convert method signature.");
 
     /// <summary>
-    /// Diagnostic rule for missing ConvertUsing configuration.
+    ///     Diagnostic rule for missing ConvertUsing configuration.
     /// </summary>
     public static readonly DiagnosticDescriptor MissingConvertUsingConfigurationRule = new(
         "AM030",
@@ -42,7 +40,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         "Type mismatches should use ConvertUsing configuration for proper conversion.");
 
     /// <summary>
-    /// Diagnostic rule for converter null handling issues.
+    ///     Diagnostic rule for converter null handling issues.
     /// </summary>
     public static readonly DiagnosticDescriptor ConverterNullHandlingIssueRule = new(
         "AM030",
@@ -54,7 +52,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         "Type converters should handle null input values when source type is nullable.");
 
     /// <summary>
-    /// Diagnostic rule for unused type converters.
+    ///     Diagnostic rule for unused type converters.
     /// </summary>
     public static readonly DiagnosticDescriptor UnusedTypeConverterRule = new(
         "AM030",
@@ -65,7 +63,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         true,
         "Unused type converters can be removed or should be configured in mapping.");
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(
             InvalidConverterImplementationRule,
@@ -74,7 +72,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             UnusedTypeConverterRule
         );
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -86,25 +84,33 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeCreateMapInvocation(SyntaxNodeAnalysisContext context)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        
+
         // Check if this is a CreateMap<TSource, TDestination>() call
         if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocation, context.SemanticModel))
+        {
             return;
+        }
 
-        var createMapTypeArgs = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, context.SemanticModel);
+        (ITypeSymbol? sourceType, ITypeSymbol? destType) createMapTypeArgs =
+            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, context.SemanticModel);
         if (createMapTypeArgs.sourceType == null || createMapTypeArgs.destType == null)
+        {
             return;
+        }
 
-        AnalyzeForMissingConverterConfiguration(context, invocation, createMapTypeArgs.sourceType, createMapTypeArgs.destType);
+        AnalyzeForMissingConverterConfiguration(context, invocation, createMapTypeArgs.sourceType,
+            createMapTypeArgs.destType);
     }
 
     private static void AnalyzeClassDeclaration(SyntaxNodeAnalysisContext context)
     {
         var classDeclaration = (ClassDeclarationSyntax)context.Node;
-        var classSymbol = context.SemanticModel.GetDeclaredSymbol(classDeclaration);
-        
+        INamedTypeSymbol? classSymbol = context.SemanticModel.GetDeclaredSymbol(classDeclaration);
+
         if (classSymbol == null)
+        {
             return;
+        }
 
         AnalyzeTypeConverterImplementation(context, classDeclaration, classSymbol);
     }
@@ -115,16 +121,20 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
+        IEnumerable<IPropertySymbol> sourceProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        IEnumerable<IPropertySymbol> destinationProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
 
-        foreach (var sourceProperty in sourceProperties)
+        foreach (IPropertySymbol? sourceProperty in sourceProperties)
         {
-            var destinationProperty = destinationProperties
+            IPropertySymbol? destinationProperty = destinationProperties
                 .FirstOrDefault(p => string.Equals(p.Name, sourceProperty.Name, StringComparison.OrdinalIgnoreCase));
 
             if (destinationProperty == null)
+            {
                 continue;
+            }
 
             if (!RequiresTypeConverter(sourceProperty.Type, destinationProperty.Type))
             {
@@ -141,7 +151,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            ImmutableDictionary<string, string?>.Builder properties =
+                ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add("PropertyName", sourceProperty.Name);
             properties.Add("ConverterType", GetConverterTypeName(sourceProperty.Type, destinationProperty.Type));
 
@@ -162,10 +173,12 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol classSymbol)
     {
         if (!ImplementsTypeConverterInterface(classSymbol))
+        {
             return;
+        }
 
         // Check if Convert method is properly implemented
-        var convertMethod = GetConvertMethod(classSymbol);
+        IMethodSymbol? convertMethod = GetConvertMethod(classSymbol);
         if (convertMethod == null)
         {
             var diagnostic = Diagnostic.Create(
@@ -189,12 +202,14 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol classSymbol,
         IMethodSymbol convertMethod)
     {
-        var sourceTypeParameter = GetSourceTypeParameter(classSymbol);
+        ITypeSymbol? sourceTypeParameter = GetSourceTypeParameter(classSymbol);
         if (sourceTypeParameter == null || !IsNullableType(sourceTypeParameter))
+        {
             return;
+        }
 
         // Check if converter handles null values (this is a simplified check)
-        var convertMethodDeclaration = classDeclaration.Members
+        MethodDeclarationSyntax? convertMethodDeclaration = classDeclaration.Members
             .OfType<MethodDeclarationSyntax>()
             .FirstOrDefault(m => m.Identifier.ValueText == "Convert");
 
@@ -215,23 +230,32 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
     {
         // Check if types are fundamentally incompatible and would benefit from a converter
         if (SymbolEqualityComparer.Default.Equals(sourceType, destinationType))
+        {
             return false;
+        }
 
         // String to primitive conversions often need converters
         if (sourceType.SpecialType == SpecialType.System_String && IsPrimitiveType(destinationType))
+        {
             return true;
+        }
 
         // Primitive to string conversions
         if (IsPrimitiveType(sourceType) && destinationType.SpecialType == SpecialType.System_String)
+        {
             return true;
+        }
 
         // Check for incompatible class types which might need a converter
         if (sourceType.TypeKind == TypeKind.Class && destinationType.TypeKind == TypeKind.Class &&
             !SymbolEqualityComparer.Default.Equals(sourceType, destinationType))
         {
             // Exclude System.Object (handled by other rules like AM001)
-            if (sourceType.SpecialType == SpecialType.System_Object || destinationType.SpecialType == SpecialType.System_Object)
+            if (sourceType.SpecialType == SpecialType.System_Object ||
+                destinationType.SpecialType == SpecialType.System_Object)
+            {
                 return false;
+            }
 
             return true;
         }
@@ -239,14 +263,18 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool HasConvertUsingConfiguration(InvocationExpressionSyntax createMapInvocation, string propertyName)
+    private static bool HasConvertUsingConfiguration(InvocationExpressionSyntax createMapInvocation,
+        string propertyName)
     {
         // Look for chained method calls starting from the CreateMap invocation
-        var current = createMapInvocation.Parent;
+        SyntaxNode? current = createMapInvocation.Parent;
 
         while (current != null)
         {
-            if (current is MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax chainedInvocation } memberAccess)
+            if (current is MemberAccessExpressionSyntax
+                {
+                    Parent: InvocationExpressionSyntax chainedInvocation
+                } memberAccess)
             {
                 // Check for ForMember calls that configure this specific property
                 if (memberAccess.Name.Identifier.ValueText == "ForMember")
@@ -255,7 +283,9 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
                     {
                         // Check if this ForMember has ConvertUsing configuration
                         if (HasConvertUsingInForMember(chainedInvocation))
+                        {
                             return true;
+                        }
                     }
                 }
                 // Check for direct ConvertUsing calls (global converters)
@@ -263,7 +293,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
                 {
                     return true;
                 }
-                
+
                 current = chainedInvocation.Parent;
             }
             else
@@ -275,7 +305,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsTypeCoveredByCreateMap(Compilation compilation, ITypeSymbol sourceType, ITypeSymbol destinationType)
+    private static bool IsTypeCoveredByCreateMap(Compilation compilation, ITypeSymbol sourceType,
+        ITypeSymbol destinationType)
     {
         if (sourceType == null || destinationType == null)
         {
@@ -294,37 +325,40 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsForMemberConfigurationForProperty(InvocationExpressionSyntax forMemberInvocation, string propertyName)
+    private static bool IsForMemberConfigurationForProperty(InvocationExpressionSyntax forMemberInvocation,
+        string propertyName)
     {
         // Check if this ForMember call is configuring the specific property
-        var arguments = forMemberInvocation.ArgumentList?.Arguments;
+        SeparatedSyntaxList<ArgumentSyntax>? arguments = forMemberInvocation.ArgumentList?.Arguments;
         if (arguments?.Count > 0)
         {
             // Simple check - look for property name in the first argument
-            var firstArg = arguments.Value[0];
+            ArgumentSyntax firstArg = arguments.Value[0];
             return firstArg.ToString().Contains(propertyName);
         }
+
         return false;
     }
 
     private static bool HasConvertUsingInForMember(InvocationExpressionSyntax forMemberInvocation)
     {
         // Check if the ForMember configuration contains ConvertUsing or MapFrom (both handle conversion)
-        var arguments = forMemberInvocation.ArgumentList?.Arguments;
+        SeparatedSyntaxList<ArgumentSyntax>? arguments = forMemberInvocation.ArgumentList?.Arguments;
         if (arguments?.Count > 1)
         {
             // Look for ConvertUsing or MapFrom in the configuration lambda (second argument)
-            var configArg = arguments.Value[1];
-            var configText = configArg.ToString();
+            ArgumentSyntax configArg = arguments.Value[1];
+            string configText = configArg.ToString();
             return configText.Contains("ConvertUsing") || configText.Contains("MapFrom");
         }
+
         return false;
     }
 
     private static bool ImplementsTypeConverterInterface(INamedTypeSymbol classSymbol)
     {
-        return classSymbol.AllInterfaces.Any(i => 
-            i.Name == "ITypeConverter" && 
+        return classSymbol.AllInterfaces.Any(i =>
+            i.Name == "ITypeConverter" &&
             i.ContainingNamespace?.Name == "AutoMapper");
     }
 
@@ -337,7 +371,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
     private static ITypeSymbol? GetSourceTypeParameter(INamedTypeSymbol classSymbol)
     {
-        var typeConverterInterface = classSymbol.AllInterfaces
+        INamedTypeSymbol? typeConverterInterface = classSymbol.AllInterfaces
             .FirstOrDefault(i => i.Name == "ITypeConverter" && i.TypeArguments.Length == 2);
 
         return typeConverterInterface?.TypeArguments[0];
@@ -346,9 +380,9 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
     private static bool IsNullableType(ITypeSymbol type)
     {
         AutoMapperAnalysisHelpers.IsNullableType(type, out _);
-        return type.CanBeReferencedByName && 
+        return type.CanBeReferencedByName &&
                (type.NullableAnnotation == NullableAnnotation.Annotated ||
-                (type is INamedTypeSymbol namedType && 
+                (type is INamedTypeSymbol namedType &&
                  namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T));
     }
 
@@ -357,8 +391,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         // Simplified check for null comparisons in the method body
         return method.DescendantNodes()
             .OfType<BinaryExpressionSyntax>()
-            .Any(binary => binary.IsKind(SyntaxKind.EqualsExpression) || 
-                          binary.IsKind(SyntaxKind.NotEqualsExpression));
+            .Any(binary => binary.IsKind(SyntaxKind.EqualsExpression) ||
+                           binary.IsKind(SyntaxKind.NotEqualsExpression));
     }
 
     private static bool IsPrimitiveType(ITypeSymbol type)
@@ -378,7 +412,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    /// Gets the type name from an ITypeSymbol.
+    ///     Gets the type name from an ITypeSymbol.
     /// </summary>
     /// <param name="type">The type symbol.</param>
     /// <returns>The type name.</returns>

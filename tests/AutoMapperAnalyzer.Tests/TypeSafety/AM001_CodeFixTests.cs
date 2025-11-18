@@ -7,8 +7,11 @@ namespace AutoMapperAnalyzer.Tests.TypeSafety;
 
 public class AM001_CodeFixTests
 {
-    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
-        => new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column,
+        params object[] messageArgs)
+    {
+        return new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
+    }
 
     [Fact]
     public async Task AM001_ShouldFixPropertyTypeMismatchWithToString()
@@ -40,30 +43,30 @@ public class AM001_CodeFixTests
                                 """;
 
         const string expectedFixedCode = """
-#nullable enable
-using AutoMapper;
+                                         #nullable enable
+                                         using AutoMapper;
 
-namespace TestNamespace
-{
-    public class Source
-    {
-        public int Age { get; set; }
-    }
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public int Age { get; set; }
+                                             }
 
-    public class Destination
-    {
-        public string Age { get; set; }
-    }
+                                             public class Destination
+                                             {
+                                                 public string Age { get; set; }
+                                             }
 
-    public class TestProfile : Profile
-    {
-        public TestProfile()
-        {
-            CreateMap<Source, Destination>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString()));
-        }
-    }
-}
-""";
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString()));
+                                                 }
+                                             }
+                                         }
+                                         """;
 
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
@@ -102,29 +105,29 @@ namespace TestNamespace
                                 """;
 
         const string expectedFixedCode = """
-using AutoMapper;
+                                         using AutoMapper;
 
-namespace TestNamespace
-{
-    public class Source
-    {
-        public double Score { get; set; }
-    }
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public double Score { get; set; }
+                                             }
 
-    public class Destination
-    {
-        public float Score { get; set; }
-    }
+                                             public class Destination
+                                             {
+                                                 public float Score { get; set; }
+                                             }
 
-    public class TestProfile : Profile
-    {
-        public TestProfile()
-        {
-            CreateMap<Source, Destination>().ForMember(dest => dest.Score, opt => opt.MapFrom(src => (float)src.Score));
-        }
-    }
-}
-""";
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Score, opt => opt.MapFrom(src => (float)src.Score));
+                                                 }
+                                             }
+                                         }
+                                         """;
 
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
@@ -163,29 +166,29 @@ namespace TestNamespace
                                 """;
 
         const string expectedFixedCode = """
-using AutoMapper;
+                                         using AutoMapper;
 
-namespace TestNamespace
-{
-    public class Source
-    {
-        public string Value { get; set; }
-    }
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Value { get; set; }
+                                             }
 
-    public class Destination
-    {
-        public int Value { get; set; }
-    }
+                                             public class Destination
+                                             {
+                                                 public int Value { get; set; }
+                                             }
 
-    public class TestProfile : Profile
-    {
-        public TestProfile()
-        {
-            CreateMap<Source, Destination>().ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value is not null ? int.Parse(src.Value) : 0));
-        }
-    }
-}
-""";
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value is not null ? int.Parse(src.Value) : 0));
+                                                 }
+                                             }
+                                         }
+                                         """;
 
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
@@ -227,31 +230,31 @@ namespace TestNamespace
 
         // Fix the first property (Age)
         const string expectedFixedCodeAfterFirstFix = """
-using AutoMapper;
+                                                      using AutoMapper;
 
-namespace TestNamespace
-{
-    public class Source
-    {
-        public int Age { get; set; }
-        public double Score { get; set; }
-    }
+                                                      namespace TestNamespace
+                                                      {
+                                                          public class Source
+                                                          {
+                                                              public int Age { get; set; }
+                                                              public double Score { get; set; }
+                                                          }
 
-    public class Destination
-    {
-        public string Age { get; set; }
-        public string Score { get; set; }
-    }
+                                                          public class Destination
+                                                          {
+                                                              public string Age { get; set; }
+                                                              public string Score { get; set; }
+                                                          }
 
-    public class TestProfile : Profile
-    {
-        public TestProfile()
-        {
-            CreateMap<Source, Destination>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString()));
-        }
-    }
-}
-""";
+                                                          public class TestProfile : Profile
+                                                          {
+                                                              public TestProfile()
+                                                              {
+                                                                  CreateMap<Source, Destination>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString()));
+                                                              }
+                                                          }
+                                                      }
+                                                      """;
 
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(

@@ -1,9 +1,6 @@
-using System.Threading.Tasks;
 using AutoMapperAnalyzer.Analyzers.Configuration;
 using AutoMapperAnalyzer.Tests.Infrastructure;
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Testing;
-using Xunit;
 
 namespace AutoMapperAnalyzer.Tests.Configuration;
 
@@ -13,22 +10,22 @@ public class AM050_RedundantMapFromTests
     public async Task Should_ReportDiagnostic_When_MappingSamePropertyName()
     {
         const string testCode = """
-            using AutoMapper;
+                                using AutoMapper;
 
-            public class Source { public string Name { get; set; } }
-            public class Destination { public string Name { get; set; } }
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
 
-            public class MyProfile : Profile
-            {
-                public MyProfile()
-                {
-                    CreateMap<Source, Destination>()
-                        .ForMember(d => d.Name, o => o.MapFrom(s => s.Name));
-                }
-            }
-            """;
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => d.Name, o => o.MapFrom(s => s.Name));
+                                    }
+                                }
+                                """;
 
-        var expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
             .WithLocation(11, 42) // Points to MapFrom call
             .WithArguments("Name");
 
@@ -39,20 +36,20 @@ public class AM050_RedundantMapFromTests
     public async Task Should_NotReportDiagnostic_When_MappingDifferentProperty()
     {
         const string testCode = """
-            using AutoMapper;
+                                using AutoMapper;
 
-            public class Source { public string OtherName { get; set; } }
-            public class Destination { public string Name { get; set; } }
+                                public class Source { public string OtherName { get; set; } }
+                                public class Destination { public string Name { get; set; } }
 
-            public class MyProfile : Profile
-            {
-                public MyProfile()
-                {
-                    CreateMap<Source, Destination>()
-                        .ForMember(d => d.Name, o => o.MapFrom(s => s.OtherName));
-                }
-            }
-            """;
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => d.Name, o => o.MapFrom(s => s.OtherName));
+                                    }
+                                }
+                                """;
 
         await AnalyzerVerifier<AM050_RedundantMapFromAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
@@ -61,22 +58,21 @@ public class AM050_RedundantMapFromTests
     public async Task Should_NotReportDiagnostic_When_MappingExpression()
     {
         const string testCode = """
-            using AutoMapper;
+                                using AutoMapper;
 
-            public class Source { public string Name { get; set; } }
-            public class Destination { public string Name { get; set; } }
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
 
-            public class MyProfile : Profile
-            {
-                public MyProfile()
-                {
-                    CreateMap<Source, Destination>()
-                        .ForMember(d => d.Name, o => o.MapFrom(s => s.Name.ToUpper()));
-                }
-            }
-            """;
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => d.Name, o => o.MapFrom(s => s.Name.ToUpper()));
+                                    }
+                                }
+                                """;
 
         await AnalyzerVerifier<AM050_RedundantMapFromAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 }
-

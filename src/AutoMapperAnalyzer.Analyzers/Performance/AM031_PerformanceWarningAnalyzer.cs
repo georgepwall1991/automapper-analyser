@@ -1,24 +1,21 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.Performance;
 
 /// <summary>
-/// Analyzer for AM031: Performance warnings in AutoMapper configurations.
-/// Detects expensive operations in mapping expressions that should be performed before mapping.
+///     Analyzer for AM031: Performance warnings in AutoMapper configurations.
+///     Detects expensive operations in mapping expressions that should be performed before mapping.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>
-    /// Diagnostic rule for expensive operations in MapFrom expressions.
+    ///     Diagnostic rule for expensive operations in MapFrom expressions.
     /// </summary>
     public static readonly DiagnosticDescriptor ExpensiveOperationInMapFromRule = new(
         "AM031",
@@ -30,7 +27,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "Expensive operations (database queries, API calls, file I/O) should be performed before mapping, not during.");
 
     /// <summary>
-    /// Diagnostic rule for multiple enumerations of the same collection.
+    ///     Diagnostic rule for multiple enumerations of the same collection.
     /// </summary>
     public static readonly DiagnosticDescriptor MultipleEnumerationRule = new(
         "AM031",
@@ -42,7 +39,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "Multiple enumerations of IEnumerable can cause performance issues. Cache the result before multiple operations.");
 
     /// <summary>
-    /// Diagnostic rule for expensive computations in mapping.
+    ///     Diagnostic rule for expensive computations in mapping.
     /// </summary>
     public static readonly DiagnosticDescriptor ExpensiveComputationRule = new(
         "AM031",
@@ -54,7 +51,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "Complex computations in mapping expressions can impact performance. Consider computing values before mapping.");
 
     /// <summary>
-    /// Diagnostic rule for synchronous access of Task.Result.
+    ///     Diagnostic rule for synchronous access of Task.Result.
     /// </summary>
     public static readonly DiagnosticDescriptor TaskResultSynchronousAccessRule = new(
         "AM031",
@@ -66,7 +63,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "Using Task.Result or Task.Wait() in mapping can cause deadlocks and performance issues. Await async operations before mapping.");
 
     /// <summary>
-    /// Diagnostic rule for complex LINQ operations.
+    ///     Diagnostic rule for complex LINQ operations.
     /// </summary>
     public static readonly DiagnosticDescriptor ComplexLinqOperationRule = new(
         "AM031",
@@ -78,7 +75,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "Complex LINQ operations with SelectMany, multiple Where clauses, or nested queries can impact performance.");
 
     /// <summary>
-    /// Diagnostic rule for non-deterministic operations in mapping.
+    ///     Diagnostic rule for non-deterministic operations in mapping.
     /// </summary>
     public static readonly DiagnosticDescriptor NonDeterministicOperationRule = new(
         "AM031",
@@ -90,7 +87,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "Non-deterministic operations (DateTime.Now, Random, Guid.NewGuid) make mappings harder to test. Consider computing before mapping.");
 
     /// <summary>
-    /// Gets the supported diagnostics for this analyzer.
+    ///     Gets the supported diagnostics for this analyzer.
     /// </summary>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
     [
@@ -103,7 +100,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     ];
 
     /// <summary>
-    /// Initializes the analyzer.
+    ///     Initializes the analyzer.
     /// </summary>
     /// <param name="context">The analysis context.</param>
     public override void Initialize(AnalysisContext context)
@@ -124,27 +121,30 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         }
 
         // Find all ForMember calls in the method chain
-        var forMemberCalls = GetForMemberInvocations(invocationExpr);
+        List<InvocationExpressionSyntax> forMemberCalls = GetForMemberInvocations(invocationExpr);
 
-        foreach (var forMemberCall in forMemberCalls)
+        foreach (InvocationExpressionSyntax? forMemberCall in forMemberCalls)
         {
             AnalyzeForMemberCall(context, forMemberCall);
         }
     }
 
-    private static List<InvocationExpressionSyntax> GetForMemberInvocations(InvocationExpressionSyntax createMapInvocation)
+    private static List<InvocationExpressionSyntax> GetForMemberInvocations(
+        InvocationExpressionSyntax createMapInvocation)
     {
         var forMemberCalls = new List<InvocationExpressionSyntax>();
 
         // Find the parent expression statement or any ancestor that might contain the full chain
-        var root = createMapInvocation.AncestorsAndSelf().OfType<ExpressionStatementSyntax>().FirstOrDefault()
-                  ?? createMapInvocation.AncestorsAndSelf().OfType<VariableDeclaratorSyntax>().FirstOrDefault()?.Parent?.Parent
-                  ?? (SyntaxNode)createMapInvocation;
+        SyntaxNode root = createMapInvocation.AncestorsAndSelf().OfType<ExpressionStatementSyntax>().FirstOrDefault()
+                          ?? createMapInvocation.AncestorsAndSelf().OfType<VariableDeclaratorSyntax>().FirstOrDefault()
+                              ?.Parent?.Parent
+                          ?? createMapInvocation;
 
         // Find all ForMember invocations in descendants
-        var allInvocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>();
+        IEnumerable<InvocationExpressionSyntax> allInvocations =
+            root.DescendantNodes().OfType<InvocationExpressionSyntax>();
 
-        foreach (var invocation in allInvocations)
+        foreach (InvocationExpressionSyntax? invocation in allInvocations)
         {
             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
                 memberAccess.Name.Identifier.Text == "ForMember")
@@ -160,10 +160,11 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return forMemberCalls;
     }
 
-    private static bool IsPartOfCreateMapChain(InvocationExpressionSyntax forMemberInvocation, InvocationExpressionSyntax createMapInvocation)
+    private static bool IsPartOfCreateMapChain(InvocationExpressionSyntax forMemberInvocation,
+        InvocationExpressionSyntax createMapInvocation)
     {
         // Check if the ForMember's member access expression contains the CreateMap invocation
-        var currentExpr = forMemberInvocation.Expression;
+        ExpressionSyntax currentExpr = forMemberInvocation.Expression;
         while (currentExpr is MemberAccessExpressionSyntax memberAccess)
         {
             if (memberAccess.Expression is InvocationExpressionSyntax invocation)
@@ -172,6 +173,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                 {
                     return true;
                 }
+
                 currentExpr = invocation.Expression;
             }
             else
@@ -183,17 +185,18 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static void AnalyzeForMemberCall(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax forMemberInvocation)
+    private static void AnalyzeForMemberCall(SyntaxNodeAnalysisContext context,
+        InvocationExpressionSyntax forMemberInvocation)
     {
         // Get the lambda expression from MapFrom
-        var mapFromLambda = GetMapFromLambda(forMemberInvocation);
+        LambdaExpressionSyntax? mapFromLambda = GetMapFromLambda(forMemberInvocation);
         if (mapFromLambda == null)
         {
             return;
         }
 
         // Get the destination property name
-        var propertyName = GetDestinationPropertyName(forMemberInvocation);
+        string? propertyName = GetDestinationPropertyName(forMemberInvocation);
         if (propertyName == null)
         {
             return;
@@ -211,7 +214,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
-        var optionsArg = forMemberInvocation.ArgumentList.Arguments[1];
+        ArgumentSyntax optionsArg = forMemberInvocation.ArgumentList.Arguments[1];
 
         // Navigate through the lambda to find MapFrom
         if (optionsArg.Expression is not SimpleLambdaExpressionSyntax optionsLambda)
@@ -220,10 +223,10 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         }
 
         // Look for MapFrom invocation in the lambda body
-        var mapFromInvocation = optionsLambda.DescendantNodes()
+        InvocationExpressionSyntax? mapFromInvocation = optionsLambda.DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .FirstOrDefault(inv => inv.Expression is MemberAccessExpressionSyntax mae &&
-                                  mae.Name.Identifier.Text == "MapFrom");
+                                   mae.Name.Identifier.Text == "MapFrom");
 
         if (mapFromInvocation == null)
         {
@@ -231,7 +234,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         }
 
         // Get the lambda expression passed to MapFrom
-        var mapFromArg = mapFromInvocation.ArgumentList.Arguments.FirstOrDefault();
+        ArgumentSyntax? mapFromArg = mapFromInvocation.ArgumentList.Arguments.FirstOrDefault();
         return mapFromArg?.Expression as LambdaExpressionSyntax;
     }
 
@@ -242,7 +245,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
-        var firstArg = forMemberInvocation.ArgumentList.Arguments[0];
+        ArgumentSyntax firstArg = forMemberInvocation.ArgumentList.Arguments[0];
         if (firstArg.Expression is not SimpleLambdaExpressionSyntax destLambda)
         {
             return null;
@@ -271,16 +274,16 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         // Track collection accesses for multiple enumeration detection
         var collectionAccesses = new Dictionary<string, int>();
 
-        foreach (var invocation in invocations)
+        foreach (InvocationExpressionSyntax? invocation in invocations)
         {
-            var symbolInfo = context.SemanticModel.GetSymbolInfo(invocation);
+            SymbolInfo symbolInfo = context.SemanticModel.GetSymbolInfo(invocation);
             if (symbolInfo.Symbol is not IMethodSymbol methodSymbol)
             {
                 continue;
             }
 
-            var containingType = methodSymbol.ContainingType?.ToDisplayString() ?? "";
-            var methodName = methodSymbol.Name;
+            string containingType = methodSymbol.ContainingType?.ToDisplayString() ?? "";
+            string methodName = methodSymbol.Name;
 
             // Check for database operations
             if (IsDatabaseOperation(containingType, methodName))
@@ -306,7 +309,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             // Check for reflection
             if (IsReflectionOperation(methodName))
             {
-                ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName, "reflection operation");
+                ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName,
+                    "reflection operation");
                 continue;
             }
 
@@ -318,7 +322,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             }
 
             // Check for non-deterministic operations
-            if (IsNonDeterministicOperation(containingType, methodName, out var operationType))
+            if (IsNonDeterministicOperation(containingType, methodName, out string operationType))
             {
                 var diagnostic = Diagnostic.Create(
                     NonDeterministicOperationRule,
@@ -346,21 +350,21 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             if (IsExternalMethodCall(invocation, context.SemanticModel))
             {
                 ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName, "method call");
-                continue;
             }
         }
 
         // Check member access expressions for non-deterministic properties
-        foreach (var memberAccess in memberAccesses)
+        foreach (MemberAccessExpressionSyntax? memberAccess in memberAccesses)
         {
-            var symbolInfo = context.SemanticModel.GetSymbolInfo(memberAccess);
+            SymbolInfo symbolInfo = context.SemanticModel.GetSymbolInfo(memberAccess);
             if (symbolInfo.Symbol is IPropertySymbol propertySymbol)
             {
-                var containingType = propertySymbol.ContainingType?.ToDisplayString() ?? "";
-                var propertyName_member = propertySymbol.Name;
+                string containingType = propertySymbol.ContainingType?.ToDisplayString() ?? "";
+                string propertyName_member = propertySymbol.Name;
 
                 // Check for DateTime.Now, DateTime.UtcNow
-                if (containingType == "System.DateTime" && (propertyName_member == "Now" || propertyName_member == "UtcNow"))
+                if (containingType == "System.DateTime" &&
+                    (propertyName_member == "Now" || propertyName_member == "UtcNow"))
                 {
                     var diagnostic = Diagnostic.Create(
                         NonDeterministicOperationRule,
@@ -373,7 +377,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         }
 
         // Check for multiple enumerations
-        foreach (var kvp in collectionAccesses)
+        foreach (KeyValuePair<string, int> kvp in collectionAccesses)
         {
             if (kvp.Value > 1)
             {
@@ -421,8 +425,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return containingType == "System.IO.File" ||
                containingType == "System.IO.Directory" ||
                containingType == "System.IO.Path" ||
-               methodName.Contains("Read") && containingType.Contains("System.IO") ||
-               methodName.Contains("Write") && containingType.Contains("System.IO");
+               (methodName.Contains("Read") && containingType.Contains("System.IO")) ||
+               (methodName.Contains("Write") && containingType.Contains("System.IO"));
     }
 
     private static bool IsHttpOperation(string containingType, string methodName)
@@ -451,8 +455,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         {
             if (memberAccess.Name.Identifier.Text == "Result")
             {
-                var typeInfo = semanticModel.GetTypeInfo(memberAccess.Expression);
-                var typeName = typeInfo.Type?.ToDisplayString() ?? "";
+                TypeInfo typeInfo = semanticModel.GetTypeInfo(memberAccess.Expression);
+                string typeName = typeInfo.Type?.ToDisplayString() ?? "";
                 return typeName.Contains("System.Threading.Tasks.Task");
             }
         }
@@ -488,14 +492,15 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     private static bool IsLinqEnumerationMethod(string methodName)
     {
         return methodName is "ToList" or "ToArray" or "Sum" or "Average" or "Count" or
-               "First" or "FirstOrDefault" or "Last" or "LastOrDefault" or "Any" or "All";
+            "First" or "FirstOrDefault" or "Last" or "LastOrDefault" or "Any" or "All";
     }
 
-    private static void TrackCollectionAccess(InvocationExpressionSyntax invocation, Dictionary<string, int> collectionAccesses)
+    private static void TrackCollectionAccess(InvocationExpressionSyntax invocation,
+        Dictionary<string, int> collectionAccesses)
     {
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
         {
-            var collectionName = memberAccess.Expression.ToString();
+            string collectionName = memberAccess.Expression.ToString();
 
             // Normalize collection name (remove src. prefix if present)
             if (collectionName.StartsWith("src."))
@@ -507,6 +512,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             {
                 collectionAccesses[collectionName] = 0;
             }
+
             collectionAccesses[collectionName]++;
         }
     }
@@ -517,11 +523,11 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         if (methodName == "SelectMany")
         {
             // Check if the argument contains complex lambda
-            var args = invocation.ArgumentList.Arguments;
+            SeparatedSyntaxList<ArgumentSyntax> args = invocation.ArgumentList.Arguments;
             if (args.Count > 0 && args[0].Expression is LambdaExpressionSyntax lambda)
             {
                 // Check for nested Where, Select, or other complex operations
-                var nestedInvocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().Count();
+                int nestedInvocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().Count();
                 return nestedInvocations >= 1;
             }
         }
@@ -536,7 +542,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var symbolInfo = semanticModel.GetSymbolInfo(invocation);
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
         if (symbolInfo.Symbol is not IMethodSymbol methodSymbol)
         {
             return false;
@@ -549,21 +555,22 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         }
 
         // Exclude string methods (they're generally fast)
-        var containingType = methodSymbol.ContainingType?.ToDisplayString() ?? "";
+        string containingType = methodSymbol.ContainingType?.ToDisplayString() ?? "";
         if (containingType == "string" || containingType == "System.String")
         {
             return false;
         }
 
         // Exclude simple LINQ extension methods on the source object
-        var simpleLinqMethods = new[] { "Select", "Where", "OrderBy", "OrderByDescending", "ThenBy", "ThenByDescending" };
+        string[] simpleLinqMethods =
+            new[] { "Select", "Where", "OrderBy", "OrderByDescending", "ThenBy", "ThenByDescending" };
         if (simpleLinqMethods.Contains(methodSymbol.Name) && IsCalledOnSourceProperty(memberAccess))
         {
             return false;
         }
 
         // Check if it's called on a field or injected dependency
-        var expressionSymbol = semanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
+        ISymbol? expressionSymbol = semanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
         if (expressionSymbol is IFieldSymbol || expressionSymbol is IPropertySymbol { IsReadOnly: true })
         {
             // This is likely a method call on an injected service
@@ -575,7 +582,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
     private static bool IsCalledOnSourceProperty(MemberAccessExpressionSyntax memberAccess)
     {
-        var expression = memberAccess.Expression.ToString();
+        string expression = memberAccess.Expression.ToString();
         return expression.StartsWith("src.") || expression == "src";
     }
 
@@ -584,7 +591,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         // Look for Enumerable.Range with complex predicates (like prime checking)
         var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().ToList();
 
-        foreach (var invocation in invocations)
+        foreach (InvocationExpressionSyntax? invocation in invocations)
         {
             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
             {

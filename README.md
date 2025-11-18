@@ -9,7 +9,8 @@
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
 
 > **✨ Catch AutoMapper configuration errors before they cause runtime chaos**  
-> *A sophisticated Roslyn analyzer that transforms AutoMapper development from reactive debugging to proactive prevention*
+> *A sophisticated Roslyn analyzer that transforms AutoMapper development from reactive debugging to proactive
+prevention*
 
 ---
 
@@ -18,12 +19,17 @@
 **Configuration Analysis & Performance Boost**
 
 ✨ **New Capabilities:**
+
 - ⚙️ **Duplicate Mapping Detection (AM041)**: Identifies ambiguous multiple CreateMap definitions for the same types.
-- 🧹 **Redundant MapFrom Detection (AM050)**: Finds explicit mappings that are unnecessary because property names already match.
-- ⚡ **Optimized Performance**: Centralized mapping registry significantly reduces compilation scanning overhead in large solutions.
-- 🐛 **Improved Accuracy**: Fixed false positives in `CreateMap` detection and improved complex type converter suggestions.
+- 🧹 **Redundant MapFrom Detection (AM050)**: Finds explicit mappings that are unnecessary because property names already
+  match.
+- ⚡ **Optimized Performance**: Centralized mapping registry significantly reduces compilation scanning overhead in large
+  solutions.
+- 🐛 **Improved Accuracy**: Fixed false positives in `CreateMap` detection and improved complex type converter
+  suggestions.
 
 ### Previous Release: v2.3.2
+
 - 🔄 **ReverseMap Intelligence**: Correctly analyzes bidirectional mappings defined with `.ReverseMap()`.
 - ⚡ **Fast-Path Performance**: Optimized scanning to skip files without AutoMapper code.
 
@@ -31,7 +37,9 @@
 
 ## 🌟 Why This Matters
 
-AutoMapper is powerful, but silent failures are its Achilles' heel. Properties that don't map, type mismatches that throw at runtime, nullable violations that cause NullReferenceExceptions—these issues typically surface in production, not during development.
+AutoMapper is powerful, but silent failures are its Achilles' heel. Properties that don't map, type mismatches that
+throw at runtime, nullable violations that cause NullReferenceExceptions—these issues typically surface in production,
+not during development.
 
 **This analyzer changes that equation entirely.**
 
@@ -67,9 +75,11 @@ dotnet add package AutoMapperAnalyzer.Analyzers
 Install-Package AutoMapperAnalyzer.Analyzers
 ```
 
-That's it! The analyzer automatically activates and starts checking your AutoMapper configurations. Open any file with AutoMapper mappings and see diagnostics appear instantly.
+That's it! The analyzer automatically activates and starts checking your AutoMapper configurations. Open any file with
+AutoMapper mappings and see diagnostics appear instantly.
 
 **See it work:**
+
 ```csharp
 var config = new MapperConfiguration(cfg =>
 {
@@ -84,22 +94,27 @@ var config = new MapperConfiguration(cfg =>
 ## 🚀 What You Get
 
 ### 🛡️ **Complete Type Safety**
+
 - **AM001**: Property type mismatches with smart conversion suggestions
-- **AM002**: Nullable-to-non-nullable mapping with null safety patterns  
+- **AM002**: Nullable-to-non-nullable mapping with null safety patterns
 - **AM003**: Collection type incompatibility detection
 
-### 🔍 **Zero Data Loss**  
+### 🔍 **Zero Data Loss**
+
 - **AM004**: Missing destination properties (prevent silent data loss)
 - **AM011**: Required property validation (avoid runtime exceptions)
 - **AM005**: Case sensitivity issues (cross-platform reliability)
 
 ### 🧩 **Complex Mapping Intelligence**
-- **AM020**: Nested object mapping validation with CreateMap suggestions (supports internal properties & cross-profile detection)
+
+- **AM020**: Nested object mapping validation with CreateMap suggestions (supports internal properties & cross-profile
+  detection)
 - **AM021**: Collection element type analysis with conversion strategies
 - **AM022**: Circular reference detection with MaxDepth recommendations
 - **AM030**: Custom type converter analysis with null safety validation
 
 ### ⚡ **Instant Code Fixes**
+
 Every analyzer comes with **intelligent code fixes** that don't just identify problems—they solve them:
 
 ```csharp
@@ -117,30 +132,33 @@ cfg.CreateMap<Source, Dest>()
 
 ## 🎯 Real-World Impact
 
-| | Before | After |
-|---|--------|--------|
-|🐛| Runtime mapping failures | ✅ Compile-time validation |
-|🔍| Manual debugging sessions | ✅ Instant error highlights |  
-|📝| Guessing correct configurations | ✅ Code fixes with best practices |
-|⚠️| Production NullReferenceExceptions | ✅ Null safety enforcement |
-|📊| Silent data loss | ✅ Missing property detection |
-|🌐| Cross-platform mapping inconsistencies | ✅ Case sensitivity validation |
+|    | Before                                 | After                            |
+|----|----------------------------------------|----------------------------------|
+| 🐛 | Runtime mapping failures               | ✅ Compile-time validation        |
+| 🔍 | Manual debugging sessions              | ✅ Instant error highlights       |  
+| 📝 | Guessing correct configurations        | ✅ Code fixes with best practices |
+| ⚠️ | Production NullReferenceExceptions     | ✅ Null safety enforcement        |
+| 📊 | Silent data loss                       | ✅ Missing property detection     |
+| 🌐 | Cross-platform mapping inconsistencies | ✅ Case sensitivity validation    |
 
 ---
 
 ## 📦 Installation
 
 ### .NET CLI (Recommended)
+
 ```bash
 dotnet add package AutoMapperAnalyzer.Analyzers
 ```
 
 ### Package Manager Console
+
 ```powershell
 Install-Package AutoMapperAnalyzer.Analyzers
 ```
 
 ### Project File (For CI/CD)
+
 ```xml
 <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.3.2">
   <PrivateAssets>all</PrivateAssets>
@@ -150,12 +168,12 @@ Install-Package AutoMapperAnalyzer.Analyzers
 
 ### ⚡ Universal Compatibility
 
-| Platform | Version | Support | AutoMapper | CI/CD Status |
-|----------|---------|---------|------------|--------------|
-| .NET Framework | 4.8+ | 🟢 **Full** | 10.1.1+ | ✅ **Tested** |
-| .NET | 6.0+ | 🟢 **Full** | 12.0.1+ | ✅ **Tested** |
-| .NET | 8.0+ | 🟢 **Full** | 14.0.0+ | ✅ **Tested** |
-| .NET | 9.0+ | 🟢 **Full** | 14.0.0+ | ✅ **Tested** |
+| Platform       | Version | Support     | AutoMapper | CI/CD Status |
+|----------------|---------|-------------|------------|--------------|
+| .NET Framework | 4.8+    | 🟢 **Full** | 10.1.1+    | ✅ **Tested** |
+| .NET           | 6.0+    | 🟢 **Full** | 12.0.1+    | ✅ **Tested** |
+| .NET           | 8.0+    | 🟢 **Full** | 14.0.0+    | ✅ **Tested** |
+| .NET           | 9.0+    | 🟢 **Full** | 14.0.0+    | ✅ **Tested** |
 
 *Analyzer targets .NET Standard 2.0 for maximum compatibility*  
 *All platforms validated in automated CI/CD pipeline*
@@ -165,6 +183,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ## 🎨 See It In Action
 
 ### ❌ **The Problems**
+
 ```csharp
 public class UserEntity
 {
@@ -199,6 +218,7 @@ cfg.CreateMap<UserEntity, UserDto>();
 ```
 
 ### ✅ **The Solutions** (Auto-Generated!)
+
 ```csharp  
 // Code fixes automatically suggest:
 cfg.CreateMap<UserEntity, UserDto>()
@@ -218,6 +238,7 @@ cfg.CreateMap<Address, AddressDto>();
 ## ⚙️ Fine-Tuned Control
 
 ### Severity Configuration (.editorconfig)
+
 ```ini
 # Treat type safety as build errors
 dotnet_diagnostic.AM001.severity = error
@@ -234,6 +255,7 @@ dotnet_diagnostic.AM021.severity = suggestion
 ```
 
 ### Selective Suppression
+
 ```csharp
 // Suppress with clear justification
 #pragma warning disable AM001 // Custom IValueConverter handles string→int
@@ -250,42 +272,44 @@ public void ConfigureSafeUserMapping() { }
 
 ## 📊 Complete Analyzer Coverage
 
-| Rule | Description | Analyzer | Code Fix | Severity |
-|------|-------------|----------|----------|----------|
-| **🔒 Type Safety** ||||
-| AM001 | Property Type Mismatch | ✅ | ✅ | Warning |  
-| AM002 | Nullable→Non-nullable | ✅ | ✅ | Warning |
-| AM003 | Collection Incompatibility | ✅ | ✅ | Warning |
-| **📊 Data Integrity** ||||  
-| AM004 | Missing Destination Property | ✅ | ✅ | Info |
-| AM005 | Case Sensitivity Issues | ✅ | ✅ | Info |
-| AM011 | Required Property Missing | ✅ | ✅ | Error |
-| **🧩 Complex Mappings** ||||
-| AM020 | Nested Object Issues | ✅ | ✅ | Warning |
-| AM021 | Collection Element Mismatch | ✅ | ✅ | Warning |  
-| AM022 | Circular Reference Risk | ✅ | ✅ | Warning |
-| AM030 | Custom Type Converter Issues | ✅ | ✅ | Warning |
-| **⚡ Performance** ||||
-| AM031 | Performance Warnings | ✅ | ✅ | Warning |
-| **⚙️ Configuration** ||||
-| AM041 | Duplicate Mapping Registration | ✅ | ✅ | Warning |
-| AM050 | Redundant MapFrom | ✅ | ✅ | Info |
-| **🚀 Future** ||||
-| AM032+ | Advanced Null Propagation | 🔮 | 🔮 | - |
-| AM040+ | Configuration Rules | 🔮 | 🔮 | - |
-| AM050+ | Advanced Optimizations | 🔮 | 🔮 | - |
+| Rule                    | Description                    | Analyzer | Code Fix | Severity |
+|-------------------------|--------------------------------|----------|----------|----------|
+| **🔒 Type Safety**      |                                |          |          |
+| AM001                   | Property Type Mismatch         | ✅        | ✅        | Warning  |  
+| AM002                   | Nullable→Non-nullable          | ✅        | ✅        | Warning  |
+| AM003                   | Collection Incompatibility     | ✅        | ✅        | Warning  |
+| **📊 Data Integrity**   |                                |          |          |
+| AM004                   | Missing Destination Property   | ✅        | ✅        | Info     |
+| AM005                   | Case Sensitivity Issues        | ✅        | ✅        | Info     |
+| AM011                   | Required Property Missing      | ✅        | ✅        | Error    |
+| **🧩 Complex Mappings** |                                |          |          |
+| AM020                   | Nested Object Issues           | ✅        | ✅        | Warning  |
+| AM021                   | Collection Element Mismatch    | ✅        | ✅        | Warning  |  
+| AM022                   | Circular Reference Risk        | ✅        | ✅        | Warning  |
+| AM030                   | Custom Type Converter Issues   | ✅        | ✅        | Warning  |
+| **⚡ Performance**       |                                |          |          |
+| AM031                   | Performance Warnings           | ✅        | ✅        | Warning  |
+| **⚙️ Configuration**    |                                |          |          |
+| AM041                   | Duplicate Mapping Registration | ✅        | ✅        | Warning  |
+| AM050                   | Redundant MapFrom              | ✅        | ✅        | Info     |
+| **🚀 Future**           |                                |          |          |
+| AM032+                  | Advanced Null Propagation      | 🔮       | 🔮       | -        |
+| AM040+                  | Configuration Rules            | 🔮       | 🔮       | -        |
+| AM050+                  | Advanced Optimizations         | 🔮       | 🔮       | -        |
 
 ---
 
 ## 🛠️ Development Experience
 
 ### IDE Integration
+
 - **Visual Studio**: Full IntelliSense integration with lightbulb code fixes
-- **VS Code**: Rich diagnostic experience via OmniSharp  
+- **VS Code**: Rich diagnostic experience via OmniSharp
 - **JetBrains Rider**: Native analyzer support with quick-fix suggestions
 - **Command Line**: Works seamlessly with `dotnet build`
 
-### Testing Your Configuration  
+### Testing Your Configuration
+
 ```bash
 # Quick validation
 dotnet build  # Analyzer runs automatically
@@ -303,8 +327,9 @@ dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 ```
 
 ### CI/CD & Quality Assurance
+
 - **🔄 Automated Testing**: Every commit tested across multiple .NET versions
-- **📊 Code Coverage**: Integrated with Codecov for comprehensive coverage tracking  
+- **📊 Code Coverage**: Integrated with Codecov for comprehensive coverage tracking
 - **🛡️ Quality Gates**: Build fails only on genuine errors, warnings are preserved
 - **⚡ Cross-Platform**: Validated on Ubuntu (CI) and Windows (compatibility tests)
 - **📈 Performance**: Incremental builds with analyzer caching for optimal speed
@@ -327,17 +352,21 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 ## 🎯 What's Next
 
 ### Recently Completed ✅
+
 - **v2.4.0**: Configuration & Redundancy Analysis (AM041, AM050)
 - **v2.3.2**: ReverseMap support & Performance optimizations
 - **v2.2.0**: AM031 Performance warning analyzer
 
 ### Phase 5B: Enhanced Analysis (Upcoming)
+
 - **AM032**: Advanced null propagation patterns with smart fixes
 
 ### Phase 6: Configuration & Profile Analysis
+
 - **AM040**: Profile registration analysis and auto-registration fixes
 
 ### Beyond Code Analysis
+
 - **NuGet Package Templates**: Project templates with pre-configured analyzers
 - **MSBuild Integration**: Custom build targets for mapping validation
 - **Documentation Generation**: Auto-generate mapping documentation
@@ -350,6 +379,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 We're building something special, and **your expertise makes it better**.
 
 **Quick Start Contributing:**
+
 ```bash
 git clone https://github.com/georgepwall1991/automapper-analyser.git
 cd automapper-analyser
@@ -357,7 +387,8 @@ dotnet test
 ```
 
 **What We Need:**
-- 🧪 More edge-case scenarios  
+
+- 🧪 More edge-case scenarios
 - 📝 Documentation improvements
 - 🚀 Performance optimizations
 - 💡 New analyzer rule ideas
@@ -370,7 +401,7 @@ See our [Contributing Guide](docs/CONTRIBUTING.md) for detailed guidelines.
 
 - 📖 [**Architecture Guide**](docs/ARCHITECTURE.md) - How it all works under the hood
 - 🔍 [**Diagnostic Rules**](docs/DIAGNOSTIC_RULES.md) - Complete rule reference
-- 🧪 [**Sample Gallery**](samples/AutoMapperAnalyzer.Samples/README.md) - Real-world scenarios  
+- 🧪 [**Sample Gallery**](samples/AutoMapperAnalyzer.Samples/README.md) - Real-world scenarios
 - 🚀 [**CI/CD Pipeline**](docs/CI-CD.md) - Our build and deployment process
 - 📊 [**Compatibility Matrix**](docs/COMPATIBILITY.md) - Framework support details
 
@@ -379,10 +410,10 @@ See our [Contributing Guide](docs/CONTRIBUTING.md) for detailed guidelines.
 ## 💬 Community & Support
 
 **Get Help:**
+
 - 🐛 [**Issues**](https://github.com/georgepwall1991/automapper-analyser/issues) - Bug reports and feature requests
 - 💬 [**Discussions**](https://github.com/georgepwall1991/automapper-analyser/discussions) - Questions and ideas
 - 📖 [**Wiki**](https://github.com/georgepwall1991/automapper-analyser/wiki) - Comprehensive documentation
-
 
 ## 📄 License
 
@@ -396,6 +427,7 @@ See our [Contributing Guide](docs/CONTRIBUTING.md) for detailed guidelines.
 
 **Built with ❤️ by developers who've debugged too many AutoMapper issues**
 
-[🚀 **Get Started Now**](#-installation) • [📖 **Read the Docs**](docs/) • [💬 **Join the Discussion**](https://github.com/georgepwall1991/automapper-analyser/discussions)
+[🚀 **Get Started Now**](#-installation) • [📖 **Read the Docs**](docs/) • [💬 **Join the Discussion
+**](https://github.com/georgepwall1991/automapper-analyser/discussions)
 
 </div>

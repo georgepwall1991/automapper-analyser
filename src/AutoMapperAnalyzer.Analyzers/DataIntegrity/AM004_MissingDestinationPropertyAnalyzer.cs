@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.DataIntegrity;
 
@@ -25,11 +25,11 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         true,
         "Source property exists but no corresponding destination property found, which may result in data loss during mapping.");
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         [MissingDestinationPropertyRule];
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -60,20 +60,21 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             invocationExpr,
             typeArguments.sourceType,
             typeArguments.destinationType,
-            isReverseMap: false
+            false
         );
 
         // Check for ReverseMap() and analyze Destination -> Source
-        var reverseMapInvocation = AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocationExpr);
+        InvocationExpressionSyntax? reverseMapInvocation =
+            AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocationExpr);
         if (reverseMapInvocation != null)
         {
-             AnalyzeMissingDestinationProperties(
+            AnalyzeMissingDestinationProperties(
                 context,
                 invocationExpr, // Use the original invocation for location, or maybe reverseMapInvocation?
                 typeArguments.destinationType, // Source is now Destination
-                typeArguments.sourceType,      // Destination is now Source
-                isReverseMap: true,
-                reverseMapInvocation: reverseMapInvocation
+                typeArguments.sourceType, // Destination is now Source
+                true,
+                reverseMapInvocation
             );
         }
     }
@@ -86,8 +87,10 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         bool isReverseMap,
         InvocationExpressionSyntax? reverseMapInvocation = null)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
+        IEnumerable<IPropertySymbol> sourceProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        IEnumerable<IPropertySymbol> destinationProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
 
         // Check each source property to see if it has a corresponding destination property
         foreach (IPropertySymbol sourceProperty in sourceProperties)
@@ -102,7 +105,8 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if this source property is handled by custom mapping configuration
-            if (IsSourcePropertyHandledByCustomMapping(invocation, sourceProperty.Name, isReverseMap, reverseMapInvocation))
+            if (IsSourcePropertyHandledByCustomMapping(invocation, sourceProperty.Name, isReverseMap,
+                    reverseMapInvocation))
             {
                 continue; // Property is handled by custom mapping, no data loss
             }
@@ -114,14 +118,16 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             }
 
             // Report diagnostic for missing destination property
-            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            ImmutableDictionary<string, string?>.Builder properties =
+                ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add("PropertyName", sourceProperty.Name);
             properties.Add("PropertyType", sourceProperty.Type.ToDisplayString());
             properties.Add("SourceTypeName", GetTypeName(sourceType));
             properties.Add("DestinationTypeName", GetTypeName(destinationType));
 
             // Use location of ReverseMap call if this is a reverse map issue, otherwise CreateMap
-            var locationNode = isReverseMap && reverseMapInvocation != null ? reverseMapInvocation : invocation;
+            InvocationExpressionSyntax locationNode =
+                isReverseMap && reverseMapInvocation != null ? reverseMapInvocation : invocation;
 
             var diagnostic = Diagnostic.Create(
                 MissingDestinationPropertyRule,
@@ -134,7 +140,7 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    /// Gets the type name from an ITypeSymbol.
+    ///     Gets the type name from an ITypeSymbol.
     /// </summary>
     /// <param name="type">The type symbol.</param>
     /// <returns>The type name.</returns>
@@ -150,9 +156,10 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         InvocationExpressionSyntax? reverseMapInvocation)
     {
         // Get all ForMember calls in the chain
-        var forMemberCalls = AutoMapperAnalysisHelpers.GetForMemberCalls(createMapInvocation);
+        IEnumerable<InvocationExpressionSyntax> forMemberCalls =
+            AutoMapperAnalysisHelpers.GetForMemberCalls(createMapInvocation);
 
-        foreach (var forMember in forMemberCalls)
+        foreach (InvocationExpressionSyntax? forMember in forMemberCalls)
         {
             // Check if this ForMember call applies to the current direction
             if (!AppliesToDirection(forMember, isReverseMap, reverseMapInvocation))
@@ -185,26 +192,24 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         // If we have ReverseMap, we need to split the chain
         // Forward Map: Methods that are DESCENDANTS of ReverseMap (inside its expression)
         // Reverse Map: Methods that are ANCESTORS of ReverseMap (contain it)
-        
+
         // Check if mappingMethod contains ReverseMap (Ancestor)
         bool isAncestor = reverseMapInvocation.Ancestors().Contains(mappingMethod);
-        
+
         if (isReverseMap)
         {
             // For Reverse Map, we want calls that come AFTER ReverseMap() in the chain
             // In syntax tree, these are parents/ancestors of ReverseMap
             return isAncestor;
         }
-        else
-        {
-            // For Forward Map, we want calls that come BEFORE ReverseMap() in the chain
-            // In syntax tree, these are descendants (or simply NOT ancestors)
-            // Actually, strictly speaking, they should be descendants.
-            // If mappingMethod is neither ancestor nor descendant, it might be on a separate branch? 
-            // But usually it's a linear chain.
-            // If it's NOT an ancestor, it must be "inside" the expression of ReverseMap.
-            return !isAncestor;
-        }
+
+        // For Forward Map, we want calls that come BEFORE ReverseMap() in the chain
+        // In syntax tree, these are descendants (or simply NOT ancestors)
+        // Actually, strictly speaking, they should be descendants.
+        // If mappingMethod is neither ancestor nor descendant, it might be on a separate branch? 
+        // But usually it's a linear chain.
+        // If it's NOT an ancestor, it must be "inside" the expression of ReverseMap.
+        return !isAncestor;
     }
 
     private static bool ForMemberReferencesSourceProperty(InvocationExpressionSyntax forMemberInvocation,

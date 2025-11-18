@@ -1,57 +1,67 @@
 using System.Collections.Immutable;
 using System.Composition;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using AutoMapperAnalyzer.Analyzers.Helpers;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 
 /// <summary>
-/// Code fix provider for AM030 diagnostic - Custom Type Converter issues.
-/// Provides fixes for missing ConvertUsing configurations and invalid converter implementations.
+///     Code fix provider for AM030 diagnostic - Custom Type Converter issues.
+///     Provides fixes for missing ConvertUsing configurations and invalid converter implementations.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM030_CustomTypeConverterCodeFixProvider)), Shared]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM030_CustomTypeConverterCodeFixProvider))]
+[Shared]
 public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
 {
     /// <summary>
-    /// Gets the diagnostic IDs that this code fix provider can fix.
+    ///     Gets the diagnostic IDs that this code fix provider can fix.
     /// </summary>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM030");
 
     /// <summary>
-    /// Gets the fix all provider for batch fixes.
+    ///     Gets the fix all provider for batch fixes.
     /// </summary>
     /// <returns>The batch fixer provider.</returns>
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public override FixAllProvider GetFixAllProvider()
+    {
+        return WellKnownFixAllProviders.BatchFixer;
+    }
 
     /// <summary>
-    /// Registers code fixes for the specified context.
+    ///     Registers code fixes for the specified context.
     /// </summary>
     /// <param name="context">The code fix context.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null) return;
-
-        foreach (var diagnostic in context.Diagnostics)
+        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root == null)
         {
-            if (!diagnostic.Properties.TryGetValue("PropertyName", out var propertyName) ||
+            return;
+        }
+
+        foreach (Diagnostic? diagnostic in context.Diagnostics)
+        {
+            if (!diagnostic.Properties.TryGetValue("PropertyName", out string? propertyName) ||
                 string.IsNullOrEmpty(propertyName))
             {
                 continue;
             }
 
-            var diagnosticSpan = diagnostic.Location.SourceSpan;
-            var node = root.FindNode(diagnosticSpan);
+            TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
+            SyntaxNode node = root.FindNode(diagnosticSpan);
 
             if (node.FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { } invocation)
+            {
                 continue;
+            }
 
-            var diagnosticId = diagnostic.Id;
+            string diagnosticId = diagnostic.Id;
 
             switch (diagnosticId)
             {
@@ -74,55 +84,57 @@ public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
         InvocationExpressionSyntax invocation, string propertyName, Diagnostic diagnostic)
     {
         // Fix 1: Add ForMember with ConvertUsing for string to primitive conversions
-        if (diagnostic.Properties.TryGetValue("ConverterType", out var converterType) &&
+        if (diagnostic.Properties.TryGetValue("ConverterType", out string? converterType) &&
             converterType!.Contains("String") && IsStringToPrimitiveConversion(converterType))
         {
             var lambdaFix = CodeAction.Create(
-                title: $"Add ConvertUsing with lambda for '{propertyName}'",
-                createChangedDocument: cancellationToken =>
+                $"Add ConvertUsing with lambda for '{propertyName}'",
+                cancellationToken =>
                 {
-                    var conversion = GetStringToPrimitiveConversion(converterType!);
-                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                    string conversion = GetStringToPrimitiveConversion(converterType!);
+                    InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
                         invocation,
                         propertyName,
                         $"{conversion}(src.{propertyName})");
-                    var newRoot = root.ReplaceNode(invocation, newInvocation);
+                    SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
-                equivalenceKey: $"ConvertUsingLambda_{propertyName}");
+                $"ConvertUsingLambda_{propertyName}");
 
             context.RegisterCodeFix(lambdaFix, diagnostic);
         }
 
         // Fix 2: Add ForMember with custom converter placeholder
         var converterClassFix = CodeAction.Create(
-            title: $"Add ConvertUsing with custom converter for '{propertyName}'",
-            createChangedDocument: cancellationToken =>
+            $"Add ConvertUsing with custom converter for '{propertyName}'",
+            cancellationToken =>
             {
-                var converterName = diagnostic.Properties.GetValueOrDefault("ConverterType", "CustomConverter") ?? "CustomConverter";
-                var comment = SyntaxFactory.Comment($"// TODO: Implement {converterName} converter class");
-                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                string converterName = diagnostic.Properties.GetValueOrDefault("ConverterType", "CustomConverter") ??
+                                       "CustomConverter";
+                SyntaxTrivia comment = SyntaxFactory.Comment($"// TODO: Implement {converterName} converter class");
+                InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
                         invocation,
                         propertyName,
                         $"/* TODO: Use ConvertUsing<{converterName}>() */ src.{propertyName}")
                     .WithLeadingTrivia(comment, SyntaxFactory.EndOfLine("\n"));
-                var newRoot = root.ReplaceNode(invocation, newInvocation);
+                SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
                 return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
             },
-            equivalenceKey: $"ConvertUsingConverter_{propertyName}");
+            $"ConvertUsingConverter_{propertyName}");
 
         context.RegisterCodeFix(converterClassFix, diagnostic);
 
         // Fix 3: Ignore the property if conversion is too complex
         var ignoreFix = CodeAction.Create(
-            title: $"Ignore property '{propertyName}' (conversion too complex)",
-            createChangedDocument: cancellationToken =>
+            $"Ignore property '{propertyName}' (conversion too complex)",
+            cancellationToken =>
             {
-                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
-                var newRoot = root.ReplaceNode(invocation, newInvocation);
+                InvocationExpressionSyntax newInvocation =
+                    CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
+                SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
                 return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
             },
-            equivalenceKey: $"Ignore_{propertyName}");
+            $"Ignore_{propertyName}");
 
         context.RegisterCodeFix(ignoreFix, diagnostic);
     }
@@ -132,34 +144,35 @@ public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
     {
         // Fix 1: Add comment about implementing proper converter
         var commentFix = CodeAction.Create(
-            title: "Add comment about fixing converter implementation",
-            createChangedDocument: cancellationToken =>
+            "Add comment about fixing converter implementation",
+            cancellationToken =>
             {
-                var comment = SyntaxFactory.Comment("// TODO: Ensure converter implements ITypeConverter<TSource, TDestination>");
-                var newInvocation = invocation.WithLeadingTrivia(
+                SyntaxTrivia comment =
+                    SyntaxFactory.Comment("// TODO: Ensure converter implements ITypeConverter<TSource, TDestination>");
+                InvocationExpressionSyntax newInvocation = invocation.WithLeadingTrivia(
                     invocation.GetLeadingTrivia()
                         .Add(comment)
                         .Add(SyntaxFactory.EndOfLine("\n")));
-                var newRoot = root.ReplaceNode(invocation, newInvocation);
+                SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
                 return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
             },
-            equivalenceKey: "FixConverterImplementation");
+            "FixConverterImplementation");
 
         context.RegisterCodeFix(commentFix, diagnostic);
 
         // Fix 2: Replace with simple MapFrom if possible
         var mapFromFix = CodeAction.Create(
-            title: $"Replace converter with simple MapFrom for '{propertyName}'",
-            createChangedDocument: cancellationToken =>
+            $"Replace converter with simple MapFrom for '{propertyName}'",
+            cancellationToken =>
             {
-                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
                     invocation,
                     propertyName,
                     $"src.{propertyName}");
-                var newRoot = root.ReplaceNode(invocation, newInvocation);
+                SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
                 return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
             },
-            equivalenceKey: $"ReplaceWithMapFrom_{propertyName}");
+            $"ReplaceWithMapFrom_{propertyName}");
 
         context.RegisterCodeFix(mapFromFix, diagnostic);
     }
@@ -169,36 +182,36 @@ public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
     {
         // Fix 1: Add null handling in MapFrom
         var nullHandlingFix = CodeAction.Create(
-            title: $"Add null handling for '{propertyName}'",
-            createChangedDocument: cancellationToken =>
+            $"Add null handling for '{propertyName}'",
+            cancellationToken =>
             {
-                var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
                     invocation,
                     propertyName,
                     $"src.{propertyName} ?? default");
-                var newRoot = root.ReplaceNode(invocation, newInvocation);
+                SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
                 return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
             },
-            equivalenceKey: $"NullHandling_{propertyName}");
+            $"NullHandling_{propertyName}");
 
         context.RegisterCodeFix(nullHandlingFix, diagnostic);
 
         // Fix 2: Use null coalescing operator with specific default
-        if (diagnostic.Properties.TryGetValue("PropertyType", out var propertyType))
+        if (diagnostic.Properties.TryGetValue("PropertyType", out string? propertyType))
         {
             var defaultValueFix = CodeAction.Create(
-                title: $"Add null handling with default value for '{propertyName}'",
-                createChangedDocument: cancellationToken =>
+                $"Add null handling with default value for '{propertyName}'",
+                cancellationToken =>
                 {
-                    var defaultValue = TypeConversionHelper.GetDefaultValueForType(propertyType!);
-                    var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                    string defaultValue = TypeConversionHelper.GetDefaultValueForType(propertyType!);
+                    InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
                         invocation,
                         propertyName,
                         $"src.{propertyName} ?? {defaultValue}");
-                    var newRoot = root.ReplaceNode(invocation, newInvocation);
+                    SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
                     return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
                 },
-                equivalenceKey: $"NullHandlingWithDefault_{propertyName}");
+                $"NullHandlingWithDefault_{propertyName}");
 
             context.RegisterCodeFix(defaultValueFix, diagnostic);
         }
@@ -216,12 +229,36 @@ public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
 
     private string GetStringToPrimitiveConversion(string converterType)
     {
-        if (converterType.Contains("Int")) return "Convert.ToInt32";
-        if (converterType.Contains("Double")) return "Convert.ToDouble";
-        if (converterType.Contains("Decimal")) return "Convert.ToDecimal";
-        if (converterType.Contains("Boolean")) return "Convert.ToBoolean";
-        if (converterType.Contains("DateTime")) return "DateTime.Parse"; // Convert.ToDateTime also exists but Parse is idiomatic
-        if (converterType.Contains("Guid")) return "Guid.Parse";
+        if (converterType.Contains("Int"))
+        {
+            return "Convert.ToInt32";
+        }
+
+        if (converterType.Contains("Double"))
+        {
+            return "Convert.ToDouble";
+        }
+
+        if (converterType.Contains("Decimal"))
+        {
+            return "Convert.ToDecimal";
+        }
+
+        if (converterType.Contains("Boolean"))
+        {
+            return "Convert.ToBoolean";
+        }
+
+        if (converterType.Contains("DateTime"))
+        {
+            return "DateTime.Parse"; // Convert.ToDateTime also exists but Parse is idiomatic
+        }
+
+        if (converterType.Contains("Guid"))
+        {
+            return "Guid.Parse";
+        }
+
         return "Convert.ChangeType";
     }
 }

@@ -20,12 +20,13 @@ public class ComplexTypeMappingExamples
             cfg.CreateMap<SourceWithItems, DestWithItems>();
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var source = new SourceWithItems
         {
             Name = "Container",
-            Items = [
+            Items =
+            [
                 new SourceItem { Id = 1, Value = "Item 1" },
                 new SourceItem { Id = 2, Value = "Item 2" }
             ]
@@ -33,7 +34,7 @@ public class ComplexTypeMappingExamples
 
         try
         {
-            DestWithItems? destination = mapper.Map<DestWithItems>(source);
+            var destination = mapper.Map<DestWithItems>(source);
             Console.WriteLine($"Mapped: {destination.Name}, Items: {destination.Items.Count}");
         }
         catch (Exception ex)
@@ -55,7 +56,7 @@ public class ComplexTypeMappingExamples
             cfg.CreateMap<Child, ChildDto>();
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var parent = new Parent { Name = "Parent" };
         var child = new Child { Name = "Child", Parent = parent };
@@ -63,7 +64,7 @@ public class ComplexTypeMappingExamples
 
         try
         {
-            ParentDto? parentDto = mapper.Map<ParentDto>(parent);
+            var parentDto = mapper.Map<ParentDto>(parent);
             Console.WriteLine($"Mapped: {parentDto.Name}");
         }
         catch (Exception ex)
@@ -140,18 +141,19 @@ public class CorrectComplexTypeMappingExamples
                 .ForMember(dest => dest.DisplayValue, opt => opt.MapFrom(src => src.Value));
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var source = new SourceWithItems
         {
             Name = "Container",
-            Items = [
+            Items =
+            [
                 new SourceItem { Id = 1, Value = "Item 1" },
                 new SourceItem { Id = 2, Value = "Item 2" }
             ]
         };
 
-        DestWithItems? destination = mapper.Map<DestWithItems>(source);
+        var destination = mapper.Map<DestWithItems>(source);
         Console.WriteLine($"✅ Correctly mapped: {destination.Name}, Items: {destination.Items.Count}");
         Console.WriteLine($"   First item: {destination.Items[0].DisplayValue}");
     }
@@ -165,14 +167,14 @@ public class CorrectComplexTypeMappingExamples
             cfg.CreateMap<Child, ChildDto>().PreserveReferences();
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var parent = new Parent { Name = "Parent" };
         var child = new Child { Name = "Child", Parent = parent };
         parent.Child = child;
 
-        ParentDto? parentDto = mapper.Map<ParentDto>(parent);
-        Console.WriteLine($"✅ Correctly mapped with circular reference handling");
+        var parentDto = mapper.Map<ParentDto>(parent);
+        Console.WriteLine("✅ Correctly mapped with circular reference handling");
         Console.WriteLine($"   Parent: {parentDto.Name}, Child: {parentDto.Child?.Name}");
     }
 
@@ -187,15 +189,15 @@ public class CorrectComplexTypeMappingExamples
                 .ForMember(dest => dest.Parent, opt => opt.Ignore()); // Break the cycle
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var parent = new Parent { Name = "Parent" };
         var child = new Child { Name = "Child", Parent = parent };
         parent.Child = child;
 
-        ParentDto? parentDto = mapper.Map<ParentDto>(parent);
-        Console.WriteLine($"✅ Correctly mapped by breaking circular reference");
+        var parentDto = mapper.Map<ParentDto>(parent);
+        Console.WriteLine("✅ Correctly mapped by breaking circular reference");
         Console.WriteLine($"   Parent: {parentDto.Name}, Child: {parentDto.Child?.Name}");
-        Console.WriteLine($"   Child's parent is ignored to prevent recursion");
+        Console.WriteLine("   Child's parent is ignored to prevent recursion");
     }
 }

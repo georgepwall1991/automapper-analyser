@@ -19,7 +19,7 @@ public class TypeConverterExamples
             cfg.CreateMap<PersonWithStringDate, PersonWithDateTime>();
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var source = new PersonWithStringDate
         {
@@ -29,7 +29,7 @@ public class TypeConverterExamples
 
         try
         {
-            PersonWithDateTime? destination = mapper.Map<PersonWithDateTime>(source);
+            var destination = mapper.Map<PersonWithDateTime>(source);
             Console.WriteLine($"Mapped: {destination.Name}, BirthDate: {destination.BirthDate}");
         }
         catch (Exception ex)
@@ -50,7 +50,7 @@ public class TypeConverterExamples
             cfg.CreateMap<OrderWithStringStatus, OrderWithEnumStatus>();
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var source = new OrderWithStringStatus
         {
@@ -60,7 +60,7 @@ public class TypeConverterExamples
 
         try
         {
-            OrderWithEnumStatus? destination = mapper.Map<OrderWithEnumStatus>(source);
+            var destination = mapper.Map<OrderWithEnumStatus>(source);
             Console.WriteLine($"Mapped: Order {destination.Id}, Status: {destination.Status}");
         }
         catch (Exception ex)
@@ -83,7 +83,7 @@ public class TypeConverterExamples
                     opt => opt.MapFrom(src => Guid.Parse(src.GuidString)));
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var source = new SourceWithNullableString
         {
@@ -93,7 +93,7 @@ public class TypeConverterExamples
 
         try
         {
-            DestWithGuid? destination = mapper.Map<DestWithGuid>(source);
+            var destination = mapper.Map<DestWithGuid>(source);
             Console.WriteLine($"Mapped: {destination.Name}, ID: {destination.UniqueId}");
         }
         catch (Exception ex)
@@ -167,7 +167,7 @@ public class CorrectTypeConverterExamples
                             : DateTime.Parse(src.BirthDate)));
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var source = new PersonWithStringDate
         {
@@ -175,7 +175,7 @@ public class CorrectTypeConverterExamples
             BirthDate = "1990-05-15"
         };
 
-        PersonWithDateTime? destination = mapper.Map<PersonWithDateTime>(source);
+        var destination = mapper.Map<PersonWithDateTime>(source);
         Console.WriteLine($"✅ Correctly mapped: {destination.Name}, BirthDate: {destination.BirthDate:yyyy-MM-dd}");
     }
 
@@ -192,7 +192,7 @@ public class CorrectTypeConverterExamples
                             : StatusEnum.Pending));
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var source = new OrderWithStringStatus
         {
@@ -200,7 +200,7 @@ public class CorrectTypeConverterExamples
             Status = "Processing"
         };
 
-        OrderWithEnumStatus? destination = mapper.Map<OrderWithEnumStatus>(source);
+        var destination = mapper.Map<OrderWithEnumStatus>(source);
         Console.WriteLine($"✅ Correctly mapped: Order {destination.Id}, Status: {destination.Status}");
     }
 
@@ -217,7 +217,7 @@ public class CorrectTypeConverterExamples
                             : Guid.Parse(src.GuidString)));
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var source = new SourceWithNullableString
         {
@@ -225,7 +225,7 @@ public class CorrectTypeConverterExamples
             GuidString = null
         };
 
-        DestWithGuid? destination = mapper.Map<DestWithGuid>(source);
+        var destination = mapper.Map<DestWithGuid>(source);
         Console.WriteLine($"✅ Correctly mapped with null handling: {destination.Name}, ID: {destination.UniqueId}");
     }
 
@@ -238,7 +238,7 @@ public class CorrectTypeConverterExamples
                 .ConvertUsing<StringToDateTimeConverter>();
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var source = new PersonWithStringDate
         {
@@ -246,8 +246,9 @@ public class CorrectTypeConverterExamples
             BirthDate = "1985-03-20"
         };
 
-        PersonWithDateTime? destination = mapper.Map<PersonWithDateTime>(source);
-        Console.WriteLine($"✅ Correctly mapped using ITypeConverter: {destination.Name}, BirthDate: {destination.BirthDate:yyyy-MM-dd}");
+        var destination = mapper.Map<PersonWithDateTime>(source);
+        Console.WriteLine(
+            $"✅ Correctly mapped using ITypeConverter: {destination.Name}, BirthDate: {destination.BirthDate:yyyy-MM-dd}");
     }
 }
 
@@ -256,7 +257,8 @@ public class CorrectTypeConverterExamples
 /// </summary>
 public class StringToDateTimeConverter : ITypeConverter<PersonWithStringDate, PersonWithDateTime>
 {
-    public PersonWithDateTime Convert(PersonWithStringDate source, PersonWithDateTime destination, ResolutionContext context)
+    public PersonWithDateTime Convert(PersonWithStringDate source, PersonWithDateTime destination,
+        ResolutionContext context)
     {
         return new PersonWithDateTime
         {

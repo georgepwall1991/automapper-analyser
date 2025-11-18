@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 
@@ -25,11 +25,11 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         true,
         "Complex nested objects require explicit mapping configuration to ensure proper data transformation and avoid runtime exceptions.");
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         [NestedObjectMappingMissingRule];
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -70,8 +70,10 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
+        IEnumerable<IPropertySymbol> sourceProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        IEnumerable<IPropertySymbol> destinationProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
 
         var createMapRegistry = CreateMapRegistry.FromCompilation(context.Compilation);
 
@@ -90,8 +92,8 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
             // Check if this property requires nested object mapping
             if (RequiresNestedObjectMapping(sourceProperty.Type, destinationProperty.Type))
             {
-                var sourceNestedType = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceProperty.Type);
-                var destNestedType = AutoMapperAnalysisHelpers.GetUnderlyingType(destinationProperty.Type);
+                ITypeSymbol sourceNestedType = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceProperty.Type);
+                ITypeSymbol destNestedType = AutoMapperAnalysisHelpers.GetUnderlyingType(destinationProperty.Type);
 
                 // Check if mapping already exists
                 if (createMapRegistry.Contains(sourceNestedType, destNestedType))
@@ -100,7 +102,8 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
                 }
 
                 // Check if property is explicitly mapped via ForMember
-                if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, destinationProperty.Name, context.SemanticModel))
+                if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, destinationProperty.Name,
+                        context.SemanticModel))
                 {
                     continue; // Property is explicitly handled
                 }
@@ -131,13 +134,15 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         }
 
         // Built-in value types and strings don't need nested object mapping
-        if (AutoMapperAnalysisHelpers.IsBuiltInType(sourceUnderlyingType) || AutoMapperAnalysisHelpers.IsBuiltInType(destUnderlyingType))
+        if (AutoMapperAnalysisHelpers.IsBuiltInType(sourceUnderlyingType) ||
+            AutoMapperAnalysisHelpers.IsBuiltInType(destUnderlyingType))
         {
             return false;
         }
 
         // Collections should be handled by AM021, not AM020
-        if (AutoMapperAnalysisHelpers.IsCollectionType(sourceUnderlyingType) || AutoMapperAnalysisHelpers.IsCollectionType(destUnderlyingType))
+        if (AutoMapperAnalysisHelpers.IsCollectionType(sourceUnderlyingType) ||
+            AutoMapperAnalysisHelpers.IsCollectionType(destUnderlyingType))
         {
             return false;
         }

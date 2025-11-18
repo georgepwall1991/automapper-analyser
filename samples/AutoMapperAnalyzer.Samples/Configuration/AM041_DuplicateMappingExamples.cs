@@ -4,8 +4,13 @@ namespace AutoMapperAnalyzer.Samples.Configuration;
 
 public class AM041_DuplicateMappingExamples
 {
-    public class Source { }
-    public class Destination { }
+    public class Source
+    {
+    }
+
+    public class Destination
+    {
+    }
 
     public class MyProfile : Profile
     {
@@ -17,4 +22,3 @@ public class AM041_DuplicateMappingExamples
         }
     }
 }
-

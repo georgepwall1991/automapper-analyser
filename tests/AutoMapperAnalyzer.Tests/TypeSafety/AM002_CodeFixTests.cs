@@ -7,9 +7,10 @@ namespace AutoMapperAnalyzer.Tests.TypeSafety;
 
 public class AM002_CodeFixTests
 {
-    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column, params object[] messageArgs)
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column,
+        params object[] messageArgs)
     {
-        var result = new DiagnosticResult(descriptor).WithLocation(line, column);
+        DiagnosticResult result = new DiagnosticResult(descriptor).WithLocation(line, column);
         if (messageArgs.Length > 0)
         {
             result = result.WithArguments(messageArgs);
@@ -18,12 +19,18 @@ public class AM002_CodeFixTests
         return result;
     }
 
-    private static Task VerifyFixAsync(string source, DiagnosticDescriptor descriptor, int line, int column, string fixedCode, params object[] messageArgs)
-        => VerifyFixAsync(source, descriptor, line, column, fixedCode, null, messageArgs);
+    private static Task VerifyFixAsync(string source, DiagnosticDescriptor descriptor, int line, int column,
+        string fixedCode, params object[] messageArgs)
+    {
+        return VerifyFixAsync(source, descriptor, line, column, fixedCode, null, messageArgs);
+    }
 
-    private static Task VerifyFixAsync(string source, DiagnosticDescriptor descriptor, int line, int column, string fixedCode, DiagnosticResult[]? remainingDiagnostics, params object[] messageArgs)
-        => CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+    private static Task VerifyFixAsync(string source, DiagnosticDescriptor descriptor, int line, int column,
+        string fixedCode, DiagnosticResult[]? remainingDiagnostics, params object[] messageArgs)
+    {
+        return CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
             .VerifyFixAsync(source, Diagnostic(descriptor, line, column, messageArgs), fixedCode, remainingDiagnostics);
+    }
 
     [Fact]
     public async Task AM002_ShouldFixNullableToNonNullableWithNullCoalescing()
@@ -255,33 +262,33 @@ public class AM002_CodeFixTests
 
         // Fix the first property (Name)
         const string expectedFixedCodeAfterFirstFix = """
-                                                       using AutoMapper;
+                                                      using AutoMapper;
 
-                                                       namespace TestNamespace
-                                                       {
-                                                           public class Source
-                                                           {
-                                                               public string? Name { get; set; }
-                                                               public int? Age { get; set; }
-                                                           }
+                                                      namespace TestNamespace
+                                                      {
+                                                          public class Source
+                                                          {
+                                                              public string? Name { get; set; }
+                                                              public int? Age { get; set; }
+                                                          }
 
-                                                           public class Destination
-                                                           {
-                                                               public string Name { get; set; }
-                                                               public int Age { get; set; }
-                                                           }
+                                                          public class Destination
+                                                          {
+                                                              public string Name { get; set; }
+                                                              public int Age { get; set; }
+                                                          }
 
-                                                           public class TestProfile : Profile
-                                                           {
-                                                               public TestProfile()
-                                                               {
-                                                                   CreateMap<Source, Destination>().ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty)).ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age ?? 0));
-                                                               }
-                                                           }
-                                                       }
-                                                       """;
+                                                          public class TestProfile : Profile
+                                                          {
+                                                              public TestProfile()
+                                                              {
+                                                                  CreateMap<Source, Destination>().ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty)).ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age ?? 0));
+                                                              }
+                                                          }
+                                                      }
+                                                      """;
 
-        var ageDiagnostic = Diagnostic(
+        DiagnosticResult ageDiagnostic = Diagnostic(
             AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
             21,
             13,
@@ -291,7 +298,7 @@ public class AM002_CodeFixTests
             "Destination",
             "int");
 
-        var nameDiagnostic = Diagnostic(
+        DiagnosticResult nameDiagnostic = Diagnostic(
             AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
             21,
             13,
@@ -301,10 +308,11 @@ public class AM002_CodeFixTests
             "Destination",
             "string");
 
-        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>.VerifyFixAsync(
-            testCode,
-            new[] { ageDiagnostic, nameDiagnostic },
-            expectedFixedCodeAfterFirstFix);
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[] { ageDiagnostic, nameDiagnostic },
+                expectedFixedCodeAfterFirstFix);
     }
 
     [Fact]

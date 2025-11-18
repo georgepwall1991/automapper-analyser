@@ -38,7 +38,8 @@ public class AM022_InfiniteRecursionTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule, 21, 13, "SourcePerson", "DestPerson")
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule, 21, 13, "SourcePerson",
+                "DestPerson")
             .RunAsync();
     }
 
@@ -310,7 +311,8 @@ public class AM022_InfiniteRecursionTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule, 24, 13, "SourceCategory", "DestCategory")
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule, 24, 13, "SourceCategory",
+                "DestCategory")
             .RunAsync();
     }
 
@@ -365,7 +367,8 @@ public class AM022_InfiniteRecursionTests
             .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
             .WithSource(testCode)
             .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule, 37, 13, "SourceNode", "DestNode")
-            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 38, 13, "SourceContainer", "DestContainer")
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 38, 13, "SourceContainer",
+                "DestContainer")
             .RunAsync();
     }
 

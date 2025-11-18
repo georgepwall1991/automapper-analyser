@@ -9,35 +9,35 @@ root = true
 # This allows the build to pass while showing all diagnostics in action
 
 # Type Safety (AM001-AM003)
-dotnet_diagnostic.AM001.severity = warning  # Property Type Mismatch
-dotnet_diagnostic.AM002.severity = warning  # Nullable Compatibility
-dotnet_diagnostic.AM003.severity = warning  # Collection Type Incompatibility
+dotnet_diagnostic.AM001.severity = warning # Property Type Mismatch
+dotnet_diagnostic.AM002.severity = warning # Nullable Compatibility
+dotnet_diagnostic.AM003.severity = warning # Collection Type Incompatibility
 
 # Property Mapping (AM004-AM005, AM011)
-dotnet_diagnostic.AM004.severity = warning  # Missing Destination Property
-dotnet_diagnostic.AM005.severity = warning  # Case Sensitivity Mismatch
-dotnet_diagnostic.AM011.severity = warning  # Unmapped Required Property
+dotnet_diagnostic.AM004.severity = warning # Missing Destination Property
+dotnet_diagnostic.AM005.severity = warning # Case Sensitivity Mismatch
+dotnet_diagnostic.AM011.severity = warning # Unmapped Required Property
 
 # Complex Types (AM020-AM022)
-dotnet_diagnostic.AM020.severity = warning  # Nested Object Mapping Missing
-dotnet_diagnostic.AM021.severity = warning  # Collection Element Mismatch
-dotnet_diagnostic.AM022.severity = warning  # Infinite Recursion Risk
+dotnet_diagnostic.AM020.severity = warning # Nested Object Mapping Missing
+dotnet_diagnostic.AM021.severity = warning # Collection Element Mismatch
+dotnet_diagnostic.AM022.severity = warning # Infinite Recursion Risk
 
 # Custom Converters (AM030)
-dotnet_diagnostic.AM030.severity = warning  # Custom Type Converter Issues
+dotnet_diagnostic.AM030.severity = warning # Custom Type Converter Issues
 
 # Future Rules (AM031+) - Configured as warnings for when implemented
-dotnet_diagnostic.AM031.severity = warning  # Performance Analysis
-dotnet_diagnostic.AM040.severity = warning  # Missing Profile Registration
-dotnet_diagnostic.AM041.severity = warning  # Conflicting Mapping Rules
-dotnet_diagnostic.AM042.severity = warning  # Ignore vs MapFrom Conflict
-dotnet_diagnostic.AM050.severity = warning  # Static Mapper Usage
-dotnet_diagnostic.AM051.severity = warning  # Repeated Mapping Configuration
-dotnet_diagnostic.AM052.severity = warning  # Missing Null Propagation
+dotnet_diagnostic.AM031.severity = warning # Performance Analysis
+dotnet_diagnostic.AM040.severity = warning # Missing Profile Registration
+dotnet_diagnostic.AM041.severity = warning # Conflicting Mapping Rules
+dotnet_diagnostic.AM042.severity = warning # Ignore vs MapFrom Conflict
+dotnet_diagnostic.AM050.severity = warning # Static Mapper Usage
+dotnet_diagnostic.AM051.severity = warning # Repeated Mapping Configuration
+dotnet_diagnostic.AM052.severity = warning # Missing Null Propagation
 
 # Suppress CS warnings that are expected in sample code
-dotnet_diagnostic.CS8618.severity = none    # Non-nullable field uninitialized
-dotnet_diagnostic.CS8602.severity = none    # Dereference of possibly null reference
-dotnet_diagnostic.CS8604.severity = none    # Possible null reference argument
-dotnet_diagnostic.CA1822.severity = none    # Mark members as static
-dotnet_diagnostic.CA1305.severity = none    # Specify IFormatProvider
+dotnet_diagnostic.CS8618.severity = none # Non-nullable field uninitialized
+dotnet_diagnostic.CS8602.severity = none # Dereference of possibly null reference
+dotnet_diagnostic.CS8604.severity = none # Possible null reference argument
+dotnet_diagnostic.CA1822.severity = none # Mark members as static
+dotnet_diagnostic.CA1305.severity = none # Specify IFormatProvider

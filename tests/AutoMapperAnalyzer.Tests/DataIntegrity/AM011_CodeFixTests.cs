@@ -1,6 +1,5 @@
 using AutoMapperAnalyzer.Analyzers.DataIntegrity;
 using AutoMapperAnalyzer.Tests.Infrastructure;
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests.DataIntegrity;
@@ -146,9 +145,9 @@ public class AM011_CodeFixTests
                 // Fix 1: Default Value (0)
                 // Fix 2: Constant Value (1) - Wait, helper says GetSampleValueForType("int") is "1".
                 // Let's check expected code above: "src => 0". So this test is actually testing Fix 1 (Default Value).
-                codeActionIndex: 0); 
+                0);
     }
-    
+
     [Fact]
     public async Task AM011_ShouldAddCustomLogicMapping()
     {
@@ -215,7 +214,7 @@ public class AM011_CodeFixTests
                     .WithLocation(21, 13)
                     .WithArguments("RequiredField"),
                 expectedFixedCode,
-                codeActionIndex: 2);
+                2);
     }
 
     [Fact]
@@ -344,7 +343,8 @@ public class AM011_CodeFixTests
         await CodeFixVerifier<AM011_UnmappedRequiredPropertyAnalyzer, AM011_UnmappedRequiredPropertyCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                new [] {
+                new[]
+                {
                     new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
                         .WithLocation(21, 13)
                         .WithArguments("RequiredField1"),

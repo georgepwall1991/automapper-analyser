@@ -1,10 +1,4 @@
 using AutoMapper;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Threading.Tasks;
 
 namespace AutoMapperAnalyzer.Samples.Performance;
 
@@ -16,7 +10,7 @@ public class AM031_PerformanceExamples
     /// <summary>
     ///     AM031: Database Call in MapFrom
     ///     This should trigger AM031 diagnostic
-    ///     </summary>
+    /// </summary>
     public void DatabaseCallInMappingExample()
     {
         var dbContext = new SampleDbContext();
@@ -43,7 +37,7 @@ public class AM031_PerformanceExamples
     /// <summary>
     ///     AM031: External Method Call in MapFrom
     ///     This should trigger AM031 diagnostic
-    ///     </summary>
+    /// </summary>
     public void ExternalMethodCallExample()
     {
         var externalService = new ExternalService();
@@ -70,7 +64,7 @@ public class AM031_PerformanceExamples
     /// <summary>
     ///     AM031: File I/O in MapFrom
     ///     This should trigger AM031 diagnostic
-    ///     </summary>
+    /// </summary>
     public void FileIOInMappingExample()
     {
         var config = new MapperConfiguration(cfg =>
@@ -90,7 +84,7 @@ public class AM031_PerformanceExamples
     /// <summary>
     ///     AM031: Multiple Collection Enumerations
     ///     This should trigger AM031 diagnostic
-    ///     </summary>
+    /// </summary>
     public void MultipleEnumerationsExample()
     {
         var config = new MapperConfiguration(cfg =>
@@ -118,7 +112,7 @@ public class AM031_PerformanceExamples
     /// <summary>
     ///     AM031: Task.Result Synchronous Access
     ///     This should trigger AM031 diagnostic
-    ///     </summary>
+    /// </summary>
     public void TaskResultExample()
     {
         var asyncService = new AsyncDataService();
@@ -145,7 +139,7 @@ public class AM031_PerformanceExamples
     /// <summary>
     ///     AM031: DateTime.Now in MapFrom
     ///     This should trigger AM031 diagnostic
-    ///     </summary>
+    /// </summary>
     public void DateTimeNowExample()
     {
         var config = new MapperConfiguration(cfg =>
@@ -170,7 +164,7 @@ public class AM031_PerformanceExamples
     /// <summary>
     ///     AM031: Reflection in MapFrom
     ///     This should trigger AM031 diagnostic
-    ///     </summary>
+    /// </summary>
     public void ReflectionExample()
     {
         var config = new MapperConfiguration(cfg =>
@@ -190,7 +184,7 @@ public class AM031_PerformanceExamples
     /// <summary>
     ///     AM031: HTTP Request in MapFrom
     ///     This should trigger AM031 diagnostic
-    ///     </summary>
+    /// </summary>
     public void HttpRequestExample()
     {
         var httpClient = new HttpClient();
@@ -212,7 +206,7 @@ public class AM031_PerformanceExamples
     /// <summary>
     ///     AM031: Complex LINQ Operation
     ///     This should trigger AM031 diagnostic
-    ///     </summary>
+    /// </summary>
     public void ComplexLinqExample()
     {
         var config = new MapperConfiguration(cfg =>
@@ -271,7 +265,10 @@ public class UserDto
 
 public class ExternalService
 {
-    public string EnrichProductData(int productId) => $"Enriched data for {productId}";
+    public string EnrichProductData(int productId)
+    {
+        return $"Enriched data for {productId}";
+    }
 }
 
 public class Product
@@ -317,7 +314,10 @@ public class SalesReportDto
 
 public class AsyncDataService
 {
-    public Task<string> GetDataAsync(int id) => Task.FromResult($"Data for {id}");
+    public Task<string> GetDataAsync(int id)
+    {
+        return Task.FromResult($"Data for {id}");
+    }
 }
 
 public class AM031Customer

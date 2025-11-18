@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 
@@ -37,11 +37,11 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         true,
         "Collection properties have compatible collection types but incompatible element types that may require custom mapping.");
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         [CollectionTypeIncompatibilityRule, CollectionElementIncompatibilityRule];
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -80,8 +80,10 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
+        IEnumerable<IPropertySymbol> sourceProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        IEnumerable<IPropertySymbol> destinationProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
 
         foreach (IPropertySymbol sourceProperty in sourceProperties)
         {
@@ -94,13 +96,15 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
             }
 
             // Check for explicit property mapping that might handle collection conversion
-            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProperty.Name, context.SemanticModel))
+            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProperty.Name,
+                    context.SemanticModel))
             {
                 continue;
             }
 
             // Check if both properties are collections
-            if (AutoMapperAnalysisHelpers.IsCollectionType(sourceProperty.Type) && AutoMapperAnalysisHelpers.IsCollectionType(destinationProperty.Type))
+            if (AutoMapperAnalysisHelpers.IsCollectionType(sourceProperty.Type) &&
+                AutoMapperAnalysisHelpers.IsCollectionType(destinationProperty.Type))
             {
                 AnalyzeCollectionPropertyCompatibility(context, invocation, sourceProperty, destinationProperty,
                     sourceType, destinationType);
@@ -131,7 +135,8 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         // Check if collection types are fundamentally incompatible
         if (AreCollectionTypesIncompatible(sourceProperty.Type, destinationProperty.Type))
         {
-            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            ImmutableDictionary<string, string?>.Builder properties =
+                ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add("PropertyName", sourceProperty.Name);
             properties.Add("SourceType", sourceTypeName);
             properties.Add("DestType", destTypeName);
@@ -155,7 +160,8 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         // Check if element types are incompatible
         else if (!AutoMapperAnalysisHelpers.AreTypesCompatible(sourceElementType, destElementType))
         {
-            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            ImmutableDictionary<string, string?>.Builder properties =
+                ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add("PropertyName", sourceProperty.Name);
             properties.Add("SourceType", sourceTypeName);
             properties.Add("DestType", destTypeName);
@@ -207,6 +213,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         {
             return true;
         }
+
         if (!sourceIsHashSet && destIsHashSet)
         {
             return true;
@@ -217,6 +224,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         {
             return true;
         }
+
         if (!sourceIsQueue && destIsQueue)
         {
             return true;
@@ -227,6 +235,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         {
             return true;
         }
+
         if (!sourceIsStack && destIsStack)
         {
             return true;
@@ -248,9 +257,8 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
     }
 
 
-
     /// <summary>
-    /// Gets the type name from an ITypeSymbol.
+    ///     Gets the type name from an ITypeSymbol.
     /// </summary>
     /// <param name="type">The type symbol.</param>
     /// <returns>The type name.</returns>

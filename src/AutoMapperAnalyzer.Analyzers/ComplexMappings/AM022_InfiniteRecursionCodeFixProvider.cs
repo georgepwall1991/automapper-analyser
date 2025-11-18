@@ -1,50 +1,59 @@
 using System.Collections.Immutable;
 using System.Composition;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using AutoMapperAnalyzer.Analyzers.Helpers;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 
 /// <summary>
-/// Code fix provider for AM022 Infinite Recursion diagnostics.
-/// Provides fixes for self-referencing types and circular reference risks.
+///     Code fix provider for AM022 Infinite Recursion diagnostics.
+///     Provides fixes for self-referencing types and circular reference risks.
 /// </summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM022_InfiniteRecursionCodeFixProvider)), Shared]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM022_InfiniteRecursionCodeFixProvider))]
+[Shared]
 public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
 {
     /// <summary>
-    /// Gets the diagnostic IDs that this provider can fix.
+    ///     Gets the diagnostic IDs that this provider can fix.
     /// </summary>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM022");
 
     /// <summary>
-    /// Gets whether this provider can fix multiple diagnostics in a single code action.
+    ///     Gets whether this provider can fix multiple diagnostics in a single code action.
     /// </summary>
-    public sealed override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    public sealed override FixAllProvider GetFixAllProvider()
+    {
+        return WellKnownFixAllProviders.BatchFixer;
+    }
 
     /// <summary>
-    /// Registers code fixes for the diagnostics.
+    ///     Registers code fixes for the diagnostics.
     /// </summary>
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null) return;
-
-        var semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (semanticModel == null) return;
-
-        foreach (var diagnostic in context.Diagnostics)
+        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root == null)
         {
-            var diagnosticSpan = diagnostic.Location.SourceSpan;
+            return;
+        }
 
-            var invocation = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
+        SemanticModel? semanticModel =
+            await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+        if (semanticModel == null)
+        {
+            return;
+        }
+
+        foreach (Diagnostic? diagnostic in context.Diagnostics)
+        {
+            TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
+
+            InvocationExpressionSyntax? invocation = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
                 .OfType<InvocationExpressionSyntax>()
                 .FirstOrDefault(i => i.Span.Contains(diagnosticSpan));
 
@@ -54,14 +63,15 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
             }
 
             // Get the type arguments to identify self-referencing properties
-            var createMapTypes = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+            (ITypeSymbol? sourceType, ITypeSymbol? destType) createMapTypes =
+                AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
             if (createMapTypes.Item1 == null || createMapTypes.Item2 == null)
             {
                 continue;
             }
 
             // Find all self-referencing properties
-            var selfReferencingProperties = FindSelfReferencingProperties(
+            ImmutableList<string> selfReferencingProperties = FindSelfReferencingProperties(
                 createMapTypes.Item1,
                 createMapTypes.Item2);
 
@@ -72,22 +82,22 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
             if (selfReferencingProperties.Count == 1)
             {
                 // Single property: offer Ignore first
-                var propertyName = selfReferencingProperties[0];
+                string propertyName = selfReferencingProperties[0];
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        title: $"Ignore self-referencing property '{propertyName}'",
-                        createChangedDocument: cancellationToken =>
+                        $"Ignore self-referencing property '{propertyName}'",
+                        cancellationToken =>
                             AddIgnoreAsync(context.Document, invocation, propertyName, cancellationToken),
-                        equivalenceKey: $"AM022_Ignore_{propertyName}"),
+                        $"AM022_Ignore_{propertyName}"),
                     diagnostic);
 
                 // Offer MaxDepth as alternative
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        title: "Add MaxDepth(2) to prevent infinite recursion",
-                        createChangedDocument: cancellationToken =>
+                        "Add MaxDepth(2) to prevent infinite recursion",
+                        cancellationToken =>
                             AddMaxDepthAsync(context.Document, invocation, cancellationToken),
-                        equivalenceKey: "AM022_AddMaxDepth"),
+                        "AM022_AddMaxDepth"),
                     diagnostic);
             }
             else
@@ -95,10 +105,10 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
                 // Multiple properties or none: offer MaxDepth first (simpler)
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        title: "Add MaxDepth(2) to prevent infinite recursion",
-                        createChangedDocument: cancellationToken =>
+                        "Add MaxDepth(2) to prevent infinite recursion",
+                        cancellationToken =>
                             AddMaxDepthAsync(context.Document, invocation, cancellationToken),
-                        equivalenceKey: "AM022_AddMaxDepth"),
+                        "AM022_AddMaxDepth"),
                     diagnostic);
 
                 if (selfReferencingProperties.Count > 1)
@@ -106,10 +116,11 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
                     // Offer to ignore all self-referencing properties as alternative
                     context.RegisterCodeFix(
                         CodeAction.Create(
-                            title: $"Ignore all {selfReferencingProperties.Count} self-referencing properties",
-                            createChangedDocument: cancellationToken =>
-                                AddIgnoreMultipleAsync(context.Document, invocation, selfReferencingProperties, cancellationToken),
-                            equivalenceKey: "AM022_IgnoreAll"),
+                            $"Ignore all {selfReferencingProperties.Count} self-referencing properties",
+                            cancellationToken =>
+                                AddIgnoreMultipleAsync(context.Document, invocation, selfReferencingProperties,
+                                    cancellationToken),
+                            "AM022_IgnoreAll"),
                         diagnostic);
                 }
             }
@@ -120,9 +131,9 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
         ITypeSymbol sourceType,
         ITypeSymbol destType)
     {
-        var selfReferencingProps = ImmutableList.CreateBuilder<string>();
+        ImmutableList<string>.Builder selfReferencingProps = ImmutableList.CreateBuilder<string>();
 
-        foreach (var destProperty in destType.GetMembers().OfType<IPropertySymbol>())
+        foreach (IPropertySymbol? destProperty in destType.GetMembers().OfType<IPropertySymbol>())
         {
             if (destProperty.Type.Equals(destType, SymbolEqualityComparer.Default))
             {
@@ -138,11 +149,14 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
         InvocationExpressionSyntax invocation,
         CancellationToken cancellationToken)
     {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null) return document;
+        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root == null)
+        {
+            return document;
+        }
 
         // Create .MaxDepth(2) invocation
-        var maxDepthInvocation = SyntaxFactory.InvocationExpression(
+        InvocationExpressionSyntax maxDepthInvocation = SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
                 invocation,
@@ -154,7 +168,7 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
                             SyntaxKind.NumericLiteralExpression,
                             SyntaxFactory.Literal(2))))));
 
-        var newRoot = root.ReplaceNode(invocation, maxDepthInvocation);
+        SyntaxNode newRoot = root.ReplaceNode(invocation, maxDepthInvocation);
         return document.WithSyntaxRoot(newRoot);
     }
 
@@ -164,11 +178,15 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
         string propertyName,
         CancellationToken cancellationToken)
     {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null) return document;
+        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root == null)
+        {
+            return document;
+        }
 
-        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
-        var newRoot = root.ReplaceNode(invocation, newInvocation);
+        InvocationExpressionSyntax newInvocation =
+            CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
+        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
 
         return document.WithSyntaxRoot(newRoot);
     }
@@ -179,16 +197,19 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
         ImmutableList<string> propertyNames,
         CancellationToken cancellationToken)
     {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null) return document;
+        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root == null)
+        {
+            return document;
+        }
 
-        var newInvocation = invocation;
-        foreach (var propertyName in propertyNames)
+        InvocationExpressionSyntax newInvocation = invocation;
+        foreach (string? propertyName in propertyNames)
         {
             newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(newInvocation, propertyName);
         }
 
-        var newRoot = root.ReplaceNode(invocation, newInvocation);
+        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
         return document.WithSyntaxRoot(newRoot);
     }
 }

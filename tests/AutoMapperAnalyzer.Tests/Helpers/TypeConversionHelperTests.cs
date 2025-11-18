@@ -10,7 +10,7 @@ public class TypeConversionHelperTests
     [InlineData("STRING", "string.Empty")]
     public void GetDefaultValueForType_ShouldReturnStringEmpty_ForStringTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetDefaultValueForType(type);
+        string result = TypeConversionHelper.GetDefaultValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -19,7 +19,7 @@ public class TypeConversionHelperTests
     [InlineData("INT", "0")]
     public void GetDefaultValueForType_ShouldReturnZero_ForIntTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetDefaultValueForType(type);
+        string result = TypeConversionHelper.GetDefaultValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -29,7 +29,7 @@ public class TypeConversionHelperTests
     [InlineData("LONG", "0L")]
     public void GetDefaultValueForType_ShouldReturnZeroL_ForLongTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetDefaultValueForType(type);
+        string result = TypeConversionHelper.GetDefaultValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -39,7 +39,7 @@ public class TypeConversionHelperTests
     [InlineData("DOUBLE", "0.0")]
     public void GetDefaultValueForType_ShouldReturnZeroPointZero_ForDoubleTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetDefaultValueForType(type);
+        string result = TypeConversionHelper.GetDefaultValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -49,7 +49,7 @@ public class TypeConversionHelperTests
     [InlineData("FLOAT", "0.0f")]
     public void GetDefaultValueForType_ShouldReturnZeroPointZeroF_ForFloatTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetDefaultValueForType(type);
+        string result = TypeConversionHelper.GetDefaultValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -59,7 +59,7 @@ public class TypeConversionHelperTests
     [InlineData("DECIMAL", "0m")]
     public void GetDefaultValueForType_ShouldReturnZeroM_ForDecimalTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetDefaultValueForType(type);
+        string result = TypeConversionHelper.GetDefaultValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -69,7 +69,7 @@ public class TypeConversionHelperTests
     [InlineData("BOOL", "false")]
     public void GetDefaultValueForType_ShouldReturnFalse_ForBoolTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetDefaultValueForType(type);
+        string result = TypeConversionHelper.GetDefaultValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -79,7 +79,7 @@ public class TypeConversionHelperTests
     [InlineData("DATETIME", "DateTime.MinValue")]
     public void GetDefaultValueForType_ShouldReturnDateTimeMinValue_ForDateTimeTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetDefaultValueForType(type);
+        string result = TypeConversionHelper.GetDefaultValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -89,7 +89,7 @@ public class TypeConversionHelperTests
     [InlineData("GUID", "Guid.Empty")]
     public void GetDefaultValueForType_ShouldReturnGuidEmpty_ForGuidTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetDefaultValueForType(type);
+        string result = TypeConversionHelper.GetDefaultValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -99,7 +99,7 @@ public class TypeConversionHelperTests
     [InlineData("", "default")]
     public void GetDefaultValueForType_ShouldReturnDefault_ForUnknownTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetDefaultValueForType(type);
+        string result = TypeConversionHelper.GetDefaultValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -109,7 +109,7 @@ public class TypeConversionHelperTests
     [InlineData("STRING", "\"DefaultValue\"")]
     public void GetSampleValueForType_ShouldReturnDefaultValue_ForStringTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetSampleValueForType(type);
+        string result = TypeConversionHelper.GetSampleValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -118,7 +118,7 @@ public class TypeConversionHelperTests
     [InlineData("INT", "1")]
     public void GetSampleValueForType_ShouldReturnOne_ForIntTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetSampleValueForType(type);
+        string result = TypeConversionHelper.GetSampleValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -128,7 +128,7 @@ public class TypeConversionHelperTests
     [InlineData("LONG", "1L")]
     public void GetSampleValueForType_ShouldReturnOneL_ForLongTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetSampleValueForType(type);
+        string result = TypeConversionHelper.GetSampleValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -138,7 +138,7 @@ public class TypeConversionHelperTests
     [InlineData("DOUBLE", "1.0")]
     public void GetSampleValueForType_ShouldReturnOnePointZero_ForDoubleTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetSampleValueForType(type);
+        string result = TypeConversionHelper.GetSampleValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -148,7 +148,7 @@ public class TypeConversionHelperTests
     [InlineData("FLOAT", "1.0f")]
     public void GetSampleValueForType_ShouldReturnOnePointZeroF_ForFloatTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetSampleValueForType(type);
+        string result = TypeConversionHelper.GetSampleValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -158,7 +158,7 @@ public class TypeConversionHelperTests
     [InlineData("DECIMAL", "1.0m")]
     public void GetSampleValueForType_ShouldReturnOnePointZeroM_ForDecimalTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetSampleValueForType(type);
+        string result = TypeConversionHelper.GetSampleValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -168,7 +168,7 @@ public class TypeConversionHelperTests
     [InlineData("BOOL", "true")]
     public void GetSampleValueForType_ShouldReturnTrue_ForBoolTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetSampleValueForType(type);
+        string result = TypeConversionHelper.GetSampleValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -178,7 +178,7 @@ public class TypeConversionHelperTests
     [InlineData("DATETIME", "DateTime.Now")]
     public void GetSampleValueForType_ShouldReturnDateTimeNow_ForDateTimeTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetSampleValueForType(type);
+        string result = TypeConversionHelper.GetSampleValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -188,7 +188,7 @@ public class TypeConversionHelperTests
     [InlineData("GUID", "Guid.NewGuid()")]
     public void GetSampleValueForType_ShouldReturnGuidNewGuid_ForGuidTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetSampleValueForType(type);
+        string result = TypeConversionHelper.GetSampleValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -198,7 +198,7 @@ public class TypeConversionHelperTests
     [InlineData("Order", "new Order()")]
     public void GetSampleValueForType_ShouldReturnNewInstance_ForCustomTypes(string type, string expected)
     {
-        var result = TypeConversionHelper.GetSampleValueForType(type);
+        string result = TypeConversionHelper.GetSampleValueForType(type);
         Assert.Equal(expected, result);
     }
 
@@ -209,7 +209,7 @@ public class TypeConversionHelperTests
     [InlineData("StRiNg", true)]
     public void IsStringType_ShouldReturnTrue_ForStringTypes(string type, bool expected)
     {
-        var result = TypeConversionHelper.IsStringType(type);
+        bool result = TypeConversionHelper.IsStringType(type);
         Assert.Equal(expected, result);
     }
 
@@ -219,7 +219,7 @@ public class TypeConversionHelperTests
     [InlineData("SYSTEM.STRING", true)]
     public void IsStringType_ShouldReturnTrue_ForFullyQualifiedStringTypes(string type, bool expected)
     {
-        var result = TypeConversionHelper.IsStringType(type);
+        bool result = TypeConversionHelper.IsStringType(type);
         Assert.Equal(expected, result);
     }
 
@@ -231,7 +231,7 @@ public class TypeConversionHelperTests
     [InlineData("", false)]
     public void IsStringType_ShouldReturnFalse_ForNonStringTypes(string type, bool expected)
     {
-        var result = TypeConversionHelper.IsStringType(type);
+        bool result = TypeConversionHelper.IsStringType(type);
         Assert.Equal(expected, result);
     }
 }

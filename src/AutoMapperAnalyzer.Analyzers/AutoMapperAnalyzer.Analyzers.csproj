@@ -1,83 +1,85 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <LangVersion>latest</LangVersion>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-    <!-- Analyzer Package Configuration -->
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <DevelopmentDependency>true</DevelopmentDependency>
-    <PrivateAssets>all</PrivateAssets>
-    <!-- NuGet Package Metadata -->
-    <PackageId>AutoMapperAnalyzer.Analyzers</PackageId>
-    <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
-    <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
-    <MajorVersion>2</MajorVersion>
-    <MinorVersion>4</MinorVersion>
-    <PatchVersion>0</PatchVersion>
-    <BuildNumber Condition="'$(BuildNumber)' == ''"
-      >$([System.DateTime]::Now.ToString('yyyyMMdd'))</BuildNumber
-    >
-    <PackageVersion Condition="'$(PackageVersion)' == ''">$(MajorVersion).$(MinorVersion).$(PatchVersion)</PackageVersion>
-    <Title>AutoMapper Roslyn Analyzer</Title>
-    <Authors>George Wall</Authors>
-    <Description>Catch AutoMapper configuration errors at compile-time before they cause runtime chaos! This Roslyn analyzer detects type mismatches, nullable issues, missing properties, collection incompatibilities, and complex mapping problems - all with intelligent code fixes. Transform AutoMapper development from reactive debugging to proactive prevention. Features 13 analyzer rules with smart fixes for type safety, data integrity, complex mappings, performance, and configuration. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, 9.0+, 10.0+.</Description>
-    <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis;code-quality;diagnostics;code-fix;type-safety;compile-time;netframework;netcore;dotnet;dotnet6;dotnet8;dotnet9;dotnet10</PackageTags>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/georgepwall1991/automapper-analyser</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageReleaseNotes>Version 2.4.0 - Configuration Analysis &amp; Redundancy Checks
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <!-- Analyzer Package Configuration -->
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+        <DevelopmentDependency>true</DevelopmentDependency>
+        <PrivateAssets>all</PrivateAssets>
+        <!-- NuGet Package Metadata -->
+        <PackageId>AutoMapperAnalyzer.Analyzers</PackageId>
+        <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
+        <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
+        <MajorVersion>2</MajorVersion>
+        <MinorVersion>4</MinorVersion>
+        <PatchVersion>0</PatchVersion>
+        <BuildNumber Condition="'$(BuildNumber)' == ''"
+        >$([System.DateTime]::Now.ToString('yyyyMMdd'))
+        </BuildNumber
+        >
+        <PackageVersion Condition="'$(PackageVersion)' == ''">$(MajorVersion).$(MinorVersion).$(PatchVersion)</PackageVersion>
+        <Title>AutoMapper Roslyn Analyzer</Title>
+        <Authors>George Wall</Authors>
+        <Description>Catch AutoMapper configuration errors at compile-time before they cause runtime chaos! This Roslyn analyzer detects type mismatches, nullable issues, missing properties, collection incompatibilities, and complex mapping problems - all with intelligent code fixes. Transform AutoMapper development from reactive debugging to proactive prevention. Features 13 analyzer rules with smart fixes for type safety, data integrity, complex mappings, performance, and configuration. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, 9.0+, 10.0+.</Description>
+        <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis;code-quality;diagnostics;code-fix;type-safety;compile-time;netframework;netcore;dotnet;dotnet6;dotnet8;dotnet9;dotnet10</PackageTags>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/georgepwall1991/automapper-analyser</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <PackageReleaseNotes>Version 2.4.0 - Configuration Analysis &amp; Redundancy Checks
 
-⚙️ New Features:
-• AM041: Duplicate Mapping Detector - Identifies multiple CreateMap definitions for the same types
-• AM050: Redundant MapFrom Detector - Finds explicit mappings where property names already match
-• Improved syntax-based detection for AM011 and AM005, eliminating false positives
+            ⚙️ New Features:
+            • AM041: Duplicate Mapping Detector - Identifies multiple CreateMap definitions for the same types
+            • AM050: Redundant MapFrom Detector - Finds explicit mappings where property names already match
+            • Improved syntax-based detection for AM011 and AM005, eliminating false positives
 
-🐛 Fixes:
-• Fixed false positives in CreateMap detection (e.g. mapper.ToString())
-• Fixed AM030 detection for complex type incompatibilities
+            🐛 Fixes:
+            • Fixed false positives in CreateMap detection (e.g. mapper.ToString())
+            • Fixed AM030 detection for complex type incompatibilities
 
-⚡ Performance:
-• Optimized mapping discovery with centralized registry
-• Reduced duplicate compilation scanning in AM041</PackageReleaseNotes>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageIcon>icon.png</PackageIcon>
-    <!-- Remove strict PackageType for broader compatibility -->
-    <NoPackageAnalysis>true</NoPackageAnalysis>
-    <NoWarn>$(NoWarn);RS1038;RS2008</NoWarn>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference
-      Include="Microsoft.CodeAnalysis.Analyzers"
-      Version="4.14.0"
-      PrivateAssets="all"
-    />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.0.0" PrivateAssets="all" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
-    <None Include="..\..\icon.png" Pack="true" PackagePath="\" />
-  </ItemGroup>
-  <!-- Analyzer files for NuGet package -->
-  <ItemGroup>
-    <None
-      Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll"
-      Pack="true"
-      PackagePath="analyzers\dotnet\cs\$(AssemblyName).dll"
-      Visible="false"
-    />
-    <None
-      Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll"
-      Pack="true"
-      PackagePath="analyzers\dotnet\$(AssemblyName).dll"
-      Visible="false"
-    />
-  </ItemGroup>
+            ⚡ Performance:
+            • Optimized mapping discovery with centralized registry
+            • Reduced duplicate compilation scanning in AM041
+        </PackageReleaseNotes>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageIcon>icon.png</PackageIcon>
+        <!-- Remove strict PackageType for broader compatibility -->
+        <NoPackageAnalysis>true</NoPackageAnalysis>
+        <NoWarn>$(NoWarn);RS1038;RS2008</NoWarn>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference
+                Include="Microsoft.CodeAnalysis.Analyzers"
+                Version="4.14.0"
+                PrivateAssets="all"
+        />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" PrivateAssets="all"/>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" PrivateAssets="all"/>
+        <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.0.0" PrivateAssets="all"/>
+    </ItemGroup>
+    <ItemGroup>
+        <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+        <None Include="..\..\icon.png" Pack="true" PackagePath="\"/>
+    </ItemGroup>
+    <!-- Analyzer files for NuGet package -->
+    <ItemGroup>
+        <None
+                Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll"
+                Pack="true"
+                PackagePath="analyzers\dotnet\cs\$(AssemblyName).dll"
+                Visible="false"
+        />
+        <None
+                Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll"
+                Pack="true"
+                PackagePath="analyzers\dotnet\$(AssemblyName).dll"
+                Visible="false"
+        />
+    </ItemGroup>
 </Project>

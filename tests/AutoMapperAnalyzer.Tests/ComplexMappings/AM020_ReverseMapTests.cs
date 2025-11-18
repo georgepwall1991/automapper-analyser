@@ -1,7 +1,5 @@
 using AutoMapperAnalyzer.Analyzers.ComplexMappings;
 using AutoMapperAnalyzer.Tests.Infrastructure;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests.ComplexMappings;
 
@@ -45,4 +43,3 @@ public class AM020_ReverseMapTests
         await AnalyzerVerifier<AM020_NestedObjectMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 }
-

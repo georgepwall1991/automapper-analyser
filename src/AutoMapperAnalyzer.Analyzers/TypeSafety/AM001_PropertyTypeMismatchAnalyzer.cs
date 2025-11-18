@@ -1,20 +1,20 @@
 using System.Collections.Immutable;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 
 namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 
 /// <summary>
-/// Analyzer that detects type mismatches between source and destination properties in AutoMapper mappings.
+///     Analyzer that detects type mismatches between source and destination properties in AutoMapper mappings.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>
-    /// Diagnostic rule for property type mismatches.
+    ///     Diagnostic rule for property type mismatches.
     /// </summary>
     public static readonly DiagnosticDescriptor PropertyTypeMismatchRule = new(
         "AM001",
@@ -27,7 +27,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
     );
 
     /// <summary>
-    /// Gets the supported diagnostics for this analyzer.
+    ///     Gets the supported diagnostics for this analyzer.
     /// </summary>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
     [
@@ -35,7 +35,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
     ];
 
     /// <summary>
-    /// Initializes the analyzer.
+    ///     Initializes the analyzer.
     /// </summary>
     /// <param name="context">The analysis context.</param>
     public override void Initialize(AnalysisContext context)
@@ -55,7 +55,8 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var (sourceType, destinationType) = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
+        (ITypeSymbol? sourceType, ITypeSymbol? destinationType) =
+            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
         if (sourceType == null || destinationType == null)
         {
             return;
@@ -76,8 +77,10 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToArray();
-        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false).ToArray();
+        IPropertySymbol[] sourceProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToArray();
+        IPropertySymbol[] destinationProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false).ToArray();
 
         // Check each source property for mapping compatibility
         foreach (IPropertySymbol sourceProp in sourceProperties)
@@ -91,7 +94,8 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if explicit mapping is configured for this property
-            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProp.Name, context.SemanticModel))
+            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProp.Name,
+                    context.SemanticModel))
             {
                 continue;
             }
@@ -243,7 +247,10 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
     private static string GetTypeName(ITypeSymbol type)
     {
         if (type is INamedTypeSymbol namedType)
+        {
             return namedType.Name;
+        }
+
         return type.Name;
     }
 }

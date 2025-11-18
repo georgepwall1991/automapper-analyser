@@ -5,7 +5,6 @@ namespace AutoMapperAnalyzer.Samples.Performance;
 /// <summary>
 ///     ⚠️ FUTURE IMPLEMENTATION - These analyzers (AM050-AM052) are NOT yet implemented.
 ///     These examples are included for future development reference and documentation.
-///
 ///     Examples of performance issues that AutoMapper analyzer will detect (when implemented)
 /// </summary>
 public class PerformanceExamples
@@ -17,17 +16,14 @@ public class PerformanceExamples
     public void StaticMapperUsageExample()
     {
         // Setup a basic configuration (old way - should use DI)
-        var config = new MapperConfiguration(cfg =>
-        {
-            cfg.CreateMap<Employee, EmployeeDto>();
-        });
+        var config = new MapperConfiguration(cfg => { cfg.CreateMap<Employee, EmployeeDto>(); });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var employee = new Employee { Id = 1, Name = "John Doe", Department = "Engineering" };
 
         // ❌ AM050: Creating mapper locally instead of using injected IMapper
-        EmployeeDto? employeeDto = mapper.Map<EmployeeDto>(employee);
+        var employeeDto = mapper.Map<EmployeeDto>(employee);
 
         Console.WriteLine($"Mapped: {employeeDto.Name} in {employeeDto.Department}");
         Console.WriteLine("❌ Local mapper creation detected - prefer dependency injection!");
@@ -47,7 +43,7 @@ public class PerformanceExamples
                 .ForMember(dest => dest.Country, opt => opt.MapFrom(src => src.Address.Country));
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var company = new Company
         {
@@ -56,7 +52,7 @@ public class PerformanceExamples
 
         try
         {
-            CompanyDto? companyDto = mapper.Map<CompanyDto>(company);
+            var companyDto = mapper.Map<CompanyDto>(company);
             Console.WriteLine($"Mapped: {companyDto.Name}, {companyDto.City}, {companyDto.Country}");
         }
         catch (Exception ex)
@@ -80,10 +76,10 @@ public class PerformanceExamples
             cfg.CreateMap<Customer, CustomerDto>(); // Duplicate!
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var customer = new Customer { Id = 1, Name = "Jane Smith", Email = "jane@example.com" };
-        CustomerDto? customerDto = mapper.Map<CustomerDto>(customer);
+        var customerDto = mapper.Map<CustomerDto>(customer);
 
         Console.WriteLine($"Mapped: {customerDto.Name}, Email: {customerDto.Email}");
         Console.WriteLine("❌ Duplicate mapping configuration detected!");
@@ -159,7 +155,7 @@ public class CorrectPerformanceExamples
         var employee = new Employee { Id = 1, Name = "John Doe", Department = "Engineering" };
 
         // ✅ Correct: Using injected IMapper
-        EmployeeDto? employeeDto = _mapper.Map<EmployeeDto>(employee);
+        var employeeDto = _mapper.Map<EmployeeDto>(employee);
 
         Console.WriteLine($"✅ Correctly mapped: {employeeDto.Name} in {employeeDto.Department}");
     }
@@ -176,11 +172,11 @@ public class CorrectPerformanceExamples
                     opt => opt.MapFrom(src => src.Address != null ? src.Address.Country : string.Empty));
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var company = new Company { Id = 1, Name = "TechCorp", Address = null };
 
-        CompanyDto? companyDto = mapper.Map<CompanyDto>(company);
+        var companyDto = mapper.Map<CompanyDto>(company);
         Console.WriteLine($"✅ Correctly mapped: {companyDto.Name}, {companyDto.City}, {companyDto.Country}");
     }
 
@@ -195,10 +191,10 @@ public class CorrectPerformanceExamples
             cfg.CreateMap<Employee, EmployeeDto>();
         });
 
-        IMapper? mapper = config.CreateMapper();
+        var mapper = config.CreateMapper();
 
         var customer = new Customer { Id = 1, Name = "Jane Smith", Email = "jane@example.com" };
-        CustomerDto? customerDto = mapper.Map<CustomerDto>(customer);
+        var customerDto = mapper.Map<CustomerDto>(customer);
 
         Console.WriteLine($"✅ Correctly configured: {customerDto.Name}, Email: {customerDto.Email}");
     }
