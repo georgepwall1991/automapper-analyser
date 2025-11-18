@@ -54,21 +54,37 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Analyze missing properties between source and destination types
+        // Analyze missing properties for Forward Map (Source -> Destination)
         AnalyzeMissingDestinationProperties(
             context,
             invocationExpr,
             typeArguments.sourceType,
-            typeArguments.destinationType
+            typeArguments.destinationType,
+            isReverseMap: false
         );
-    }
 
+        // Check for ReverseMap() and analyze Destination -> Source
+        var reverseMapInvocation = AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocationExpr);
+        if (reverseMapInvocation != null)
+        {
+             AnalyzeMissingDestinationProperties(
+                context,
+                invocationExpr, // Use the original invocation for location, or maybe reverseMapInvocation?
+                typeArguments.destinationType, // Source is now Destination
+                typeArguments.sourceType,      // Destination is now Source
+                isReverseMap: true,
+                reverseMapInvocation: reverseMapInvocation
+            );
+        }
+    }
 
     private static void AnalyzeMissingDestinationProperties(
         SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         ITypeSymbol sourceType,
-        ITypeSymbol destinationType)
+        ITypeSymbol destinationType,
+        bool isReverseMap,
+        InvocationExpressionSyntax? reverseMapInvocation = null)
     {
         var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
         var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false);
@@ -86,13 +102,13 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if this source property is handled by custom mapping configuration
-            if (IsSourcePropertyHandledByCustomMapping(invocation, sourceProperty.Name))
+            if (IsSourcePropertyHandledByCustomMapping(invocation, sourceProperty.Name, isReverseMap, reverseMapInvocation))
             {
                 continue; // Property is handled by custom mapping, no data loss
             }
 
             // Check if this source property is explicitly ignored
-            if (IsSourcePropertyExplicitlyIgnored(invocation, sourceProperty.Name))
+            if (IsSourcePropertyExplicitlyIgnored(invocation, sourceProperty.Name, isReverseMap, reverseMapInvocation))
             {
                 continue; // Property is explicitly ignored, no diagnostic needed
             }
@@ -104,9 +120,12 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             properties.Add("SourceTypeName", GetTypeName(sourceType));
             properties.Add("DestinationTypeName", GetTypeName(destinationType));
 
+            // Use location of ReverseMap call if this is a reverse map issue, otherwise CreateMap
+            var locationNode = isReverseMap && reverseMapInvocation != null ? reverseMapInvocation : invocation;
+
             var diagnostic = Diagnostic.Create(
                 MissingDestinationPropertyRule,
-                invocation.GetLocation(),
+                locationNode.GetLocation(),
                 properties.ToImmutable(),
                 sourceProperty.Name);
 
@@ -124,29 +143,68 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         return type.Name;
     }
 
-    private static bool IsSourcePropertyHandledByCustomMapping(InvocationExpressionSyntax createMapInvocation,
-        string sourcePropertyName)
+    private static bool IsSourcePropertyHandledByCustomMapping(
+        InvocationExpressionSyntax createMapInvocation,
+        string sourcePropertyName,
+        bool isReverseMap,
+        InvocationExpressionSyntax? reverseMapInvocation)
     {
-        // Look for chained ForMember calls that might use this source property
-        SyntaxNode? parent = createMapInvocation.Parent;
+        // Get all ForMember calls in the chain
+        var forMemberCalls = AutoMapperAnalysisHelpers.GetForMemberCalls(createMapInvocation);
 
-        while (parent is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
+        foreach (var forMember in forMemberCalls)
         {
-            if (memberAccess.Name.Identifier.ValueText == "ForMember")
+            // Check if this ForMember call applies to the current direction
+            if (!AppliesToDirection(forMember, isReverseMap, reverseMapInvocation))
             {
-                // Check if this ForMember call references the source property
-                if (ForMemberReferencesSourceProperty(chainedInvocation, sourcePropertyName))
-                {
-                    return true;
-                }
+                continue;
             }
 
-            // Move up the chain
-            parent = chainedInvocation.Parent;
+            // Check if this ForMember call references the source property
+            if (ForMemberReferencesSourceProperty(forMember, sourcePropertyName))
+            {
+                return true;
+            }
         }
 
         return false;
+    }
+
+    private static bool AppliesToDirection(
+        InvocationExpressionSyntax mappingMethod,
+        bool isReverseMap,
+        InvocationExpressionSyntax? reverseMapInvocation)
+    {
+        if (reverseMapInvocation == null)
+        {
+            // No ReverseMap, so all calls apply to Forward (which is the only direction being analyzed if isReverseMap is false)
+            // If isReverseMap is true but no reverseMapInvocation, something is wrong, but we'll assume false.
+            return !isReverseMap;
+        }
+
+        // If we have ReverseMap, we need to split the chain
+        // Forward Map: Methods that are DESCENDANTS of ReverseMap (inside its expression)
+        // Reverse Map: Methods that are ANCESTORS of ReverseMap (contain it)
+        
+        // Check if mappingMethod contains ReverseMap (Ancestor)
+        bool isAncestor = reverseMapInvocation.Ancestors().Contains(mappingMethod);
+        
+        if (isReverseMap)
+        {
+            // For Reverse Map, we want calls that come AFTER ReverseMap() in the chain
+            // In syntax tree, these are parents/ancestors of ReverseMap
+            return isAncestor;
+        }
+        else
+        {
+            // For Forward Map, we want calls that come BEFORE ReverseMap() in the chain
+            // In syntax tree, these are descendants (or simply NOT ancestors)
+            // Actually, strictly speaking, they should be descendants.
+            // If mappingMethod is neither ancestor nor descendant, it might be on a separate branch? 
+            // But usually it's a linear chain.
+            // If it's NOT an ancestor, it must be "inside" the expression of ReverseMap.
+            return !isAncestor;
+        }
     }
 
     private static bool ForMemberReferencesSourceProperty(InvocationExpressionSyntax forMemberInvocation,
@@ -171,10 +229,13 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             .Any(memberAccess => memberAccess.Name.Identifier.ValueText == propertyName);
     }
 
-    private static bool IsSourcePropertyExplicitlyIgnored(InvocationExpressionSyntax createMapInvocation,
-        string sourcePropertyName)
+    private static bool IsSourcePropertyExplicitlyIgnored(
+        InvocationExpressionSyntax createMapInvocation,
+        string sourcePropertyName,
+        bool isReverseMap,
+        InvocationExpressionSyntax? reverseMapInvocation)
     {
-        // Look for ForSourceMember calls with DoNotValidate
+        // Look for ForSourceMember calls
         SyntaxNode? parent = createMapInvocation.Parent;
 
         while (parent is MemberAccessExpressionSyntax memberAccess &&
@@ -182,13 +243,17 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         {
             if (memberAccess.Name.Identifier.ValueText == "ForSourceMember")
             {
-                // Check if this ForSourceMember call is for the property we're analyzing
-                if (IsForSourceMemberOfProperty(chainedInvocation, sourcePropertyName))
+                // Check direction
+                if (AppliesToDirection(chainedInvocation, isReverseMap, reverseMapInvocation))
                 {
-                    // Check if it has DoNotValidate
-                    if (HasDoNotValidateCall(chainedInvocation))
+                    // Check if this ForSourceMember call is for the property we're analyzing
+                    if (IsForSourceMemberOfProperty(chainedInvocation, sourcePropertyName))
                     {
-                        return true;
+                        // Check if it has DoNotValidate
+                        if (HasDoNotValidateCall(chainedInvocation))
+                        {
+                            return true;
+                        }
                     }
                 }
             }

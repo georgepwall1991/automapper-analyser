@@ -389,6 +389,86 @@ namespace AutoMapperAnalyzer.Analyzers.Helpers
         }
 
         /// <summary>
+        /// Gets the underlying type, removing nullable wrappers.
+        /// </summary>
+        public static ITypeSymbol GetUnderlyingType(ITypeSymbol type)
+        {
+            if (type == null) return null!;
+
+            // Handle nullable reference types (T?)
+            if (type is INamedTypeSymbol namedType &&
+                namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+            {
+                return namedType.TypeArguments[0];
+            }
+
+            // Handle nullable reference types with annotations
+            if (type.CanBeReferencedByName && type.NullableAnnotation == NullableAnnotation.Annotated)
+            {
+                return type.WithNullableAnnotation(NullableAnnotation.NotAnnotated);
+            }
+
+            return type;
+        }
+
+        /// <summary>
+        /// Checks if the type is a built-in value type or common reference type that doesn't need mapping.
+        /// </summary>
+        public static bool IsBuiltInType(ITypeSymbol type)
+        {
+            if (type == null) return false;
+
+            return type.SpecialType != SpecialType.None ||
+                   type.Name == "String" ||
+                   type.Name == "DateTime" ||
+                   type.Name == "DateTimeOffset" ||
+                   type.Name == "TimeSpan" ||
+                   type.Name == "Guid" ||
+                   type.Name == "Decimal";
+        }
+
+        /// <summary>
+        /// Gets the type name without nullability annotations.
+        /// </summary>
+        public static string GetTypeNameWithoutNullability(ITypeSymbol type)
+        {
+            ITypeSymbol underlyingType = GetUnderlyingType(type);
+            return underlyingType.Name;
+        }
+
+        /// <summary>
+        /// Checks if the mapping chain contains a ReverseMap call.
+        /// </summary>
+        public static bool HasReverseMap(InvocationExpressionSyntax createMapInvocation)
+        {
+            return GetReverseMapInvocation(createMapInvocation) != null;
+        }
+
+        /// <summary>
+        /// Gets the ReverseMap invocation from the chain, if it exists.
+        /// </summary>
+        public static InvocationExpressionSyntax? GetReverseMapInvocation(InvocationExpressionSyntax createMapInvocation)
+        {
+            SyntaxNode? current = createMapInvocation;
+            
+            // Traverse up the fluent chain
+            // Structure: Invocation -> MemberAccess -> Invocation -> MemberAccess -> ...
+            
+            while (current.Parent is MemberAccessExpressionSyntax memberAccess && 
+                   memberAccess.Expression == current &&
+                   memberAccess.Parent is InvocationExpressionSyntax parentInvocation)
+            {
+                if (memberAccess.Name.Identifier.Text == "ReverseMap")
+                {
+                    return parentInvocation;
+                }
+                current = parentInvocation;
+            }
+            
+            return null;
+        }
+
+        /// <summary>
         /// Determines whether two types are compatible numeric types.
         /// </summary>
         /// <param name="sourceType">The source type.</param>

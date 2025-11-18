@@ -90,8 +90,8 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
             // Check if this property requires nested object mapping
             if (RequiresNestedObjectMapping(sourceProperty.Type, destinationProperty.Type))
             {
-                var sourceNestedType = GetUnderlyingType(sourceProperty.Type);
-                var destNestedType = GetUnderlyingType(destinationProperty.Type);
+                var sourceNestedType = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceProperty.Type);
+                var destNestedType = AutoMapperAnalysisHelpers.GetUnderlyingType(destinationProperty.Type);
 
                 // Check if mapping already exists
                 if (createMapRegistry.Contains(sourceNestedType, destNestedType))
@@ -110,8 +110,8 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
                     NestedObjectMappingMissingRule,
                     invocation.GetLocation(),
                     sourceProperty.Name,
-                    GetTypeNameWithoutNullability(sourceProperty.Type),
-                    GetTypeNameWithoutNullability(destinationProperty.Type));
+                    AutoMapperAnalysisHelpers.GetTypeNameWithoutNullability(sourceProperty.Type),
+                    AutoMapperAnalysisHelpers.GetTypeNameWithoutNullability(destinationProperty.Type));
 
                 context.ReportDiagnostic(diagnostic);
             }
@@ -121,8 +121,8 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
     private static bool RequiresNestedObjectMapping(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
         // Get the underlying types (remove nullable wrappers)
-        ITypeSymbol sourceUnderlyingType = GetUnderlyingType(sourceType);
-        ITypeSymbol destUnderlyingType = GetUnderlyingType(destinationType);
+        ITypeSymbol sourceUnderlyingType = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceType);
+        ITypeSymbol destUnderlyingType = AutoMapperAnalysisHelpers.GetUnderlyingType(destinationType);
 
         // Same types don't need mapping
         if (SymbolEqualityComparer.Default.Equals(sourceUnderlyingType, destUnderlyingType))
@@ -131,7 +131,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         }
 
         // Built-in value types and strings don't need nested object mapping
-        if (IsBuiltInType(sourceUnderlyingType) || IsBuiltInType(destUnderlyingType))
+        if (AutoMapperAnalysisHelpers.IsBuiltInType(sourceUnderlyingType) || AutoMapperAnalysisHelpers.IsBuiltInType(destUnderlyingType))
         {
             return false;
         }
@@ -145,65 +145,5 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         // Both must be reference types (classes) that are different
         return sourceUnderlyingType.TypeKind == TypeKind.Class &&
                destUnderlyingType.TypeKind == TypeKind.Class;
-    }
-
-    private static ITypeSymbol GetUnderlyingType(ITypeSymbol type)
-    {
-        // Handle nullable reference types (T?)
-        if (type is INamedTypeSymbol namedType &&
-            namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
-        {
-            return namedType.TypeArguments[0];
-        }
-
-        // Handle nullable reference types with annotations
-        if (type.CanBeReferencedByName && type.NullableAnnotation == NullableAnnotation.Annotated)
-        {
-            return type.WithNullableAnnotation(NullableAnnotation.NotAnnotated);
-        }
-
-        return type;
-    }
-
-    private static bool IsBuiltInType(ITypeSymbol type)
-    {
-        // Check for built-in value types and common reference types that don't need mapping
-        return type.SpecialType != SpecialType.None ||
-               type.Name == "String" ||
-               type.Name == "DateTime" ||
-               type.Name == "DateTimeOffset" ||
-               type.Name == "TimeSpan" ||
-               type.Name == "Guid" ||
-               type.Name == "Decimal";
-    }
-
-    private static bool IsCollectionType(ITypeSymbol type)
-    {
-        // Check if type implements IEnumerable (but not string)
-        if (type.SpecialType == SpecialType.System_String)
-        {
-            return false;
-        }
-
-        return type.AllInterfaces.Any(i =>
-            i.Name == "IEnumerable" ||
-            i.Name == "ICollection" ||
-            i.Name == "IList");
-    }
-
-    private static string GetTypeNameWithoutNullability(ITypeSymbol type)
-    {
-        ITypeSymbol underlyingType = GetUnderlyingType(type);
-        return underlyingType.Name;
-    }
-
-    /// <summary>
-    /// Gets the type name from an ITypeSymbol.
-    /// </summary>
-    /// <param name="type">The type symbol.</param>
-    /// <returns>The type name.</returns>
-    private static string GetTypeName(ITypeSymbol type)
-    {
-        return type.Name;
     }
 }

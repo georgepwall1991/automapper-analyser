@@ -17,10 +17,11 @@
     <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
     <MajorVersion>2</MajorVersion>
     <MinorVersion>3</MinorVersion>
+    <PatchVersion>2</PatchVersion>
     <BuildNumber Condition="'$(BuildNumber)' == ''"
       >$([System.DateTime]::Now.ToString('yyyyMMdd'))</BuildNumber
     >
-    <PackageVersion Condition="'$(PackageVersion)' == ''">$(MajorVersion).$(MinorVersion).$(BuildNumber)-local</PackageVersion>
+    <PackageVersion Condition="'$(PackageVersion)' == ''">$(MajorVersion).$(MinorVersion).$(PatchVersion)</PackageVersion>
     <Title>AutoMapper Roslyn Analyzer</Title>
     <Authors>George Wall</Authors>
     <Description>Catch AutoMapper configuration errors at compile-time before they cause runtime chaos! This Roslyn analyzer detects type mismatches, nullable issues, missing properties, collection incompatibilities, and complex mapping problems - all with intelligent code fixes. Transform AutoMapper development from reactive debugging to proactive prevention. Features 10 analyzer rules with smart fixes for type safety, data integrity, and complex mappings. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, and 9.0+.</Description>

@@ -65,6 +65,12 @@ internal sealed class CreateMapRegistry
 
         foreach (var syntaxTree in compilation.SyntaxTrees)
         {
+            // Fast path: Check if the file content contains "CreateMap" before parsing
+            if (!syntaxTree.TryGetText(out var text) || !text.ToString().Contains("CreateMap"))
+            {
+                continue;
+            }
+
             var root = syntaxTree.GetRoot();
             var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
@@ -79,6 +85,12 @@ internal sealed class CreateMapRegistry
                 if (sourceType != null && destType != null)
                 {
                     builder.Add((sourceType, destType));
+
+                    // Check for ReverseMap()
+                    if (AutoMapperAnalysisHelpers.HasReverseMap(invocation))
+                    {
+                        builder.Add((destType, sourceType));
+                    }
                 }
             }
         }

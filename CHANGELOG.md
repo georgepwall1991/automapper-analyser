@@ -7,7 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.0] - TBD
+## [2.3.2] - 2025-11-18
+
+### Fixed
+- **ReverseMap Handling**: Fixed false positives in `AM020` (Nested Object Mapping) and `AM004` (Missing Destination Property) when mappings are defined using `ReverseMap()`.
+- **Performance**: Optimized analyzer performance in large solutions by adding a fast-path check to skip files that do not contain AutoMapper usage.
+
+## [2.3.1] - 2025-11-18 (Yanked)
+
+## [2.3.0] - 2025-06-10
+
+### Added
+- **Bidirectional Collection Detection**: Enhanced `AM003` to detect incompatible collection types in both directions (e.g., HashSet ↔ List).
+
+### Changed
+- **Code Quality**: Major refactoring of CodeFix providers to reduce duplication and improve maintainability.
+- **Documentation**: Comprehensive documentation updates including Architecture Guide and Diagnostic Rules reference.
+
+## [2.2.0] - 2025-05-15
+
+### Added
+- **AM031 Performance Warning**: New analyzer detecting expensive operations in mapping expressions (DB queries, I/O, etc.).
+
+## [2.1.0] - 2025-04-01
+
+### Added
+- **Internal Property Support**: `AM020` now supports `internal` properties.
+- **Cross-Profile Detection**: `AM020` can now detect mappings defined in other profiles.
+
+## [2.0.0] - 2025-01-01
 
 ### Added
 - **Automated Release Pipeline**: GitHub Actions workflow for automated releases triggered by Git tags
@@ -109,5 +137,9 @@ dotnet add package AutoMapperAnalyzer.Analyzers --version 2.1.0-beta.1
 
 ---
 
-[Unreleased]: https://github.com/georgepwall1991/automapper-analyser/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/georgepwall1991/automapper-analyser/compare/v2.3.1...HEAD
+[2.3.1]: https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.3.1
+[2.3.0]: https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.3.0
+[2.2.0]: https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.2.0
+[2.1.0]: https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.1.0
 [2.0.0]: https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.0.0
