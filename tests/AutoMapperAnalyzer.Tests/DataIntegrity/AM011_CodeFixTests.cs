@@ -73,7 +73,8 @@ public class AM011_CodeFixTests
                 new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
                     .WithLocation(23, 13)
                     .WithArguments("RequiredField"),
-                expectedFixedCode);
+                expectedFixedCode,
+                0);
     }
 
     [Fact]
@@ -140,11 +141,6 @@ public class AM011_CodeFixTests
                     .WithLocation(21, 13)
                     .WithArguments("RequiredNumber"),
                 expectedFixedCode,
-                // Select the 2nd action (index 1) which corresponds to "Constant Value" (Fix 2 in provider) if default value logic matches constant value logic for int.
-                // Actually provider has:
-                // Fix 1: Default Value (0)
-                // Fix 2: Constant Value (1) - Wait, helper says GetSampleValueForType("int") is "1".
-                // Let's check expected code above: "src => 0". So this test is actually testing Fix 1 (Default Value).
                 0);
     }
 
@@ -178,7 +174,7 @@ public class AM011_CodeFixTests
                                 }
                                 """;
 
-        const string expectedFixedCode = """
+        const string expectedBulkFixedCode = """
 
                                          using AutoMapper;
 
@@ -199,22 +195,20 @@ public class AM011_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     // TODO: Implement custom mapping logic for required property 'RequiredField'
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredField, opt => opt.MapFrom(src => default(string)));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredField, opt => opt.MapFrom(src => string.Empty));
                                                  }
                                              }
                                          }
                                          """;
 
-        // This tests the 3rd fix option (Custom Logic) which should now produce 'default' instead of 'null'
         await CodeFixVerifier<AM011_UnmappedRequiredPropertyAnalyzer, AM011_UnmappedRequiredPropertyCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
                 new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
                     .WithLocation(21, 13)
                     .WithArguments("RequiredField"),
-                expectedFixedCode,
-                2);
+                expectedBulkFixedCode,
+                0); // Selects "Map all unmapped properties to default value"
     }
 
     [Fact]
@@ -280,7 +274,8 @@ public class AM011_CodeFixTests
                 new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
                     .WithLocation(21, 13)
                     .WithArguments("RequiredDescription"),
-                expectedFixedCode);
+                expectedFixedCode,
+                0);
     }
 
     [Fact]
@@ -334,7 +329,7 @@ public class AM011_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredField2, opt => opt.MapFrom(src => string.Empty)).ForMember(dest => dest.RequiredField1, opt => opt.MapFrom(src => string.Empty));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredField1, opt => opt.MapFrom(src => string.Empty)).ForMember(dest => dest.RequiredField2, opt => opt.MapFrom(src => string.Empty));
                                                  }
                                              }
                                          }
@@ -352,7 +347,8 @@ public class AM011_CodeFixTests
                         .WithLocation(21, 13)
                         .WithArguments("RequiredField2")
                 },
-                expectedFixedCode);
+                expectedFixedCode,
+                0, 1); // Selects Bulk Fix, expectation 1 iteration
     }
 
     [Fact]
@@ -416,7 +412,8 @@ public class AM011_CodeFixTests
                 new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
                     .WithLocation(20, 13)
                     .WithArguments("RequiredFlag"),
-                expectedFixedCode);
+                expectedFixedCode,
+                0);
     }
 
     [Fact]
@@ -480,6 +477,7 @@ public class AM011_CodeFixTests
                 new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
                     .WithLocation(20, 13)
                     .WithArguments("RequiredPrice"),
-                expectedFixedCode);
+                expectedFixedCode,
+                0);
     }
 }

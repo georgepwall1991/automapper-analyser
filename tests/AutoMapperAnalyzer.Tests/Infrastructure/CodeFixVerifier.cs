@@ -32,6 +32,12 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
     public static async Task VerifyFixAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource,
         int? codeActionIndex, DiagnosticResult[]? remainingDiagnostics = null)
     {
+        await VerifyFixAsync(source, expectedDiagnostics, fixedSource, codeActionIndex, remainingDiagnostics, null);
+    }
+    
+    public static async Task VerifyFixAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource,
+        int? codeActionIndex, int? iterations, DiagnosticResult[]? remainingDiagnostics = null)
+    {
         var test = new CSharpCodeFixTest<TAnalyzer, TCodeFix, DefaultVerifier>
         {
             TestCode = source,
@@ -45,9 +51,44 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
 
         int remainingCount = remainingDiagnostics?.Length ?? 0;
         int expectedCount = expectedDiagnostics?.Length ?? 1;
-        int iterations = Math.Max(1, Math.Max(remainingCount + 1, expectedCount));
-        test.NumberOfFixAllIterations = iterations;
-        test.NumberOfIncrementalIterations = iterations;
+        int defaultIterations = Math.Max(1, Math.Max(remainingCount + 1, expectedCount));
+        
+        int finalIterations = iterations ?? defaultIterations;
+        
+        test.NumberOfFixAllIterations = finalIterations;
+        test.NumberOfIncrementalIterations = finalIterations;
+        test.ExpectedDiagnostics.AddRange(expectedDiagnostics);
+
+        if (remainingDiagnostics != null)
+        {
+            test.FixedState.ExpectedDiagnostics.AddRange(remainingDiagnostics);
+        }
+
+        await test.RunAsync();
+    }
+
+    public static async Task VerifyFixAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource,
+        int? codeActionIndex, DiagnosticResult[]? remainingDiagnostics = null, int? iterations = null)
+    {
+         var test = new CSharpCodeFixTest<TAnalyzer, TCodeFix, DefaultVerifier>
+        {
+            TestCode = source,
+            FixedCode = fixedSource,
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            CodeActionIndex = codeActionIndex
+        };
+
+        AddAutoMapperReferences(test.TestState);
+        AddAutoMapperReferences(test.FixedState);
+
+        int remainingCount = remainingDiagnostics?.Length ?? 0;
+        int expectedCount = expectedDiagnostics?.Length ?? 1;
+        int defaultIterations = Math.Max(1, Math.Max(remainingCount + 1, expectedCount));
+        
+        int finalIterations = iterations ?? defaultIterations;
+        
+        test.NumberOfFixAllIterations = finalIterations;
+        test.NumberOfIncrementalIterations = finalIterations;
         test.ExpectedDiagnostics.AddRange(expectedDiagnostics);
 
         if (remainingDiagnostics != null)
