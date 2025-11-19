@@ -14,7 +14,16 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.6.1
+## 🎉 Latest Release: v2.7.0
+
+**New Icon & Visual Update**
+
+✨ **Improvements:**
+
+- **New Icon**: Updated NuGet package icon to a modern, high-quality design (Shield + Mapping + Analyzer).
+- **Visual Identity**: Improved branding for the analyzer package.
+
+### Previous Release: v2.6.1
 
 **Build & Stability Fixes**
 
