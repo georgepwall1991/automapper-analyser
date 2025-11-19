@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>6</MinorVersion>
-        <PatchVersion>0</PatchVersion>
+        <PatchVersion>1</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,17 +32,17 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.6.0 - Bulk Fixes &amp; Improved UX
+        <PackageReleaseNotes>Version 2.6.1 - Build &amp; Stability Fixes
 
-            ✨ New Features:
-            - 📦 Bulk Code Fixes (AM011): Fix all unmapped required properties in one click!
-            - 🗂️ Action Grouping: Reduced lightbulb menu clutter by grouping property-specific fixes.
-            - 🧠 Smart Property Creation (AM004): Automatically creates missing destination properties across files
-            - 🔍 Fuzzy Matching (AM011): Suggests mappings for unmapped required properties based on name similarity
-            - 🛠️ Type Converter Generation (AM030): Generates full IValueConverter implementation classes
-            - ⚡ Cross-File Performance Fixes (AM031): Can move expensive computations to source classes in different files
+            🛠️ Fixes:
+            - Fixed build errors in AM002 (Nullable Compatibility) and AM004 (Missing Destination Property) code fix providers
+            - Resolved issues with SyntaxEditor usage in newer Roslyn versions
+            - Improved stability of bulk code fixes
             
-            🧹 General maintenance and reliability improvements
+            Previous Release: v2.6.0
+            - 📦 Bulk Code Fixes (AM011)
+            - 🗂️ Action Grouping
+            - 🧠 Smart Property Creation (AM004)
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

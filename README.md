@@ -14,7 +14,17 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.6.0
+## 🎉 Latest Release: v2.6.1
+
+**Build & Stability Fixes**
+
+🛠️ **Fixes:**
+
+- Fixed build errors in AM002 (Nullable Compatibility) and AM004 (Missing Destination Property) code fix providers
+- Resolved issues with SyntaxEditor usage in newer Roslyn versions
+- Improved stability of bulk code fixes
+
+### Previous Release: v2.6.0
 
 **Bulk Code Fixes & Improved UX**
 
