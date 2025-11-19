@@ -16,7 +16,7 @@
         <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
-        <MinorVersion>5</MinorVersion>
+        <MinorVersion>6</MinorVersion>
         <PatchVersion>0</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
@@ -32,9 +32,11 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.5.0 - Smart Code Fixers &amp; Advanced Refactoring
+        <PackageReleaseNotes>Version 2.6.0 - Bulk Fixes &amp; Improved UX
 
             ✨ New Features:
+            - 📦 Bulk Code Fixes (AM011): Fix all unmapped required properties in one click!
+            - 🗂️ Action Grouping: Reduced lightbulb menu clutter by grouping property-specific fixes.
             - 🧠 Smart Property Creation (AM004): Automatically creates missing destination properties across files
             - 🔍 Fuzzy Matching (AM011): Suggests mappings for unmapped required properties based on name similarity
             - 🛠️ Type Converter Generation (AM030): Generates full IValueConverter implementation classes

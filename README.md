@@ -14,16 +14,23 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.5.0
+## 🎉 Latest Release: v2.6.0
 
-**Smart Code Fixers & Advanced Refactoring**
+**Bulk Code Fixes & Improved UX**
 
 ✨ **New Capabilities:**
 
+- 📦 **Bulk Code Fixes (AM011)**: Fix all unmapped required properties in one click!
+- 🗂️ **Action Grouping**: Reduced lightbulb menu clutter by grouping property-specific fixes.
 - 🧠 **Smart Property Creation (AM004)**: Automatically detects missing destination properties and creates them in the destination class (even in separate files).
 - 🔍 **Fuzzy Matching (AM011)**: Intelligent suggestions for unmapped required properties using Levenshtein distance matching (e.g., maps `UserName` to `Username`).
 - 🛠️ **Type Converter Generation (AM030)**: Instead of just a comment, generates a complete `IValueConverter` class implementation and wires it up.
 - ⚡ **Cross-File Performance Refactoring (AM031)**: Intelligently moves expensive computations from mapping profiles to source classes, handling cross-file modifications seamlessly.
+
+### Previous Release: v2.5.0
+
+- **Smart Code Fixers**: Advanced refactoring tools including fuzzy matching and property creation.
+- **Refactoring**: Major improvements to code fix providers.
 
 ### Previous Release: v2.4.1
 
