@@ -375,6 +375,75 @@ dotnet_diagnostic.AM005.severity = suggestion
 
 ---
 
+### AM006: Unmapped Destination Property
+
+**Severity**: Info 🔵
+**Category**: AutoMapper.DataIntegrity
+
+#### Description
+
+Detects destination properties that have no corresponding source property and are not explicitly mapped.
+
+#### Problem
+
+```csharp
+public class Source
+{
+    public string Name { get; set; }
+}
+
+public class Destination
+{
+    public string Name { get; set; }
+    public string ExtraInfo { get; set; } // No matching source
+}
+
+public class MappingProfile : Profile
+{
+    public MappingProfile()
+    {
+        CreateMap<Source, Destination>();
+        // ℹ️ AM006: Destination property 'ExtraInfo' is not mapped
+    }
+}
+```
+
+**Runtime Behavior**: `destination.ExtraInfo` will remain at its default value (null/zero).
+
+#### Solutions
+
+**Option 1: Add Source Property**
+
+```csharp
+public class Source
+{
+    public string Name { get; set; }
+    public string ExtraInfo { get; set; }  // ✅ Added
+}
+```
+
+**Option 2: Explicitly Ignore**
+
+```csharp
+CreateMap<Source, Destination>()
+    .ForMember(dest => dest.ExtraInfo, opt => opt.Ignore());
+```
+
+**Option 3: Explicit Mapping**
+
+```csharp
+CreateMap<Source, Destination>()
+    .ForMember(dest => dest.ExtraInfo, opt => opt.MapFrom(src => "Default Value"));
+```
+
+#### Configuration
+
+```ini
+dotnet_diagnostic.AM006.severity = suggestion
+```
+
+---
+
 ### AM011: Unmapped Required Property
 
 **Severity**: Error 🔴

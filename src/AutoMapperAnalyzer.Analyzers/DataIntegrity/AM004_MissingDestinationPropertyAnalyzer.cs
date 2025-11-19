@@ -104,6 +104,19 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
                 continue; // Property exists in destination, no data loss
             }
 
+            // Check for flattening: if source property is complex and destination has properties starting with source name
+            // AutoMapper flattens complex properties (e.g. Customer.Name -> CustomerName)
+            if (!AutoMapperAnalysisHelpers.IsBuiltInType(sourceProperty.Type))
+            {
+                bool isUsedInFlattening = destinationProperties
+                    .Any(p => p.Name.StartsWith(sourceProperty.Name, StringComparison.OrdinalIgnoreCase));
+
+                if (isUsedInFlattening)
+                {
+                    continue; // Property is likely used in flattening
+                }
+            }
+
             // Check if this source property is handled by custom mapping configuration
             if (IsSourcePropertyHandledByCustomMapping(invocation, sourceProperty.Name, isReverseMap,
                     reverseMapInvocation))
