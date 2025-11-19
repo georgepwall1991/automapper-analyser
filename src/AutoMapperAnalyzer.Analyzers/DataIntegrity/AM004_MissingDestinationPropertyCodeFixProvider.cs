@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Composition;
+using System.Linq;
 using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
@@ -113,6 +114,64 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
 
                 context.RegisterCodeFix(combineAction, diagnostic);
             }
+
+            // Fix 4: Create missing destination property
+            var createPropertyAction = CodeAction.Create(
+                $"Create property '{propertyName}' in destination type",
+                cancellationToken => CreateDestinationPropertyAsync(context.Document, invocation, propertyName!, propertyType!, cancellationToken),
+                $"CreateProperty_{propertyName}");
+            
+            context.RegisterCodeFix(createPropertyAction, diagnostic);
         }
+    }
+
+    private async Task<Solution> CreateDestinationPropertyAsync(
+        Document document,
+        InvocationExpressionSyntax invocation,
+        string propertyName,
+        string propertyType,
+        CancellationToken cancellationToken)
+    {
+        var semanticModel = await document.GetSemanticModelAsync(cancellationToken);
+        if (semanticModel == null) return document.Project.Solution;
+
+        var (sourceType, destType) = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+        
+        if (destType == null) return document.Project.Solution;
+        
+        // Check if the destination type is source code (not metadata)
+        if (destType.Locations.All(l => !l.IsInSource))
+        {
+             return document.Project.Solution;
+        }
+
+        var syntaxReference = destType.DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference == null) return document.Project.Solution;
+        
+        var destSyntaxRoot = await syntaxReference.SyntaxTree.GetRootAsync(cancellationToken);
+        var destClassDecl = destSyntaxRoot.FindNode(syntaxReference.Span) as ClassDeclarationSyntax;
+        
+        if (destClassDecl == null) return document.Project.Solution;
+        
+        // Create property syntax
+        var newProperty = SyntaxFactory.PropertyDeclaration(
+            SyntaxFactory.ParseTypeName(propertyType),
+            SyntaxFactory.Identifier(propertyName))
+            .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
+            .WithAccessorList(SyntaxFactory.AccessorList(SyntaxFactory.List(new[]
+            {
+                SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                    .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)),
+                SyntaxFactory.AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+                    .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
+            })));
+            
+        var newClassDecl = destClassDecl.AddMembers(newProperty);
+        var newDestRoot = destSyntaxRoot.ReplaceNode(destClassDecl, newClassDecl);
+        
+        var destDocument = document.Project.Solution.GetDocument(destSyntaxRoot.SyntaxTree);
+        if (destDocument == null) return document.Project.Solution;
+        
+        return document.Project.Solution.WithDocumentSyntaxRoot(destDocument.Id, newDestRoot);
     }
 }

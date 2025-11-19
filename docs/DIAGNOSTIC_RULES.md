@@ -272,14 +272,14 @@ public class MappingProfile : Profile
 
 #### Solutions
 
-**Option 1: Add Property to Destination**
+**Option 1: Add Property to Destination (Smart Fix)**
 
 ```csharp
 public class Destination
 {
     public int Id { get; set; }
     public string Name { get; set; }
-    public string Email { get; set; }  // ✅ Added
+    public string Email { get; set; }  // ✅ Added automatically by code fix
 }
 ```
 
@@ -483,14 +483,23 @@ public class MappingProfile : Profile
 
 #### Solutions
 
-**Option 1: Provide Default Value**
+**Option 1: Fuzzy Match Suggestion**
+
+If Source has `UserEmail`, the analyzer suggests:
+
+```csharp
+CreateMap<Source, Destination>()
+    .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.UserEmail));
+```
+
+**Option 2: Provide Default Value**
 
 ```csharp
 CreateMap<Source, Destination>()
     .ForMember(dest => dest.Email, opt => opt.MapFrom(src => "noreply@example.com"));
 ```
 
-**Option 2: Make Property Optional**
+**Option 3: Make Property Optional**
 
 ```csharp
 public class Destination
@@ -843,7 +852,25 @@ CreateMap<Source, Destination>()
 
 #### Solutions
 
-**Option 1: Fix Converter Implementation**
+**Option 1: Generate Valid Converter (Smart Fix)**
+
+The analyzer can generate the class for you:
+
+```csharp
+private class CustomConverter : IValueConverter<string, int>
+{
+    public int Convert(string sourceMember, ResolutionContext context)
+    {
+        // TODO: Implementation
+        throw new NotImplementedException();
+    }
+}
+
+// And wires it up:
+.ConvertUsing(new CustomConverter(), src => src.Prop);
+```
+
+**Option 2: Fix Converter Implementation**
 
 ```csharp
 public class StringToIntConverter : ITypeConverter<string, int>
@@ -857,16 +884,6 @@ public class StringToIntConverter : ITypeConverter<string, int>
         return int.TryParse(source, out var result) ? result : 0;
     }
 }
-```
-
-**Option 2: Use ConvertUsing with Lambda**
-
-```csharp
-CreateMap<Source, Destination>()
-    .ForMember(dest => dest.Age, opt => opt.ConvertUsing(
-        (src, dest) => int.TryParse(src.Age, out var age) ? age : 0,
-        src => src.Age
-    ));
 ```
 
 #### Configuration
@@ -940,24 +957,22 @@ CreateMap<Source, Destination>()
 
 #### Solutions
 
-**Code Fix 1: Move Operation Before Mapping**
+**Code Fix 1: Move Operation Before Mapping (Smart Fix)**
+
+The analyzer can automatically:
+1. Add a computed property to the `Source` class (e.g., `OrderCount`).
+2. Remove the expensive operation from the `Profile`.
 
 ```csharp
-// Before mapping
-var orderCounts = await _db.Orders
-    .GroupBy(o => o.UserId)
-    .Select(g => new { UserId = g.Key, Count = g.Count() })
-    .ToDictionaryAsync(x => x.UserId, x => x.Count);
-
-// Enhance source with pre-computed data
-var enrichedSources = sources.Select(s => new
+// Updated Source Class
+public class Source 
 {
-    Source = s,
-    OrderCount = orderCounts.GetValueOrDefault(s.Id, 0)
-});
+    // ...
+    public int OrderCount { get; set; } // ✅ Added
+}
 
-// Map with simple property assignment
-CreateMap<EnrichedSource, Destination>()
+// Updated Profile
+CreateMap<Source, Destination>()
     .ForMember(dest => dest.OrderCount, opt => opt.MapFrom(src => src.OrderCount));
 ```
 
@@ -970,33 +985,6 @@ CreateMap<Source, Destination>()
         var numbersCache = src.Numbers.ToList();  // ✅ Cached
         return numbersCache.Sum() + numbersCache.Average();
     }));
-```
-
-**Code Fix 3: Use Time Provider Pattern**
-
-```csharp
-// Add property to source
-public class Source
-{
-    public DateTime CreatedDate { get; set; }
-    public int DaysOld { get; set; }  // ✅ Populated before mapping
-}
-
-// Before mapping
-source.DaysOld = (DateTime.Now - source.CreatedDate).Days;
-
-// Simple mapping
-CreateMap<Source, Destination>();
-```
-
-**Code Fix 4: Await Before Mapping**
-
-```csharp
-// Before mapping
-source.Data = await _service.GetDataAsync(source.Id);
-
-// Simple mapping
-CreateMap<Source, Destination>();
 ```
 
 #### Detected Patterns
@@ -1195,58 +1183,13 @@ using System.Diagnostics.CodeAnalysis;
 
 ---
 
-## Best Practices
-
-### 1. Configure Severity by Environment
-
-```ini
-# Development - strict
-dotnet_diagnostic.AM004.severity = error
-
-# Production - warnings only
-dotnet_diagnostic.AM004.severity = warning
-```
-
-### 2. Document Suppressions
-
-Always include `Justification` when suppressing:
-
-```csharp
-#pragma warning disable AM001  // Justification: External API requires string format
-CreateMap<Source, Destination>();
-#pragma warning restore AM001
-```
-
-### 3. Use Categorical Suppressions Sparingly
-
-Avoid disabling entire categories:
-
-```ini
-# ❌ Bad: Disables all type safety checks
-dotnet_diagnostic.AM001.severity = none
-
-# ✅ Good: Specific suppression with reason
-dotnet_diagnostic.AM001.severity = warning  # Allow for legacy systems
-```
-
-### 4. Review Suppressions Regularly
-
-Include suppression review in code reviews:
-
-```csharp
-// TODO: Remove suppression when upgrading to AutoMapper 14.0
-#pragma warning disable AM020
-```
-
----
-
 ## Troubleshooting
 
 ### Analyzer Not Running
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.4.1">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.5.0">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1285,5 +1228,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2025-11-19
-**Version**: 2.4.1
+**Version**: 2.5.0
 **Maintainer**: George Wall

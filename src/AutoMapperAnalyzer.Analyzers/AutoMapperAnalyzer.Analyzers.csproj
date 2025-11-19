@@ -16,8 +16,8 @@
         <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
-        <MinorVersion>4</MinorVersion>
-        <PatchVersion>1</PatchVersion>
+        <MinorVersion>5</MinorVersion>
+        <PatchVersion>0</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,11 +32,15 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.4.1 - Maintenance &amp; Compatibility
+        <PackageReleaseNotes>Version 2.5.0 - Smart Code Fixers &amp; Advanced Refactoring
 
-            🧹 Documentation Cleanup: Removed outdated reports and guides
-            🚀 .NET 10 Ready: Verified compatibility metadata for upcoming .NET 10
-            🐛 General maintenance and dependency updates
+            ✨ New Features:
+            - 🧠 Smart Property Creation (AM004): Automatically creates missing destination properties across files
+            - 🔍 Fuzzy Matching (AM011): Suggests mappings for unmapped required properties based on name similarity
+            - 🛠️ Type Converter Generation (AM030): Generates full IValueConverter implementation classes
+            - ⚡ Cross-File Performance Fixes (AM031): Can move expensive computations to source classes in different files
+            
+            🧹 General maintenance and reliability improvements
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

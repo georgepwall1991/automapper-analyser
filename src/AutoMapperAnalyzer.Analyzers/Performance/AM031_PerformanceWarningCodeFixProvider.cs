@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Composition;
+using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
@@ -88,8 +89,7 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
 
         if (descriptor == AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule)
         {
-            RegisterExpensiveOperationFix(context, root, forMemberInvocation, safePropertyName, diagnostic,
-                semanticModel);
+            RegisterExpensiveOperationFix(context, forMemberInvocation, safePropertyName, diagnostic);
         }
         else if (descriptor == AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule)
         {
@@ -97,34 +97,29 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         }
         else if (descriptor == AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule)
         {
-            RegisterTaskResultFix(context, root, forMemberInvocation, safePropertyName, diagnostic, semanticModel);
+            RegisterTaskResultFix(context, forMemberInvocation, safePropertyName, diagnostic);
         }
         else if (descriptor == AM031_PerformanceWarningAnalyzer.NonDeterministicOperationRule)
         {
-            RegisterNonDeterministicOperationFix(context, root, forMemberInvocation, safePropertyName, diagnostic,
-                semanticModel);
+            RegisterNonDeterministicOperationFix(context, forMemberInvocation, safePropertyName, diagnostic);
         }
     }
 
     private void RegisterExpensiveOperationFix(
         CodeFixContext context,
-        SyntaxNode root,
         InvocationExpressionSyntax forMemberInvocation,
         string propertyName,
-        Diagnostic diagnostic,
-        SemanticModel semanticModel)
+        Diagnostic diagnostic)
     {
         context.RegisterCodeFix(
             CodeAction.Create(
                 $"Move computation to source property '{propertyName}'",
                 cancellationToken =>
-                    MoveComputationToSourceProperty(
+                    MoveComputationToSourcePropertyAsync(
                         context.Document,
-                        root,
                         forMemberInvocation,
                         propertyName,
                         "TODO: Populate this property before mapping",
-                        semanticModel,
                         cancellationToken),
                 $"AM031_MoveToSource_{propertyName}"),
             diagnostic);
@@ -148,23 +143,19 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
 
     private void RegisterTaskResultFix(
         CodeFixContext context,
-        SyntaxNode root,
         InvocationExpressionSyntax forMemberInvocation,
         string propertyName,
-        Diagnostic diagnostic,
-        SemanticModel semanticModel)
+        Diagnostic diagnostic)
     {
         context.RegisterCodeFix(
             CodeAction.Create(
                 $"Move async operation to source property '{propertyName}'",
                 cancellationToken =>
-                    MoveComputationToSourceProperty(
+                    MoveComputationToSourcePropertyAsync(
                         context.Document,
-                        root,
                         forMemberInvocation,
                         propertyName,
                         "TODO: Await async operation before mapping",
-                        semanticModel,
                         cancellationToken),
                 $"AM031_MoveAsync_{propertyName}"),
             diagnostic);
@@ -172,11 +163,9 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
 
     private void RegisterNonDeterministicOperationFix(
         CodeFixContext context,
-        SyntaxNode root,
         InvocationExpressionSyntax forMemberInvocation,
         string propertyName,
-        Diagnostic diagnostic,
-        SemanticModel semanticModel)
+        Diagnostic diagnostic)
     {
         string operationType = ExtractOperationTypeFromDiagnostic(diagnostic);
 
@@ -184,27 +173,26 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
             CodeAction.Create(
                 $"Move {operationType} calculation to source property '{propertyName}'",
                 cancellationToken =>
-                    MoveComputationToSourceProperty(
+                    MoveComputationToSourcePropertyAsync(
                         context.Document,
-                        root,
                         forMemberInvocation,
                         propertyName,
                         $"TODO: Calculate before mapping using {operationType}",
-                        semanticModel,
                         cancellationToken),
                 $"AM031_MoveNonDeterministic_{propertyName}"),
             diagnostic);
     }
 
-    private Task<Document> MoveComputationToSourceProperty(
+    private async Task<Solution> MoveComputationToSourcePropertyAsync(
         Document document,
-        SyntaxNode root,
         InvocationExpressionSyntax forMemberInvocation,
         string propertyName,
         string todoComment,
-        SemanticModel semanticModel,
         CancellationToken cancellationToken)
     {
+        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root == null) return document.Project.Solution;
+
         // Find the CreateMap invocation
         InvocationExpressionSyntax? createMapInvocation = forMemberInvocation.AncestorsAndSelf()
             .OfType<InvocationExpressionSyntax>()
@@ -225,43 +213,75 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
 
         if (createMapInvocation == null)
         {
-            return Task.FromResult(document);
+            return document.Project.Solution;
         }
+        
+        var semanticModel = await document.GetSemanticModelAsync(cancellationToken);
+        if (semanticModel == null) return document.Project.Solution;
 
-        // Find the Source class
-        ClassDeclarationSyntax? sourceClass = FindSourceClass(root, createMapInvocation, semanticModel);
-        if (sourceClass == null)
+        // Find the Source class via Symbol
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(createMapInvocation);
+        if (symbolInfo.Symbol is not IMethodSymbol methodSymbol || methodSymbol.TypeArguments.Length < 1)
         {
-            return Task.FromResult(document);
+            return document.Project.Solution;
         }
-
-        // Add property to source class with TODO comment
-        PropertyDeclarationSyntax newProperty = CreatePropertyWithComment(propertyName, todoComment);
-        ClassDeclarationSyntax newSourceClass = sourceClass.AddMembers(newProperty);
-
-        // Remove the ForMember call by finding the chain and removing this link
-        InvocationExpressionSyntax newCreateMapInvocation =
-            RemoveForMemberFromChain(createMapInvocation, forMemberInvocation);
-
-        // Replace both nodes
-        SyntaxNode newRoot = root.ReplaceNodes(
-            new SyntaxNode[] { sourceClass, createMapInvocation },
-            (original, _) =>
-            {
-                if (original == sourceClass)
+        ITypeSymbol sourceType = methodSymbol.TypeArguments[0];
+        
+        // Get Syntax Reference for Source Class
+        var syntaxRef = sourceType.DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxRef == null) return document.Project.Solution;
+        
+        // Determine if Source Class is in the same document
+        bool sameDocument = syntaxRef.SyntaxTree == root.SyntaxTree;
+        
+        // Prepare changes for Profile (removing ForMember)
+        InvocationExpressionSyntax newCreateMapInvocation = RemoveForMemberFromChain(createMapInvocation, forMemberInvocation);
+        
+        if (sameDocument)
+        {
+            var sourceClass = root.FindNode(syntaxRef.Span) as ClassDeclarationSyntax;
+            if (sourceClass == null) return document.Project.Solution;
+            
+            PropertyDeclarationSyntax newProperty = CreatePropertyWithComment(propertyName, todoComment);
+            ClassDeclarationSyntax newSourceClass = sourceClass.AddMembers(newProperty);
+            
+            SyntaxNode newRoot = root.ReplaceNodes(
+                new SyntaxNode[] { sourceClass, createMapInvocation },
+                (original, _) =>
                 {
-                    return newSourceClass;
-                }
-
-                if (original == createMapInvocation)
-                {
-                    return newCreateMapInvocation;
-                }
-
-                return original;
-            });
-
-        return Task.FromResult(document.WithSyntaxRoot(newRoot));
+                    if (original == sourceClass) return newSourceClass;
+                    if (original == createMapInvocation) return newCreateMapInvocation;
+                    return original;
+                });
+                
+            return document.Project.Solution.WithDocumentSyntaxRoot(document.Id, newRoot);
+        }
+        else
+        {
+            // Multi-document change
+            
+            // 1. Update Source Document
+            var sourceRoot = await syntaxRef.SyntaxTree.GetRootAsync(cancellationToken);
+            var sourceClass = sourceRoot.FindNode(syntaxRef.Span) as ClassDeclarationSyntax;
+            if (sourceClass == null) return document.Project.Solution; // Should check if editable
+            
+            PropertyDeclarationSyntax newProperty = CreatePropertyWithComment(propertyName, todoComment);
+            ClassDeclarationSyntax newSourceClass = sourceClass.AddMembers(newProperty);
+            SyntaxNode newSourceRoot = sourceRoot.ReplaceNode(sourceClass, newSourceClass);
+            
+            var sourceDocument = document.Project.Solution.GetDocument(sourceRoot.SyntaxTree);
+            if (sourceDocument == null) return document.Project.Solution;
+            
+            // 2. Update Profile Document
+            SyntaxNode newProfileRoot = root.ReplaceNode(createMapInvocation, newCreateMapInvocation);
+            
+            // Apply changes
+            var solution = document.Project.Solution;
+            solution = solution.WithDocumentSyntaxRoot(sourceDocument.Id, newSourceRoot);
+            solution = solution.WithDocumentSyntaxRoot(document.Id, newProfileRoot);
+            
+            return solution;
+        }
     }
 
     private Task<Document> AddCollectionCaching(
@@ -318,25 +338,6 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         // Replace the lambda in the tree
         SyntaxNode newRoot = root.ReplaceNode(lambda, newLambda);
         return Task.FromResult(document.WithSyntaxRoot(newRoot));
-    }
-
-    private ClassDeclarationSyntax? FindSourceClass(SyntaxNode root, InvocationExpressionSyntax createMapInvocation,
-        SemanticModel semanticModel)
-    {
-        // Get the source type from CreateMap<TSource, TDest>()
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(createMapInvocation);
-        if (symbolInfo.Symbol is not IMethodSymbol methodSymbol || methodSymbol.TypeArguments.Length < 1)
-        {
-            return null;
-        }
-
-        ITypeSymbol sourceType = methodSymbol.TypeArguments[0];
-        string sourceTypeName = sourceType.Name;
-
-        // Find the class declaration
-        return root.DescendantNodes()
-            .OfType<ClassDeclarationSyntax>()
-            .FirstOrDefault(c => c.Identifier.Text == sourceTypeName);
     }
 
     private PropertyDeclarationSyntax CreatePropertyWithComment(string propertyName, string comment)

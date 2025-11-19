@@ -44,6 +44,12 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : CodeFixProvider
             return;
         }
 
+        SemanticModel? semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+        if (semanticModel == null)
+        {
+            return;
+        }
+
         foreach (Diagnostic? diagnostic in context.Diagnostics)
         {
             if (!diagnostic.Properties.TryGetValue("PropertyName", out string? propertyName) ||
@@ -57,6 +63,31 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : CodeFixProvider
             if (node is not InvocationExpressionSyntax invocation)
             {
                 continue;
+            }
+
+            // Fix 0: Fuzzy Matching - Find similar source properties
+            (ITypeSymbol? sourceType, ITypeSymbol? destType) = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+            if (sourceType != null)
+            {
+                var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
+                foreach (var sourceProp in sourceProperties)
+                {
+                    int distance = ComputeLevenshteinDistance(propertyName!, sourceProp.Name);
+                    // Threshold: match if distance is small (<= 2) and not too different in length
+                    if (distance <= 2 && Math.Abs(propertyName!.Length - sourceProp.Name.Length) <= 2) 
+                    {
+                        var matchAction = CodeAction.Create(
+                            $"Map '{propertyName}' from similar property '{sourceProp.Name}'",
+                            cancellationToken => {
+                                InvocationExpressionSyntax newInvocation =
+                                    CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName!, $"src.{sourceProp.Name}");
+                                SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
+                                return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+                            },
+                            $"FuzzyMatch_{propertyName}_{sourceProp.Name}");
+                        context.RegisterCodeFix(matchAction, diagnostic);
+                    }
+                }
             }
 
             // Fix 1: Add ForMember mapping with default value
@@ -133,5 +164,56 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : CodeFixProvider
 
             context.RegisterCodeFix(addPropertyAction, context.Diagnostics);
         }
+    }
+
+    /// <summary>
+    /// Compute the Levenshtein distance between two strings.
+    /// </summary>
+    private static int ComputeLevenshteinDistance(string s, string t)
+    {
+        if (string.IsNullOrEmpty(s))
+        {
+            return string.IsNullOrEmpty(t) ? 0 : t.Length;
+        }
+
+        if (string.IsNullOrEmpty(t))
+        {
+            return s.Length;
+        }
+
+        int n = s.Length;
+        int m = t.Length;
+        int[,] d = new int[n + 1, m + 1];
+
+        for (int i = 0; i <= n; i++)
+        {
+            d[i, 0] = i;
+        }
+
+        for (int j = 0; j <= m; j++)
+        {
+            d[0, j] = j;
+        }
+
+        for (int j = 1; j <= m; j++)
+        {
+            for (int i = 1; i <= n; i++)
+            {
+                if (s[i - 1] == t[j - 1])
+                {
+                    d[i, j] = d[i - 1, j - 1];
+                }
+                else
+                {
+                    d[i, j] = Math.Min(Math.Min(
+                        d[i - 1, j] + 1,    // deletion
+                        d[i, j - 1] + 1),   // insertion
+                        d[i - 1, j - 1] + 1 // substitution
+                    );
+                }
+            }
+        }
+
+        return d[n, m];
     }
 }

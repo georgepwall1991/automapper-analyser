@@ -14,23 +14,21 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.4.1
+## 🎉 Latest Release: v2.5.0
 
-**Maintenance & Compatibility**
+**Smart Code Fixers & Advanced Refactoring**
 
 ✨ **New Capabilities:**
 
+- 🧠 **Smart Property Creation (AM004)**: Automatically detects missing destination properties and creates them in the destination class (even in separate files).
+- 🔍 **Fuzzy Matching (AM011)**: Intelligent suggestions for unmapped required properties using Levenshtein distance matching (e.g., maps `UserName` to `Username`).
+- 🛠️ **Type Converter Generation (AM030)**: Instead of just a comment, generates a complete `IValueConverter` class implementation and wires it up.
+- ⚡ **Cross-File Performance Refactoring (AM031)**: Intelligently moves expensive computations from mapping profiles to source classes, handling cross-file modifications seamlessly.
+
+### Previous Release: v2.4.1
+
 - 🚀 **.NET 10 Ready**: Verified compatibility metadata for upcoming .NET 10.
 - 🧹 **Documentation Cleanup**: Removed outdated reports and guides.
-- 🐛 **General Maintenance**: Dependency updates and stability improvements.
-
-### Previous Release: v2.4.0
-
-- ⚙️ **Duplicate Mapping Detection (AM041)**: Identifies ambiguous multiple CreateMap definitions for the same types.
-- 🧹 **Redundant MapFrom Detection (AM050)**: Finds explicit mappings that are unnecessary because property names already match.
-
-- 🔄 **ReverseMap Intelligence**: Correctly analyzes bidirectional mappings defined with `.ReverseMap()`.
-- ⚡ **Fast-Path Performance**: Optimized scanning to skip files without AutoMapper code.
 
 ---
 
@@ -159,7 +157,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.3.2">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.5.0">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -353,6 +351,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ### Recently Completed ✅
 
+- **v2.5.0**: Smart Code Fixers & Advanced Refactoring
 - **v2.4.1**: .NET 10 Compatibility & Maintenance
 - **v2.4.0**: Configuration & Redundancy Analysis (AM041, AM050)
 - **v2.3.2**: ReverseMap support & Performance optimizations
