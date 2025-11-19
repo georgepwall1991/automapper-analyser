@@ -1,105 +1,51 @@
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-  <!-- Definitions -->
   <defs>
-    <!-- Shield gradient - protection and safety theme -->
-    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#2E86AB;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1B5E85;stop-opacity:1" />
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563EB;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1E40AF;stop-opacity:1" />
     </linearGradient>
-
-    <!-- Arrow gradient - mapping transformation -->
-    <linearGradient id="arrowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#00D9FF;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#00B8D4;stop-opacity:1" />
-    </linearGradient>
-
-    <!-- Accent gradient for highlights -->
-    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#FF8C42;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#FF6B35;stop-opacity:1" />
-    </linearGradient>
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="2" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
 
-  <!-- Background circle for depth -->
-  <circle cx="64" cy="64" r="62" fill="#1A4D6B" opacity="0.1"/>
+  <!-- Background Shield -->
+  <path d="M64 8 
+           C 28 8, 16 28, 16 48 
+           C 16 88, 64 120, 64 120 
+           C 64 120, 112 88, 112 48 
+           C 112 28, 100 8, 64 8 Z" 
+        fill="url(#bgGrad)" 
+        filter="url(#dropShadow)"/>
 
-  <!-- Main shield shape - protection/safety symbol -->
-  <path d="M 64 12
-           L 96 28
-           L 96 56
-           Q 96 84, 64 108
-           Q 32 84, 32 56
-           L 32 28
-           Z"
-        fill="url(#shieldGrad)"
-        stroke="#1A4D6B"
-        stroke-width="2"/>
-
-  <!-- Inner shield highlight for depth -->
-  <path d="M 64 18
-           L 90 31
-           L 90 56
-           Q 90 80, 64 100
-           Q 38 80, 38 56
-           L 38 31
-           Z"
-        fill="none"
-        stroke="#3A9BC1"
-        stroke-width="1"
-        opacity="0.3"/>
-
-  <!-- Letter A (source) -->
-  <text x="48" y="60"
-        font-family="Arial, sans-serif"
-        font-size="28"
-        font-weight="bold"
-        fill="#FFFFFF"
-        opacity="0.95">A</text>
-
-  <!-- Mapping arrow (transformation symbol) -->
-  <g>
-    <!-- Arrow shaft -->
-    <line x1="58" y1="52" x2="74" y2="52"
-          stroke="url(#arrowGrad)"
-          stroke-width="4"
-          stroke-linecap="round"/>
-
-    <!-- Arrow head -->
-    <path d="M 74 52 L 69 47 M 74 52 L 69 57"
-          stroke="url(#arrowGrad)"
-          stroke-width="4"
-          stroke-linecap="round"
-          fill="none"/>
+  <!-- Mapping Symbol (Arrows) -->
+  <g transform="translate(64, 60) scale(0.8)" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Left Arrow -->
+    <path d="M -25 -10 L -5 -10 L -5 -20 L 15 0 L -5 20 L -5 10 L -25 10 Z" fill="white" stroke="none" opacity="0.9"/>
+    <!-- Right Arrow (faded/outline to imply transformation) -->
+    <!-- Actually, let's do a simple exchange icon or a code symbol -->
   </g>
+  
+  <!-- Re-doing the center symbol to be cleaner: A magnifying glass over code -->
+  <!-- Magnifying Glass Handle -->
+  <path d="M 78 78 L 94 94" stroke="white" stroke-width="8" stroke-linecap="round" opacity="0.9"/>
+  <!-- Glass -->
+  <circle cx="58" cy="58" r="24" stroke="white" stroke-width="6" fill="none" opacity="0.9"/>
+  <!-- Code/Mapping dots inside -->
+  <circle cx="48" cy="58" r="4" fill="white"/>
+  <circle cx="68" cy="58" r="4" fill="white"/>
+  <path d="M 52 58 L 64 58" stroke="white" stroke-width="3"/>
 
-  <!-- Letter M (destination) -->
-  <text x="74" y="60"
-        font-family="Arial, sans-serif"
-        font-size="28"
-        font-weight="bold"
-        fill="#FFFFFF"
-        opacity="0.95">M</text>
+  <!-- Checkmark badge (Analyzer status) -->
+  <circle cx="96" cy="32" r="14" fill="#10B981" stroke="white" stroke-width="2"/>
+  <path d="M 89 32 L 94 37 L 103 27" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- Analyzer checkmark (bottom of shield) -->
-  <g transform="translate(64, 82)">
-    <!-- Checkmark background circle -->
-    <circle cx="0" cy="0" r="12"
-            fill="url(#accentGrad)"
-            stroke="#1A4D6B"
-            stroke-width="1.5"/>
-
-    <!-- Checkmark symbol -->
-    <path d="M -4 0 L -1 4 L 5 -4"
-          stroke="#FFFFFF"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          fill="none"/>
-  </g>
-
-  <!-- Subtle corner accents (analysis/scanning theme) -->
-  <circle cx="40" cy="36" r="1.5" fill="#00D9FF" opacity="0.6"/>
-  <circle cx="88" cy="36" r="1.5" fill="#00D9FF" opacity="0.6"/>
-  <circle cx="52" cy="74" r="1.5" fill="#00D9FF" opacity="0.6"/>
-  <circle cx="76" cy="74" r="1.5" fill="#00D9FF" opacity="0.6"/>
 </svg>
