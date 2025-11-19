@@ -276,7 +276,7 @@ public class AM004_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.Extra2, opt => opt.DoNotValidate()).ForSourceMember(src => src.Extra1, opt => opt.DoNotValidate());
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.Extra1, opt => opt.DoNotValidate()).ForSourceMember(src => src.Extra2, opt => opt.DoNotValidate());
                                                  }
                                              }
                                          }
@@ -298,7 +298,91 @@ public class AM004_CodeFixTests
             .VerifyFixAsync(
                 testCode,
                 new[] { extra1Diagnostic, extra2Diagnostic },
-                expectedFixedCode);
+                expectedFixedCode,
+                null, 
+                null, 
+                1); // Index 0 = "Ignore all unmapped source properties"
+    }
+
+    [Fact]
+    public async Task AM004_ShouldBulkCreateMissingProperties()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Missing1 { get; set; }
+                                        public int Missing2 { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Missing1 { get; set; }
+                                                 public int Missing2 { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Missing1 { get; set; }
+                                                 public int Missing2 { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        DiagnosticResult diag1 = Diagnostic(
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            21,
+            13,
+            "Missing1");
+
+        DiagnosticResult diag2 = Diagnostic(
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            21,
+            13,
+            "Missing2");
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[] { diag1, diag2 },
+                expectedFixedCode,
+                1, // Index 1 = "Create all missing properties in destination type"
+                null, // remainingDiagnostics
+                1); // Iterations
     }
 
     [Fact]

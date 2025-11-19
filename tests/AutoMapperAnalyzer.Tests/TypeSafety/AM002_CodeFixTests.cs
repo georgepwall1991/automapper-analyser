@@ -312,7 +312,10 @@ public class AM002_CodeFixTests
             .VerifyFixAsync(
                 testCode,
                 new[] { ageDiagnostic, nameDiagnostic },
-                expectedFixedCodeAfterFirstFix);
+                expectedFixedCodeAfterFirstFix,
+                null,
+                null,
+                1); // Expect 1 iteration due to bulk fix
     }
 
     [Fact]
@@ -445,5 +448,93 @@ public class AM002_CodeFixTests
             "decimal?",
             "Destination",
             "decimal");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldBulkMakeNullable()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Name { get; set; }
+                                        public int? Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Expect destination properties to be nullable
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string? Name { get; set; }
+                                                 public int? Age { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string? Name { get; set; }
+                                                 public int? Age { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        DiagnosticResult ageDiagnostic = Diagnostic(
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            21,
+            13,
+            "Age",
+            "Source",
+            "int?",
+            "Destination",
+            "int");
+
+        DiagnosticResult nameDiagnostic = Diagnostic(
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            21,
+            13,
+            "Name",
+            "Source",
+            "string?",
+            "Destination",
+            "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[] { ageDiagnostic, nameDiagnostic },
+                expectedFixedCode,
+                1, // Index 1 = "Make all mismatched destination properties nullable"
+                null,
+                1); // 1 Iteration
     }
 }

@@ -5,7 +5,9 @@ using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
@@ -41,8 +43,21 @@ public class AM002_NullableCompatibilityCodeFixProvider : CodeFixProvider
             return;
         }
 
+        SemanticModel? semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+        if (semanticModel == null)
+        {
+            return;
+        }
+
+        var handledInvocations = new HashSet<InvocationExpressionSyntax>();
+
         foreach (Diagnostic? diagnostic in context.Diagnostics)
         {
+            if (diagnostic.Descriptor != AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            {
+                continue;
+            }
+
             TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
 
             InvocationExpressionSyntax? invocation = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
@@ -60,45 +75,161 @@ public class AM002_NullableCompatibilityCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            if (diagnostic.Descriptor != AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            // 1. Register Bulk Fixes (only once per invocation)
+            if (handledInvocations.Add(invocation))
+            {
+                RegisterBulkFixes(context, invocation, semanticModel, root);
+            }
+
+            // 2. Register Grouped Per-Property Fixes
+            RegisterPerPropertyFixes(context, diagnostic, invocation, propertyName!, root);
+        }
+    }
+
+    private void RegisterPerPropertyFixes(CodeFixContext context, Diagnostic diagnostic,
+        InvocationExpressionSyntax invocation, string propertyName, SyntaxNode root)
+    {
+        string? destinationType = ExtractDestinationTypeFromDiagnostic(diagnostic);
+        string defaultValue = TypeConversionHelper.GetDefaultValueForType(destinationType ?? string.Empty);
+        string sampleValue = TypeConversionHelper.GetSampleValueForType(destinationType ?? string.Empty);
+
+        var nestedActions = ImmutableArray.CreateBuilder<CodeAction>();
+
+        // Fix 1: Null coalescing with default value
+        nestedActions.Add(CodeAction.Create(
+            $"Use default value ({defaultValue})",
+            cancellationToken =>
+                AddMapFromAsync(context.Document, invocation, propertyName,
+                    $"src.{propertyName} ?? {defaultValue}", cancellationToken),
+            $"AM002_NullCoalescing_{propertyName}"));
+
+        // Fix 2: Null coalescing with sample value (if different)
+        if (sampleValue != defaultValue)
+        {
+            nestedActions.Add(CodeAction.Create(
+                $"Use sample value ({sampleValue})",
+                cancellationToken =>
+                    AddMapFromAsync(context.Document, invocation, propertyName,
+                        $"src.{propertyName} ?? {sampleValue}", cancellationToken),
+                $"AM002_SampleValue_{propertyName}"));
+        }
+
+        // Fix 3: Make destination property nullable
+        nestedActions.Add(CodeAction.Create(
+            "Make destination property nullable",
+            cancellationToken =>
+                MakeDestinationNullableAsync(context.Document, invocation, propertyName, cancellationToken),
+            $"AM002_MakeNullable_{propertyName}"));
+
+        // Fix 4: Ignore property
+        nestedActions.Add(CodeAction.Create(
+            "Ignore property",
+            cancellationToken =>
+                AddIgnoreAsync(context.Document, invocation, propertyName, cancellationToken),
+            $"AM002_Ignore_{propertyName}"));
+
+        // Register grouped action
+        context.RegisterCodeFix(
+            CodeAction.Create(
+                $"Fix nullable issue for '{propertyName}'...",
+                nestedActions.ToImmutable(),
+                isInlinable: true),
+            diagnostic);
+    }
+
+    private void RegisterBulkFixes(CodeFixContext context, InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel, SyntaxNode root)
+    {
+        // Bulk Fix 1: Handle all with default values
+        context.RegisterCodeFix(CodeAction.Create(
+            "Handle all nullable warnings with default values",
+            cancellationToken => BulkFixAsync(context.Document, root, invocation, semanticModel, "Default"),
+            "AM002_Bulk_Default"
+        ), context.Diagnostics);
+
+        // Bulk Fix 2: Make all mismatched destination properties nullable
+        context.RegisterCodeFix(CodeAction.Create(
+            "Make all mismatched destination properties nullable",
+            cancellationToken => BulkFixAsync(context.Document, root, invocation, semanticModel, "MakeNullable"),
+            "AM002_Bulk_MakeNullable"
+        ), context.Diagnostics);
+
+        // Bulk Fix 3: Ignore all properties with nullable warnings
+        context.RegisterCodeFix(CodeAction.Create(
+            "Ignore all properties with nullable warnings",
+            cancellationToken => BulkFixAsync(context.Document, root, invocation, semanticModel, "Ignore"),
+            "AM002_Bulk_Ignore"
+        ), context.Diagnostics);
+    }
+
+    private async Task<Solution> BulkFixAsync(Document document, SyntaxNode root, InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel, string mode)
+    {
+        // Identify all properties needing fix
+        (ITypeSymbol? sourceType, ITypeSymbol? destType) =
+            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+        if (sourceType == null || destType == null)
+        {
+            return document.Project.Solution;
+        }
+
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
+        var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destType, false);
+
+        var propertiesToFix = new List<(IPropertySymbol Source, IPropertySymbol Dest)>();
+
+        foreach (var sourceProp in sourceProperties)
+        {
+            var destProp = destProperties.FirstOrDefault(p => p.Name == sourceProp.Name);
+            if (destProp == null) continue;
+
+            // Check if configured
+            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, destProp.Name, semanticModel))
             {
                 continue;
             }
 
-            string? destinationType = ExtractDestinationTypeFromDiagnostic(diagnostic);
-            string defaultValue = TypeConversionHelper.GetDefaultValueForType(destinationType ?? string.Empty);
-            string defaultTitle = $"Add null coalescing operator for '{propertyName}'";
+            // Check nullable -> non-nullable condition
+            bool isSourceNullable = IsNullableType(sourceProp.Type);
+            bool isDestNullable = IsNullableType(destProp.Type);
 
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    defaultTitle,
-                    cancellationToken =>
-                        AddMapFromAsync(context.Document, invocation, propertyName!,
-                            $"src.{propertyName} ?? {defaultValue}", cancellationToken),
-                    $"AM002_NullCoalescing_{propertyName}"),
-                diagnostic);
-
-            string sampleValue = TypeConversionHelper.GetSampleValueForType(destinationType ?? string.Empty);
-            if (sampleValue != defaultValue)
+            if (isSourceNullable && !isDestNullable)
             {
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        $"Add null coalescing with sample value for '{propertyName}'",
-                        cancellationToken =>
-                            AddMapFromAsync(context.Document, invocation, propertyName!,
-                                $"src.{propertyName} ?? {sampleValue}", cancellationToken),
-                        $"AM002_SampleValue_{propertyName}"),
-                    diagnostic);
+                propertiesToFix.Add((sourceProp, destProp));
             }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Ignore property '{propertyName}'",
-                    cancellationToken =>
-                        AddIgnoreAsync(context.Document, invocation, propertyName!, cancellationToken),
-                    $"AM002_Ignore_{propertyName}"),
-                diagnostic);
         }
+
+        if (!propertiesToFix.Any())
+        {
+            return document.Project.Solution;
+        }
+
+        if (mode == "MakeNullable")
+        {
+            // Handle multiple property type changes in destination
+            return await MakePropertiesNullableAsync(document, destType, propertiesToFix.Select(p => p.Dest));
+        }
+
+        // Handle profile modifications
+        InvocationExpressionSyntax currentInvocation = invocation;
+
+        foreach (var (sourceProp, destProp) in propertiesToFix)
+        {
+            if (mode == "Ignore")
+            {
+                currentInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(currentInvocation, destProp.Name);
+            }
+            else // Default
+            {
+                string defaultValue = TypeConversionHelper.GetDefaultValueForType(destProp.Type.ToDisplayString());
+                string expression = $"src.{sourceProp.Name} ?? {defaultValue}";
+                currentInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(currentInvocation, destProp.Name, expression);
+            }
+        }
+
+        SyntaxNode newRoot = root.ReplaceNode(invocation, currentInvocation);
+        Document newDocument = document.WithSyntaxRoot(newRoot);
+        return newDocument.Project.Solution;
     }
 
     private static async Task<Document> AddMapFromAsync(
@@ -138,6 +269,82 @@ public class AM002_NullableCompatibilityCodeFixProvider : CodeFixProvider
         return document.WithSyntaxRoot(newRoot);
     }
 
+    private async Task<Solution> MakeDestinationNullableAsync(
+        Document document,
+        InvocationExpressionSyntax invocation,
+        string propertyName,
+        CancellationToken cancellationToken)
+    {
+        var semanticModel = await document.GetSemanticModelAsync(cancellationToken);
+        if (semanticModel == null) return document.Project.Solution;
+
+        var (_, destType) = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+        if (destType == null) return document.Project.Solution;
+
+        // Find the property symbol
+        IPropertySymbol? property = AutoMapperAnalysisHelpers.GetMappableProperties(destType, false)
+            .FirstOrDefault(p => p.Name == propertyName);
+
+        if (property == null) return document.Project.Solution;
+
+        return await MakePropertiesNullableAsync(document, destType, new[] { property });
+    }
+
+    private async Task<Solution> MakePropertiesNullableAsync(
+        Document document,
+        ITypeSymbol destType,
+        IEnumerable<IPropertySymbol> propertiesToFix)
+    {
+        // Check if the destination type is source code (not metadata)
+        if (destType.Locations.All(l => !l.IsInSource))
+        {
+             return document.Project.Solution;
+        }
+
+        var syntaxReference = destType.DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference == null) return document.Project.Solution;
+
+        var destSyntaxRoot = await syntaxReference.SyntaxTree.GetRootAsync();
+        var destClassDecl = destSyntaxRoot.FindNode(syntaxReference.Span);
+
+        // Might be class, struct, record
+        if (destClassDecl == null) return document.Project.Solution;
+
+        var editor = new SyntaxEditor(destSyntaxRoot, document.Project.Solution.Workspace.Services);
+
+        foreach (var property in propertiesToFix)
+        {
+            var propSyntaxRef = property.DeclaringSyntaxReferences.FirstOrDefault();
+            if (propSyntaxRef == null) continue;
+
+            var propNode = await propSyntaxRef.GetSyntaxAsync();
+            if (propNode is PropertyDeclarationSyntax propDecl)
+            {
+                TypeSyntax newType;
+                if (propDecl.Type is NullableTypeSyntax)
+                {
+                    continue; // Already nullable
+                }
+
+                // If it's a value type (int, DateTime), wrap in Nullable<T> (T?)
+                // If it's a reference type (string), just add ?
+                // Syntax-wise, both are NullableTypeSyntax: T?
+
+                newType = SyntaxFactory.NullableType(propDecl.Type.WithoutTrivia())
+                    .WithTriviaFrom(propDecl.Type);
+
+                editor.ReplaceNode(propDecl.Type, newType);
+            }
+        }
+
+        var newDestRoot = editor.GetChangedRoot();
+        var destDocument = document.Project.Solution.GetDocument(destSyntaxRoot.SyntaxTree);
+
+        if (destDocument == null) return document.Project.Solution;
+
+        return document.Project.Solution.WithDocumentSyntaxRoot(destDocument.Id, newDestRoot);
+    }
+
     private string? ExtractPropertyNameFromDiagnostic(Diagnostic diagnostic)
     {
         // Try to get property name from diagnostic properties
@@ -165,5 +372,14 @@ public class AM002_NullableCompatibilityCodeFixProvider : CodeFixProvider
         // Match pattern like "(...) is nullable" to extract the type before
         Match match = Regex.Match(message, @"\(([^)]+)\)\s+is non-nullable");
         return match.Success ? match.Groups[1].Value : null;
+    }
+
+    private static bool IsNullableType(ITypeSymbol type)
+    {
+        // Duplicated helper logic to avoid dependency on internal Analyzer logic not exposed
+        if (type.NullableAnnotation == NullableAnnotation.Annotated) return true;
+        if (type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T) return true;
+        string typeString = type.ToDisplayString();
+        return typeString.EndsWith("?");
     }
 }

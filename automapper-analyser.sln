@@ -29,6 +29,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{AFB1397A
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalyzerVerifier", "tools\AnalyzerVerifier\AnalyzerVerifier.csproj", "{2B78D0B8-AB15-465E-BF5B-70C036FB7CC2}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{0A62895F-7BE4-4745-BA85-B73511F6BFD7}"
+	ProjectSection(SolutionItems) = preProject
+		samples\AutoMapperAnalyzer.Samples\AutoMapperAnalyzer.Samples.csproj = samples\AutoMapperAnalyzer.Samples\AutoMapperAnalyzer.Samples.csproj
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
