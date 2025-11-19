@@ -4,7 +4,7 @@
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![Tests](https://img.shields.io/badge/Tests-418%20passing%2C%2013%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
 
@@ -14,21 +14,20 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.4.0
+## 🎉 Latest Release: v2.4.1
 
-**Configuration Analysis & Performance Boost**
+**Maintenance & Compatibility**
 
 ✨ **New Capabilities:**
 
-- ⚙️ **Duplicate Mapping Detection (AM041)**: Identifies ambiguous multiple CreateMap definitions for the same types.
-- 🧹 **Redundant MapFrom Detection (AM050)**: Finds explicit mappings that are unnecessary because property names already
-  match.
-- ⚡ **Optimized Performance**: Centralized mapping registry significantly reduces compilation scanning overhead in large
-  solutions.
-- 🐛 **Improved Accuracy**: Fixed false positives in `CreateMap` detection and improved complex type converter
-  suggestions.
+- 🚀 **.NET 10 Ready**: Verified compatibility metadata for upcoming .NET 10.
+- 🧹 **Documentation Cleanup**: Removed outdated reports and guides.
+- 🐛 **General Maintenance**: Dependency updates and stability improvements.
 
-### Previous Release: v2.3.2
+### Previous Release: v2.4.0
+
+- ⚙️ **Duplicate Mapping Detection (AM041)**: Identifies ambiguous multiple CreateMap definitions for the same types.
+- 🧹 **Redundant MapFrom Detection (AM050)**: Finds explicit mappings that are unnecessary because property names already match.
 
 - 🔄 **ReverseMap Intelligence**: Correctly analyzes bidirectional mappings defined with `.ReverseMap()`.
 - ⚡ **Fast-Path Performance**: Optimized scanning to skip files without AutoMapper code.
@@ -174,6 +173,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 | .NET           | 6.0+    | 🟢 **Full** | 12.0.1+    | ✅ **Tested** |
 | .NET           | 8.0+    | 🟢 **Full** | 14.0.0+    | ✅ **Tested** |
 | .NET           | 9.0+    | 🟢 **Full** | 14.0.0+    | ✅ **Tested** |
+| .NET           | 10.0+   | 🟢 **Full** | 14.0.0+    | ✅ **Tested** |
 
 *Analyzer targets .NET Standard 2.0 for maximum compatibility*  
 *All platforms validated in automated CI/CD pipeline*
@@ -353,6 +353,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ### Recently Completed ✅
 
+- **v2.4.1**: .NET 10 Compatibility & Maintenance
 - **v2.4.0**: Configuration & Redundancy Analysis (AM041, AM050)
 - **v2.3.2**: ReverseMap support & Performance optimizations
 - **v2.2.0**: AM031 Performance warning analyzer

@@ -14,7 +14,8 @@ This document provides detailed information about framework compatibility and in
 | .NET | 6.0 | ✅ Fully Supported | 13.0.0+ | LTS version |
 | .NET | 7.0 | ✅ Fully Supported | 13.0.0+ | Latest features |
 | .NET | 8.0 | ✅ Fully Supported | 14.0.0+ | LTS version |
-| .NET | 9.0 | ✅ Fully Supported | 14.0.0+ | Latest version |
+| .NET | 9.0 | ✅ Fully Supported | 14.0.0+ | Current version |
+| .NET | 10.0 | ✅ Fully Supported | 14.0.0+ | Latest version |
 
 ### Analyzer Target Framework
 
@@ -42,7 +43,7 @@ The AutoMapper Analyzer targets **.NET Standard 2.0**, which provides compatibil
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="10.1.1" />
-    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="1.0.0">
+    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.4.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
@@ -66,7 +67,7 @@ The AutoMapper Analyzer targets **.NET Standard 2.0**, which provides compatibil
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="12.0.1" />
-    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="1.0.0">
+    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.4.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
@@ -85,7 +86,7 @@ The AutoMapper Analyzer targets **.NET Standard 2.0**, which provides compatibil
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="14.0.0" />
-    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="1.0.0">
+    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.4.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
@@ -217,7 +218,7 @@ public class Destination
 
 2. **Verify Package Installation**
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="1.0.0">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.4.1">
      <PrivateAssets>all</PrivateAssets>
      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -274,4 +275,9 @@ For compatibility issues:
 3. Test existing mappings
 4. Address any new analyzer warnings
 
-This guide ensures smooth installation and usage across all supported .NET frameworks. 
+This guide ensures smooth installation and usage across all supported .NET frameworks.
+
+---
+
+**Last Updated**: November 19, 2025
+**Version**: 2.4.1

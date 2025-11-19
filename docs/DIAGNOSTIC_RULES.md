@@ -1246,7 +1246,7 @@ Include suppression review in code reviews:
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.2.0">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.4.1">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1284,6 +1284,6 @@ If analyzer slows down builds:
 
 ---
 
-**Last Updated**: 2025-06-10
-**Version**: 2.2.0
+**Last Updated**: 2025-11-19
+**Version**: 2.4.1
 **Maintainer**: George Wall

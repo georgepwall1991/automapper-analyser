@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>4</MinorVersion>
-        <PatchVersion>0</PatchVersion>
+        <PatchVersion>1</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,20 +32,11 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.4.0 - Configuration Analysis &amp; Redundancy Checks
+        <PackageReleaseNotes>Version 2.4.1 - Maintenance &amp; Compatibility
 
-            ⚙️ New Features:
-            • AM041: Duplicate Mapping Detector - Identifies multiple CreateMap definitions for the same types
-            • AM050: Redundant MapFrom Detector - Finds explicit mappings where property names already match
-            • Improved syntax-based detection for AM011 and AM005, eliminating false positives
-
-            🐛 Fixes:
-            • Fixed false positives in CreateMap detection (e.g. mapper.ToString())
-            • Fixed AM030 detection for complex type incompatibilities
-
-            ⚡ Performance:
-            • Optimized mapping discovery with centralized registry
-            • Reduced duplicate compilation scanning in AM041
+            🧹 Documentation Cleanup: Removed outdated reports and guides
+            🚀 .NET 10 Ready: Verified compatibility metadata for upcoming .NET 10
+            🐛 General maintenance and dependency updates
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
