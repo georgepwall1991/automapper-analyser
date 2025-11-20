@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-418%20passing%2C%2013%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-419%20passing%2C%2012%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,14 +14,35 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.7.0
+## 🎉 Latest Release: v2.8.0
+
+**Architecture Refactoring & Enhanced Bulk Fixes**
+
+🏗️ **Architecture Improvements:**
+
+- **Refactored Foundation**: All 13 code fix providers now use new `AutoMapperCodeFixProviderBase` abstract class
+- **Code Reduction**: Eliminated ~500 lines of duplicated boilerplate code
+- **Standardization**: Consistent error handling and node replacement patterns across all fixers
+- **Future-Ready**: Improved maintainability and scalability for future enhancements
+
+✨ **New Features:**
+
+- **Multi-Step Wizard**: Interactive wizard for complex bulk fix scenarios
+- **Smart Chunking**: Efficiently handles 30+ properties with intelligent chunking strategy
+- **Configuration Workflow**: Comment-based workflow for complex mapping configurations
+- **Enhanced Batch Fixes**: Improved batch fixing capabilities across all code fix providers
+
+🔧 **Quality:**
+
+- All 419 tests passing with 100% success rate
+- Better UX for complex bulk fix scenarios
+
+### Previous Release: v2.7.0
 
 **New Icon & Visual Update**
 
-✨ **Improvements:**
-
-- **New Icon**: Updated NuGet package icon to a modern, high-quality design (Shield + Mapping + Analyzer).
-- **Visual Identity**: Improved branding for the analyzer package.
+- **New Icon**: Updated NuGet package icon to a modern, high-quality design
+- **Visual Identity**: Improved branding for the analyzer package
 
 ### Previous Release: v2.6.1
 

@@ -16,7 +16,7 @@
         <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
-        <MinorVersion>7</MinorVersion>
+        <MinorVersion>8</MinorVersion>
         <PatchVersion>0</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
@@ -32,15 +32,26 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.7.0 - New Icon &amp; Visual Update
+        <PackageReleaseNotes>Version 2.8.0 - Architecture Refactoring &amp; Enhanced Bulk Fixes
 
-            ✨ Improvements:
-            - Updated NuGet package icon to a modern, high-quality design
-            - Improved visual identity for the analyzer package
-            
-            Previous Release: v2.6.1
-            - 🛠️ Fixes for AM002 and AM004 code fixes
-            - Stability improvements
+            🏗️ Architecture Improvements:
+            - Refactored all 13 code fix providers to use new AutoMapperCodeFixProviderBase abstract class
+            - Eliminated ~500 lines of duplicated boilerplate code across fixers
+            - Standardized error handling and node replacement patterns
+            - Improved maintainability and scalability for future enhancements
+
+            ✨ New Features:
+            - Multi-step interactive wizard for bulk fix scenarios
+            - Smart chunking strategy for handling 30+ properties efficiently
+            - Configuration comment-based workflow for complex mappings
+            - Enhanced batch fixing capabilities
+
+            🔧 Code Quality:
+            - All 419 tests passing with 100% success rate
+            - Consistent patterns across all code fix providers
+            - Better UX for complex bulk fix scenarios
+
+            Previous Release: v2.7.0 - New Icon &amp; Visual Update
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
