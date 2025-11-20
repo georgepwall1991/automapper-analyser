@@ -15,7 +15,7 @@ namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM020_NestedObjectMappingCodeFixProvider))]
 [Shared]
-public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
+public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProviderBase
 {
     /// <summary>
     ///     Gets the diagnostic IDs that this code fix provider can fix.
@@ -23,41 +23,26 @@ public class AM020_NestedObjectMappingCodeFixProvider : CodeFixProvider
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM020");
 
     /// <summary>
-    ///     Gets the fix all provider for batch fixing multiple diagnostics.
-    /// </summary>
-    public sealed override FixAllProvider GetFixAllProvider()
-    {
-        return WellKnownFixAllProviders.BatchFixer;
-    }
-
-    /// <summary>
     ///     Registers code fixes for AM020 diagnostics.
     /// </summary>
     /// <param name="context">The code fix context containing diagnostic information.</param>
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null)
-        {
-            return;
-        }
-
-        SemanticModel? semanticModel =
-            await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (semanticModel == null)
+        var operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
         {
             return;
         }
 
         foreach (Diagnostic? diagnostic in context.Diagnostics.Where(d => FixableDiagnosticIds.Contains(d.Id)))
         {
-            SyntaxNode node = root.FindNode(diagnostic.Location.SourceSpan);
+            SyntaxNode node = operationContext.Root.FindNode(diagnostic.Location.SourceSpan);
 
             if (node is InvocationExpressionSyntax invocation)
             {
                 var action = CodeAction.Create(
                     "Add missing nested object mapping",
-                    c => AddMissingNestedMappingAsync(context.Document, invocation, semanticModel, c),
+                    c => AddMissingNestedMappingAsync(context.Document, invocation, operationContext.SemanticModel, c),
                     "AddMissingNestedMapping");
 
                 context.RegisterCodeFix(action, diagnostic);

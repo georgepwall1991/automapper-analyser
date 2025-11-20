@@ -15,7 +15,7 @@ namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM001_PropertyTypeMismatchCodeFixProvider))]
 [Shared]
-public class AM001_PropertyTypeMismatchCodeFixProvider : CodeFixProvider
+public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProviderBase
 {
     /// <summary>
     ///     Gets the diagnostic IDs that this provider can fix.
@@ -23,32 +23,25 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : CodeFixProvider
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM001");
 
     /// <summary>
-    ///     Gets whether this provider can fix multiple diagnostics in a single code action.
-    /// </summary>
-    public sealed override FixAllProvider GetFixAllProvider()
-    {
-        return WellKnownFixAllProviders.BatchFixer;
-    }
-
-    /// <summary>
     ///     Registers code fixes for the diagnostics.
     /// </summary>
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null)
+        var operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
         {
             return;
         }
 
         Diagnostic diagnostic = context.Diagnostics.First();
-        TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
+
+        if (diagnostic.Descriptor != AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule)
+        {
+            return;
+        }
 
         // Find the CreateMap invocation that triggered the diagnostic
-        InvocationExpressionSyntax? invocation = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
-            .OfType<InvocationExpressionSyntax>()
-            .FirstOrDefault(i => i.Span.Contains(diagnosticSpan));
-
+        InvocationExpressionSyntax? invocation = GetCreateMapInvocation(operationContext.Root, diagnostic);
         if (invocation == null)
         {
             return;
@@ -61,19 +54,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : CodeFixProvider
             return;
         }
 
-        if (diagnostic.Descriptor != AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule)
-        {
-            return;
-        }
-
-        SemanticModel? semanticModel =
-            await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (semanticModel == null)
-        {
-            return;
-        }
-
-        SymbolInfo semanticInfo = semanticModel.GetSymbolInfo(invocation, context.CancellationToken);
+        SymbolInfo semanticInfo = operationContext.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken);
         if (semanticInfo.Symbol is not IMethodSymbol methodSymbol || methodSymbol.TypeArguments.Length != 2)
         {
             return;
@@ -111,8 +92,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : CodeFixProvider
                             invocation,
                             propertyName!,
                             conversionExpression);
-                        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-                        return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+                        return ReplaceNodeAsync(context.Document, operationContext.Root, invocation, newInvocation);
                     },
                     $"AM001_MapWithConversion_{propertyName}"),
                 diagnostic);
@@ -126,8 +106,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : CodeFixProvider
                 {
                     InvocationExpressionSyntax newInvocation =
                         CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName!);
-                    SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-                    return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+                    return ReplaceNodeAsync(context.Document, operationContext.Root, invocation, newInvocation);
                 },
                 $"AM001_Ignore_{propertyName}"),
             diagnostic);

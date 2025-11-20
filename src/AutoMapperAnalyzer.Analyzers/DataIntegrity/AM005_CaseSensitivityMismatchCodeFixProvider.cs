@@ -15,21 +15,12 @@ namespace AutoMapperAnalyzer.Analyzers.DataIntegrity;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM005_CaseSensitivityMismatchCodeFixProvider))]
 [Shared]
-public class AM005_CaseSensitivityMismatchCodeFixProvider : CodeFixProvider
+public class AM005_CaseSensitivityMismatchCodeFixProvider : AutoMapperCodeFixProviderBase
 {
     /// <summary>
     ///     Gets the diagnostic IDs that this code fix provider can fix.
     /// </summary>
     public override ImmutableArray<string> FixableDiagnosticIds => ["AM005"];
-
-    /// <summary>
-    ///     Gets the fix all provider for batch fixes.
-    /// </summary>
-    /// <returns>The batch fixer provider.</returns>
-    public override FixAllProvider GetFixAllProvider()
-    {
-        return WellKnownFixAllProviders.BatchFixer;
-    }
 
     /// <summary>
     ///     Registers code fixes for the specified context.
@@ -38,26 +29,28 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : CodeFixProvider
     /// <returns>A task representing the asynchronous operation.</returns>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null)
+        var operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
         {
             return;
         }
 
         foreach (Diagnostic? diagnostic in context.Diagnostics)
         {
-            if (!diagnostic.Properties.TryGetValue("SourcePropertyName", out string? sourcePropertyName) ||
-                !diagnostic.Properties.TryGetValue("DestinationPropertyName", out string? destinationPropertyName) ||
-                string.IsNullOrEmpty(sourcePropertyName) || string.IsNullOrEmpty(destinationPropertyName))
+            var properties = TryGetDiagnosticProperties(diagnostic, "SourcePropertyName", "DestinationPropertyName");
+            if (properties == null)
             {
                 continue;
             }
 
-            SyntaxNode node = root.FindNode(diagnostic.Location.SourceSpan);
-            if (node is not InvocationExpressionSyntax invocation)
+            InvocationExpressionSyntax? invocation = GetCreateMapInvocation(operationContext.Root, diagnostic);
+            if (invocation == null)
             {
                 continue;
             }
+
+            string sourcePropertyName = properties["SourcePropertyName"];
+            string destinationPropertyName = properties["DestinationPropertyName"];
 
             // Fix 1: Add explicit ForMember mapping to handle case sensitivity
             var explicitMappingAction = CodeAction.Create(
@@ -66,10 +59,9 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : CodeFixProvider
                 {
                     InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
                         invocation,
-                        destinationPropertyName!,
+                        destinationPropertyName,
                         $"src.{sourcePropertyName}");
-                    SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-                    return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+                    return ReplaceNodeAsync(context.Document, operationContext.Root, invocation, newInvocation);
                 },
                 $"ExplicitMapping_{sourcePropertyName}_{destinationPropertyName}");
 
@@ -97,8 +89,7 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : CodeFixProvider
                             .Add(thirdCommentTrivia)
                             .Add(SyntaxFactory.EndOfLine("\n")));
 
-                    SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-                    return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+                    return ReplaceNodeAsync(context.Document, operationContext.Root, invocation, newInvocation);
                 },
                 $"CaseInsensitiveConfig_{sourcePropertyName}_{destinationPropertyName}");
 
@@ -122,8 +113,7 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : CodeFixProvider
                             .Add(secondCommentTrivia)
                             .Add(SyntaxFactory.EndOfLine("\n")));
 
-                    SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-                    return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+                    return ReplaceNodeAsync(context.Document, operationContext.Root, invocation, newInvocation);
                 },
                 $"CasingCorrection_{sourcePropertyName}_{destinationPropertyName}");
 

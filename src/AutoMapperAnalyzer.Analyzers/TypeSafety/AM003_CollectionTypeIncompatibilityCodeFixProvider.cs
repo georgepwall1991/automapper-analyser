@@ -15,7 +15,7 @@ namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM003_CollectionTypeIncompatibilityCodeFixProvider))]
 [Shared]
-public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvider
+public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCodeFixProviderBase
 {
     /// <summary>
     ///     Gets the diagnostic IDs that this code fix provider can fix.
@@ -23,53 +23,38 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
     public override ImmutableArray<string> FixableDiagnosticIds => ["AM003"];
 
     /// <summary>
-    ///     Gets the fix all provider for batch fixing multiple diagnostics.
-    /// </summary>
-    public override FixAllProvider GetFixAllProvider()
-    {
-        return WellKnownFixAllProviders.BatchFixer;
-    }
-
-    /// <summary>
     ///     Registers code fixes for AM003 diagnostics.
     /// </summary>
     /// <param name="context">The code fix context containing diagnostic information.</param>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
+        var operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
+        {
+            return;
+        }
+
         foreach (Diagnostic? diagnostic in context.Diagnostics)
         {
-            SyntaxNode? root =
-                await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-            if (root is null)
+            var properties = TryGetDiagnosticProperties(diagnostic,
+                "PropertyName", "SourceType", "DestType", "SourceElementType", "DestElementType");
+            if (properties == null)
             {
                 continue;
             }
 
-            if (!diagnostic.Properties.TryGetValue("PropertyName", out string? propertyName) ||
-                !diagnostic.Properties.TryGetValue("SourceType", out string? sourceType) ||
-                !diagnostic.Properties.TryGetValue("DestType", out string? destType) ||
-                !diagnostic.Properties.TryGetValue("SourceElementType", out string? sourceElementType) ||
-                !diagnostic.Properties.TryGetValue("DestElementType", out string? destElementType) ||
-                string.IsNullOrWhiteSpace(propertyName) ||
-                string.IsNullOrWhiteSpace(sourceType) ||
-                string.IsNullOrWhiteSpace(destType) ||
-                string.IsNullOrWhiteSpace(sourceElementType) ||
-                string.IsNullOrWhiteSpace(destElementType))
+            InvocationExpressionSyntax? invocation = GetCreateMapInvocation(operationContext.Root, diagnostic);
+            if (invocation == null)
             {
                 continue;
             }
 
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not InvocationExpressionSyntax invocation)
-            {
-                continue;
-            }
-
-            // After the null checks above, we know these are not null
-            string safePropertyName = propertyName!;
-            string safeSourceType = sourceType!;
-            string safeDestType = destType!;
-            string safeSourceElementType = sourceElementType!;
-            string safeDestElementType = destElementType!;
+            // Extract properties
+            string safePropertyName = properties["PropertyName"];
+            string safeSourceType = properties["SourceType"];
+            string safeDestType = properties["DestType"];
+            string safeSourceElementType = properties["SourceElementType"];
+            string safeDestElementType = properties["DestElementType"];
 
             if (diagnostic.Descriptor == AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule)
             {
@@ -80,8 +65,8 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
                     context.RegisterCodeFix(
                         CodeAction.Create(
                             fix.Title,
-                            ct => AddMapFromAsync(context.Document, invocation, safePropertyName, fix.Expression,
-                                fix.RequiresLinq, ct),
+                            ct => AddMapFromAsync(context.Document, operationContext.Root, invocation, safePropertyName,
+                                fix.Expression, fix.RequiresLinq, ct),
                             fix.EquivalenceKey),
                         diagnostic);
                 }
@@ -96,6 +81,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
                             $"Convert {safePropertyName} elements using Select()",
                             ct => AddMapFromAsync(
                                 context.Document,
+                                operationContext.Root,
                                 invocation,
                                 safePropertyName,
                                 $"src.{safePropertyName}.Select({conversionLambda})",
@@ -108,55 +94,43 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : CodeFixProvide
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         $"Ignore property '{safePropertyName}'",
-                        ct => AddIgnoreAsync(context.Document, invocation, safePropertyName, ct),
+                        ct => AddIgnoreAsync(context.Document, operationContext.Root, invocation, safePropertyName),
                         $"Ignore_{safePropertyName}"),
                     diagnostic);
             }
         }
     }
 
-    private static async Task<Document> AddMapFromAsync(
+    private async Task<Document> AddMapFromAsync(
         Document document,
+        SyntaxNode root,
         InvocationExpressionSyntax invocation,
         string propertyName,
         string mapFromExpression,
         bool requiresLinq,
         CancellationToken cancellationToken)
     {
-        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root is not CompilationUnitSyntax compilationUnit)
-        {
-            return document;
-        }
-
         InvocationExpressionSyntax newInvocation =
             CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName, mapFromExpression);
-        SyntaxNode newRoot = compilationUnit.ReplaceNode(invocation, newInvocation);
+        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
 
         if (requiresLinq && newRoot is CompilationUnitSyntax updatedCompilationUnit)
         {
             newRoot = AddUsingIfMissing(updatedCompilationUnit, "System.Linq");
         }
 
-        return document.WithSyntaxRoot(newRoot);
+        return await Task.FromResult(document.WithSyntaxRoot(newRoot));
     }
 
-    private static async Task<Document> AddIgnoreAsync(
+    private Task<Document> AddIgnoreAsync(
         Document document,
+        SyntaxNode root,
         InvocationExpressionSyntax invocation,
-        string propertyName,
-        CancellationToken cancellationToken)
+        string propertyName)
     {
-        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return document;
-        }
-
         InvocationExpressionSyntax newInvocation =
             CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
-        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-        return document.WithSyntaxRoot(newRoot);
+        return ReplaceNodeAsync(document, root, invocation, newInvocation);
     }
 
     private static IEnumerable<(string Title, string Expression, bool RequiresLinq, string EquivalenceKey)>

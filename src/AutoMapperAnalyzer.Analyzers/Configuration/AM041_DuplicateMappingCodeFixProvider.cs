@@ -1,10 +1,10 @@
 using System.Collections.Immutable;
 using System.Composition;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Analyzers.Configuration;
 
@@ -13,28 +13,25 @@ namespace AutoMapperAnalyzer.Analyzers.Configuration;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM041_DuplicateMappingCodeFixProvider))]
 [Shared]
-public class AM041_DuplicateMappingCodeFixProvider : CodeFixProvider
+public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBase
 {
     /// <inheritdoc />
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM041");
 
     /// <inheritdoc />
-    public override FixAllProvider GetFixAllProvider()
-    {
-        return WellKnownFixAllProviders.BatchFixer;
-    }
-
-    /// <inheritdoc />
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
+        var operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
+        {
+            return;
+        }
+
         foreach (Diagnostic? diagnostic in context.Diagnostics)
         {
-            SyntaxNode? root =
-                await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-            TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
-            SyntaxNode? node = root?.FindNode(diagnosticSpan);
+            SyntaxNode? node = operationContext.Root.FindNode(diagnostic.Location.SourceSpan);
 
-            // Find the invocation expression
+            // Find the invocation expression (could be CreateMap or ReverseMap)
             InvocationExpressionSyntax? invocation = node as InvocationExpressionSyntax ??
                                                      node?.AncestorsAndSelf().OfType<InvocationExpressionSyntax>()
                                                          .FirstOrDefault();
@@ -44,22 +41,16 @@ public class AM041_DuplicateMappingCodeFixProvider : CodeFixProvider
                 context.RegisterCodeFix(
                     CodeAction.Create(
                         "Remove duplicate mapping",
-                        c => RemoveDuplicateMapping(context.Document, invocation, c),
+                        c => RemoveDuplicateMapping(context.Document, operationContext.Root, invocation, c),
                         "RemoveDuplicateMapping"),
                     diagnostic);
             }
         }
     }
 
-    private async Task<Document> RemoveDuplicateMapping(Document document, InvocationExpressionSyntax invocation,
-        CancellationToken cancellationToken)
+    private Task<Document> RemoveDuplicateMapping(Document document, SyntaxNode root,
+        InvocationExpressionSyntax invocation, CancellationToken cancellationToken)
     {
-        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null)
-        {
-            return document;
-        }
-
         // Check if it is ReverseMap()
         if (IsReverseMapInvocation(invocation))
         {
@@ -67,8 +58,7 @@ public class AM041_DuplicateMappingCodeFixProvider : CodeFixProvider
             {
                 // Replace the whole ReverseMap() invocation with the expression it was called on
                 // e.g. CreateMap<A,B>().ReverseMap() -> CreateMap<A,B>()
-                SyntaxNode newRoot = root.ReplaceNode(invocation, memberAccess.Expression);
-                return document.WithSyntaxRoot(newRoot);
+                return ReplaceNodeAsync(document, root, invocation, memberAccess.Expression);
             }
         }
 
@@ -78,10 +68,10 @@ public class AM041_DuplicateMappingCodeFixProvider : CodeFixProvider
         if (statement != null)
         {
             SyntaxNode? newRoot = root.RemoveNode(statement, SyntaxRemoveOptions.KeepNoTrivia);
-            return document.WithSyntaxRoot(newRoot!);
+            return Task.FromResult(document.WithSyntaxRoot(newRoot!));
         }
 
-        return document;
+        return Task.FromResult(document);
     }
 
     private bool IsReverseMapInvocation(InvocationExpressionSyntax invocation)

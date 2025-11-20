@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Composition;
 using System.Linq;
 using System.Text.RegularExpressions;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -17,7 +18,7 @@ namespace AutoMapperAnalyzer.Analyzers.Performance;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM031_PerformanceWarningCodeFixProvider))]
 [Shared]
-public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
+public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProviderBase
 {
     /// <summary>
     ///     Gets the diagnostic IDs that this provider can fix.
@@ -25,20 +26,12 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM031");
 
     /// <summary>
-    ///     Gets whether this provider can fix multiple diagnostics in a single code action.
-    /// </summary>
-    public sealed override FixAllProvider GetFixAllProvider()
-    {
-        return WellKnownFixAllProviders.BatchFixer;
-    }
-
-    /// <summary>
     ///     Registers code fixes for the diagnostics.
     /// </summary>
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null)
+        var operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
         {
             return;
         }
@@ -47,7 +40,7 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
 
         // Find the lambda expression that triggered the diagnostic
-        LambdaExpressionSyntax? lambda = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
+        LambdaExpressionSyntax? lambda = operationContext.Root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
             .OfType<LambdaExpressionSyntax>()
             .FirstOrDefault();
 
@@ -74,13 +67,6 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
             return;
         }
 
-        SemanticModel? semanticModel =
-            await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (semanticModel == null)
-        {
-            return;
-        }
-
         // After null check, we know propertyName is not null
         string safePropertyName = propertyName!;
 
@@ -93,7 +79,7 @@ public class AM031_PerformanceWarningCodeFixProvider : CodeFixProvider
         }
         else if (descriptor == AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule)
         {
-            RegisterMultipleEnumerationFix(context, root, forMemberInvocation, lambda, diagnostic);
+            RegisterMultipleEnumerationFix(context, operationContext.Root, forMemberInvocation, lambda, diagnostic);
         }
         else if (descriptor == AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule)
         {

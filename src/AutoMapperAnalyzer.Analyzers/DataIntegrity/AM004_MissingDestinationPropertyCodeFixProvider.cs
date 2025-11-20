@@ -17,21 +17,12 @@ namespace AutoMapperAnalyzer.Analyzers.DataIntegrity;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM004_MissingDestinationPropertyCodeFixProvider))]
 [Shared]
-public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
+public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFixProviderBase
 {
     /// <summary>
     ///     Gets the diagnostic IDs that this code fix provider can fix.
     /// </summary>
     public override ImmutableArray<string> FixableDiagnosticIds => ["AM004"];
-
-    /// <summary>
-    ///     Gets the fix all provider for batch fixes.
-    /// </summary>
-    /// <returns>The batch fixer provider.</returns>
-    public override FixAllProvider GetFixAllProvider()
-    {
-        return WellKnownFixAllProviders.BatchFixer;
-    }
 
     /// <summary>
     ///     Registers code fixes for the specified context.
@@ -40,44 +31,15 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
     /// <returns>A task representing the asynchronous operation.</returns>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null)
-        {
-            return;
-        }
-
-        SemanticModel? semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (semanticModel == null)
-        {
-            return;
-        }
-
-        var handledInvocations = new HashSet<InvocationExpressionSyntax>();
-
-        foreach (Diagnostic? diagnostic in context.Diagnostics)
-        {
-            if (!diagnostic.Properties.TryGetValue("PropertyName", out string? propertyName) ||
-                !diagnostic.Properties.TryGetValue("PropertyType", out string? propertyType) ||
-                string.IsNullOrEmpty(propertyName) || string.IsNullOrEmpty(propertyType))
+        await ProcessDiagnosticsAsync(
+            context,
+            propertyNames: ["PropertyName", "PropertyType"],
+            registerBulkFixes: RegisterBulkFixes,
+            registerPerPropertyFixes: (ctx, diagnostic, invocation, properties, semanticModel, root) =>
             {
-                continue;
-            }
-
-            SyntaxNode node = root.FindNode(diagnostic.Location.SourceSpan);
-            if (node is not InvocationExpressionSyntax invocation)
-            {
-                continue;
-            }
-
-            // 1. Register Bulk Fixes (only once per invocation)
-            if (handledInvocations.Add(invocation))
-            {
-                RegisterBulkFixes(context, invocation, semanticModel, root);
-            }
-
-            // 2. Register Grouped Per-Property Fixes
-            RegisterPerPropertyFixes(context, diagnostic, invocation, propertyName!, propertyType!, root);
-        }
+                RegisterPerPropertyFixes(ctx, diagnostic, invocation, properties["PropertyName"],
+                    properties["PropertyType"], root);
+            });
     }
 
     private void RegisterPerPropertyFixes(CodeFixContext context, Diagnostic diagnostic,
@@ -92,8 +54,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
             {
                 InvocationExpressionSyntax newInvocation =
                     CodeFixSyntaxHelper.CreateForSourceMemberWithDoNotValidate(invocation, propertyName);
-                SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-                return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+                return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
             },
             $"Ignore_{propertyName}"));
 
@@ -109,8 +70,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
                         .Add(commentTrivia)
                         .Add(SyntaxFactory.EndOfLine("\n")));
 
-                SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-                return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+                return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
             },
             $"CustomMapping_{propertyName}"));
 
@@ -127,8 +87,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
                             SyntaxFactory.Comment(
                                 $"// TODO: Map '{propertyName}' to destination property with custom logic"));
 
-                    SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-                    return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
+                    return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
                 },
                 $"Combine_{propertyName}"));
         }
@@ -139,31 +98,30 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : CodeFixProvider
             cancellationToken => CreateDestinationPropertyAsync(context.Document, invocation, propertyName, propertyType, cancellationToken),
             $"CreateProperty_{propertyName}"));
 
-        // Register grouped action
-        context.RegisterCodeFix(
-            CodeAction.Create(
-                $"Fix missing destination for '{propertyName}'...",
-                nestedActions.ToImmutable(),
-                isInlinable: true),
-            diagnostic);
+        // Register grouped action using base class helper
+        var groupAction = CreateGroupedAction($"Fix missing destination for '{propertyName}'...", nestedActions);
+        context.RegisterCodeFix(groupAction, diagnostic);
     }
 
     private void RegisterBulkFixes(CodeFixContext context, InvocationExpressionSyntax invocation,
         SemanticModel semanticModel, SyntaxNode root)
     {
         // Bulk Fix 1: Ignore all unmapped source properties
-        context.RegisterCodeFix(CodeAction.Create(
+        var ignoreAction = CodeAction.Create(
             "Ignore all unmapped source properties",
             cancellationToken => BulkIgnoreAsync(context.Document, root, invocation, semanticModel),
             "AM004_Bulk_Ignore"
-        ), context.Diagnostics);
-        
+        );
+
         // Bulk Fix 2: Create all missing properties in destination
-        context.RegisterCodeFix(CodeAction.Create(
+        var createPropsAction = CodeAction.Create(
             "Create all missing properties in destination type",
             cancellationToken => BulkCreatePropertiesAsync(context.Document, invocation, semanticModel),
             "AM004_Bulk_CreateProperties"
-        ), context.Diagnostics);
+        );
+
+        // Register both bulk fixes using base class helper
+        RegisterBulkFixes(context, ignoreAction, createPropsAction);
     }
 
     private async Task<Document> BulkIgnoreAsync(Document document, SyntaxNode root, InvocationExpressionSyntax invocation,

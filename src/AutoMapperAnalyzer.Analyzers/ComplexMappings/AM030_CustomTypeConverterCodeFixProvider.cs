@@ -17,21 +17,12 @@ namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM030_CustomTypeConverterCodeFixProvider))]
 [Shared]
-public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
+public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProviderBase
 {
     /// <summary>
     ///     Gets the diagnostic IDs that this code fix provider can fix.
     /// </summary>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM030");
-
-    /// <summary>
-    ///     Gets the fix all provider for batch fixes.
-    /// </summary>
-    /// <returns>The batch fixer provider.</returns>
-    public override FixAllProvider GetFixAllProvider()
-    {
-        return WellKnownFixAllProviders.BatchFixer;
-    }
 
     /// <summary>
     ///     Registers code fixes for the specified context.
@@ -40,8 +31,8 @@ public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
     /// <returns>A task representing the asynchronous operation.</returns>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null)
+        var operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
         {
             return;
         }
@@ -55,7 +46,7 @@ public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
             }
 
             TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
-            SyntaxNode node = root.FindNode(diagnosticSpan);
+            SyntaxNode node = operationContext.Root.FindNode(diagnosticSpan);
 
             if (node.FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { } invocation)
             {
@@ -67,15 +58,15 @@ public class AM030_CustomTypeConverterCodeFixProvider : CodeFixProvider
             switch (diagnosticId)
             {
                 case "AM030" when diagnostic.Descriptor.Title.ToString().Contains("Missing ConvertUsing"):
-                    RegisterMissingConvertUsingFixes(context, root, invocation, propertyName!, diagnostic);
+                    RegisterMissingConvertUsingFixes(context, operationContext.Root, invocation, propertyName!, diagnostic);
                     break;
 
                 case "AM030" when diagnostic.Descriptor.Title.ToString().Contains("Invalid type converter"):
-                    RegisterInvalidConverterFixes(context, root, invocation, propertyName!, diagnostic);
+                    RegisterInvalidConverterFixes(context, operationContext.Root, invocation, propertyName!, diagnostic);
                     break;
 
                 case "AM030" when diagnostic.Descriptor.Title.ToString().Contains("null values"):
-                    RegisterNullHandlingFixes(context, root, invocation, propertyName!, diagnostic);
+                    RegisterNullHandlingFixes(context, operationContext.Root, invocation, propertyName!, diagnostic);
                     break;
             }
         }

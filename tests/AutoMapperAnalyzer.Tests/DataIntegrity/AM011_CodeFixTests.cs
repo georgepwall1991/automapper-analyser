@@ -74,7 +74,7 @@ public class AM011_CodeFixTests
                     .WithLocation(23, 13)
                     .WithArguments("RequiredField"),
                 expectedFixedCode,
-                0);
+                1); // Bulk fix: "Map all to default value" (was 0 before interactive wizard)
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public class AM011_CodeFixTests
                     .WithLocation(21, 13)
                     .WithArguments("RequiredNumber"),
                 expectedFixedCode,
-                0);
+                1); // Bulk fix: "Map all to default value"
     }
 
     [Fact]
@@ -208,7 +208,7 @@ public class AM011_CodeFixTests
                     .WithLocation(21, 13)
                     .WithArguments("RequiredField"),
                 expectedBulkFixedCode,
-                0); // Selects "Map all unmapped properties to default value"
+                1); // Selects "Map all unmapped properties to default value"
     }
 
     [Fact]
@@ -275,7 +275,7 @@ public class AM011_CodeFixTests
                     .WithLocation(21, 13)
                     .WithArguments("RequiredDescription"),
                 expectedFixedCode,
-                0);
+                1); // Bulk fix: "Map all to default value"
     }
 
     [Fact]
@@ -348,7 +348,7 @@ public class AM011_CodeFixTests
                         .WithArguments("RequiredField2")
                 },
                 expectedFixedCode,
-                0, 1); // Selects Bulk Fix, expectation 1 iteration
+                1, 1); // Selects Bulk Fix, expectation 1 iteration
     }
 
     [Fact]
@@ -413,7 +413,7 @@ public class AM011_CodeFixTests
                     .WithLocation(20, 13)
                     .WithArguments("RequiredFlag"),
                 expectedFixedCode,
-                0);
+                1); // Bulk fix: "Map all to default value"
     }
 
     [Fact]
@@ -478,6 +478,6 @@ public class AM011_CodeFixTests
                     .WithLocation(20, 13)
                     .WithArguments("RequiredPrice"),
                 expectedFixedCode,
-                0);
+                1); // Bulk fix: "Map all to default value"
     }
 }

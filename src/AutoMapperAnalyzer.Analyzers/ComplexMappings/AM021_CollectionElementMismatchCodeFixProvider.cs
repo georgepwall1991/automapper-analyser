@@ -17,7 +17,7 @@ namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM021_CollectionElementMismatchCodeFixProvider))]
 [Shared]
-public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
+public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixProviderBase
 {
     /// <summary>
     ///     Gets the diagnostic IDs that this provider can fix.
@@ -25,20 +25,12 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM021");
 
     /// <summary>
-    ///     Gets whether this provider can fix multiple diagnostics in a single code action.
-    /// </summary>
-    public sealed override FixAllProvider GetFixAllProvider()
-    {
-        return WellKnownFixAllProviders.BatchFixer;
-    }
-
-    /// <summary>
     ///     Registers code fixes for the diagnostics.
     /// </summary>
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null)
+        var operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
         {
             return;
         }
@@ -47,7 +39,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
         {
             TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
 
-            InvocationExpressionSyntax? invocation = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
+            InvocationExpressionSyntax? invocation = operationContext.Root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
                 .OfType<InvocationExpressionSyntax>()
                 .FirstOrDefault(i => i.Span.Contains(diagnosticSpan));
 
@@ -81,27 +73,20 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            SemanticModel? semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken)
-                .ConfigureAwait(false);
-            if (semanticModel == null)
-            {
-                continue;
-            }
-
             // Determine if this is a simple type conversion or complex mapping
             bool isSimpleConversion = IsSimpleTypeConversion(sourceElementType!, destElementType!);
 
             if (isSimpleConversion)
             {
                 // Offer simple conversion with Parse/Convert
-                RegisterSimpleConversionFix(context, invocation, propertyName!, sourceElementType!, destElementType!,
-                    diagnostic, semanticModel);
+                RegisterSimpleConversionFix(context, operationContext.Root, invocation, propertyName!, sourceElementType!, destElementType!,
+                    diagnostic, operationContext.SemanticModel);
             }
             else
             {
                 // Offer complex mapping with mapper.Map<T>
-                RegisterComplexMappingFix(context, invocation, propertyName!, sourceElementType!, destElementType!,
-                    diagnostic, semanticModel);
+                RegisterComplexMappingFix(context, operationContext.Root, invocation, propertyName!, sourceElementType!, destElementType!,
+                    diagnostic, operationContext.SemanticModel);
             }
 
             // Always offer ignore option
@@ -109,7 +94,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
                 CodeAction.Create(
                     $"Ignore property '{propertyName}'",
                     cancellationToken =>
-                        AddIgnoreAsync(context.Document, invocation, propertyName!, cancellationToken),
+                        AddIgnoreAsync(context.Document, operationContext.Root, invocation, propertyName!),
                     $"AM021_Ignore_{propertyName}"),
                 diagnostic);
         }
@@ -117,6 +102,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
 
     private void RegisterSimpleConversionFix(
         CodeFixContext context,
+        SyntaxNode root,
         InvocationExpressionSyntax invocation,
         string propertyName,
         string sourceElementType,
@@ -133,14 +119,14 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
             CodeAction.Create(
                 $"Add Select with {conversionMethod} for '{propertyName}'",
                 cancellationToken =>
-                    AddMapFromWithLinqAsync(context.Document, invocation, propertyName, mapFromExpression,
-                        cancellationToken),
+                    AddMapFromWithLinqAsync(context.Document, root, invocation, propertyName, mapFromExpression),
                 $"AM021_SimpleConversion_{propertyName}"),
             diagnostic);
     }
 
     private void RegisterComplexMappingFix(
         CodeFixContext context,
+        SyntaxNode root,
         InvocationExpressionSyntax invocation,
         string propertyName,
         string sourceElementType,
@@ -161,19 +147,13 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
             diagnostic);
     }
 
-    private static async Task<Document> AddMapFromWithLinqAsync(
+    private async Task<Document> AddMapFromWithLinqAsync(
         Document document,
+        SyntaxNode root,
         InvocationExpressionSyntax invocation,
         string propertyName,
-        string mapFromExpression,
-        CancellationToken cancellationToken)
+        string mapFromExpression)
     {
-        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null)
-        {
-            return document;
-        }
-
         // Add ForMember with MapFrom
         InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
             invocation,
@@ -194,7 +174,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
             }
         }
 
-        return document.WithSyntaxRoot(newRoot);
+        return await Task.FromResult(document.WithSyntaxRoot(newRoot));
     }
 
     private static async Task<Document> AddElementCreateMapAsync(
@@ -247,23 +227,15 @@ public class AM021_CollectionElementMismatchCodeFixProvider : CodeFixProvider
         return document.WithSyntaxRoot(root);
     }
 
-    private static async Task<Document> AddIgnoreAsync(
+    private Task<Document> AddIgnoreAsync(
         Document document,
+        SyntaxNode root,
         InvocationExpressionSyntax invocation,
-        string propertyName,
-        CancellationToken cancellationToken)
+        string propertyName)
     {
-        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null)
-        {
-            return document;
-        }
-
         InvocationExpressionSyntax newInvocation =
             CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
-        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-
-        return document.WithSyntaxRoot(newRoot);
+        return ReplaceNodeAsync(document, root, invocation, newInvocation);
     }
 
     private static ExpressionStatementSyntax CreateElementCreateMapStatement(string sourceType, string destType)

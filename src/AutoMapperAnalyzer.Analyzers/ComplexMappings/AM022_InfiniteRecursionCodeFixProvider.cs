@@ -16,7 +16,7 @@ namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM022_InfiniteRecursionCodeFixProvider))]
 [Shared]
-public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
+public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderBase
 {
     /// <summary>
     ///     Gets the diagnostic IDs that this provider can fix.
@@ -24,39 +24,19 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM022");
 
     /// <summary>
-    ///     Gets whether this provider can fix multiple diagnostics in a single code action.
-    /// </summary>
-    public sealed override FixAllProvider GetFixAllProvider()
-    {
-        return WellKnownFixAllProviders.BatchFixer;
-    }
-
-    /// <summary>
     ///     Registers code fixes for the diagnostics.
     /// </summary>
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null)
-        {
-            return;
-        }
-
-        SemanticModel? semanticModel =
-            await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (semanticModel == null)
+        var operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
         {
             return;
         }
 
         foreach (Diagnostic? diagnostic in context.Diagnostics)
         {
-            TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
-
-            InvocationExpressionSyntax? invocation = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
-                .OfType<InvocationExpressionSyntax>()
-                .FirstOrDefault(i => i.Span.Contains(diagnosticSpan));
-
+            InvocationExpressionSyntax? invocation = GetCreateMapInvocation(operationContext.Root, diagnostic);
             if (invocation == null)
             {
                 continue;
@@ -64,7 +44,7 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
 
             // Get the type arguments to identify self-referencing properties
             (ITypeSymbol? sourceType, ITypeSymbol? destType) createMapTypes =
-                AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+                AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, operationContext.SemanticModel);
             if (createMapTypes.Item1 == null || createMapTypes.Item2 == null)
             {
                 continue;
@@ -87,7 +67,7 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
                     CodeAction.Create(
                         $"Ignore self-referencing property '{propertyName}'",
                         cancellationToken =>
-                            AddIgnoreAsync(context.Document, invocation, propertyName, cancellationToken),
+                            AddIgnoreAsync(context.Document, operationContext.Root, invocation, propertyName),
                         $"AM022_Ignore_{propertyName}"),
                     diagnostic);
 
@@ -96,7 +76,7 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
                     CodeAction.Create(
                         "Add MaxDepth(2) to prevent infinite recursion",
                         cancellationToken =>
-                            AddMaxDepthAsync(context.Document, invocation, cancellationToken),
+                            AddMaxDepthAsync(context.Document, operationContext.Root, invocation),
                         "AM022_AddMaxDepth"),
                     diagnostic);
             }
@@ -107,7 +87,7 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
                     CodeAction.Create(
                         "Add MaxDepth(2) to prevent infinite recursion",
                         cancellationToken =>
-                            AddMaxDepthAsync(context.Document, invocation, cancellationToken),
+                            AddMaxDepthAsync(context.Document, operationContext.Root, invocation),
                         "AM022_AddMaxDepth"),
                     diagnostic);
 
@@ -118,8 +98,8 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
                         CodeAction.Create(
                             $"Ignore all {selfReferencingProperties.Count} self-referencing properties",
                             cancellationToken =>
-                                AddIgnoreMultipleAsync(context.Document, invocation, selfReferencingProperties,
-                                    cancellationToken),
+                                AddIgnoreMultipleAsync(context.Document, operationContext.Root, invocation,
+                                    selfReferencingProperties),
                             "AM022_IgnoreAll"),
                         diagnostic);
                 }
@@ -144,17 +124,11 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
         return selfReferencingProps.ToImmutable();
     }
 
-    private static async Task<Document> AddMaxDepthAsync(
+    private Task<Document> AddMaxDepthAsync(
         Document document,
-        InvocationExpressionSyntax invocation,
-        CancellationToken cancellationToken)
+        SyntaxNode root,
+        InvocationExpressionSyntax invocation)
     {
-        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null)
-        {
-            return document;
-        }
-
         // Create .MaxDepth(2) invocation
         InvocationExpressionSyntax maxDepthInvocation = SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
@@ -168,48 +142,32 @@ public class AM022_InfiniteRecursionCodeFixProvider : CodeFixProvider
                             SyntaxKind.NumericLiteralExpression,
                             SyntaxFactory.Literal(2))))));
 
-        SyntaxNode newRoot = root.ReplaceNode(invocation, maxDepthInvocation);
-        return document.WithSyntaxRoot(newRoot);
+        return ReplaceNodeAsync(document, root, invocation, maxDepthInvocation);
     }
 
-    private static async Task<Document> AddIgnoreAsync(
+    private Task<Document> AddIgnoreAsync(
         Document document,
+        SyntaxNode root,
         InvocationExpressionSyntax invocation,
-        string propertyName,
-        CancellationToken cancellationToken)
+        string propertyName)
     {
-        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null)
-        {
-            return document;
-        }
-
         InvocationExpressionSyntax newInvocation =
             CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
-        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-
-        return document.WithSyntaxRoot(newRoot);
+        return ReplaceNodeAsync(document, root, invocation, newInvocation);
     }
 
-    private static async Task<Document> AddIgnoreMultipleAsync(
+    private Task<Document> AddIgnoreMultipleAsync(
         Document document,
+        SyntaxNode root,
         InvocationExpressionSyntax invocation,
-        ImmutableList<string> propertyNames,
-        CancellationToken cancellationToken)
+        ImmutableList<string> propertyNames)
     {
-        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null)
-        {
-            return document;
-        }
-
         InvocationExpressionSyntax newInvocation = invocation;
         foreach (string? propertyName in propertyNames)
         {
             newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(newInvocation, propertyName);
         }
 
-        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-        return document.WithSyntaxRoot(newRoot);
+        return ReplaceNodeAsync(document, root, invocation, newInvocation);
     }
 }

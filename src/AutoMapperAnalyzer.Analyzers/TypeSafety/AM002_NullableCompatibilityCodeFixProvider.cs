@@ -17,20 +17,12 @@ namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM002_NullableCompatibilityCodeFixProvider))]
 [Shared]
-public class AM002_NullableCompatibilityCodeFixProvider : CodeFixProvider
+public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProviderBase
 {
     /// <summary>
     ///     Gets the diagnostic IDs that this provider can fix.
     /// </summary>
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM002");
-
-    /// <summary>
-    ///     Gets whether this provider can fix multiple diagnostics in a single code action.
-    /// </summary>
-    public sealed override FixAllProvider GetFixAllProvider()
-    {
-        return WellKnownFixAllProviders.BatchFixer;
-    }
 
     /// <summary>
     ///     Registers code fixes for the diagnostics.
@@ -128,38 +120,34 @@ public class AM002_NullableCompatibilityCodeFixProvider : CodeFixProvider
                 AddIgnoreAsync(context.Document, invocation, propertyName, cancellationToken),
             $"AM002_Ignore_{propertyName}"));
 
-        // Register grouped action
-        context.RegisterCodeFix(
-            CodeAction.Create(
-                $"Fix nullable issue for '{propertyName}'...",
-                nestedActions.ToImmutable(),
-                isInlinable: true),
-            diagnostic);
+        // Register grouped action using base class helper
+        var groupAction = CreateGroupedAction($"Fix nullable issue for '{propertyName}'...", nestedActions);
+        context.RegisterCodeFix(groupAction, diagnostic);
     }
 
     private void RegisterBulkFixes(CodeFixContext context, InvocationExpressionSyntax invocation,
         SemanticModel semanticModel, SyntaxNode root)
     {
         // Bulk Fix 1: Handle all with default values
-        context.RegisterCodeFix(CodeAction.Create(
+        var defaultAction = CodeAction.Create(
             "Handle all nullable warnings with default values",
             cancellationToken => BulkFixAsync(context.Document, root, invocation, semanticModel, "Default"),
-            "AM002_Bulk_Default"
-        ), context.Diagnostics);
+            "AM002_Bulk_Default");
 
         // Bulk Fix 2: Make all mismatched destination properties nullable
-        context.RegisterCodeFix(CodeAction.Create(
+        var makeNullableAction = CodeAction.Create(
             "Make all mismatched destination properties nullable",
             cancellationToken => BulkFixAsync(context.Document, root, invocation, semanticModel, "MakeNullable"),
-            "AM002_Bulk_MakeNullable"
-        ), context.Diagnostics);
+            "AM002_Bulk_MakeNullable");
 
         // Bulk Fix 3: Ignore all properties with nullable warnings
-        context.RegisterCodeFix(CodeAction.Create(
+        var ignoreAction = CodeAction.Create(
             "Ignore all properties with nullable warnings",
             cancellationToken => BulkFixAsync(context.Document, root, invocation, semanticModel, "Ignore"),
-            "AM002_Bulk_Ignore"
-        ), context.Diagnostics);
+            "AM002_Bulk_Ignore");
+
+        // Register all bulk fixes using base class helper
+        RegisterBulkFixes(context, defaultAction, makeNullableAction, ignoreAction);
     }
 
     private async Task<Solution> BulkFixAsync(Document document, SyntaxNode root, InvocationExpressionSyntax invocation,
@@ -232,7 +220,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : CodeFixProvider
         return newDocument.Project.Solution;
     }
 
-    private static async Task<Document> AddMapFromAsync(
+    private async Task<Document> AddMapFromAsync(
         Document document,
         InvocationExpressionSyntax invocation,
         string propertyName,
@@ -247,11 +235,10 @@ public class AM002_NullableCompatibilityCodeFixProvider : CodeFixProvider
 
         InvocationExpressionSyntax newInvocation =
             CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName, mapFromExpression);
-        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-        return document.WithSyntaxRoot(newRoot);
+        return await ReplaceNodeAsync(document, root, invocation, newInvocation);
     }
 
-    private static async Task<Document> AddIgnoreAsync(
+    private async Task<Document> AddIgnoreAsync(
         Document document,
         InvocationExpressionSyntax invocation,
         string propertyName,
@@ -265,8 +252,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : CodeFixProvider
 
         InvocationExpressionSyntax newInvocation =
             CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
-        SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-        return document.WithSyntaxRoot(newRoot);
+        return await ReplaceNodeAsync(document, root, invocation, newInvocation);
     }
 
     private async Task<Solution> MakeDestinationNullableAsync(
