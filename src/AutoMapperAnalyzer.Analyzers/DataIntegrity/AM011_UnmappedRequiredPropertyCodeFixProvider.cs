@@ -58,9 +58,10 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
             foreach (var sourceProp in sourceProperties)
             {
-                int distance = ComputeLevenshteinDistance(propertyName, sourceProp.Name);
-                // Threshold: match if distance is small (<= 2) and not too different in length
-                if (distance <= 2 && Math.Abs(propertyName.Length - sourceProp.Name.Length) <= 2)
+                // Use shared string utilities for fuzzy matching
+                if (StringUtilities.AreNamesSimilar(propertyName, sourceProp.Name,
+                    AutoMapperConstants.DefaultFuzzyMatchDistance,
+                    AutoMapperConstants.DefaultFuzzyMatchLengthDifference))
                 {
                     var matchAction = CodeAction.Create(
                         $"Map from similar property '{sourceProp.Name}'",
@@ -296,11 +297,12 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             BulkFixAction defaultAction = BulkFixAction.Default;
             string? parameter = null;
 
-            // Try fuzzy matching to find similar property
+            // Try fuzzy matching to find similar property using shared utilities
             foreach (var sourceProp in sourceProperties)
             {
-                int distance = ComputeLevenshteinDistance(destProp.Name, sourceProp.Name);
-                if (distance <= 2 && Math.Abs(destProp.Name.Length - sourceProp.Name.Length) <= 2)
+                if (StringUtilities.AreNamesSimilar(destProp.Name, sourceProp.Name,
+                    AutoMapperConstants.DefaultFuzzyMatchDistance,
+                    AutoMapperConstants.DefaultFuzzyMatchLengthDifference))
                 {
                     defaultAction = BulkFixAction.FuzzyMatch;
                     parameter = sourceProp.Name;
@@ -622,54 +624,4 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         }
     }
 
-    /// <summary>
-    /// Compute the Levenshtein distance between two strings.
-    /// </summary>
-    private static int ComputeLevenshteinDistance(string s, string t)
-    {
-        if (string.IsNullOrEmpty(s))
-        {
-            return string.IsNullOrEmpty(t) ? 0 : t.Length;
-        }
-
-        if (string.IsNullOrEmpty(t))
-        {
-            return s.Length;
-        }
-
-        int n = s.Length;
-        int m = t.Length;
-        int[,] d = new int[n + 1, m + 1];
-
-        for (int i = 0; i <= n; i++)
-        {
-            d[i, 0] = i;
-        }
-
-        for (int j = 0; j <= m; j++)
-        {
-            d[0, j] = j;
-        }
-
-        for (int j = 1; j <= m; j++)
-        {
-            for (int i = 1; i <= n; i++)
-            {
-                if (s[i - 1] == t[j - 1])
-                {
-                    d[i, j] = d[i - 1, j - 1];
-                }
-                else
-                {
-                    d[i, j] = Math.Min(Math.Min(
-                            d[i - 1, j] + 1, // deletion
-                            d[i, j - 1] + 1), // insertion
-                        d[i - 1, j - 1] + 1 // substitution
-                    );
-                }
-            }
-        }
-
-        return d[n, m];
-    }
 }

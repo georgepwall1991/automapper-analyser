@@ -213,17 +213,6 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool HasExistingCreateMapForTypes(
-        SyntaxNodeAnalysisContext context,
-        ITypeSymbol sourceType,
-        ITypeSymbol destinationType)
-    {
-        return AutoMapperAnalysisHelpers.HasExistingCreateMapForTypes(
-            context.Compilation,
-            sourceType,
-            destinationType);
-    }
-
     private static bool AreTypesCompatible(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
         // Use the centralized helper method for comprehensive compatibility checking.

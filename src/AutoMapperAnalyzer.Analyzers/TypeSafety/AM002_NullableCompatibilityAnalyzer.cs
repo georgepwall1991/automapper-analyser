@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
@@ -9,9 +8,10 @@ namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 
 /// <summary>
 ///     Analyzer for detecting nullable reference type compatibility issues in AutoMapper configurations.
+///     Inherits from AutoMapperAnalyzerBase for common functionality.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
-public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
+public class AM002_NullableCompatibilityAnalyzer : AutoMapperAnalyzerBase
 {
     /// <summary>
     ///     AM002: Nullable to non-nullable assignment without proper handling.
@@ -20,7 +20,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         "AM002",
         "Nullable to non-nullable mapping issue in AutoMapper configuration",
         "Property '{0}' has nullable compatibility issue: {1}.{0} ({2}) can be null but {3}.{0} ({4}) is non-nullable",
-        "AutoMapper.NullSafety",
+        AutoMapperConstants.CategoryTypeSafety,
         DiagnosticSeverity.Error,
         true,
         "Source property is nullable but destination property is non-nullable, which could cause null reference exceptions at runtime.");
@@ -32,7 +32,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         "AM002",
         "Non-nullable to nullable mapping in AutoMapper configuration",
         "Property '{0}' mapping: {1}.{0} ({2}) is non-nullable but {3}.{0} ({4}) is nullable",
-        "AutoMapper.NullSafety",
+        AutoMapperConstants.CategoryTypeSafety,
         DiagnosticSeverity.Info,
         true,
         "Non-nullable source property is being mapped to nullable destination property.");
@@ -44,63 +44,26 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         [NullableToNonNullableRule, NonNullableToNullableRule];
 
     /// <summary>
-    ///     Initializes the analyzer.
+    ///     Analyzes a CreateMap invocation for nullable compatibility issues.
     /// </summary>
-    /// <param name="context">The analysis context.</param>
-    public override void Initialize(AnalysisContext context)
-    {
-        context.EnableConcurrentExecution();
-        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSyntaxNodeAction(AnalyzeCreateMapInvocation, SyntaxKind.InvocationExpression);
-    }
-
-    private static void AnalyzeCreateMapInvocation(SyntaxNodeAnalysisContext context)
-    {
-        var invocationExpr = (InvocationExpressionSyntax)context.Node;
-
-        // Check if this is a CreateMap<TSource, TDestination>() call
-        if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
-        {
-            return;
-        }
-
-        (ITypeSymbol? sourceType, ITypeSymbol? destinationType) =
-            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
-        if (sourceType == null || destinationType == null)
-        {
-            return;
-        }
-
-        // Analyze nullable compatibility for property mappings
-        AnalyzeNullablePropertyMappings(
-            context,
-            invocationExpr,
-            sourceType,
-            destinationType
-        );
-    }
-
-    private static void AnalyzeNullablePropertyMappings(
+    protected override void AnalyzeCreateMapInvocation(
         SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        IPropertySymbol[] sourceProperties =
-            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToArray();
-        IPropertySymbol[] destinationProperties =
-            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false).ToArray();
+        var sourceProperties = GetMappableProperties(sourceType, requireSetter: false);
+        var destinationProperties = GetMappableProperties(destinationType, requireGetter: false);
 
-        foreach (IPropertySymbol sourceProperty in sourceProperties)
+        foreach (var sourceProperty in sourceProperties)
         {
-            IPropertySymbol? destinationProperty = destinationProperties
-                .FirstOrDefault(p => p.Name == sourceProperty.Name);
+            var destinationProperty = destinationProperties
+                .FirstOrDefault(p => StringUtilities.EqualsIgnoreCase(p.Name, sourceProperty.Name));
 
             if (destinationProperty != null)
             {
                 // Check for explicit property mapping that might handle nullability
-                if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProperty.Name,
-                        context.SemanticModel))
+                if (IsPropertyConfigured(invocation, sourceProperty.Name, context.SemanticModel))
                 {
                     continue;
                 }
@@ -111,13 +74,12 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                     sourceProperty,
                     destinationProperty,
                     sourceType,
-                    destinationType
-                );
+                    destinationType);
             }
         }
     }
 
-    private static void AnalyzeNullableCompatibility(
+    private void AnalyzeNullableCompatibility(
         SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         IPropertySymbol sourceProperty,
@@ -131,41 +93,38 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         // Case 1: Nullable source -> Non-nullable destination (WARNING)
         if (IsNullableType(sourceProperty.Type) && !IsNullableType(destinationProperty.Type))
         {
-            // Check if the underlying types are compatible
-            ITypeSymbol sourceUnderlyingType = GetUnderlyingType(sourceProperty.Type);
-            ITypeSymbol destUnderlyingType = GetUnderlyingType(destinationProperty.Type);
+            var sourceUnderlyingType = GetUnderlyingTypeInternal(sourceProperty.Type);
+            var destUnderlyingType = GetUnderlyingTypeInternal(destinationProperty.Type);
 
-            if (AreUnderlyingTypesCompatible(sourceUnderlyingType, destUnderlyingType))
+            if (AreTypesCompatible(sourceUnderlyingType, destUnderlyingType))
             {
-                var diagnostic = Diagnostic.Create(
+                var diagnostic = CreateDiagnostic(
                     NullableToNonNullableRule,
                     invocation.GetLocation(),
                     sourceProperty.Name,
                     GetTypeName(sourceType),
                     sourceTypeName,
                     GetTypeName(destinationType),
-                    destTypeName
-                );
+                    destTypeName);
                 context.ReportDiagnostic(diagnostic);
             }
         }
         // Case 2: Non-nullable source -> Nullable destination (INFO)
         else if (!IsNullableType(sourceProperty.Type) && IsNullableType(destinationProperty.Type))
         {
-            ITypeSymbol sourceUnderlyingType = GetUnderlyingType(sourceProperty.Type);
-            ITypeSymbol destUnderlyingType = GetUnderlyingType(destinationProperty.Type);
+            var sourceUnderlyingType = GetUnderlyingTypeInternal(sourceProperty.Type);
+            var destUnderlyingType = GetUnderlyingTypeInternal(destinationProperty.Type);
 
-            if (AreUnderlyingTypesCompatible(sourceUnderlyingType, destUnderlyingType))
+            if (AreTypesCompatible(sourceUnderlyingType, destUnderlyingType))
             {
-                var diagnostic = Diagnostic.Create(
+                var diagnostic = CreateDiagnostic(
                     NonNullableToNullableRule,
                     invocation.GetLocation(),
                     sourceProperty.Name,
                     GetTypeName(sourceType),
                     sourceTypeName,
                     GetTypeName(destinationType),
-                    destTypeName
-                );
+                    destTypeName);
                 context.ReportDiagnostic(diagnostic);
             }
         }
@@ -190,7 +149,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         return typeString.EndsWith("?");
     }
 
-    private static ITypeSymbol GetUnderlyingType(ITypeSymbol type)
+    private static ITypeSymbol GetUnderlyingTypeInternal(ITypeSymbol type)
     {
         // For nullable value types (int?, DateTime?), get the underlying type
         if (type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T &&
@@ -201,21 +160,5 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
 
         // For nullable reference types (string?, object?), the type itself is the underlying type
         return type;
-    }
-
-    private static bool AreUnderlyingTypesCompatible(ITypeSymbol sourceType, ITypeSymbol destType)
-    {
-        // Use helper for comprehensive compatibility checking
-        return AutoMapperAnalysisHelpers.AreTypesCompatible(sourceType, destType);
-    }
-
-    private static string GetTypeName(ITypeSymbol type)
-    {
-        if (type is INamedTypeSymbol namedType)
-        {
-            return namedType.Name;
-        }
-
-        return type.Name;
     }
 }

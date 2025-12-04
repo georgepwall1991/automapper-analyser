@@ -432,11 +432,13 @@ public static class AutoMapperAnalysisHelpers
     /// <summary>
     ///     Gets the underlying type, removing nullable wrappers.
     /// </summary>
-    public static ITypeSymbol GetUnderlyingType(ITypeSymbol type)
+    /// <param name="type">The type to unwrap. If null, returns null.</param>
+    /// <returns>The underlying type without nullable annotations, or null if input was null.</returns>
+    public static ITypeSymbol? GetUnderlyingType(ITypeSymbol? type)
     {
         if (type == null)
         {
-            return null!;
+            return null;
         }
 
         // Handle nullable reference types (T?)
@@ -458,7 +460,9 @@ public static class AutoMapperAnalysisHelpers
     /// <summary>
     ///     Checks if the type is a built-in value type or common reference type that doesn't need mapping.
     /// </summary>
-    public static bool IsBuiltInType(ITypeSymbol type)
+    /// <param name="type">The type to check.</param>
+    /// <returns>True if the type is a built-in type that doesn't require custom mapping.</returns>
+    public static bool IsBuiltInType(ITypeSymbol? type)
     {
         if (type == null)
         {

@@ -8,6 +8,7 @@ namespace AutoMapperAnalyzer.Analyzers.Helpers;
 
 /// <summary>
 ///     Caches resolved AutoMapper CreateMap registrations for a compilation.
+///     Provides efficient lookup for mapping existence checks and duplicate detection.
 /// </summary>
 internal sealed class CreateMapRegistry
 {
@@ -18,14 +19,35 @@ internal sealed class CreateMapRegistry
 
     private readonly ImmutableArray<MappingInfo> _mappings;
 
+    // Use HashSet for O(1) lookup instead of O(n) iteration
+    private readonly HashSet<(ITypeSymbol Source, ITypeSymbol Destination)> _mappingLookup;
+
     private CreateMapRegistry(
         ImmutableArray<MappingInfo> mappings,
         Dictionary<InvocationExpressionSyntax, (string Source, string Dest, Location Location)> duplicates)
     {
         _mappings = mappings;
         _duplicates = duplicates;
+
+        // Build lookup set for O(1) contains checks
+        _mappingLookup = new HashSet<(ITypeSymbol, ITypeSymbol)>(new MappingComparer());
+        foreach (var mapping in mappings)
+        {
+            _mappingLookup.Add((mapping.Source, mapping.Destination));
+        }
     }
 
+    /// <summary>
+    ///     Gets the total number of mappings in the registry.
+    /// </summary>
+    public int Count => _mappings.Length;
+
+    /// <summary>
+    ///     Checks if a mapping exists from source to destination type.
+    /// </summary>
+    /// <param name="source">The source type.</param>
+    /// <param name="destination">The destination type.</param>
+    /// <returns>True if a mapping exists.</returns>
     public bool Contains(ITypeSymbol? source, ITypeSymbol? destination)
     {
         if (source == null || destination == null)
@@ -33,16 +55,8 @@ internal sealed class CreateMapRegistry
             return false;
         }
 
-        foreach (MappingInfo mapping in _mappings)
-        {
-            if (SymbolEqualityComparer.Default.Equals(mapping.Source, source) &&
-                SymbolEqualityComparer.Default.Equals(mapping.Destination, destination))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        // Use O(1) HashSet lookup instead of O(n) iteration
+        return _mappingLookup.Contains((source, destination));
     }
 
     /// <summary>
