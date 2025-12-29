@@ -259,22 +259,47 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
+    /// <summary>
+    ///     Collection of operation checkers for detecting performance issues.
+    ///     Checkers are evaluated in order; processing stops after a match if StopProcessing is true.
+    /// </summary>
+    private static readonly IOperationChecker[] OperationCheckers =
+    [
+        new DatabaseOperationChecker(),
+        new FileIOOperationChecker(),
+        new HttpOperationChecker(),
+        new ReflectionOperationChecker(),
+        new TaskResultChecker(),
+        new NonDeterministicOperationChecker(),
+        new ComplexLinqOperationChecker(),
+        new ExternalMethodCallChecker()
+    ];
+
+    private static readonly LinqEnumerationTracker EnumerationTracker = new();
+
     private static void AnalyzeLambdaExpression(
         SyntaxNodeAnalysisContext context,
         LambdaExpressionSyntax lambda,
         string propertyName,
         InvocationExpressionSyntax forMemberInvocation)
     {
-        // Check for method invocations
-        var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().ToList();
-
-        // Check for member access expressions (for properties like DateTime.Now)
-        var memberAccesses = lambda.DescendantNodes().OfType<MemberAccessExpressionSyntax>().ToList();
-
-        // Track collection accesses for multiple enumeration detection
         var collectionAccesses = new Dictionary<string, int>();
 
-        foreach (InvocationExpressionSyntax? invocation in invocations)
+        AnalyzeMethodInvocations(context, lambda, propertyName, collectionAccesses);
+        AnalyzeNonDeterministicPropertyAccesses(context, lambda, propertyName);
+        ReportMultipleEnumerations(context, lambda, propertyName, collectionAccesses);
+        CheckExpensiveComputation(context, lambda, propertyName);
+    }
+
+    private static void AnalyzeMethodInvocations(
+        SyntaxNodeAnalysisContext context,
+        LambdaExpressionSyntax lambda,
+        string propertyName,
+        Dictionary<string, int> collectionAccesses)
+    {
+        var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().ToList();
+
+        foreach (InvocationExpressionSyntax invocation in invocations)
         {
             SymbolInfo symbolInfo = context.SemanticModel.GetSymbolInfo(invocation);
             if (symbolInfo.Symbol is not IMethodSymbol methodSymbol)
@@ -282,116 +307,74 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            string containingType = methodSymbol.ContainingType?.ToDisplayString() ?? "";
-            string methodName = methodSymbol.Name;
-
-            // Check for database operations
-            if (IsDatabaseOperation(containingType, methodName))
+            // Track LINQ operations for multiple enumeration detection
+            if (EnumerationTracker.IsEnumerationMethod(methodSymbol.Name))
             {
-                ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName, "database query");
-                continue;
+                EnumerationTracker.TrackAccess(invocation, collectionAccesses);
             }
 
-            // Check for file I/O
-            if (IsFileIOOperation(containingType, methodName))
+            // Run through operation checkers
+            foreach (IOperationChecker checker in OperationCheckers)
             {
-                ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName, "file I/O operation");
-                continue;
+                OperationCheckResult result = checker.Check(invocation, methodSymbol, context.SemanticModel, propertyName);
+                if (result.IsMatch)
+                {
+                    ReportDiagnostic(context, lambda, result.Rule!, result.MessageArgs);
+                    if (result.StopProcessing)
+                    {
+                        break;
+                    }
+                }
             }
+        }
+    }
 
-            // Check for HTTP requests
-            if (IsHttpOperation(containingType, methodName))
-            {
-                ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName, "HTTP request");
-                continue;
-            }
+    private static void AnalyzeNonDeterministicPropertyAccesses(
+        SyntaxNodeAnalysisContext context,
+        LambdaExpressionSyntax lambda,
+        string propertyName)
+    {
+        var memberAccesses = lambda.DescendantNodes().OfType<MemberAccessExpressionSyntax>().ToList();
 
-            // Check for reflection
-            if (IsReflectionOperation(methodName))
-            {
-                ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName,
-                    "reflection operation");
-                continue;
-            }
-
-            // Check for Task.Result
-            if (IsTaskResultAccess(invocation, context.SemanticModel))
-            {
-                ReportDiagnostic(context, lambda, TaskResultSynchronousAccessRule, propertyName);
-                continue;
-            }
-
-            // Check for non-deterministic operations
-            if (IsNonDeterministicOperation(containingType, methodName, out string operationType))
+        foreach (MemberAccessExpressionSyntax memberAccess in memberAccesses)
+        {
+            SymbolInfo symbolInfo = context.SemanticModel.GetSymbolInfo(memberAccess);
+            if (symbolInfo.Symbol is IPropertySymbol propertySymbol &&
+                NonDeterministicPropertyChecker.IsNonDeterministicProperty(propertySymbol))
             {
                 var diagnostic = Diagnostic.Create(
                     NonDeterministicOperationRule,
                     lambda.GetLocation(),
                     propertyName,
-                    operationType);
-                context.ReportDiagnostic(diagnostic);
-                continue;
-            }
-
-            // Track LINQ operations for multiple enumeration detection
-            if (IsLinqEnumerationMethod(methodName))
-            {
-                TrackCollectionAccess(invocation, collectionAccesses);
-            }
-
-            // Check for complex LINQ operations
-            if (IsComplexLinqOperation(methodName, invocation))
-            {
-                ReportDiagnostic(context, lambda, ComplexLinqOperationRule, propertyName);
-                continue;
-            }
-
-            // Check for external method calls (not on source properties)
-            if (IsExternalMethodCall(invocation, context.SemanticModel))
-            {
-                ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName, "method call");
-            }
-        }
-
-        // Check member access expressions for non-deterministic properties
-        foreach (MemberAccessExpressionSyntax? memberAccess in memberAccesses)
-        {
-            SymbolInfo symbolInfo = context.SemanticModel.GetSymbolInfo(memberAccess);
-            if (symbolInfo.Symbol is IPropertySymbol propertySymbol)
-            {
-                string containingType = propertySymbol.ContainingType?.ToDisplayString() ?? "";
-                string propertyName_member = propertySymbol.Name;
-
-                // Check for DateTime.Now, DateTime.UtcNow
-                if (containingType == "System.DateTime" &&
-                    (propertyName_member == "Now" || propertyName_member == "UtcNow"))
-                {
-                    var diagnostic = Diagnostic.Create(
-                        NonDeterministicOperationRule,
-                        lambda.GetLocation(),
-                        propertyName,
-                        "DateTime.Now");
-                    context.ReportDiagnostic(diagnostic);
-                }
-            }
-        }
-
-        // Check for multiple enumerations
-        foreach (KeyValuePair<string, int> kvp in collectionAccesses)
-        {
-            if (kvp.Value > 1)
-            {
-                var diagnostic = Diagnostic.Create(
-                    MultipleEnumerationRule,
-                    lambda.GetLocation(),
-                    propertyName,
-                    kvp.Key);
+                    "DateTime.Now");
                 context.ReportDiagnostic(diagnostic);
             }
         }
+    }
 
-        // Check for expensive computations (complex expressions with multiple operations)
-        if (IsExpensiveComputation(lambda))
+    private static void ReportMultipleEnumerations(
+        SyntaxNodeAnalysisContext context,
+        LambdaExpressionSyntax lambda,
+        string propertyName,
+        Dictionary<string, int> collectionAccesses)
+    {
+        foreach (KeyValuePair<string, int> kvp in collectionAccesses.Where(kvp => kvp.Value > 1))
+        {
+            var diagnostic = Diagnostic.Create(
+                MultipleEnumerationRule,
+                lambda.GetLocation(),
+                propertyName,
+                kvp.Key);
+            context.ReportDiagnostic(diagnostic);
+        }
+    }
+
+    private static void CheckExpensiveComputation(
+        SyntaxNodeAnalysisContext context,
+        LambdaExpressionSyntax lambda,
+        string propertyName)
+    {
+        if (ExpensiveComputationChecker.IsExpensiveComputation(lambda))
         {
             ReportDiagnostic(context, lambda, ExpensiveComputationRule, propertyName);
         }
@@ -405,204 +388,5 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     {
         var diagnostic = Diagnostic.Create(rule, lambda.GetLocation(), messageArgs);
         context.ReportDiagnostic(diagnostic);
-    }
-
-    private static bool IsDatabaseOperation(string containingType, string methodName)
-    {
-        // Check for Entity Framework, NHibernate, Dapper, etc.
-        return containingType.Contains("DbSet") ||
-               containingType.Contains("DbContext") ||
-               containingType.Contains("IQueryable") ||
-               containingType.Contains("ISession") ||
-               containingType.Contains("SqlConnection") ||
-               methodName.Contains("Query") ||
-               methodName.Contains("Execute") ||
-               methodName.Contains("Load");
-    }
-
-    private static bool IsFileIOOperation(string containingType, string methodName)
-    {
-        return containingType == "System.IO.File" ||
-               containingType == "System.IO.Directory" ||
-               containingType == "System.IO.Path" ||
-               (methodName.Contains("Read") && containingType.Contains("System.IO")) ||
-               (methodName.Contains("Write") && containingType.Contains("System.IO"));
-    }
-
-    private static bool IsHttpOperation(string containingType, string methodName)
-    {
-        return containingType.Contains("HttpClient") ||
-               containingType.Contains("WebClient") ||
-               methodName.Contains("GetAsync") ||
-               methodName.Contains("PostAsync") ||
-               methodName.Contains("GetString");
-    }
-
-    private static bool IsReflectionOperation(string methodName)
-    {
-        return methodName == "GetType" ||
-               methodName == "GetMethod" ||
-               methodName == "GetProperty" ||
-               methodName == "GetField" ||
-               methodName == "GetCustomAttributes" ||
-               methodName == "Invoke";
-    }
-
-    private static bool IsTaskResultAccess(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        // Check if accessing .Result property on a Task
-        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
-        {
-            if (memberAccess.Name.Identifier.Text == "Result")
-            {
-                TypeInfo typeInfo = semanticModel.GetTypeInfo(memberAccess.Expression);
-                string typeName = typeInfo.Type?.ToDisplayString() ?? "";
-                return typeName.Contains("System.Threading.Tasks.Task");
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsNonDeterministicOperation(string containingType, string methodName, out string operationType)
-    {
-        operationType = "";
-
-        if (containingType == "System.DateTime" && (methodName == "get_Now" || methodName == "get_UtcNow"))
-        {
-            operationType = "DateTime.Now";
-            return true;
-        }
-
-        if (containingType == "System.Random" || methodName.Contains("Random"))
-        {
-            operationType = "Random";
-            return true;
-        }
-
-        if (containingType == "System.Guid" && methodName == "NewGuid")
-        {
-            operationType = "Guid.NewGuid";
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool IsLinqEnumerationMethod(string methodName)
-    {
-        return methodName is "ToList" or "ToArray" or "Sum" or "Average" or "Count" or
-            "First" or "FirstOrDefault" or "Last" or "LastOrDefault" or "Any" or "All";
-    }
-
-    private static void TrackCollectionAccess(InvocationExpressionSyntax invocation,
-        Dictionary<string, int> collectionAccesses)
-    {
-        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
-        {
-            string collectionName = memberAccess.Expression.ToString();
-
-            // Normalize collection name (remove src. prefix if present)
-            if (collectionName.StartsWith("src."))
-            {
-                collectionName = collectionName.Substring(4);
-            }
-
-            if (!collectionAccesses.ContainsKey(collectionName))
-            {
-                collectionAccesses[collectionName] = 0;
-            }
-
-            collectionAccesses[collectionName]++;
-        }
-    }
-
-    private static bool IsComplexLinqOperation(string methodName, InvocationExpressionSyntax invocation)
-    {
-        // SelectMany with nested operations
-        if (methodName == "SelectMany")
-        {
-            // Check if the argument contains complex lambda
-            SeparatedSyntaxList<ArgumentSyntax> args = invocation.ArgumentList.Arguments;
-            if (args.Count > 0 && args[0].Expression is LambdaExpressionSyntax lambda)
-            {
-                // Check for nested Where, Select, or other complex operations
-                int nestedInvocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().Count();
-                return nestedInvocations >= 1;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsExternalMethodCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
-        {
-            return false;
-        }
-
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is not IMethodSymbol methodSymbol)
-        {
-            return false;
-        }
-
-        // Exclude simple property access and built-in operators
-        if (methodSymbol.MethodKind == MethodKind.PropertyGet)
-        {
-            return false;
-        }
-
-        // Exclude string methods (they're generally fast)
-        string containingType = methodSymbol.ContainingType?.ToDisplayString() ?? "";
-        if (containingType == "string" || containingType == "System.String")
-        {
-            return false;
-        }
-
-        // Exclude simple LINQ extension methods on the source object
-        string[] simpleLinqMethods =
-            new[] { "Select", "Where", "OrderBy", "OrderByDescending", "ThenBy", "ThenByDescending" };
-        if (simpleLinqMethods.Contains(methodSymbol.Name) && IsCalledOnSourceProperty(memberAccess))
-        {
-            return false;
-        }
-
-        // Check if it's called on a field or injected dependency
-        ISymbol? expressionSymbol = semanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
-        if (expressionSymbol is IFieldSymbol || expressionSymbol is IPropertySymbol { IsReadOnly: true })
-        {
-            // This is likely a method call on an injected service
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool IsCalledOnSourceProperty(MemberAccessExpressionSyntax memberAccess)
-    {
-        string expression = memberAccess.Expression.ToString();
-        return expression.StartsWith("src.") || expression == "src";
-    }
-
-    private static bool IsExpensiveComputation(LambdaExpressionSyntax lambda)
-    {
-        // Look for Enumerable.Range with complex predicates (like prime checking)
-        var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().ToList();
-
-        foreach (InvocationExpressionSyntax? invocation in invocations)
-        {
-            if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
-            {
-                if (memberAccess.Expression.ToString() == "Enumerable" && memberAccess.Name.Identifier.Text == "Range")
-                {
-                    // Found Enumerable.Range - this might be expensive
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 }
