@@ -153,4 +153,47 @@ public class AM041_CodeFixTests
         await CodeFixVerifier<AM041_DuplicateMappingAnalyzer, AM041_DuplicateMappingCodeFixProvider>
             .VerifyFixAsync(testCode, expected, fixedCode);
     }
+
+    [Fact]
+    public async Task Should_KeepReverseDirection_WhenDuplicateIsCreateMapInsideReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                        CreateMap<Source, Destination>().ReverseMap();
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 using AutoMapper;
+
+                                 public class Source {}
+                                 public class Destination {}
+
+                                 public class MyProfile : Profile
+                                 {
+                                     public MyProfile()
+                                     {
+                                         CreateMap<Source, Destination>();
+                                         CreateMap<Destination, Source>();
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(11, 9)
+            .WithArguments("Source", "Destination");
+
+        await CodeFixVerifier<AM041_DuplicateMappingAnalyzer, AM041_DuplicateMappingCodeFixProvider>
+            .VerifyFixAsync(testCode, expected, fixedCode);
+    }
 }

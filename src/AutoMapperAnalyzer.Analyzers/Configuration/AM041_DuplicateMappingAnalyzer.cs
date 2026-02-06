@@ -47,6 +47,11 @@ public class AM041_DuplicateMappingAnalyzer : DiagnosticAnalyzer
                 var invocation = (InvocationExpressionSyntax)ctx.Node;
                 if (duplicates.TryGetValue(invocation, out (string Source, string Dest, Location Location) info))
                 {
+                    if (!IsAutoMapperMappingInvocation(invocation, ctx.SemanticModel))
+                    {
+                        return;
+                    }
+
                     var diagnostic = Diagnostic.Create(
                         DuplicateMappingRule,
                         info.Location,
@@ -56,5 +61,24 @@ public class AM041_DuplicateMappingAnalyzer : DiagnosticAnalyzer
                 }
             }, SyntaxKind.InvocationExpression);
         });
+    }
+
+    private static bool IsAutoMapperMappingInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+        if (symbolInfo.Symbol is not IMethodSymbol methodSymbol)
+        {
+            return false;
+        }
+
+        if (methodSymbol.Name is not ("CreateMap" or "ReverseMap"))
+        {
+            return false;
+        }
+
+        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
+        return namespaceName == "AutoMapper" || (namespaceName?.StartsWith("AutoMapper.") ?? false);
     }
 }
