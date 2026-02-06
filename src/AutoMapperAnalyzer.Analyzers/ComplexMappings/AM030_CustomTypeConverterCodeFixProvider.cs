@@ -19,6 +19,9 @@ namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 [Shared]
 public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProviderBase
 {
+    private const string IssueTypePropertyName = "IssueType";
+    private const string MissingConvertUsingIssueType = "MissingConvertUsing";
+
     /// <summary>
     ///     Gets the diagnostic IDs that this code fix provider can fix.
     /// </summary>
@@ -39,6 +42,17 @@ public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProvide
 
         foreach (Diagnostic? diagnostic in context.Diagnostics)
         {
+            if (diagnostic.Id != "AM030")
+            {
+                continue;
+            }
+
+            if (!diagnostic.Properties.TryGetValue(IssueTypePropertyName, out string? issueType) ||
+                issueType != MissingConvertUsingIssueType)
+            {
+                continue;
+            }
+
             if (!diagnostic.Properties.TryGetValue("PropertyName", out string? propertyName) ||
                 string.IsNullOrEmpty(propertyName))
             {
@@ -53,22 +67,7 @@ public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProvide
                 continue;
             }
 
-            string diagnosticId = diagnostic.Id;
-
-            switch (diagnosticId)
-            {
-                case "AM030" when diagnostic.Descriptor.Title.ToString().Contains("Missing ConvertUsing"):
-                    RegisterMissingConvertUsingFixes(context, operationContext.Root, invocation, propertyName!, diagnostic);
-                    break;
-
-                case "AM030" when diagnostic.Descriptor.Title.ToString().Contains("Invalid type converter"):
-                    RegisterInvalidConverterFixes(context, operationContext.Root, invocation, propertyName!, diagnostic);
-                    break;
-
-                case "AM030" when diagnostic.Descriptor.Title.ToString().Contains("null values"):
-                    RegisterNullHandlingFixes(context, operationContext.Root, invocation, propertyName!, diagnostic);
-                    break;
-            }
+            RegisterMissingConvertUsingFixes(context, operationContext.Root, invocation, propertyName!, diagnostic);
         }
     }
 
@@ -232,84 +231,6 @@ public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProvide
         newRoot = newRoot.ReplaceNode(currentInvocation!, newInvocation);
         
         return document.Project.Solution.WithDocumentSyntaxRoot(document.Id, newRoot);
-    }
-
-    private void RegisterInvalidConverterFixes(CodeFixContext context, SyntaxNode root,
-        InvocationExpressionSyntax invocation, string propertyName, Diagnostic diagnostic)
-    {
-        // Fix 1: Add comment about implementing proper converter
-        var commentFix = CodeAction.Create(
-            "Add comment about fixing converter implementation",
-            cancellationToken =>
-            {
-                SyntaxTrivia comment =
-                    SyntaxFactory.Comment("// TODO: Ensure converter implements ITypeConverter<TSource, TDestination>");
-                InvocationExpressionSyntax newInvocation = invocation.WithLeadingTrivia(
-                    invocation.GetLeadingTrivia()
-                        .Add(comment)
-                        .Add(SyntaxFactory.EndOfLine("\n")));
-                SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-                return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-            },
-            "FixConverterImplementation");
-
-        context.RegisterCodeFix(commentFix, diagnostic);
-
-        // Fix 2: Replace with simple MapFrom if possible
-        var mapFromFix = CodeAction.Create(
-            $"Replace converter with simple MapFrom for '{propertyName}'",
-            cancellationToken =>
-            {
-                InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                    invocation,
-                    propertyName,
-                    $"src.{propertyName}");
-                SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-                return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-            },
-            $"ReplaceWithMapFrom_{propertyName}");
-
-        context.RegisterCodeFix(mapFromFix, diagnostic);
-    }
-
-    private void RegisterNullHandlingFixes(CodeFixContext context, SyntaxNode root,
-        InvocationExpressionSyntax invocation, string propertyName, Diagnostic diagnostic)
-    {
-        // Fix 1: Add null handling in MapFrom
-        var nullHandlingFix = CodeAction.Create(
-            $"Add null handling for '{propertyName}'",
-            cancellationToken =>
-            {
-                InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                    invocation,
-                    propertyName,
-                    $"src.{propertyName} ?? default");
-                SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-                return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-            },
-            $"NullHandling_{propertyName}");
-
-        context.RegisterCodeFix(nullHandlingFix, diagnostic);
-
-        // Fix 2: Use null coalescing operator with specific default
-        if (diagnostic.Properties.TryGetValue("PropertyType", out string? propertyType))
-        {
-            var defaultValueFix = CodeAction.Create(
-                $"Add null handling with default value for '{propertyName}'",
-                cancellationToken =>
-                {
-                    string defaultValue = TypeConversionHelper.GetDefaultValueForType(propertyType!);
-                    InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                        invocation,
-                        propertyName,
-                        $"src.{propertyName} ?? {defaultValue}");
-                    SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
-                    return Task.FromResult(context.Document.WithSyntaxRoot(newRoot));
-                },
-                $"NullHandlingWithDefault_{propertyName}");
-
-            context.RegisterCodeFix(defaultValueFix, diagnostic);
-        }
     }
 
     private bool IsStringToPrimitiveConversion(string converterType)
