@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace AutoMapperAnalyzer.Analyzers.Helpers;
 
 /// <summary>
-///     Shared AM020 helpers for identifying whether nested destination members are explicitly configured
+///     Shared helpers for identifying whether destination members are explicitly configured
 ///     and whether mapping construction/conversion methods apply to the forward direction.
 /// </summary>
 internal static class AM020MappingConfigurationHelpers

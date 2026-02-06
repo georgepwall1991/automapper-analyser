@@ -72,7 +72,7 @@ public class AM021_CodeFixTests
                 expectedFixedCode);
     }
 
-    [Fact(Skip = "Future enhancement: element CreateMap tracking - see docs/TEST_LIMITATIONS.md #5")]
+    [Fact]
     public async Task AM021_ShouldFixComplexElementMapping_WithNestedMapCall()
     {
         const string testCode = """
@@ -142,7 +142,7 @@ public class AM021_CodeFixTests
                                                  public TestProfile()
                                                  {
                                                      CreateMap<Source, Destination>();
-                                                     CreateMap<SourcePerson, DestPerson>();
+                                                     CreateMap<TestNamespace.SourcePerson, TestNamespace.DestPerson>();
                                                  }
                                              }
                                          }
@@ -155,6 +155,92 @@ public class AM021_CodeFixTests
                     .WithLocation(30, 13)
                     .WithArguments("People", "Source", "TestNamespace.SourcePerson", "Destination",
                         "TestNamespace.DestPerson"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldFixComplexElementMapping_WhenTypeNamesContainPrimitiveTerms()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceStringWrapper
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public class DestStringWrapper
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<SourceStringWrapper> Items { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<DestStringWrapper> Items { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class SourceStringWrapper
+                                             {
+                                                 public string Value { get; set; }
+                                             }
+
+                                             public class DestStringWrapper
+                                             {
+                                                 public string Value { get; set; }
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public List<SourceStringWrapper> Items { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public List<DestStringWrapper> Items { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                     CreateMap<TestNamespace.SourceStringWrapper, TestNamespace.DestStringWrapper>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(30, 13)
+                    .WithArguments("Items", "Source", "TestNamespace.SourceStringWrapper", "Destination",
+                        "TestNamespace.DestStringWrapper"),
                 expectedFixedCode);
     }
 
@@ -222,5 +308,115 @@ public class AM021_CodeFixTests
                     .WithLocation(20, 13)
                     .WithArguments("Tags", "Source", "string", "Destination", "int"),
                 expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM021_CodeFix_ShouldNotOfferFix_WhenForMemberUsesStringPropertyName()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember("Numbers", opt => opt.Ignore());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM021_CollectionElementMismatchAnalyzer>
+            .VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM021_CodeFix_ShouldNotOfferFix_WhenConstructUsingHandlesForwardMapping()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing(src => new Destination
+                                                {
+                                                    Numbers = src.Numbers.Select(x => int.Parse(x)).ToList()
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM021_CollectionElementMismatchAnalyzer>
+            .VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM021_CodeFix_ShouldNotOfferFix_WhenConvertUsingHandlesForwardMapping()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConvertUsing(src => new Destination
+                                                {
+                                                    Numbers = src.Numbers.Select(x => int.Parse(x)).ToList()
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM021_CollectionElementMismatchAnalyzer>
+            .VerifyAnalyzerAsync(testCode);
     }
 }
