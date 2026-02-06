@@ -384,6 +384,82 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenForMemberIgnoreIsConfigured()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string CreatedDate { get; set; } = "2023-01-01";
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DateTime CreatedDate { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.CreatedDate, opt => opt.Ignore());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldOnlyMatchExactForMemberProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Id { get; set; } = "";
+                                        public string OrderId { get; set; } = "";
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Guid Id { get; set; }
+                                        public Guid OrderId { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.OrderId, opt => opt.MapFrom(src => Guid.Parse(src.OrderId)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule, 22, 13,
+                "Id", "ITypeConverter<String, Guid>")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldHandleMultipleIncompatibleProperties()
     {
         const string testCode = """
@@ -580,7 +656,7 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
-    public async Task AM030_ShouldHandleConverterWithNullCheckUsingIsNullOrEmpty()
+    public async Task AM030_ShouldNotReportNullHandlingDiagnostic_WhenConverterUsesIsNullOrEmpty()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -613,21 +689,19 @@ public class AM030_CustomTypeConverterTests
                                     {
                                         public TestProfile()
                                         {
-                                            CreateMap<Source, Destination>();
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Date,
+                                                    opt => opt.MapFrom(src => new SafeConverter().Convert(src.Date, default, null!)));
                                         }
                                     }
                                 }
                                 """;
 
-        // Converter with IsNullOrEmpty check triggers null handling warning + missing converter configuration
+        // IsNullOrEmpty counts as null-handling and explicit MapFrom covers conversion.
         await DiagnosticTestFramework
             .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule, 8, 25,
-                "SafeConverter", "String")
-            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule, 31, 13,
-                "Date", "ITypeConverter<String, DateTime>")
-            .RunAsync();
+            .RunWithNoDiagnosticsAsync();
     }
 
     [Fact]
@@ -787,6 +861,43 @@ public class AM030_CustomTypeConverterTests
             .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule, 30, 13,
                 "Address", "ITypeConverter<SourceAddress, DestinationLocation>")
             .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenSourcePropertyTypeIsAssignableToDestinationType()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Animal {}
+                                    public class Dog : Animal {}
+
+                                    public class Source
+                                    {
+                                        public Dog Pet { get; set; } = new();
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Animal Pet { get; set; } = new Animal();
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
     }
 
     [Fact]

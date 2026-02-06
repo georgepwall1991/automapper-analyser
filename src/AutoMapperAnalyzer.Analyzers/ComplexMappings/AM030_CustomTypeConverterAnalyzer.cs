@@ -15,6 +15,9 @@ namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 {
+    private const string IssueTypePropertyName = "IssueType";
+    private const string MissingConvertUsingIssueType = "MissingConvertUsing";
+
     /// <summary>
     ///     Diagnostic rule for invalid type converter implementations.
     /// </summary>
@@ -136,7 +139,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            if (!RequiresTypeConverter(sourceProperty.Type, destinationProperty.Type))
+            if (!RequiresTypeConverter(context.Compilation, sourceProperty.Type, destinationProperty.Type))
             {
                 continue;
             }
@@ -155,6 +158,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
                 ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add("PropertyName", sourceProperty.Name);
             properties.Add("ConverterType", GetConverterTypeName(sourceProperty.Type, destinationProperty.Type));
+            properties.Add(IssueTypePropertyName, MissingConvertUsingIssueType);
 
             var diagnostic = Diagnostic.Create(
                 MissingConvertUsingConfigurationRule,
@@ -172,48 +176,52 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         ClassDeclarationSyntax classDeclaration,
         INamedTypeSymbol classSymbol)
     {
-        if (!ImplementsTypeConverterInterface(classSymbol))
+        INamedTypeSymbol? typeConverterInterface = GetTypeConverterInterface(classSymbol);
+        if (typeConverterInterface == null)
         {
             return;
         }
 
         // Check if Convert method is properly implemented
-        IMethodSymbol? convertMethod = GetConvertMethod(classSymbol);
+        IMethodSymbol? convertMethod = GetConvertMethod(classSymbol, typeConverterInterface);
         if (convertMethod == null)
         {
             var diagnostic = Diagnostic.Create(
                 InvalidConverterImplementationRule,
                 classDeclaration.Identifier.GetLocation(),
                 classSymbol.Name,
-                "TSource",
-                "TDestination");
+                GetTypeName(typeConverterInterface.TypeArguments[0]),
+                GetTypeName(typeConverterInterface.TypeArguments[1]));
 
             context.ReportDiagnostic(diagnostic);
             return;
         }
 
         // Check null handling
-        AnalyzeConverterNullHandling(context, classDeclaration, classSymbol, convertMethod);
+        AnalyzeConverterNullHandling(context, classDeclaration, classSymbol, typeConverterInterface, convertMethod);
     }
 
     private static void AnalyzeConverterNullHandling(
         SyntaxNodeAnalysisContext context,
         ClassDeclarationSyntax classDeclaration,
         INamedTypeSymbol classSymbol,
+        INamedTypeSymbol typeConverterInterface,
         IMethodSymbol convertMethod)
     {
-        ITypeSymbol? sourceTypeParameter = GetSourceTypeParameter(classSymbol);
+        ITypeSymbol? sourceTypeParameter = typeConverterInterface.TypeArguments.FirstOrDefault();
         if (sourceTypeParameter == null || !IsNullableType(sourceTypeParameter))
         {
             return;
         }
 
-        // Check if converter handles null values (this is a simplified check)
+        string sourceParameterName = convertMethod.Parameters.FirstOrDefault()?.Name ?? "source";
+
         MethodDeclarationSyntax? convertMethodDeclaration = classDeclaration.Members
             .OfType<MethodDeclarationSyntax>()
-            .FirstOrDefault(m => m.Identifier.ValueText == "Convert");
+            .FirstOrDefault(m =>
+                SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetDeclaredSymbol(m), convertMethod));
 
-        if (convertMethodDeclaration != null && !ContainsNullCheck(convertMethodDeclaration))
+        if (convertMethodDeclaration != null && !ContainsNullCheck(convertMethodDeclaration, sourceParameterName))
         {
             var diagnostic = Diagnostic.Create(
                 ConverterNullHandlingIssueRule,
@@ -226,10 +234,21 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
     }
 
 
-    private static bool RequiresTypeConverter(ITypeSymbol sourceType, ITypeSymbol destinationType)
+    private static bool RequiresTypeConverter(Compilation compilation, ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
         // Check if types are fundamentally incompatible and would benefit from a converter
         if (SymbolEqualityComparer.Default.Equals(sourceType, destinationType))
+        {
+            return false;
+        }
+
+        if (AutoMapperAnalysisHelpers.AreTypesCompatible(sourceType, destinationType))
+        {
+            return false;
+        }
+
+        var conversion = compilation.ClassifyCommonConversion(sourceType, destinationType);
+        if (conversion.Exists && (conversion.IsIdentity || conversion.IsImplicit))
         {
             return false;
         }
@@ -266,40 +285,41 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
     private static bool HasConvertUsingConfiguration(InvocationExpressionSyntax createMapInvocation,
         string propertyName)
     {
-        // Look for chained method calls starting from the CreateMap invocation
-        SyntaxNode? current = createMapInvocation.Parent;
-
-        while (current != null)
+        if (HasGlobalConverterConfiguration(createMapInvocation))
         {
-            if (current is MemberAccessExpressionSyntax
-                {
-                    Parent: InvocationExpressionSyntax chainedInvocation
-                } memberAccess)
-            {
-                // Check for ForMember calls that configure this specific property
-                if (memberAccess.Name.Identifier.ValueText == "ForMember")
-                {
-                    if (IsForMemberConfigurationForProperty(chainedInvocation, propertyName))
-                    {
-                        // Check if this ForMember has ConvertUsing configuration
-                        if (HasConvertUsingInForMember(chainedInvocation))
-                        {
-                            return true;
-                        }
-                    }
-                }
-                // Check for direct ConvertUsing calls (global converters)
-                else if (memberAccess.Name.Identifier.ValueText == "ConvertUsing")
-                {
-                    return true;
-                }
+            return true;
+        }
 
-                current = chainedInvocation.Parent;
-            }
-            else
+        foreach (InvocationExpressionSyntax? forMemberCall in AutoMapperAnalysisHelpers.GetForMemberCalls(createMapInvocation))
+        {
+            if (!IsForMemberConfigurationForProperty(forMemberCall, propertyName))
             {
-                current = current.Parent;
+                continue;
             }
+
+            if (HasCompatibleForMemberConfiguration(forMemberCall))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasGlobalConverterConfiguration(InvocationExpressionSyntax createMapInvocation)
+    {
+        SyntaxNode? current = createMapInvocation;
+
+        while (current?.Parent is MemberAccessExpressionSyntax memberAccess &&
+               memberAccess.Expression == current &&
+               memberAccess.Parent is InvocationExpressionSyntax parentInvocation)
+        {
+            if (memberAccess.Name.Identifier.ValueText is "ConvertUsing" or "ConstructUsing")
+            {
+                return true;
+            }
+
+            current = parentInvocation;
         }
 
         return false;
@@ -328,71 +348,256 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
     private static bool IsForMemberConfigurationForProperty(InvocationExpressionSyntax forMemberInvocation,
         string propertyName)
     {
-        // Check if this ForMember call is configuring the specific property
-        SeparatedSyntaxList<ArgumentSyntax>? arguments = forMemberInvocation.ArgumentList?.Arguments;
-        if (arguments?.Count > 0)
+        if (forMemberInvocation.ArgumentList.Arguments.Count == 0)
         {
-            // Simple check - look for property name in the first argument
-            ArgumentSyntax firstArg = arguments.Value[0];
-            return firstArg.ToString().Contains(propertyName);
+            return false;
+        }
+
+        ExpressionSyntax propertySelector = forMemberInvocation.ArgumentList.Arguments[0].Expression;
+        return TryGetSelectedMemberName(propertySelector, out string? selectedPropertyName) &&
+               string.Equals(selectedPropertyName, propertyName, StringComparison.Ordinal);
+    }
+
+    private static bool HasCompatibleForMemberConfiguration(InvocationExpressionSyntax forMemberInvocation)
+    {
+        if (forMemberInvocation.ArgumentList.Arguments.Count < 2)
+        {
+            return false;
+        }
+
+        ExpressionSyntax configExpression = forMemberInvocation.ArgumentList.Arguments[1].Expression;
+        CSharpSyntaxNode? lambdaBody = configExpression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.Body,
+            _ => null
+        };
+
+        if (lambdaBody == null)
+        {
+            return false;
+        }
+
+        if (lambdaBody is InvocationExpressionSyntax invocation)
+        {
+            return InvocationContainsSupportedConfiguration(invocation);
+        }
+
+        if (lambdaBody is BlockSyntax block)
+        {
+            return block.DescendantNodes()
+                .OfType<InvocationExpressionSyntax>()
+                .Any(InvocationContainsSupportedConfiguration);
         }
 
         return false;
     }
 
-    private static bool HasConvertUsingInForMember(InvocationExpressionSyntax forMemberInvocation)
+    private static bool InvocationContainsSupportedConfiguration(InvocationExpressionSyntax invocation)
     {
-        // Check if the ForMember configuration contains ConvertUsing or MapFrom (both handle conversion)
-        SeparatedSyntaxList<ArgumentSyntax>? arguments = forMemberInvocation.ArgumentList?.Arguments;
-        if (arguments?.Count > 1)
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
         {
-            // Look for ConvertUsing or MapFrom in the configuration lambda (second argument)
-            ArgumentSyntax configArg = arguments.Value[1];
-            string configText = configArg.ToString();
-            return configText.Contains("ConvertUsing") || configText.Contains("MapFrom");
+            return false;
         }
 
-        return false;
+        if (memberAccess.Name.Identifier.ValueText is "ConvertUsing" or "MapFrom" or "Ignore")
+        {
+            return true;
+        }
+
+        return memberAccess.Expression is InvocationExpressionSyntax innerInvocation &&
+               InvocationContainsSupportedConfiguration(innerInvocation);
     }
 
-    private static bool ImplementsTypeConverterInterface(INamedTypeSymbol classSymbol)
+    private static INamedTypeSymbol? GetTypeConverterInterface(INamedTypeSymbol classSymbol)
     {
-        return classSymbol.AllInterfaces.Any(i =>
-            i.Name == "ITypeConverter" &&
-            i.ContainingNamespace?.Name == "AutoMapper");
+        return classSymbol.AllInterfaces
+            .FirstOrDefault(i =>
+                i.Name == "ITypeConverter" &&
+                i.ContainingNamespace?.ToDisplayString() == "AutoMapper" &&
+                i.TypeArguments.Length == 2);
     }
 
-    private static IMethodSymbol? GetConvertMethod(INamedTypeSymbol classSymbol)
+    private static IMethodSymbol? GetConvertMethod(INamedTypeSymbol classSymbol, INamedTypeSymbol typeConverterInterface)
     {
-        return classSymbol.GetMembers("Convert")
+        IMethodSymbol? interfaceConvertMethod = typeConverterInterface
+            .GetMembers("Convert")
             .OfType<IMethodSymbol>()
-            .FirstOrDefault(m => m.Parameters.Length >= 2); // Convert method should have source and context parameters
-    }
+            .FirstOrDefault();
 
-    private static ITypeSymbol? GetSourceTypeParameter(INamedTypeSymbol classSymbol)
-    {
-        INamedTypeSymbol? typeConverterInterface = classSymbol.AllInterfaces
-            .FirstOrDefault(i => i.Name == "ITypeConverter" && i.TypeArguments.Length == 2);
+        if (interfaceConvertMethod == null)
+        {
+            return null;
+        }
 
-        return typeConverterInterface?.TypeArguments[0];
+        return classSymbol.FindImplementationForInterfaceMember(interfaceConvertMethod) as IMethodSymbol;
     }
 
     private static bool IsNullableType(ITypeSymbol type)
     {
-        AutoMapperAnalysisHelpers.IsNullableType(type, out _);
-        return type.CanBeReferencedByName &&
-               (type.NullableAnnotation == NullableAnnotation.Annotated ||
-                (type is INamedTypeSymbol namedType &&
-                 namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T));
+        if (type.NullableAnnotation == NullableAnnotation.Annotated)
+        {
+            return true;
+        }
+
+        return type is INamedTypeSymbol namedType &&
+               namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
     }
 
-    private static bool ContainsNullCheck(MethodDeclarationSyntax method)
+    private static bool ContainsNullCheck(MethodDeclarationSyntax method, string sourceParameterName)
     {
-        // Simplified check for null comparisons in the method body
-        return method.DescendantNodes()
+        IEnumerable<SyntaxNode> nodes = method.Body?.DescendantNodesAndSelf() ?? Enumerable.Empty<SyntaxNode>();
+        if (method.ExpressionBody != null)
+        {
+            nodes = nodes.Concat(method.ExpressionBody.DescendantNodesAndSelf());
+        }
+
+        bool hasBinaryNullCheck = nodes
             .OfType<BinaryExpressionSyntax>()
-            .Any(binary => binary.IsKind(SyntaxKind.EqualsExpression) ||
-                           binary.IsKind(SyntaxKind.NotEqualsExpression));
+            .Any(binary =>
+                (binary.IsKind(SyntaxKind.EqualsExpression) || binary.IsKind(SyntaxKind.NotEqualsExpression)) &&
+                ((IsNullLiteral(binary.Left) && IsSourceReference(binary.Right, sourceParameterName)) ||
+                 (IsSourceReference(binary.Left, sourceParameterName) && IsNullLiteral(binary.Right))));
+
+        if (hasBinaryNullCheck)
+        {
+            return true;
+        }
+
+        bool hasPatternNullCheck = nodes
+            .OfType<IsPatternExpressionSyntax>()
+            .Any(pattern => IsSourceReference(pattern.Expression, sourceParameterName) && PatternMatchesNull(pattern.Pattern));
+
+        if (hasPatternNullCheck)
+        {
+            return true;
+        }
+
+        bool hasStringHelperNullCheck = nodes
+            .OfType<InvocationExpressionSyntax>()
+            .Any(invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Name.Identifier.ValueText is "IsNullOrEmpty" or "IsNullOrWhiteSpace" &&
+                IsStringTypeAccess(memberAccess.Expression) &&
+                invocation.ArgumentList.Arguments.Any(arg => IsSourceReference(arg.Expression, sourceParameterName)));
+
+        if (hasStringHelperNullCheck)
+        {
+            return true;
+        }
+
+        bool hasNullCoalescing = nodes
+            .OfType<BinaryExpressionSyntax>()
+            .Any(binary => binary.IsKind(SyntaxKind.CoalesceExpression) &&
+                           IsSourceReference(binary.Left, sourceParameterName));
+
+        if (hasNullCoalescing)
+        {
+            return true;
+        }
+
+        return nodes
+            .OfType<ConditionalAccessExpressionSyntax>()
+            .Any(conditional => IsSourceReference(conditional.Expression, sourceParameterName));
+    }
+
+    private static bool TryGetSelectedMemberName(ExpressionSyntax selectorExpression, out string? memberName)
+    {
+        memberName = null;
+
+        CSharpSyntaxNode? body = selectorExpression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.Body,
+            _ => null
+        };
+
+        if (body == null)
+        {
+            return false;
+        }
+
+        return TryExtractMemberName(body, out memberName);
+    }
+
+    private static bool TryExtractMemberName(CSharpSyntaxNode expression, out string? memberName)
+    {
+        memberName = null;
+
+        switch (expression)
+        {
+            case MemberAccessExpressionSyntax memberAccess:
+                memberName = memberAccess.Name.Identifier.ValueText;
+                return true;
+            case ConditionalAccessExpressionSyntax
+                {
+                    WhenNotNull: MemberBindingExpressionSyntax memberBinding
+                }:
+                memberName = memberBinding.Name.Identifier.ValueText;
+                return true;
+            case CastExpressionSyntax castExpression:
+                return TryExtractMemberName(castExpression.Expression, out memberName);
+            case ParenthesizedExpressionSyntax parenthesizedExpression:
+                return TryExtractMemberName(parenthesizedExpression.Expression, out memberName);
+            default:
+                return false;
+        }
+    }
+
+    private static bool PatternMatchesNull(PatternSyntax pattern)
+    {
+        return pattern switch
+        {
+            ConstantPatternSyntax { Expression: var expression } => IsNullLiteral(expression),
+            UnaryPatternSyntax
+            {
+                Pattern: ConstantPatternSyntax { Expression: var expression }
+            } => IsNullLiteral(expression),
+            _ => false
+        };
+    }
+
+    private static bool IsNullLiteral(ExpressionSyntax expression)
+    {
+        return expression is LiteralExpressionSyntax literal &&
+               literal.IsKind(SyntaxKind.NullLiteralExpression);
+    }
+
+    private static bool IsSourceReference(ExpressionSyntax expression, string sourceParameterName)
+    {
+        ExpressionSyntax unwrappedExpression = UnwrapExpression(expression);
+        return unwrappedExpression is IdentifierNameSyntax identifier &&
+               string.Equals(identifier.Identifier.ValueText, sourceParameterName, StringComparison.Ordinal);
+    }
+
+    private static bool IsStringTypeAccess(ExpressionSyntax expression)
+    {
+        return expression switch
+        {
+            PredefinedTypeSyntax predefinedType => predefinedType.Keyword.IsKind(SyntaxKind.StringKeyword),
+            IdentifierNameSyntax identifierName => identifierName.Identifier.ValueText is "String" or "string",
+            _ => false
+        };
+    }
+
+    private static ExpressionSyntax UnwrapExpression(ExpressionSyntax expression)
+    {
+        ExpressionSyntax currentExpression = expression;
+
+        while (true)
+        {
+            switch (currentExpression)
+            {
+                case ParenthesizedExpressionSyntax parenthesizedExpression:
+                    currentExpression = parenthesizedExpression.Expression;
+                    continue;
+                case CastExpressionSyntax castExpression:
+                    currentExpression = castExpression.Expression;
+                    continue;
+                default:
+                    return currentExpression;
+            }
+        }
     }
 
     private static bool IsPrimitiveType(ITypeSymbol type)
