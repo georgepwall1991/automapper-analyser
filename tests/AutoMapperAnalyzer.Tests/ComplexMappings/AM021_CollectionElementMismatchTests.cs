@@ -586,6 +586,54 @@ public class AM021_CollectionElementMismatchTests
     }
 
     [Fact]
+    public async Task AM021_ShouldReportDiagnostic_WhenTypeNamesContainPrimitiveTerms()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceStringWrapper
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public class DestStringWrapper
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<SourceStringWrapper> Items { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<DestStringWrapper> Items { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 30, 13,
+                "Items", "Source", "TestNamespace.SourceStringWrapper", "Destination",
+                "TestNamespace.DestStringWrapper")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM021_ShouldNotReportDiagnostic_WhenForMemberUsesStringPropertyName()
     {
         const string testCode = """

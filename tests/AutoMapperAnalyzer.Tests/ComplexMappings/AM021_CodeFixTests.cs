@@ -309,4 +309,114 @@ public class AM021_CodeFixTests
                     .WithArguments("Tags", "Source", "string", "Destination", "int"),
                 expectedFixedCode);
     }
+
+    [Fact]
+    public async Task AM021_CodeFix_ShouldNotOfferFix_WhenForMemberUsesStringPropertyName()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember("Numbers", opt => opt.Ignore());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM021_CollectionElementMismatchAnalyzer>
+            .VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM021_CodeFix_ShouldNotOfferFix_WhenConstructUsingHandlesForwardMapping()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing(src => new Destination
+                                                {
+                                                    Numbers = src.Numbers.Select(x => int.Parse(x)).ToList()
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM021_CollectionElementMismatchAnalyzer>
+            .VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM021_CodeFix_ShouldNotOfferFix_WhenConvertUsingHandlesForwardMapping()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConvertUsing(src => new Destination
+                                                {
+                                                    Numbers = src.Numbers.Select(x => int.Parse(x)).ToList()
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM021_CollectionElementMismatchAnalyzer>
+            .VerifyAnalyzerAsync(testCode);
+    }
 }

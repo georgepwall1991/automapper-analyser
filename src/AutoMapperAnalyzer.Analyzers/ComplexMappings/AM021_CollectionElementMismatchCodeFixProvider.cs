@@ -121,7 +121,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
         Diagnostic diagnostic,
         SemanticModel semanticModel)
     {
-        string conversionMethod = GetConversionMethod(sourceElementType, destElementType);
+        string conversionMethod = GetConversionMethod(destElementType);
         string collectionMethod = GetCollectionMaterializationMethod(invocation, propertyName, semanticModel);
 
         string mapFromExpression = $"src.{propertyName}.Select(x => {conversionMethod}(x)).{collectionMethod}()";
@@ -315,7 +315,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
         return IsSimpleConversionType(sourceElementType) && IsSimpleConversionType(destElementType);
     }
 
-    private static string GetConversionMethod(string sourceElementType, string destElementType)
+    private static string GetConversionMethod(string destElementType)
     {
         // Determine the conversion method based on destination type
         // using Convert class for better null handling compared to Parse
@@ -376,6 +376,26 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             normalized = normalized.Substring("global::".Length);
         }
 
+        while (normalized.EndsWith("[]", StringComparison.Ordinal))
+        {
+            normalized = normalized.Substring(0, normalized.Length - 2);
+        }
+
+        if (normalized.StartsWith("System.Nullable<", StringComparison.Ordinal) &&
+            normalized.EndsWith(">", StringComparison.Ordinal))
+        {
+            string innerType = normalized.Substring("System.Nullable<".Length,
+                normalized.Length - "System.Nullable<".Length - 1);
+            return NormalizeTypeName(innerType);
+        }
+
+        if (normalized.StartsWith("Nullable<", StringComparison.Ordinal) &&
+            normalized.EndsWith(">", StringComparison.Ordinal))
+        {
+            string innerType = normalized.Substring("Nullable<".Length, normalized.Length - "Nullable<".Length - 1);
+            return NormalizeTypeName(innerType);
+        }
+
         if (normalized.EndsWith("?", StringComparison.Ordinal))
         {
             normalized = normalized.Substring(0, normalized.Length - 1);
@@ -387,12 +407,20 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             normalized = normalized.Substring(0, genericStart);
         }
 
-        while (normalized.EndsWith("[]", StringComparison.Ordinal))
+        return normalized switch
         {
-            normalized = normalized.Substring(0, normalized.Length - 2);
-        }
-
-        return normalized;
+            "String" => "System.String",
+            "Int32" => "System.Int32",
+            "Int64" => "System.Int64",
+            "Double" => "System.Double",
+            "Single" => "System.Single",
+            "Decimal" => "System.Decimal",
+            "Boolean" => "System.Boolean",
+            "Byte" => "System.Byte",
+            "Int16" => "System.Int16",
+            "Char" => "System.Char",
+            _ => normalized
+        };
     }
 
     private static string? ExtractPropertyNameFromDiagnostic(Diagnostic diagnostic)
