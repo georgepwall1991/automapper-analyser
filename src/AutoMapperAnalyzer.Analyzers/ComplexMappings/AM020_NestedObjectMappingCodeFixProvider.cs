@@ -69,12 +69,15 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             return document;
         }
 
+        InvocationExpressionSyntax? reverseMapInvocation =
+            AutoMapperAnalysisHelpers.GetReverseMapInvocation(createMapInvocation);
         List<(INamedTypeSymbol sourceType, INamedTypeSymbol destinationType)> missingMappings =
             GetMissingNestedMappings(
                 createMapInvocation,
                 typeArguments.sourceType,
                 typeArguments.destinationType,
-                semanticModel);
+                semanticModel,
+                reverseMapInvocation);
 
         if (!missingMappings.Any())
         {
@@ -124,10 +127,16 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         InvocationExpressionSyntax createMapInvocation,
         INamedTypeSymbol sourceType,
         INamedTypeSymbol destinationType,
-        SemanticModel semanticModel)
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax? reverseMapInvocation)
     {
         var missingMappings = new List<(INamedTypeSymbol Source, INamedTypeSymbol Destination)>();
         var registry = CreateMapRegistry.FromCompilation(semanticModel.Compilation);
+
+        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(createMapInvocation, reverseMapInvocation))
+        {
+            return missingMappings;
+        }
 
         IPropertySymbol[] sourceProperties = GetMappableProperties(sourceType, requireSetter: false);
         IPropertySymbol[] destinationProperties = GetMappableProperties(destinationType, false);
@@ -138,6 +147,14 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
                 .FirstOrDefault(p => string.Equals(p.Name, sourceProp.Name, StringComparison.OrdinalIgnoreCase));
 
             if (destProp == null || !RequiresNestedObjectMapping(sourceProp.Type, destProp.Type))
+            {
+                continue;
+            }
+
+            if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+                    createMapInvocation,
+                    destProp.Name,
+                    reverseMapInvocation))
             {
                 continue;
             }
@@ -162,14 +179,6 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         }
 
         return missingMappings;
-    }
-
-    private static bool IsCreateMapInvocation(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        return symbolInfo.Symbol is IMethodSymbol method &&
-               method.Name == "CreateMap" &&
-               (method.ContainingType?.Name == "IMappingExpression" || method.ContainingType?.Name == "Profile");
     }
 
     private static IPropertySymbol[] GetMappableProperties(

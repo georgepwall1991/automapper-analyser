@@ -752,4 +752,338 @@ public class AM020_NestedObjectMappingCodeFixTests
                     .WithArguments("HomeAddress", "Address", "AddressDto"),
                 expectedFixedCode);
     }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldNotAddMappingsForExplicitlyConfiguredProperties()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Address
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Contact
+                                    {
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class AddressDto
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class ContactDto
+                                    {
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Address HomeAddress { get; set; }
+                                        public Contact PrimaryContact { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public AddressDto HomeAddress { get; set; }
+                                        public ContactDto PrimaryContact { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.PrimaryContact,
+                                                    opt => opt.MapFrom(src => new ContactDto { Email = src.PrimaryContact.Email }));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Address
+                                             {
+                                                 public string Street { get; set; }
+                                             }
+
+                                             public class Contact
+                                             {
+                                                 public string Email { get; set; }
+                                             }
+
+                                             public class AddressDto
+                                             {
+                                                 public string Street { get; set; }
+                                             }
+
+                                             public class ContactDto
+                                             {
+                                                 public string Email { get; set; }
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public Address HomeAddress { get; set; }
+                                                 public Contact PrimaryContact { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public AddressDto HomeAddress { get; set; }
+                                                 public ContactDto PrimaryContact { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.PrimaryContact,
+                                                             opt => opt.MapFrom(src => new ContactDto { Email = src.PrimaryContact.Email }));
+                                                     CreateMap<Address, AddressDto>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(41, 13)
+                    .WithArguments("HomeAddress", "Address", "AddressDto"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldNotOfferFix_WhenConstructUsingHandlesForwardMapping()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Address
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class AddressDto
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Address HomeAddress { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public AddressDto HomeAddress { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing(src => new Destination
+                                                {
+                                                    HomeAddress = new AddressDto { Street = src.HomeAddress.Street }
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM020_NestedObjectMappingAnalyzer>
+            .VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldNotOfferFix_WhenConvertUsingHandlesForwardMapping()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Address
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class AddressDto
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Address HomeAddress { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public AddressDto HomeAddress { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConvertUsing(src => new Destination
+                                                {
+                                                    HomeAddress = new AddressDto { Street = src.HomeAddress.Street }
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM020_NestedObjectMappingAnalyzer>
+            .VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldAddNestedMap_WhenForMemberExistsOnlyAfterReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Address
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class AddressDto
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Address HomeAddress { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public AddressDto HomeAddress { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap()
+                                                .ForMember(src => src.HomeAddress, opt => opt.Ignore());
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Address
+                                             {
+                                                 public string Street { get; set; }
+                                             }
+
+                                             public class AddressDto
+                                             {
+                                                 public string Street { get; set; }
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public Address HomeAddress { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public AddressDto HomeAddress { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ReverseMap()
+                                                         .ForMember(src => src.HomeAddress, opt => opt.Ignore());
+                                                     CreateMap<Address, AddressDto>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(29, 13)
+                    .WithArguments("HomeAddress", "Address", "AddressDto"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldNotOfferFix_WhenForPathConfiguresNestedProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Address
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class AddressDto
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Address HomeAddress { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public AddressDto HomeAddress { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForPath(dest => dest.HomeAddress.Street,
+                                                    opt => opt.MapFrom(src => src.HomeAddress.Street));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM020_NestedObjectMappingAnalyzer>
+            .VerifyAnalyzerAsync(testCode);
+    }
 }

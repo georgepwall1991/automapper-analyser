@@ -70,6 +70,13 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
+        InvocationExpressionSyntax? reverseMapInvocation =
+            AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
+        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, reverseMapInvocation))
+        {
+            return;
+        }
+
         IEnumerable<IPropertySymbol> sourceProperties =
             AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
         IEnumerable<IPropertySymbol> destinationProperties =
@@ -101,9 +108,11 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
                     continue; // Mapping already configured
                 }
 
-                // Check if property is explicitly mapped via ForMember
-                if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, destinationProperty.Name,
-                        context.SemanticModel))
+                // Check if property is explicitly mapped via ForMember/ForPath in forward direction
+                if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+                        invocation,
+                        destinationProperty.Name,
+                        reverseMapInvocation))
                 {
                     continue; // Property is explicitly handled
                 }
