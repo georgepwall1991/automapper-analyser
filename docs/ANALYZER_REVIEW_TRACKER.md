@@ -13,9 +13,10 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | AM041 | Configuration | [#49](https://github.com/georgepwall1991/automapper-analyser/pull/49) | [v2.10.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.10.0) | Non-AutoMapper false-positive guard and safer reverse-map duplicate rewrite behavior. |
 | AM050 | Configuration | [#50](https://github.com/georgepwall1991/automapper-analyser/pull/50) | [v2.11.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.11.0) | Reduced syntax-only false positives via AutoMapper symbol checks and lambda-source validation. |
 | AM020 | Complex Mappings | [#51](https://github.com/georgepwall1991/automapper-analyser/pull/51) | [v2.12.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.12.0) | Unified analyzer/fixer suppression logic and direction-aware handling for `ForMember`/`ForPath`/construct-convert configuration. |
+| AM021 | Complex Mappings | [#52](https://github.com/georgepwall1991/automapper-analyser/pull/52) | [v2.13.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.13.0) | Direction-aware reverse-map handling, better custom-conversion suppression, and safer fixer type inference/output for collection element mismatches. |
 
 ## In Progress
 
 | Analyzer | Area | Branch | Goal |
 |---|---|---|---|
-| AM021 | Complex Mappings | `codex/am021-next-pass` | Next analyzer pass for false positives/fixer reliability improvements. |
+| AM022 | Complex Mappings | `codex/am022-next-pass` | Next analyzer pass for false positives/fixer reliability improvements. |

@@ -71,13 +71,17 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        InvocationExpressionSyntax? reverseMapInvocation =
+            AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocationExpr);
+
         // Check if MaxDepth is configured or circular properties are ignored
         if (
-            HasMaxDepthConfiguration(invocationExpr)
+            HasMaxDepthConfiguration(invocationExpr, reverseMapInvocation)
             || HasCircularPropertyIgnored(
                 invocationExpr,
                 typeArguments.sourceType as INamedTypeSymbol,
-                typeArguments.destinationType as INamedTypeSymbol
+                typeArguments.destinationType as INamedTypeSymbol,
+                reverseMapInvocation
             )
         )
         {
@@ -94,7 +98,10 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
     }
 
 
-    private static bool HasMaxDepthConfiguration(InvocationExpressionSyntax invocation)
+    private static bool HasMaxDepthConfiguration(
+        InvocationExpressionSyntax invocation,
+        InvocationExpressionSyntax? reverseMapInvocation
+    )
     {
         // Look for chained MaxDepth calls
         SyntaxNode? parent = invocation.Parent;
@@ -104,6 +111,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                 parent is InvocationExpressionSyntax chainedCall
                 && chainedCall.Expression is MemberAccessExpressionSyntax memberAccess
                 && memberAccess.Name.Identifier.ValueText == "MaxDepth"
+                && AppliesToForwardDirection(chainedCall, reverseMapInvocation)
             )
             {
                 return true;
@@ -118,7 +126,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
     private static bool HasCircularPropertyIgnored(
         InvocationExpressionSyntax invocation,
         INamedTypeSymbol? sourceType,
-        INamedTypeSymbol? destinationType
+        INamedTypeSymbol? destinationType,
+        InvocationExpressionSyntax? reverseMapInvocation
     )
     {
         if (sourceType == null || destinationType == null)
@@ -126,18 +135,21 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        HashSet<string> ignoredProperties = GetIgnoredProperties(invocation);
+        HashSet<string> ignoredProperties = GetIgnoredProperties(invocation, reverseMapInvocation);
 
         // Check circular properties between types
         HashSet<string> circularProperties = FindCircularProperties(sourceType, destinationType);
-        if (circularProperties.Any(prop => ignoredProperties.Contains(prop)))
+        if (circularProperties.Count > 0 && circularProperties.All(prop => ignoredProperties.Contains(prop)))
         {
             return true;
         }
 
         // Check self-referencing properties in destination type
         HashSet<string> selfReferencingDestProperties = FindSelfReferencingProperties(destinationType);
-        if (selfReferencingDestProperties.Any(prop => ignoredProperties.Contains(prop)))
+        if (
+            selfReferencingDestProperties.Count > 0
+            && selfReferencingDestProperties.All(prop => ignoredProperties.Contains(prop))
+        )
         {
             return true;
         }
@@ -170,24 +182,28 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         return selfRefProps;
     }
 
-    private static HashSet<string> GetIgnoredProperties(InvocationExpressionSyntax invocation)
+    private static HashSet<string> GetIgnoredProperties(
+        InvocationExpressionSyntax invocation,
+        InvocationExpressionSyntax? reverseMapInvocation
+    )
     {
         var ignoredProperties = new HashSet<string>();
 
-        // Look for chained ForMember calls with Ignore()
+        // Look for chained ForMember/ForPath calls with Ignore()
         SyntaxNode? parent = invocation.Parent;
         while (parent != null)
         {
             if (
                 parent is InvocationExpressionSyntax chainedCall
                 && chainedCall.Expression is MemberAccessExpressionSyntax memberAccess
-                && memberAccess.Name.Identifier.ValueText == "ForMember"
+                && memberAccess.Name.Identifier.ValueText is "ForMember" or "ForPath"
+                && AppliesToForwardDirection(chainedCall, reverseMapInvocation)
             )
             {
-                // Check if this ForMember call has Ignore()
+                // Check if this mapping call has Ignore()
                 if (HasIgnoreConfiguration(chainedCall))
                 {
-                    string? propertyName = ExtractPropertyNameFromForMember(chainedCall);
+                    string? propertyName = ExtractPropertyNameFromForMemberOrPath(chainedCall);
                     if (!string.IsNullOrEmpty(propertyName))
                     {
                         ignoredProperties.Add(propertyName!);
@@ -203,18 +219,16 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
 
     private static bool HasIgnoreConfiguration(InvocationExpressionSyntax forMemberCall)
     {
-        // Look for lambda expression that contains opt.Ignore() call
-        if (forMemberCall.ArgumentList.Arguments.Count >= 2)
-        {
-            ArgumentSyntax secondArg = forMemberCall.ArgumentList.Arguments[1];
-            // Simple check for "Ignore" text in the argument
-            return secondArg.ToString().Contains("Ignore");
-        }
-
-        return false;
+        return forMemberCall.ArgumentList.Arguments.Count >= 2
+               && forMemberCall.ArgumentList.Arguments[1].Expression
+                   .DescendantNodesAndSelf()
+                   .OfType<InvocationExpressionSyntax>()
+                   .Any(invocation =>
+                       invocation.Expression is MemberAccessExpressionSyntax memberAccess
+                       && memberAccess.Name.Identifier.ValueText == "Ignore");
     }
 
-    private static string? ExtractPropertyNameFromForMember(
+    private static string? ExtractPropertyNameFromForMemberOrPath(
         InvocationExpressionSyntax forMemberCall
     )
     {
@@ -223,16 +237,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
-        ArgumentSyntax firstArg = forMemberCall.ArgumentList.Arguments[0];
-        if (
-            firstArg.Expression is SimpleLambdaExpressionSyntax lambda
-            && lambda.Body is MemberAccessExpressionSyntax memberAccess
-        )
-        {
-            return memberAccess.Name.Identifier.ValueText;
-        }
-
-        return null;
+        return GetSelectedTopLevelMemberName(forMemberCall.ArgumentList.Arguments[0].Expression);
     }
 
     private static void AnalyzeRecursionRisk(
@@ -247,8 +252,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Check for self-referencing types
-        if (IsSelfReferencing(sourceType) || IsSelfReferencing(destinationType))
+        // Check for self-referencing types on both sides to reduce false positives.
+        if (IsSelfReferencing(sourceType) && IsSelfReferencing(destinationType))
         {
             var diagnostic = Diagnostic.Create(
                 SelfReferencingTypeRule,
@@ -261,8 +266,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Check for circular references between types
-        if (HasCircularReference(sourceType, destinationType))
+        // Check for circular references on both source and destination graphs.
+        if (HasCircularReference(sourceType, sourceType) && HasCircularReference(destinationType, destinationType))
         {
             var diagnostic = Diagnostic.Create(
                 InfiniteRecursionRiskRule,
@@ -458,5 +463,52 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                 or SpecialType.System_Decimal => true,
             _ => false
         };
+    }
+
+    private static string? GetSelectedTopLevelMemberName(SyntaxNode expression)
+    {
+        return expression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => GetSelectedTopLevelMemberName(simpleLambda.Body),
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda =>
+                GetSelectedTopLevelMemberName(parenthesizedLambda.Body),
+            MemberAccessExpressionSyntax memberAccess => GetTopLevelMemberName(memberAccess),
+            LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.StringLiteralExpression) =>
+                literal.Token.ValueText,
+            _ => null
+        };
+    }
+
+    private static string? GetTopLevelMemberName(MemberAccessExpressionSyntax memberAccess)
+    {
+        if (memberAccess.Expression is IdentifierNameSyntax)
+        {
+            return memberAccess.Name.Identifier.ValueText;
+        }
+
+        if (memberAccess.Expression is not MemberAccessExpressionSyntax currentAccess)
+        {
+            return null;
+        }
+
+        while (currentAccess.Expression is MemberAccessExpressionSyntax nestedAccess)
+        {
+            currentAccess = nestedAccess;
+        }
+
+        return currentAccess.Expression is IdentifierNameSyntax ? currentAccess.Name.Identifier.ValueText : null;
+    }
+
+    private static bool AppliesToForwardDirection(
+        InvocationExpressionSyntax mappingMethod,
+        InvocationExpressionSyntax? reverseMapInvocation
+    )
+    {
+        if (reverseMapInvocation == null)
+        {
+            return true;
+        }
+
+        return !reverseMapInvocation.Ancestors().Contains(mappingMethod);
     }
 }
