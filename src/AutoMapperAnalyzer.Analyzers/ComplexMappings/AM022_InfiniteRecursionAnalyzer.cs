@@ -509,6 +509,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
+        // In Roslyn's fluent-call syntax tree, methods appended after ReverseMap()
+        // are ancestors of the ReverseMap invocation node.
         return !reverseMapInvocation.Ancestors().Contains(mappingMethod);
     }
 }
