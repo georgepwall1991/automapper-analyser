@@ -68,7 +68,13 @@ public class AM041_DuplicateMappingAnalyzer : DiagnosticAnalyzer
         SemanticModel semanticModel)
     {
         SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is not IMethodSymbol methodSymbol)
+        IMethodSymbol? methodSymbol = symbolInfo.Symbol as IMethodSymbol;
+        if (methodSymbol == null && symbolInfo.CandidateSymbols.Length > 0)
+        {
+            methodSymbol = symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+        }
+
+        if (methodSymbol == null)
         {
             return false;
         }
