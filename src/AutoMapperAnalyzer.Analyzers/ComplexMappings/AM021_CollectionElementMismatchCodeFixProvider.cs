@@ -73,6 +73,17 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
                 continue;
             }
 
+            InvocationExpressionSyntax? reverseMapInvocation =
+                AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
+            if (MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, reverseMapInvocation) ||
+                MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+                    invocation,
+                    propertyName!,
+                    reverseMapInvocation))
+            {
+                continue;
+            }
+
             // Determine if this is a simple type conversion or complex mapping
             bool isSimpleConversion = IsSimpleTypeConversion(sourceElementType!, destElementType!);
 
@@ -320,6 +331,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             "byte" or "System.Byte" => "Convert.ToByte",
             "short" or "System.Int16" => "Convert.ToInt16",
             "char" or "System.Char" => "Convert.ToChar",
+            "string" or "System.String" => "Convert.ToString",
             "DateTime" or "System.DateTime" => "DateTime.Parse",
             "Guid" or "System.Guid" => "Guid.Parse",
             _ => "Convert.ToString"
@@ -373,6 +385,11 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
         if (genericStart >= 0)
         {
             normalized = normalized.Substring(0, genericStart);
+        }
+
+        while (normalized.EndsWith("[]", StringComparison.Ordinal))
+        {
+            normalized = normalized.Substring(0, normalized.Length - 2);
         }
 
         return normalized;
