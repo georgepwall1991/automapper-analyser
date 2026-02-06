@@ -16,7 +16,7 @@
         <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
-        <MinorVersion>8</MinorVersion>
+        <MinorVersion>9</MinorVersion>
         <PatchVersion>0</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
@@ -32,26 +32,24 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.8.0 - Architecture Refactoring &amp; Enhanced Bulk Fixes
+        <PackageReleaseNotes>Version 2.9.0 - Analyzer Accuracy &amp; Contradiction Fixes
 
-            🏗️ Architecture Improvements:
-            - Refactored all 13 code fix providers to use new AutoMapperCodeFixProviderBase abstract class
-            - Eliminated ~500 lines of duplicated boilerplate code across fixers
-            - Standardized error handling and node replacement patterns
-            - Improved maintainability and scalability for future enhancements
+            🛡️ Data Integrity Improvements:
+            - AM004: Improved ctor-param and direction-aware ConstructUsing/ConvertUsing detection
+            - AM005: Added forward and reverse-map case mismatch analysis with direction-aware suppressions
+            - AM006 + AM011: Removed contradictory duplicate diagnostics for required destination properties
+            - AM011: Treats ForCtorParam as valid required-property mapping and suppresses custom construction false positives
 
-            ✨ New Features:
-            - Multi-step interactive wizard for bulk fix scenarios
-            - Smart chunking strategy for handling 30+ properties efficiently
-            - Configuration comment-based workflow for complex mappings
-            - Enhanced batch fixing capabilities
+            🔧 Code Fixer Reliability:
+            - AM004 fixer bulk logic now matches analyzer behavior
+            - AM005 fixer now binds actions to the correct diagnostic instance
+            - AM011 fixer now type-checks fuzzy matches and aligns source-member collection
 
-            🔧 Code Quality:
-            - All 419 tests passing with 100% success rate
-            - Consistent patterns across all code fix providers
-            - Better UX for complex bulk fix scenarios
+            ✅ Validation:
+            - Added AM005 code-fix integration coverage and expanded AM004/AM005/AM006/AM011 regressions
+            - All 445 tests passing locally (433 passed, 12 skipped)
 
-            Previous Release: v2.7.0 - New Icon &amp; Visual Update
+            Previous Release: v2.8.0 - Architecture Refactoring &amp; Enhanced Bulk Fixes
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
