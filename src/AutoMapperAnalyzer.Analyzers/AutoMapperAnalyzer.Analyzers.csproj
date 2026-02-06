@@ -16,7 +16,7 @@
         <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
-        <MinorVersion>10</MinorVersion>
+        <MinorVersion>11</MinorVersion>
         <PatchVersion>0</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
@@ -32,21 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.10.0 - AM041 Accuracy &amp; Fix Safety
+        <PackageReleaseNotes>Version 2.11.0 - AM050 Redundant MapFrom False-Positive Fixes
 
-            🛡️ Analyzer Improvements (AM041):
-            - Suppressed false positives for non-AutoMapper CreateMap symbols
-            - Added candidate-symbol fallback for robust symbol resolution in duplicate checks
-
-            🔧 Code Fix Improvements (AM041):
-            - Duplicate CreateMap&lt;TSource, TDestination&gt;().ReverseMap() now rewrites to CreateMap&lt;TDestination, TSource&gt;()
-            - Preserves reverse-direction mapping coverage instead of removing the full statement
+            🛡️ Analyzer Improvements (AM050):
+            - Redundant MapFrom detection now validates AutoMapper symbols for both MapFrom and ForMember
+            - Redundancy now only triggers for direct source-lambda member access (src =&gt; src.Property)
+            - Prevents false positives from captured variables and similarly named non-AutoMapper APIs
 
             ✅ Validation:
-            - Added regression tests for non-AutoMapper CreateMap and member-access reverse-map rewrite paths
-            - All 448 tests passing locally (436 passed, 12 skipped)
+            - Added regression tests for captured-variable mappings and non-AutoMapper ForMember/MapFrom patterns
+            - All 450 tests passing locally (438 passed, 12 skipped)
 
-            Previous Release: v2.9.0 - Analyzer Accuracy &amp; Contradiction Fixes
+            Previous Release: v2.10.0 - AM041 Accuracy &amp; Fix Safety
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

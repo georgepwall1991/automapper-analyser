@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-436%20passing%2C%2012%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-438%20passing%2C%2012%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,23 +14,27 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.10.0
+## 🎉 Latest Release: v2.11.0
 
-**AM041 Accuracy & Fix Safety**
+**AM050 Redundant MapFrom False-Positive Fixes**
 
-🛡️ **Analyzer Improvements (AM041):**
+🛡️ **Analyzer Improvements (AM050):**
 
-- Suppressed false positives for non-AutoMapper `CreateMap` symbols.
-- Improved symbol resolution robustness by handling candidate symbols during duplicate checks.
-
-🔧 **Code Fix Improvements (AM041):**
-
-- For duplicate `CreateMap<TSource, TDestination>().ReverseMap()`, fixer now preserves reverse-direction mapping by rewriting to `CreateMap<TDestination, TSource>()` instead of removing the statement.
+- Redundant `MapFrom` detection now verifies `MapFrom` and `ForMember` resolve to actual AutoMapper symbols.
+- Redundancy is now only reported for direct source-member access (`src => src.Name`), avoiding captured-variable false positives.
 
 ✅ **Validation:**
 
-- Added regression tests for non-AutoMapper `CreateMap` scenarios and member-access `CreateMap` reverse-map rewrite paths.
-- All 448 tests passing locally (`436 passed`, `12 skipped`).
+- Added regression tests for captured-variable mapping and non-AutoMapper APIs with similarly named methods.
+- All 450 tests passing locally (`438 passed`, `12 skipped`).
+
+### Previous Release: v2.10.0
+
+**AM041 Accuracy & Fix Safety**
+
+- Suppressed false positives for non-AutoMapper `CreateMap` symbols.
+- Improved AM041 duplicate symbol resolution using candidate-symbol fallback.
+- Updated duplicate reverse-map fixer behavior to preserve reverse-direction mapping.
 
 ### Previous Release: v2.9.0
 
