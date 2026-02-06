@@ -65,6 +65,13 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeCollectionElementCompatibility(SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation, ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
+        InvocationExpressionSyntax? reverseMapInvocation =
+            AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
+        if (MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, reverseMapInvocation))
+        {
+            return;
+        }
+
         IEnumerable<IPropertySymbol> sourceProperties =
             AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
         IEnumerable<IPropertySymbol> destinationProperties =
@@ -81,8 +88,10 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
             }
 
             // Check for explicit property mapping that might handle collection conversion
-            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProperty.Name,
-                    context.SemanticModel))
+            if (MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+                    invocation,
+                    destinationProperty.Name,
+                    reverseMapInvocation))
             {
                 continue;
             }

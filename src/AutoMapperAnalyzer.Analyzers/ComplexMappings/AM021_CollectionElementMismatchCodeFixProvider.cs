@@ -142,7 +142,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
                 $"Add CreateMap<{sourceTypeShortName}, {destTypeShortName}>() for element mapping",
                 cancellationToken =>
                     AddElementCreateMapAsync(context.Document, invocation,
-                        sourceTypeShortName, destTypeShortName, cancellationToken),
+                        sourceElementType, destElementType, cancellationToken),
                 $"AM021_ComplexMapping_{propertyName}"),
             diagnostic);
     }
@@ -301,75 +301,29 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
 
     private static bool IsSimpleTypeConversion(string sourceElementType, string destElementType)
     {
-        // Check if both are primitive/built-in types
-        string[] primitiveTypes = new[]
-        {
-            "string", "int", "long", "double", "float", "decimal", "bool", "byte", "short", "char", "String",
-            "Int32", "Int64", "Double", "Single", "Decimal", "Boolean", "Byte", "Int16", "Char"
-        };
-
-        bool sourceIsPrimitive = primitiveTypes.Any(p => sourceElementType.Contains(p));
-        bool destIsPrimitive = primitiveTypes.Any(p => destElementType.Contains(p));
-
-        return sourceIsPrimitive && destIsPrimitive;
+        return IsSimpleConversionType(sourceElementType) && IsSimpleConversionType(destElementType);
     }
 
     private static string GetConversionMethod(string sourceElementType, string destElementType)
     {
         // Determine the conversion method based on destination type
         // using Convert class for better null handling compared to Parse
-        if (destElementType.Contains("int") || destElementType.Contains("Int32"))
+        string normalizedDestType = NormalizeTypeName(destElementType);
+        return normalizedDestType switch
         {
-            return "Convert.ToInt32";
-        }
-
-        if (destElementType.Contains("long") || destElementType.Contains("Int64"))
-        {
-            return "Convert.ToInt64";
-        }
-
-        if (destElementType.Contains("double") || destElementType.Contains("Double"))
-        {
-            return "Convert.ToDouble";
-        }
-
-        if (destElementType.Contains("float") || destElementType.Contains("Single"))
-        {
-            return "Convert.ToSingle";
-        }
-
-        if (destElementType.Contains("decimal") || destElementType.Contains("Decimal"))
-        {
-            return "Convert.ToDecimal";
-        }
-
-        if (destElementType.Contains("bool") || destElementType.Contains("Boolean"))
-        {
-            return "Convert.ToBoolean";
-        }
-
-        if (destElementType.Contains("byte") || destElementType.Contains("Byte"))
-        {
-            return "Convert.ToByte";
-        }
-
-        if (destElementType.Contains("short") || destElementType.Contains("Int16"))
-        {
-            return "Convert.ToInt16";
-        }
-
-        // Types not supported by Convert directly or needing Parse
-        if (destElementType.Contains("DateTime"))
-        {
-            return "DateTime.Parse";
-        }
-
-        if (destElementType.Contains("Guid"))
-        {
-            return "Guid.Parse";
-        }
-
-        return "Convert.ToString"; // Default fallback
+            "int" or "System.Int32" => "Convert.ToInt32",
+            "long" or "System.Int64" => "Convert.ToInt64",
+            "double" or "System.Double" => "Convert.ToDouble",
+            "float" or "System.Single" => "Convert.ToSingle",
+            "decimal" or "System.Decimal" => "Convert.ToDecimal",
+            "bool" or "System.Boolean" => "Convert.ToBoolean",
+            "byte" or "System.Byte" => "Convert.ToByte",
+            "short" or "System.Int16" => "Convert.ToInt16",
+            "char" or "System.Char" => "Convert.ToChar",
+            "DateTime" or "System.DateTime" => "DateTime.Parse",
+            "Guid" or "System.Guid" => "Guid.Parse",
+            _ => "Convert.ToString"
+        };
     }
 
     private static string GetShortTypeName(string fullTypeName)
@@ -382,6 +336,46 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
         }
 
         return fullTypeName;
+    }
+
+    private static bool IsSimpleConversionType(string typeName)
+    {
+        string normalizedType = NormalizeTypeName(typeName);
+        return normalizedType is "string" or "System.String" or
+               "int" or "System.Int32" or
+               "long" or "System.Int64" or
+               "double" or "System.Double" or
+               "float" or "System.Single" or
+               "decimal" or "System.Decimal" or
+               "bool" or "System.Boolean" or
+               "byte" or "System.Byte" or
+               "short" or "System.Int16" or
+               "char" or "System.Char" or
+               "DateTime" or "System.DateTime" or
+               "Guid" or "System.Guid";
+    }
+
+    private static string NormalizeTypeName(string typeName)
+    {
+        string normalized = typeName.Trim();
+
+        if (normalized.StartsWith("global::", StringComparison.Ordinal))
+        {
+            normalized = normalized.Substring("global::".Length);
+        }
+
+        if (normalized.EndsWith("?", StringComparison.Ordinal))
+        {
+            normalized = normalized.Substring(0, normalized.Length - 1);
+        }
+
+        int genericStart = normalized.IndexOf('<');
+        if (genericStart >= 0)
+        {
+            normalized = normalized.Substring(0, genericStart);
+        }
+
+        return normalized;
     }
 
     private static string? ExtractPropertyNameFromDiagnostic(Diagnostic diagnostic)
