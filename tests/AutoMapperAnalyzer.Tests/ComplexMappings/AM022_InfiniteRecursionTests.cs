@@ -317,6 +317,42 @@ public class AM022_InfiniteRecursionTests
     }
 
     [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenSourceAndDestinationReferenceEachOther()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceEntity
+                                    {
+                                        public DestEntity RelatedDest { get; set; }
+                                    }
+
+                                    public class DestEntity
+                                    {
+                                        public SourceEntity RelatedSource { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceEntity, DestEntity>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 19, 13, "SourceEntity",
+                "DestEntity")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM022_ShouldReportMultipleCircularPaths()
     {
         const string testCode = """
