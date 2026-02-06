@@ -93,4 +93,31 @@ public class AM041_DuplicateMappingTests
 
         await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_ForNonAutoMapperCreateMap()
+    {
+        const string testCode = """
+                                namespace CustomMapping;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class Profile
+                                {
+                                    protected void CreateMap<TSource, TDestination>() {}
+                                }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                        CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
 }
