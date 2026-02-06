@@ -44,12 +44,18 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
             memberAccess.Name.Identifier.Text == "MapFrom")
         {
+            if (!IsAutoMapperMethodInvocation(invocation, context.SemanticModel, "MapFrom"))
+            {
+                return;
+            }
+
             // Check if it's inside ForMember
             InvocationExpressionSyntax? forMemberInvocation = invocation.Ancestors()
                 .OfType<InvocationExpressionSyntax>()
                 .FirstOrDefault(inv =>
                     inv.Expression is MemberAccessExpressionSyntax ma &&
-                    ma.Name.Identifier.Text == "ForMember");
+                    ma.Name.Identifier.Text == "ForMember" &&
+                    IsAutoMapperMethodInvocation(inv, context.SemanticModel, "ForMember"));
 
             if (forMemberInvocation == null)
             {
@@ -63,16 +69,15 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
                 return;
             }
 
-            // Get source expression
-            ExpressionSyntax? sourceExpression = GetMapFromExpression(invocation);
-            if (sourceExpression == null)
+            // Get source property name
+            string? sourcePropName = GetMapFromSourcePropertyName(invocation);
+            if (sourcePropName == null)
             {
                 return;
             }
 
-            // Check if source expression is simple property access with same name
-            if (IsSimplePropertyAccess(sourceExpression, out string? sourcePropName) &&
-                string.Equals(sourcePropName, destPropName, StringComparison.Ordinal))
+            // Check if source property access has same name
+            if (string.Equals(sourcePropName, destPropName, StringComparison.Ordinal))
             {
                 var diagnostic = Diagnostic.Create(
                     RedundantMapFromRule,
@@ -95,7 +100,9 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
 
         // Expecting dest => dest.Name
         if (arg is SimpleLambdaExpressionSyntax lambda &&
-            lambda.Body is MemberAccessExpressionSyntax memberAccess)
+            lambda.Body is MemberAccessExpressionSyntax memberAccess &&
+            memberAccess.Expression is IdentifierNameSyntax identifier &&
+            identifier.Identifier.Text == lambda.Parameter.Identifier.Text)
         {
             return memberAccess.Name.Identifier.Text;
         }
@@ -110,7 +117,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    private ExpressionSyntax? GetMapFromExpression(InvocationExpressionSyntax mapFromInvocation)
+    private string? GetMapFromSourcePropertyName(InvocationExpressionSyntax mapFromInvocation)
     {
         if (mapFromInvocation.ArgumentList.Arguments.Count < 1)
         {
@@ -120,29 +127,52 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax arg = mapFromInvocation.ArgumentList.Arguments[0].Expression;
 
         // Expecting src => src.Name
-        if (arg is SimpleLambdaExpressionSyntax lambda)
+        if (arg is SimpleLambdaExpressionSyntax lambda &&
+            lambda.Body is MemberAccessExpressionSyntax memberAccess &&
+            memberAccess.Expression is IdentifierNameSyntax identifier &&
+            identifier.Identifier.Text == lambda.Parameter.Identifier.Text)
         {
-            return lambda.Body as ExpressionSyntax;
+            return memberAccess.Name.Identifier.Text;
         }
 
         return null;
     }
 
-    private bool IsSimplePropertyAccess(ExpressionSyntax expression, out string? propertyName)
+    private static bool IsAutoMapperMethodInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel,
+        string methodName)
     {
-        propertyName = null;
-        if (expression is MemberAccessExpressionSyntax memberAccess)
+        IMethodSymbol? methodSymbol = GetMethodSymbol(invocation, semanticModel);
+        if (methodSymbol == null || methodSymbol.Name != methodName)
         {
-            // Ensure it's a simple property access on the lambda parameter (not nested or complex)
-            // e.g. src.Name is simple. src.Child.Name is not simple (in context of redundancy check 1-to-1).
+            return false;
+        }
 
-            if (memberAccess.Expression is IdentifierNameSyntax)
+        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
+        return namespaceName == "AutoMapper" ||
+               (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
+    }
+
+    private static IMethodSymbol? GetMethodSymbol(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+
+        if (symbolInfo.Symbol is IMethodSymbol methodSymbol)
+        {
+            return methodSymbol;
+        }
+
+        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
+        {
+            if (candidateSymbol is IMethodSymbol candidateMethod)
             {
-                propertyName = memberAccess.Name.Identifier.Text;
-                return true;
+                return candidateMethod;
             }
         }
 
-        return false;
+        return null;
     }
 }
