@@ -52,27 +52,34 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         var nestedActions = ImmutableArray.CreateBuilder<CodeAction>();
 
         // Fix 0: Fuzzy Matching - Find similar source properties
-        (ITypeSymbol? sourceType, ITypeSymbol? destType) = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+        (ITypeSymbol? sourceType, ITypeSymbol? destType) =
+            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType != null)
         {
-            var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
+            var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+            IPropertySymbol? destinationProperty = destType == null
+                ? null
+                : AutoMapperAnalysisHelpers.GetMappableProperties(destType, false)
+                    .FirstOrDefault(p => string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
+
             foreach (var sourceProp in sourceProperties)
             {
-                int distance = ComputeLevenshteinDistance(propertyName, sourceProp.Name);
-                // Threshold: match if distance is small (<= 2) and not too different in length
-                if (distance <= 2 && Math.Abs(propertyName.Length - sourceProp.Name.Length) <= 2)
+                if (destinationProperty != null &&
+                    !IsFuzzyMatchCandidate(propertyName, sourceProp, destinationProperty.Type))
                 {
-                    var matchAction = CodeAction.Create(
-                        $"Map from similar property '{sourceProp.Name}'",
-                        cancellationToken =>
-                        {
-                            InvocationExpressionSyntax newInvocation =
-                                CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName, $"src.{sourceProp.Name}");
-                            return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
-                        },
-                        $"FuzzyMatch_{propertyName}_{sourceProp.Name}");
-                    nestedActions.Add(matchAction);
+                    continue;
                 }
+
+                var matchAction = CodeAction.Create(
+                    $"Map from similar property '{sourceProp.Name}'",
+                    cancellationToken =>
+                    {
+                        InvocationExpressionSyntax newInvocation =
+                            CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName, $"src.{sourceProp.Name}");
+                        return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
+                    },
+                    $"FuzzyMatch_{propertyName}_{sourceProp.Name}");
+                nestedActions.Add(matchAction);
             }
         }
 
@@ -201,7 +208,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         }
 
         // This logic mimics the Analyzer logic to find *all* missing properties
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
         var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destType, false);
 
         var missingProperties = new List<IPropertySymbol>();
@@ -265,7 +272,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             return document;
         }
 
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
         var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destType, false);
 
         var missingProperties = new List<(IPropertySymbol Property, BulkFixAction DefaultAction, string? Parameter)>();
@@ -299,8 +306,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             // Try fuzzy matching to find similar property
             foreach (var sourceProp in sourceProperties)
             {
-                int distance = ComputeLevenshteinDistance(destProp.Name, sourceProp.Name);
-                if (distance <= 2 && Math.Abs(destProp.Name.Length - sourceProp.Name.Length) <= 2)
+                if (IsFuzzyMatchCandidate(destProp.Name, sourceProp, destProp.Type))
                 {
                     defaultAction = BulkFixAction.FuzzyMatch;
                     parameter = sourceProp.Name;
@@ -379,7 +385,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             return document;
         }
 
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType);
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
 
         // 3. Apply configuration (with optional chunking)
         if (config.EnableChunking)
@@ -447,8 +453,14 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         }
 
         // 3. Get type arguments for method signatures
+        SemanticModel? latestSemanticModel = await document.GetSemanticModelAsync();
+        if (latestSemanticModel == null)
+        {
+            return document;
+        }
+
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, await document.GetSemanticModelAsync());
+            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, latestSemanticModel);
         if (sourceType == null || destType == null)
         {
             return document;
@@ -620,6 +632,18 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             default:
                 return invocation;
         }
+    }
+
+    private static bool IsFuzzyMatchCandidate(string destinationPropertyName, IPropertySymbol sourceProperty,
+        ITypeSymbol destinationPropertyType)
+    {
+        int distance = ComputeLevenshteinDistance(destinationPropertyName, sourceProperty.Name);
+        if (distance > 2 || Math.Abs(destinationPropertyName.Length - sourceProperty.Name.Length) > 2)
+        {
+            return false;
+        }
+
+        return AutoMapperAnalysisHelpers.AreTypesCompatible(sourceProperty.Type, destinationPropertyType);
     }
 
     /// <summary>

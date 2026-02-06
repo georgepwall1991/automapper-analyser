@@ -124,60 +124,27 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         RegisterBulkFixes(context, ignoreAction, createPropsAction);
     }
 
-    private async Task<Document> BulkIgnoreAsync(Document document, SyntaxNode root, InvocationExpressionSyntax invocation,
+    private Task<Document> BulkIgnoreAsync(Document document, SyntaxNode root, InvocationExpressionSyntax invocation,
         SemanticModel semanticModel)
     {
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
             AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType == null || destType == null)
         {
-            return document;
+            return Task.FromResult(document);
         }
 
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
-        var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destType, false);
-
-        var propertiesToIgnore = new List<IPropertySymbol>();
-
-        foreach (var sourceProp in sourceProperties)
+        if (HasCustomConstructionOrConversion(invocation))
         {
-            // Check direct mapping
-            if (destProperties.Any(p => string.Equals(p.Name, sourceProp.Name, StringComparison.OrdinalIgnoreCase)))
-            {
-                continue;
-            }
-
-            // Check explicit configuration
-            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProp.Name, semanticModel))
-            {
-                continue;
-            }
-            
-            // Flattening check (simplified)
-            bool matchesFlattening = false;
-            foreach (var destProp in destProperties)
-            {
-                if (destProp.Name.StartsWith(sourceProp.Name, StringComparison.OrdinalIgnoreCase) &&
-                    destProp.Name.Length > sourceProp.Name.Length)
-                {
-                    matchesFlattening = true; 
-                    break;
-                }
-            }
-            if (matchesFlattening) continue;
-
-            // Check if already configured with ForSourceMember (Ignore)
-            if (IsPropertyConfiguredWithForSourceMember(invocation, sourceProp.Name))
-            {
-                continue;
-            }
-
-            propertiesToIgnore.Add(sourceProp);
+            return Task.FromResult(document);
         }
+
+        List<IPropertySymbol> propertiesToIgnore =
+            GetUnmappedSourceProperties(invocation, sourceType, destType);
 
         if (!propertiesToIgnore.Any())
         {
-            return document;
+            return Task.FromResult(document);
         }
 
         InvocationExpressionSyntax currentInvocation = invocation;
@@ -187,28 +154,51 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         }
 
         SyntaxNode newRoot = root.ReplaceNode(invocation, currentInvocation);
-        return document.WithSyntaxRoot(newRoot);
+        return Task.FromResult(document.WithSyntaxRoot(newRoot));
     }
 
-    private bool IsPropertyConfiguredWithForSourceMember(InvocationExpressionSyntax invocation, string propertyName)
+    private static bool IsPropertyConfiguredWithForSourceMember(InvocationExpressionSyntax invocation, string propertyName)
     {
-        // Helper to check if ForSourceMember is already present to avoid duplicates
-        var current = invocation;
-        while (current.Parent is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax parentInvocation)
+        SyntaxNode? parent = invocation.Parent;
+        while (parent is MemberAccessExpressionSyntax memberAccess &&
+               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
         {
             if (memberAccess.Name.Identifier.Text == "ForSourceMember" &&
-                parentInvocation.ArgumentList.Arguments.Count > 0)
+                IsForSourceMemberOfProperty(chainedInvocation, propertyName))
             {
-                var firstArg = parentInvocation.ArgumentList.Arguments[0].Expression;
-                if (firstArg.ToString().Contains($".{propertyName}")) // Simple string check for speed
-                {
-                    return true;
-                }
+                return true;
             }
-            current = parentInvocation;
+
+            parent = chainedInvocation.Parent;
         }
+
         return false;
+    }
+
+    private static bool IsForSourceMemberOfProperty(InvocationExpressionSyntax forSourceMemberInvocation,
+        string propertyName)
+    {
+        if (forSourceMemberInvocation.ArgumentList.Arguments.Count == 0)
+        {
+            return false;
+        }
+
+        string? selectedMember = GetSelectedMemberName(forSourceMemberInvocation.ArgumentList.Arguments[0].Expression);
+        return string.Equals(selectedMember, propertyName, StringComparison.Ordinal);
+    }
+
+    private static string? GetSelectedMemberName(ExpressionSyntax expression)
+    {
+        return expression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda when simpleLambda.Body is MemberAccessExpressionSyntax memberAccess =>
+                memberAccess.Name.Identifier.ValueText,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda
+                when parenthesizedLambda.Body is MemberAccessExpressionSyntax memberAccess =>
+                memberAccess.Name.Identifier.ValueText,
+            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
+            _ => null
+        };
     }
 
     private async Task<Solution> CreateDestinationPropertyAsync(
@@ -235,43 +225,155 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         var (sourceType, destType) = AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType == null || destType == null) return document.Project.Solution;
 
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
-        var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destType, false);
-
-        var propertiesToAdd = new List<(string Name, string Type)>();
-
-        foreach (var sourceProp in sourceProperties)
+        if (HasCustomConstructionOrConversion(invocation))
         {
-            // Check direct mapping
-            if (destProperties.Any(p => string.Equals(p.Name, sourceProp.Name, StringComparison.OrdinalIgnoreCase)))
-            {
-                continue;
-            }
-            
-            // Check configuration or flattening... (simplified for creation logic - assume if unmapped we create it)
-            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProp.Name, semanticModel))
-            {
-                continue;
-            }
-            
-            bool matchesFlattening = false;
-            foreach (var destProp in destProperties)
-            {
-                if (destProp.Name.StartsWith(sourceProp.Name, StringComparison.OrdinalIgnoreCase) &&
-                    destProp.Name.Length > sourceProp.Name.Length)
-                {
-                    matchesFlattening = true; 
-                    break;
-                }
-            }
-            if (matchesFlattening) continue;
-
-            propertiesToAdd.Add((sourceProp.Name, sourceProp.Type.ToDisplayString()));
+            return document.Project.Solution;
         }
+
+        List<(string Name, string Type)> propertiesToAdd = GetUnmappedSourceProperties(invocation, sourceType, destType)
+            .Select(sourceProp => (sourceProp.Name, sourceProp.Type.ToDisplayString()))
+            .ToList();
 
         if (!propertiesToAdd.Any()) return document.Project.Solution;
 
         return await AddPropertiesToDestinationAsync(document, destType, propertiesToAdd);
+    }
+
+    private static List<IPropertySymbol> GetUnmappedSourceProperties(
+        InvocationExpressionSyntax createMapInvocation,
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType)
+    {
+        IEnumerable<IPropertySymbol> sourceProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        IEnumerable<IPropertySymbol> destinationProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
+
+        var unmappedProperties = new List<IPropertySymbol>();
+
+        foreach (IPropertySymbol sourceProp in sourceProperties)
+        {
+            if (destinationProperties.Any(p => string.Equals(p.Name, sourceProp.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            if (!AutoMapperAnalysisHelpers.IsBuiltInType(sourceProp.Type))
+            {
+                bool matchesFlattening = destinationProperties
+                    .Any(p => p.Name.StartsWith(sourceProp.Name, StringComparison.OrdinalIgnoreCase));
+                if (matchesFlattening)
+                {
+                    continue;
+                }
+            }
+
+            if (IsSourcePropertyHandledByCustomMapping(createMapInvocation, sourceProp.Name))
+            {
+                continue;
+            }
+
+            if (IsSourcePropertyHandledByCtorParamMapping(createMapInvocation, sourceProp.Name))
+            {
+                continue;
+            }
+
+            if (IsPropertyConfiguredWithForSourceMember(createMapInvocation, sourceProp.Name))
+            {
+                continue;
+            }
+
+            unmappedProperties.Add(sourceProp);
+        }
+
+        return unmappedProperties;
+    }
+
+    private static bool IsSourcePropertyHandledByCustomMapping(
+        InvocationExpressionSyntax createMapInvocation,
+        string sourcePropertyName)
+    {
+        IEnumerable<InvocationExpressionSyntax> forMemberCalls =
+            AutoMapperAnalysisHelpers.GetForMemberCalls(createMapInvocation);
+
+        foreach (InvocationExpressionSyntax forMember in forMemberCalls)
+        {
+            if (ForMemberReferencesSourceProperty(forMember, sourcePropertyName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ForMemberReferencesSourceProperty(InvocationExpressionSyntax forMemberInvocation,
+        string sourcePropertyName)
+    {
+        foreach (ArgumentSyntax arg in forMemberInvocation.ArgumentList.Arguments)
+        {
+            if (ContainsPropertyReference(arg.Expression, sourcePropertyName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsPropertyReference(SyntaxNode node, string propertyName)
+    {
+        if (node is MemberAccessExpressionSyntax rootMemberAccess &&
+            rootMemberAccess.Name.Identifier.ValueText == propertyName)
+        {
+            return true;
+        }
+
+        return node.DescendantNodes().OfType<MemberAccessExpressionSyntax>()
+            .Any(memberAccess => memberAccess.Name.Identifier.ValueText == propertyName);
+    }
+
+    private static bool IsSourcePropertyHandledByCtorParamMapping(
+        InvocationExpressionSyntax createMapInvocation,
+        string sourcePropertyName)
+    {
+        SyntaxNode? parent = createMapInvocation.Parent;
+
+        while (parent is MemberAccessExpressionSyntax memberAccess &&
+               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
+        {
+            if (memberAccess.Name.Identifier.ValueText == "ForCtorParam" &&
+                chainedInvocation.ArgumentList.Arguments.Count > 1)
+            {
+                ExpressionSyntax ctorMappingArg = chainedInvocation.ArgumentList.Arguments[1].Expression;
+                if (ContainsPropertyReference(ctorMappingArg, sourcePropertyName))
+                {
+                    return true;
+                }
+            }
+
+            parent = chainedInvocation.Parent;
+        }
+
+        return false;
+    }
+
+    private static bool HasCustomConstructionOrConversion(InvocationExpressionSyntax createMapInvocation)
+    {
+        SyntaxNode? parent = createMapInvocation.Parent;
+
+        while (parent is MemberAccessExpressionSyntax memberAccess &&
+               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
+        {
+            if (memberAccess.Name.Identifier.ValueText is "ConstructUsing" or "ConvertUsing")
+            {
+                return true;
+            }
+
+            parent = chainedInvocation.Parent;
+        }
+
+        return false;
     }
 
     private async Task<Solution> AddPropertiesToDestinationAsync(

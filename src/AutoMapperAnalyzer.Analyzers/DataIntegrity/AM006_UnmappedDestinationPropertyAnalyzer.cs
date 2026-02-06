@@ -93,6 +93,13 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
 
         foreach (IPropertySymbol destProperty in destinationProperties)
         {
+            // Required members are enforced by AM011 (error). Skip here to avoid duplicate,
+            // contradictory diagnostics for the same property.
+            if (destProperty.IsRequired)
+            {
+                continue;
+            }
+
             // 1. Check for direct mapping (same name)
             if (sourceProperties.Any(p => string.Equals(p.Name, destProperty.Name, StringComparison.OrdinalIgnoreCase)))
             {
@@ -150,4 +157,3 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         }
     }
 }
-
