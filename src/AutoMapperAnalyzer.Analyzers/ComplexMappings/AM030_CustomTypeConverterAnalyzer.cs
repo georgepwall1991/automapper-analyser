@@ -355,7 +355,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
         ExpressionSyntax propertySelector = forMemberInvocation.ArgumentList.Arguments[0].Expression;
         return TryGetSelectedMemberName(propertySelector, out string? selectedPropertyName) &&
-               string.Equals(selectedPropertyName, propertyName, StringComparison.Ordinal);
+               string.Equals(selectedPropertyName, propertyName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool HasCompatibleForMemberConfiguration(InvocationExpressionSyntax forMemberInvocation)
