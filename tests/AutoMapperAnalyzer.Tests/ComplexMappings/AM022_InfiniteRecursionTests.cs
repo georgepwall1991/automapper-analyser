@@ -568,4 +568,131 @@ public class AM022_InfiniteRecursionTests
                 "DestPerson")
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenAllSelfReferencingPropertiesAreIgnored()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceNode Parent { get; set; }
+                                        public SourceNode Child { get; set; }
+                                    }
+
+                                    public class DestNode
+                                    {
+                                        public string Name { get; set; }
+                                        public DestNode Parent { get; set; }
+                                        public DestNode Child { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestNode>()
+                                                .ForMember(dest => dest.Parent, opt => opt.Ignore())
+                                                .ForMember(dest => dest.Child, opt => opt.Ignore());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenOnlySourceGraphIsCircular()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB B { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA A { get; set; }
+                                    }
+
+                                    public class DestA
+                                    {
+                                        public DestB B { get; set; }
+                                    }
+
+                                    public class DestB
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestA>();
+                                            CreateMap<SourceB, DestB>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenMaxDepthConfiguredOnlyAfterReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson
+                                    {
+                                        public string Name { get; set; }
+                                        public SourcePerson Friend { get; set; }
+                                    }
+
+                                    public class DestPerson
+                                    {
+                                        public string Name { get; set; }
+                                        public DestPerson Friend { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourcePerson, DestPerson>()
+                                                .ReverseMap()
+                                                .MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule, 21, 13, "SourcePerson",
+                "DestPerson")
+            .RunAsync();
+    }
 }
