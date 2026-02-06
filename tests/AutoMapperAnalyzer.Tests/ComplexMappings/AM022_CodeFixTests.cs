@@ -217,4 +217,66 @@ public class AM022_CodeFixTests
                     .WithArguments("SourceCategory", "DestCategory"),
                 expectedFixedCode);
     }
+
+    [Fact]
+    public async Task AM022_ShouldAddMaxDepth_ForCrossTypeCircularReferenceRisk()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceEntity
+                                    {
+                                        public DestEntity RelatedDest { get; set; }
+                                    }
+
+                                    public class DestEntity
+                                    {
+                                        public SourceEntity RelatedSource { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceEntity, DestEntity>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class SourceEntity
+                                             {
+                                                 public DestEntity RelatedDest { get; set; }
+                                             }
+
+                                             public class DestEntity
+                                             {
+                                                 public SourceEntity RelatedSource { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<SourceEntity, DestEntity>().MaxDepth(2);
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                    .WithLocation(19, 13)
+                    .WithArguments("SourceEntity", "DestEntity"),
+                expectedFixedCode);
+    }
 }

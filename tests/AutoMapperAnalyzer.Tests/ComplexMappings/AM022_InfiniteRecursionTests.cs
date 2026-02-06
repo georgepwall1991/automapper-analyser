@@ -808,4 +808,45 @@ public class AM022_InfiniteRecursionTests
             .ExpectNoDiagnostics()
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenForMemberTargetsPropertyNamedIgnoreButDoesNotIgnore()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson
+                                    {
+                                        public string Name { get; set; }
+                                        public SourcePerson Friend { get; set; }
+                                        public bool IgnoreFlag { get; set; }
+                                    }
+
+                                    public class DestPerson
+                                    {
+                                        public string Name { get; set; }
+                                        public DestPerson Friend { get; set; }
+                                        public bool IgnoreFlag { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourcePerson, DestPerson>()
+                                                .ForMember(dest => dest.IgnoreFlag, opt => opt.MapFrom(src => src.IgnoreFlag));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule, 23, 13, "SourcePerson",
+                "DestPerson")
+            .RunAsync();
+    }
 }
