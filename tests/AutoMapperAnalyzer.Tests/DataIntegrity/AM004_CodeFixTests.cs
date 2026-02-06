@@ -522,4 +522,155 @@ public class AM004_CodeFixTests
             expectedFixedCode,
             "UnusedAddress");
     }
+
+    [Fact]
+    public async Task AM004_BulkIgnore_ShouldIgnoreOnlyUnmappedProperties_WhenCustomMappingUsesSourceMembers()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string FirstName { get; set; }
+                                        public string LastName { get; set; }
+                                        public string MiddleName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string FullName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FirstName + " " + src.LastName));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string FirstName { get; set; }
+                                                 public string LastName { get; set; }
+                                                 public string MiddleName { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string FullName { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                         .ForSourceMember(src => src.MiddleName, opt => opt.DoNotValidate()).ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FirstName + " " + src.LastName));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        DiagnosticResult middleNameDiagnostic = Diagnostic(
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            21,
+            13,
+            "MiddleName");
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[] { middleNameDiagnostic },
+                expectedFixedCode,
+                0, // Index 0 = "Ignore all unmapped source properties"
+                null,
+                1);
+    }
+
+    [Fact]
+    public async Task AM004_BulkCreate_ShouldCreateOnlyUnmappedProperties_WhenCustomMappingUsesSourceMembers()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string FirstName { get; set; }
+                                        public string LastName { get; set; }
+                                        public string MiddleName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string FullName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FirstName + " " + src.LastName));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string FirstName { get; set; }
+                                                 public string LastName { get; set; }
+                                                 public string MiddleName { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string FullName { get; set; }
+                                                 public string MiddleName { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FirstName + " " + src.LastName));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        DiagnosticResult middleNameDiagnostic = Diagnostic(
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            21,
+            13,
+            "MiddleName");
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[] { middleNameDiagnostic },
+                expectedFixedCode,
+                1, // Index 1 = "Create all missing properties in destination type"
+                null,
+                1);
+    }
 }

@@ -54,6 +54,13 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // Custom construction/conversion logic can satisfy required members in ways this analyzer
+        // cannot reliably infer. Skip to avoid noisy false positives.
+        if (HasCustomConstructionOrConversion(invocationExpr))
+        {
+            return;
+        }
+
         // Analyze unmapped required properties in destination
         AnalyzeUnmappedRequiredProperties(
             context,
@@ -101,6 +108,12 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
                 continue; // Property is explicitly mapped, no issue
             }
 
+            // Check if this destination property is configured via constructor parameter mapping
+            if (IsPropertyConfiguredWithForCtorParam(invocation, destinationProperty.Name, context.SemanticModel))
+            {
+                continue; // Property is mapped via ForCtorParam, no issue
+            }
+
             // Report diagnostic for unmapped required property
             ImmutableDictionary<string, string?>.Builder properties =
                 ImmutableDictionary.CreateBuilder<string, string?>();
@@ -134,5 +147,54 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         // Check for required modifier in the property
         // In Roslyn, required properties have a RequiredMemberAttribute or the required keyword
         return property.IsRequired;
+    }
+
+    private static bool HasCustomConstructionOrConversion(InvocationExpressionSyntax createMapInvocation)
+    {
+        SyntaxNode? currentNode = createMapInvocation.Parent;
+
+        while (currentNode is MemberAccessExpressionSyntax memberAccess &&
+               memberAccess.Parent is InvocationExpressionSyntax invocation)
+        {
+            string methodName = memberAccess.Name.Identifier.ValueText;
+            if (methodName is "ConstructUsing" or "ConvertUsing")
+            {
+                return true;
+            }
+
+            currentNode = invocation.Parent;
+        }
+
+        return false;
+    }
+
+    private static bool IsPropertyConfiguredWithForCtorParam(
+        InvocationExpressionSyntax createMapInvocation,
+        string propertyName,
+        SemanticModel semanticModel)
+    {
+        SyntaxNode? currentNode = createMapInvocation.Parent;
+
+        while (currentNode is MemberAccessExpressionSyntax memberAccess &&
+               memberAccess.Parent is InvocationExpressionSyntax invocation)
+        {
+            if (memberAccess.Name.Identifier.ValueText == "ForCtorParam" &&
+                invocation.ArgumentList.Arguments.Count > 0)
+            {
+                ArgumentSyntax firstArg = invocation.ArgumentList.Arguments[0];
+                Optional<object?> constantValue = semanticModel.GetConstantValue(firstArg.Expression);
+
+                if (constantValue.HasValue &&
+                    constantValue.Value is string configuredParam &&
+                    string.Equals(configuredParam, propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            currentNode = invocation.Parent;
+        }
+
+        return false;
     }
 }

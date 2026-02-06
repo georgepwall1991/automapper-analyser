@@ -65,7 +65,7 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : AutoMapperCodeFixPro
                 },
                 $"ExplicitMapping_{sourcePropertyName}_{destinationPropertyName}");
 
-            context.RegisterCodeFix(explicitMappingAction, context.Diagnostics);
+            context.RegisterCodeFix(explicitMappingAction, diagnostic);
 
             // Fix 2: Add configuration comment for case-insensitive mapping
             var caseInsensitiveConfigAction = CodeAction.Create(
@@ -93,7 +93,7 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : AutoMapperCodeFixPro
                 },
                 $"CaseInsensitiveConfig_{sourcePropertyName}_{destinationPropertyName}");
 
-            context.RegisterCodeFix(caseInsensitiveConfigAction, context.Diagnostics);
+            context.RegisterCodeFix(caseInsensitiveConfigAction, diagnostic);
 
             // Fix 3: Add proper casing correction comment
             var casingCorrectionAction = CodeAction.Create(
@@ -117,7 +117,7 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : AutoMapperCodeFixPro
                 },
                 $"CasingCorrection_{sourcePropertyName}_{destinationPropertyName}");
 
-            context.RegisterCodeFix(casingCorrectionAction, context.Diagnostics);
+            context.RegisterCodeFix(casingCorrectionAction, diagnostic);
         }
     }
 }

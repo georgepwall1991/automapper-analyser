@@ -87,6 +87,13 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         bool isReverseMap,
         InvocationExpressionSyntax? reverseMapInvocation = null)
     {
+        // Custom construction/conversion can legitimately consume source members without
+        // one-to-one destination properties. Skip this direction to avoid noisy false positives.
+        if (HasCustomConstructionOrConversion(invocation, isReverseMap, reverseMapInvocation))
+        {
+            return;
+        }
+
         IEnumerable<IPropertySymbol> sourceProperties =
             AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
         IEnumerable<IPropertySymbol> destinationProperties =
@@ -122,6 +129,13 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
                     reverseMapInvocation))
             {
                 continue; // Property is handled by custom mapping, no data loss
+            }
+
+            // Check if this source property is consumed by constructor parameter mapping
+            if (IsSourcePropertyHandledByCtorParamMapping(invocation, sourceProperty.Name, isReverseMap,
+                    reverseMapInvocation))
+            {
+                continue; // Property is mapped to ctor parameter, no data loss
             }
 
             // Check if this source property is explicitly ignored
@@ -242,9 +256,65 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
 
     private static bool ContainsPropertyReference(SyntaxNode node, string propertyName)
     {
+        if (node is MemberAccessExpressionSyntax rootMemberAccess &&
+            rootMemberAccess.Name.Identifier.ValueText == propertyName)
+        {
+            return true;
+        }
+
         // Recursively search for property access expressions that match the property name
         return node.DescendantNodes().OfType<MemberAccessExpressionSyntax>()
             .Any(memberAccess => memberAccess.Name.Identifier.ValueText == propertyName);
+    }
+
+    private static bool HasCustomConstructionOrConversion(
+        InvocationExpressionSyntax createMapInvocation,
+        bool isReverseMap,
+        InvocationExpressionSyntax? reverseMapInvocation)
+    {
+        SyntaxNode? parent = createMapInvocation.Parent;
+
+        while (parent is MemberAccessExpressionSyntax memberAccess &&
+               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
+        {
+            if ((memberAccess.Name.Identifier.ValueText is "ConstructUsing" or "ConvertUsing") &&
+                AppliesToDirection(chainedInvocation, isReverseMap, reverseMapInvocation))
+            {
+                return true;
+            }
+
+            parent = chainedInvocation.Parent;
+        }
+
+        return false;
+    }
+
+    private static bool IsSourcePropertyHandledByCtorParamMapping(
+        InvocationExpressionSyntax createMapInvocation,
+        string sourcePropertyName,
+        bool isReverseMap,
+        InvocationExpressionSyntax? reverseMapInvocation)
+    {
+        SyntaxNode? parent = createMapInvocation.Parent;
+
+        while (parent is MemberAccessExpressionSyntax memberAccess &&
+               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
+        {
+            if (memberAccess.Name.Identifier.ValueText == "ForCtorParam" &&
+                AppliesToDirection(chainedInvocation, isReverseMap, reverseMapInvocation) &&
+                chainedInvocation.ArgumentList.Arguments.Count > 1)
+            {
+                ExpressionSyntax ctorMappingArg = chainedInvocation.ArgumentList.Arguments[1].Expression;
+                if (ContainsPropertyReference(ctorMappingArg, sourcePropertyName))
+                {
+                    return true;
+                }
+            }
+
+            parent = chainedInvocation.Parent;
+        }
+
+        return false;
     }
 
     private static bool IsSourcePropertyExplicitlyIgnored(

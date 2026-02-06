@@ -407,4 +407,77 @@ public class AM011_UnmappedRequiredPropertyTests
             .WithSource(testCode)
             .RunWithNoDiagnosticsAsync();
     }
+
+    [Fact]
+    public async Task AM011_ShouldNotReportDiagnostic_WhenRequiredPropertyMappedWithForCtorParam()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public required string RequiredField { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForCtorParam(nameof(Destination.RequiredField), opt => opt.MapFrom(src => src.Name));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM011_ShouldNotReportDiagnostic_WhenConstructUsingIsConfigured()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public required string RequiredField { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing(src => new Destination
+                                                {
+                                                    RequiredField = src.Name
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
 }
