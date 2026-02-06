@@ -51,9 +51,7 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
             }
 
             // Find all self-referencing properties
-            ImmutableList<string> selfReferencingProperties = FindSelfReferencingProperties(
-                createMapTypes.Item1,
-                createMapTypes.Item2);
+            ImmutableList<string> selfReferencingProperties = FindSelfReferencingProperties(createMapTypes.Item2);
 
             // Register fixes based on complexity:
             // - Single property: Ignore first (specific and simple)
@@ -107,21 +105,28 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
         }
     }
 
-    private static ImmutableList<string> FindSelfReferencingProperties(
-        ITypeSymbol sourceType,
-        ITypeSymbol destType)
+    private static ImmutableList<string> FindSelfReferencingProperties(ITypeSymbol destType)
     {
-        ImmutableList<string>.Builder selfReferencingProps = ImmutableList.CreateBuilder<string>();
+        var selfReferencingProps = new HashSet<string>();
+        IEnumerable<IPropertySymbol> destinationProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(destType, requireSetter: false);
 
-        foreach (IPropertySymbol? destProperty in destType.GetMembers().OfType<IPropertySymbol>())
+        foreach (IPropertySymbol? destProperty in destinationProperties)
         {
             if (destProperty.Type.Equals(destType, SymbolEqualityComparer.Default))
+            {
+                selfReferencingProps.Add(destProperty.Name);
+                continue;
+            }
+
+            ITypeSymbol? elementType = AutoMapperAnalysisHelpers.GetCollectionElementType(destProperty.Type);
+            if (elementType != null && elementType.Equals(destType, SymbolEqualityComparer.Default))
             {
                 selfReferencingProps.Add(destProperty.Name);
             }
         }
 
-        return selfReferencingProps.ToImmutable();
+        return selfReferencingProps.ToImmutableList();
     }
 
     private Task<Document> AddMaxDepthAsync(

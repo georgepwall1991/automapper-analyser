@@ -145,4 +145,138 @@ public class AM022_CodeFixTests
                     .WithArguments("SourcePerson", "DestPerson"),
                 expectedFixedCode);
     }
+
+    [Fact]
+    public async Task AM022_ShouldAddMaxDepth_ForCollectionAndDirectSelfReferences()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceCategory
+                                    {
+                                        public string Name { get; set; }
+                                        public List<SourceCategory> SubCategories { get; set; }
+                                        public SourceCategory Parent { get; set; }
+                                    }
+
+                                    public class DestCategory
+                                    {
+                                        public string Name { get; set; }
+                                        public List<DestCategory> SubCategories { get; set; }
+                                        public DestCategory Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceCategory, DestCategory>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class SourceCategory
+                                             {
+                                                 public string Name { get; set; }
+                                                 public List<SourceCategory> SubCategories { get; set; }
+                                                 public SourceCategory Parent { get; set; }
+                                             }
+
+                                             public class DestCategory
+                                             {
+                                                 public string Name { get; set; }
+                                                 public List<DestCategory> SubCategories { get; set; }
+                                                 public DestCategory Parent { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<SourceCategory, DestCategory>().MaxDepth(2);
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule)
+                    .WithLocation(24, 13)
+                    .WithArguments("SourceCategory", "DestCategory"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM022_ShouldAddMaxDepth_ForCrossTypeCircularReferenceRisk()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceEntity
+                                    {
+                                        public DestEntity RelatedDest { get; set; }
+                                    }
+
+                                    public class DestEntity
+                                    {
+                                        public SourceEntity RelatedSource { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceEntity, DestEntity>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class SourceEntity
+                                             {
+                                                 public DestEntity RelatedDest { get; set; }
+                                             }
+
+                                             public class DestEntity
+                                             {
+                                                 public SourceEntity RelatedSource { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<SourceEntity, DestEntity>().MaxDepth(2);
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                    .WithLocation(19, 13)
+                    .WithArguments("SourceEntity", "DestEntity"),
+                expectedFixedCode);
+    }
 }
