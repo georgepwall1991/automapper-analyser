@@ -1933,6 +1933,104 @@ public class AM020_NestedObjectMappingTests
     }
 
     [Fact]
+    public async Task AM020_ShouldNotReportDiagnostic_WhenConstructUsingHandlesForwardMapping()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class DestAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceAddress Address { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestAddress Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing(src => new Destination
+                                                {
+                                                    Address = new DestAddress { Street = src.Address.Street }
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldReportDiagnostic_WhenOnlyReverseDirectionForMemberExists()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class DestAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceAddress Address { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestAddress Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap()
+                                                .ForMember(dest => dest.Address, opt => opt.Ignore());
+                                        }
+                                    }
+                                }
+                                """;
+
+        // ForMember after ReverseMap applies to Destination -> Source only.
+        // Source -> Destination still needs nested mapping.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 29, 13,
+                "Address", "SourceAddress", "DestAddress")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM020_ShouldReportDiagnostic_WhenMappingExistsOnlyInDifferentProfile()
     {
         const string testCode = """
