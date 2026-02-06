@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-433%20passing%2C%2012%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-436%20passing%2C%2012%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,27 +14,31 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.9.0
+## 🎉 Latest Release: v2.10.0
 
-**Analyzer Accuracy & Contradiction Fixes**
+**AM041 Accuracy & Fix Safety**
 
-🛡️ **Data Integrity Improvements:**
+🛡️ **Analyzer Improvements (AM041):**
 
-- **AM004**: Improved detection for constructor-param usage and direction-aware `ConstructUsing`/`ConvertUsing` flows.
-- **AM005**: Added forward + reverse map case-mismatch checks with direction-aware suppressions and deduplication.
-- **AM006 + AM011**: Removed contradictory duplicate diagnostics by skipping `required` properties in AM006 while expanding AM011 constructor-path support.
-- **AM011**: Treats `ForCtorParam` as valid required-property mapping and suppresses false positives for custom construction/conversion mappings.
+- Suppressed false positives for non-AutoMapper `CreateMap` symbols.
+- Improved symbol resolution robustness by handling candidate symbols during duplicate checks.
 
-🔧 **Code Fixer Reliability:**
+🔧 **Code Fix Improvements (AM041):**
 
-- **AM004 fixer**: Bulk actions now align with analyzer logic for direct mappings, flattening, ctor-param usage, and explicit source ignores.
-- **AM005 fixer**: Correctly binds each code action to its originating diagnostic.
-- **AM011 fixer**: Tightened fuzzy-match suggestions to compatible types and aligned source-member discovery with analyzer behavior.
+- For duplicate `CreateMap<TSource, TDestination>().ReverseMap()`, fixer now preserves reverse-direction mapping by rewriting to `CreateMap<TDestination, TSource>()` instead of removing the statement.
 
 ✅ **Validation:**
 
-- Added new regression coverage for AM004/AM005/AM006/AM011, including AM005 code-fix integration tests.
-- All 445 tests passing locally (`433 passed`, `12 skipped`).
+- Added regression tests for non-AutoMapper `CreateMap` scenarios and member-access `CreateMap` reverse-map rewrite paths.
+- All 448 tests passing locally (`436 passed`, `12 skipped`).
+
+### Previous Release: v2.9.0
+
+**Analyzer Accuracy & Contradiction Fixes**
+
+- Improved AM004/AM005/AM006/AM011 detection and code-fix reliability.
+- Removed contradictory diagnostics around required member handling.
+- Added broad regression coverage for AM004/AM005/AM006/AM011.
 
 ### Previous Release: v2.8.0
 

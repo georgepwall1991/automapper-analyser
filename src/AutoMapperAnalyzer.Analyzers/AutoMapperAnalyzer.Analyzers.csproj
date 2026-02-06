@@ -16,7 +16,7 @@
         <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
-        <MinorVersion>9</MinorVersion>
+        <MinorVersion>10</MinorVersion>
         <PatchVersion>0</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
@@ -32,24 +32,21 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.9.0 - Analyzer Accuracy &amp; Contradiction Fixes
+        <PackageReleaseNotes>Version 2.10.0 - AM041 Accuracy &amp; Fix Safety
 
-            🛡️ Data Integrity Improvements:
-            - AM004: Improved ctor-param and direction-aware ConstructUsing/ConvertUsing detection
-            - AM005: Added forward and reverse-map case mismatch analysis with direction-aware suppressions
-            - AM006 + AM011: Removed contradictory duplicate diagnostics for required destination properties
-            - AM011: Treats ForCtorParam as valid required-property mapping and suppresses custom construction false positives
+            🛡️ Analyzer Improvements (AM041):
+            - Suppressed false positives for non-AutoMapper CreateMap symbols
+            - Added candidate-symbol fallback for robust symbol resolution in duplicate checks
 
-            🔧 Code Fixer Reliability:
-            - AM004 fixer bulk logic now matches analyzer behavior
-            - AM005 fixer now binds actions to the correct diagnostic instance
-            - AM011 fixer now type-checks fuzzy matches and aligns source-member collection
+            🔧 Code Fix Improvements (AM041):
+            - Duplicate CreateMap&lt;TSource, TDestination&gt;().ReverseMap() now rewrites to CreateMap&lt;TDestination, TSource&gt;()
+            - Preserves reverse-direction mapping coverage instead of removing the full statement
 
             ✅ Validation:
-            - Added AM005 code-fix integration coverage and expanded AM004/AM005/AM006/AM011 regressions
-            - All 445 tests passing locally (433 passed, 12 skipped)
+            - Added regression tests for non-AutoMapper CreateMap and member-access reverse-map rewrite paths
+            - All 448 tests passing locally (436 passed, 12 skipped)
 
-            Previous Release: v2.8.0 - Architecture Refactoring &amp; Enhanced Bulk Fixes
+            Previous Release: v2.9.0 - Analyzer Accuracy &amp; Contradiction Fixes
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
