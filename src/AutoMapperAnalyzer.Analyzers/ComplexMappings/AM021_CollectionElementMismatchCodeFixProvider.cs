@@ -75,8 +75,8 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
 
             InvocationExpressionSyntax? reverseMapInvocation =
                 AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
-            if (MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, reverseMapInvocation) ||
-                MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+            if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, reverseMapInvocation) ||
+                AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                     invocation,
                     propertyName!,
                     reverseMapInvocation))

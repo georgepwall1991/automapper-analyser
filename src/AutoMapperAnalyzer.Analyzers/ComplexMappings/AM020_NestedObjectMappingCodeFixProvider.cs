@@ -133,7 +133,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         var missingMappings = new List<(INamedTypeSymbol Source, INamedTypeSymbol Destination)>();
         var registry = CreateMapRegistry.FromCompilation(semanticModel.Compilation);
 
-        if (MappingConfigurationHelpers.HasCustomConstructionOrConversion(createMapInvocation, reverseMapInvocation))
+        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(createMapInvocation, reverseMapInvocation))
         {
             return missingMappings;
         }
@@ -151,7 +151,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
                 continue;
             }
 
-            if (MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+            if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                     createMapInvocation,
                     destProp.Name,
                     reverseMapInvocation))

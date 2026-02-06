@@ -72,7 +72,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
     {
         InvocationExpressionSyntax? reverseMapInvocation =
             AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
-        if (MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, reverseMapInvocation))
+        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, reverseMapInvocation))
         {
             return;
         }
@@ -109,7 +109,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
                 }
 
                 // Check if property is explicitly mapped via ForMember/ForPath in forward direction
-                if (MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+                if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                         invocation,
                         destinationProperty.Name,
                         reverseMapInvocation))

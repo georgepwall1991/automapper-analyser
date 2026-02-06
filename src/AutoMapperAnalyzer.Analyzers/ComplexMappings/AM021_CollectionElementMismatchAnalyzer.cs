@@ -67,7 +67,7 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
     {
         InvocationExpressionSyntax? reverseMapInvocation =
             AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
-        if (MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, reverseMapInvocation))
+        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, reverseMapInvocation))
         {
             return;
         }
@@ -88,7 +88,7 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
             }
 
             // Check for explicit property mapping that might handle collection conversion
-            if (MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+            if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                     invocation,
                     destinationProperty.Name,
                     reverseMapInvocation))

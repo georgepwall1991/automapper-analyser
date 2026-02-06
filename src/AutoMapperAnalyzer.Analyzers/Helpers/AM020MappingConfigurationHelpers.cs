@@ -8,7 +8,7 @@ namespace AutoMapperAnalyzer.Analyzers.Helpers;
 ///     Shared helpers for identifying whether destination members are explicitly configured
 ///     and whether mapping construction/conversion methods apply to the forward direction.
 /// </summary>
-internal static class MappingConfigurationHelpers
+internal static class AM020MappingConfigurationHelpers
 {
     public static bool IsDestinationPropertyExplicitlyConfigured(
         InvocationExpressionSyntax createMapInvocation,
