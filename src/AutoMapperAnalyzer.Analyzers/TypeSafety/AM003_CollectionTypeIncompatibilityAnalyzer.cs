@@ -32,7 +32,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         "Source and destination properties have incompatible collection types that require explicit conversion configuration.");
 
     /// <summary>
-    ///     AM003: Collection element type incompatibility
+    ///     Legacy descriptor kept for source compatibility; element mismatches are owned by AM021.
     /// </summary>
     public static readonly DiagnosticDescriptor CollectionElementIncompatibilityRule = new(
         "AM003",
@@ -45,7 +45,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        [CollectionTypeIncompatibilityRule, CollectionElementIncompatibilityRule];
+        [CollectionTypeIncompatibilityRule];
 
     /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
@@ -139,7 +139,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Check if collection types are fundamentally incompatible
+        // AM003 owns collection container incompatibilities.
         if (AreCollectionTypesIncompatible(sourceProperty.Type, destinationProperty.Type))
         {
             ImmutableDictionary<string, string?>.Builder properties =
@@ -164,34 +164,6 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
                 sourceTypeName,
                 AutoMapperAnalysisHelpers.GetTypeName(destinationType),
                 destTypeName);
-
-            context.ReportDiagnostic(diagnostic);
-        }
-        // Check if element types are incompatible
-        else if (!AutoMapperAnalysisHelpers.AreTypesCompatible(sourceElementType, destElementType))
-        {
-            ImmutableDictionary<string, string?>.Builder properties =
-                ImmutableDictionary.CreateBuilder<string, string?>();
-            properties.Add(PropertyNamePropertyName, sourceProperty.Name);
-            properties.Add(SourcePropertyTypePropertyName, sourceTypeName);
-            properties.Add(DestinationPropertyTypePropertyName, destTypeName);
-            properties.Add(SourceElementTypePropertyName, sourceElementType.ToDisplayString());
-            properties.Add(DestinationElementTypePropertyName, destElementType.ToDisplayString());
-            // Backward-compatible aliases for existing fixers/consumers.
-            properties.Add("SourceType", sourceTypeName);
-            properties.Add("DestType", destTypeName);
-            properties.Add("SourceTypeName", AutoMapperAnalysisHelpers.GetTypeName(sourceType));
-            properties.Add("DestTypeName", AutoMapperAnalysisHelpers.GetTypeName(destinationType));
-
-            var diagnostic = Diagnostic.Create(
-                CollectionElementIncompatibilityRule,
-                invocation.GetLocation(),
-                properties.ToImmutable(),
-                sourceProperty.Name,
-                AutoMapperAnalysisHelpers.GetTypeName(sourceType),
-                sourceElementType.ToDisplayString(),
-                AutoMapperAnalysisHelpers.GetTypeName(destinationType),
-                destElementType.ToDisplayString());
 
             context.ReportDiagnostic(diagnostic);
         }

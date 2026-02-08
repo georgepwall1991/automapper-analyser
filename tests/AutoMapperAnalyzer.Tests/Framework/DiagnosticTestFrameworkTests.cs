@@ -165,14 +165,14 @@ public class DiagnosticTestFrameworkTests
     }
 
     [Fact]
-    public async Task MultiAnalyzerTestRunner_ThrowsNotImplemented()
+    public async Task MultiAnalyzerTestRunner_CanRun()
     {
         // Arrange
         MultiAnalyzerTestRunner runner = DiagnosticTestFramework.ForAnalyzers(new TestAnalyzer())
             .WithSource("public class Test { }");
 
-        // Act & Assert
-        await Assert.ThrowsAsync<NotImplementedException>(() => runner.RunAsync());
+        // Act & Assert (should not throw)
+        await runner.RunAsync();
     }
 }
 

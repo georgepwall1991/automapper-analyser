@@ -92,7 +92,7 @@ public class AM021_CollectionElementMismatchTests
     }
 
     [Fact]
-    public async Task AM021_ShouldReportDiagnostic_WhenArrayToCollectionElementMismatch()
+    public async Task AM021_ShouldNotReportDiagnostic_WhenContainerTypesAreIncompatible()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -120,16 +120,16 @@ public class AM021_CollectionElementMismatchTests
                                 }
                                 """;
 
+        // AM003 owns collection container incompatibilities.
         await DiagnosticTestFramework
             .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 20, 13,
-                "Tags", "Source", "string", "Destination", "int")
+            .ExpectNoDiagnostics()
             .RunAsync();
     }
 
     [Fact]
-    public async Task AM021_ShouldReportMultipleDiagnostics_WhenMultipleCollectionIssues()
+    public async Task AM021_ShouldReportOnlyElementDiagnostic_WhenContainerAndElementIssuesExist()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -159,15 +159,13 @@ public class AM021_CollectionElementMismatchTests
                                 }
                                 """;
 
-        // NOTE: Analyzer reports both diagnostics, but they point to the same CreateMap invocation line
-        // The location is the CreateMap call, not individual property locations
+        // AM021 reports only the List<string> -> List<int> element mismatch.
+        // HashSet<double> -> List<string> is a container incompatibility owned by AM003.
         await DiagnosticTestFramework
             .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
             .WithSource(testCode)
             .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 22, 13,
                 "StringNumbers", "Source", "string", "Destination", "int")
-            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 22, 13,
-                "DecimalValues", "Source", "double", "Destination", "string")
             .RunAsync();
     }
 
@@ -424,7 +422,7 @@ public class AM021_CollectionElementMismatchTests
     }
 
     [Fact]
-    public async Task AM021_ShouldReportDiagnostic_WhenIEnumerableToHashSetWithElementMismatch()
+    public async Task AM021_ShouldNotReportDiagnostic_WhenIEnumerableToHashSetWithElementMismatch()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -452,16 +450,16 @@ public class AM021_CollectionElementMismatchTests
                                 }
                                 """;
 
+        // AM003 owns collection container incompatibilities.
         await DiagnosticTestFramework
             .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 20, 13,
-                "Values", "Source", "string", "Destination", "int")
+            .ExpectNoDiagnostics()
             .RunAsync();
     }
 
     [Fact]
-    public async Task AM021_ShouldReportDiagnostic_WhenQueueToStackWithElementMismatch()
+    public async Task AM021_ShouldNotReportDiagnostic_WhenQueueToStackWithElementMismatch()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -489,11 +487,11 @@ public class AM021_CollectionElementMismatchTests
                                 }
                                 """;
 
+        // AM003 owns collection container incompatibilities.
         await DiagnosticTestFramework
             .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 20, 13,
-                "Measurements", "Source", "double", "Destination", "int")
+            .ExpectNoDiagnostics()
             .RunAsync();
     }
 
@@ -870,6 +868,123 @@ public class AM021_CollectionElementMismatchTests
             .WithSource(testCode)
             .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 21, 13,
                 "Numbers", "Source", "string", "Destination", "int")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_ForCreateMapLikeApiOutsideAutoMapper()
+    {
+        const string testCode = """
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class MappingConfig
+                                    {
+                                        public void CreateMap<TSource, TDestination>()
+                                        {
+                                        }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            var cfg = new MappingConfig();
+                                            cfg.CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_WhenListToQueueContainerMismatch()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Items { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Queue<int> Items { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // AM003 owns collection container incompatibilities.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_WhenListToStackContainerMismatch()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Items { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Stack<int> Items { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // AM003 owns collection container incompatibilities.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
             .RunAsync();
     }
 }

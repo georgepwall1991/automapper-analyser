@@ -51,7 +51,7 @@ public class AM003_CollectionTypeIncompatibilityTests
     }
 
     [Fact]
-    public async Task AM003_ShouldReportDiagnostic_WhenCollectionElementTypesIncompatible()
+    public async Task AM003_ShouldNotReportDiagnostic_WhenCollectionElementTypesIncompatible()
     {
         const string testCode = """
 
@@ -80,10 +80,8 @@ public class AM003_CollectionTypeIncompatibilityTests
                                 }
                                 """;
 
-        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(
-            testCode,
-            Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionElementIncompatibilityRule, 21, 13,
-                "Items", "Source", "string", "Destination", "int"));
+        // AM021 owns collection element mismatch diagnostics.
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -226,7 +224,7 @@ public class AM003_CollectionTypeIncompatibilityTests
     }
 
     [Fact]
-    public async Task AM003_ShouldReportDiagnostic_WhenNumericElementTypesIncompatible()
+    public async Task AM003_ShouldNotReportDiagnostic_WhenNumericElementTypesIncompatible()
     {
         const string testCode = """
 
@@ -255,10 +253,8 @@ public class AM003_CollectionTypeIncompatibilityTests
                                 }
                                 """;
 
-        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(
-            testCode,
-            Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionElementIncompatibilityRule, 21, 13,
-                "Numbers", "Source", "int", "Destination", "string"));
+        // AM021 owns collection element mismatch diagnostics.
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]

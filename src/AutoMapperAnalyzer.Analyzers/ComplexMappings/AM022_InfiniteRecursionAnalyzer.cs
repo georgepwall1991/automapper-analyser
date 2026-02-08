@@ -58,8 +58,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Check if this is a CreateMap<TSource, TDestination>() call
-        if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
+        // Ensure strict AutoMapper semantic matching to avoid lookalike false positives.
+        if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocationExpr, context.SemanticModel, "CreateMap"))
         {
             return;
         }

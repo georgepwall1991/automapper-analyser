@@ -23,49 +23,18 @@ public static class AutoMapperAnalysisHelpers
         }
 
         SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is not IMethodSymbol methodSymbol)
-        {
-            return false;
-        }
-
-        // Check if it's a CreateMap method
-        if (methodSymbol.Name != "CreateMap")
-        {
-            return false;
-        }
-
-        // Check if it's from AutoMapper namespace
-        string? containingNamespace = methodSymbol.ContainingNamespace?.ToDisplayString();
-        if (containingNamespace == "AutoMapper")
+        if (symbolInfo.Symbol is IMethodSymbol methodSymbol &&
+            MappingChainAnalysisHelper.IsAutoMapperMethod(methodSymbol, "CreateMap"))
         {
             return true;
         }
 
-        // Check if the containing type extends AutoMapper.Profile
-        INamedTypeSymbol? containingType = methodSymbol.ContainingType;
-        while (containingType != null)
+        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
         {
-            if (containingType.ToDisplayString() == "AutoMapper.Profile" ||
-                containingType.Name == "Profile" ||
-                containingType.Name.Contains("MappingProfile") ||
-                containingType.Name.Contains("MapperConfiguration"))
+            if (candidateSymbol is IMethodSymbol candidateMethod &&
+                MappingChainAnalysisHelper.IsAutoMapperMethod(candidateMethod, "CreateMap"))
             {
                 return true;
-            }
-
-            containingType = containingType.BaseType;
-        }
-
-        // Fallback: Check syntax pattern for common AutoMapper usage
-        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
-        {
-            string expressionText = memberAccess.Expression.ToString();
-            if (expressionText.Contains("mapper") ||
-                expressionText.Contains("Mapper") ||
-                expressionText.Contains("cfg") ||
-                expressionText.Contains("config"))
-            {
-                return memberAccess.Name.Identifier.Text == "CreateMap";
             }
         }
 

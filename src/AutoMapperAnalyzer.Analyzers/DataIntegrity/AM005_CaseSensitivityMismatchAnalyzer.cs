@@ -43,8 +43,8 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
     {
         var invocationExpr = (InvocationExpressionSyntax)context.Node;
 
-        // Check if this is a CreateMap<TSource, TDestination>() call
-        if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
+        // Ensure strict AutoMapper semantic matching to avoid lookalike false positives.
+        if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocationExpr, context.SemanticModel, "CreateMap"))
         {
             return;
         }

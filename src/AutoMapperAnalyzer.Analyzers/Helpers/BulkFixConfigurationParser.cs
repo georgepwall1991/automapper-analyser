@@ -227,9 +227,10 @@ public class BulkFixConfigurationParser
             "DEFAULT" => BulkFixAction.Default,
             "IGNORE" => BulkFixAction.Ignore,
             "FUZZY-MATCH" or "FUZZY" => BulkFixAction.FuzzyMatch,
-            "TODO" => BulkFixAction.Todo,
-            "CUSTOM" => BulkFixAction.Custom,
-            "NULLABLE" => BulkFixAction.Nullable,
+            // Legacy compatibility: map retired placeholder actions to executable default behavior.
+            "TODO" => BulkFixAction.Default,
+            "CUSTOM" => BulkFixAction.Default,
+            "NULLABLE" => BulkFixAction.Default,
             _ => null
         };
     }
@@ -287,9 +288,6 @@ public class BulkFixConfigurationParser
         lines.Add(" * DEFAULT       - Map to default value (0, \"\", false, null, etc.)");
         lines.Add(" * FUZZY         - Map to similar source property (specify in Parameter)");
         lines.Add(" * IGNORE        - Add .Ignore() - property not needed");
-        lines.Add(" * TODO          - Add .Ignore() with TODO comment");
-        lines.Add(" * CUSTOM        - Add .MapFrom with TODO for custom logic");
-        lines.Add(" * NULLABLE      - Make destination property nullable (modifies dest class)");
         lines.Add(" *");
         lines.Add(" * === CHUNKING ===");
         lines.Add(" * CHUNKING: [YES/NO]: NO");
@@ -308,9 +306,9 @@ public class BulkFixConfigurationParser
             BulkFixAction.Default => "DEFAULT",
             BulkFixAction.Ignore => "IGNORE",
             BulkFixAction.FuzzyMatch => "FUZZY-MATCH",
-            BulkFixAction.Todo => "TODO",
-            BulkFixAction.Custom => "CUSTOM",
-            BulkFixAction.Nullable => "NULLABLE",
+            BulkFixAction.Todo => "DEFAULT",
+            BulkFixAction.Custom => "DEFAULT",
+            BulkFixAction.Nullable => "DEFAULT",
             _ => "DEFAULT"
         };
     }

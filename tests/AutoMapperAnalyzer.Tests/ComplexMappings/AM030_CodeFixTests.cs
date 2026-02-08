@@ -7,29 +7,26 @@ namespace AutoMapperAnalyzer.Tests.ComplexMappings;
 public class AM030_CodeFixTests
 {
     [Fact]
-    public async Task AM030_ShouldFixMissingConvertUsingWithLambda()
+    public async Task AM030_ShouldAddNullGuard_ForBlockBodiedConvertMethod()
     {
         const string testCode = """
                                 using AutoMapper;
-                                using System;
 
                                 namespace TestNamespace
                                 {
-                                    public class Source
+                                    public class NullUnsafeConverter : ITypeConverter<string?, int>
                                     {
-                                        public string CreatedDate { get; set; } = "2023-01-01";
-                                    }
-
-                                    public class Destination
-                                    {
-                                        public DateTime CreatedDate { get; set; }
+                                        public int Convert(string? source, int destination, ResolutionContext context)
+                                        {
+                                            return int.Parse(source);
+                                        }
                                     }
 
                                     public class TestProfile : Profile
                                     {
                                         public TestProfile()
                                         {
-                                            CreateMap<Source, Destination>();
+                                            CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
                                         }
                                     }
                                 }
@@ -41,21 +38,20 @@ public class AM030_CodeFixTests
 
                                          namespace TestNamespace
                                          {
-                                             public class Source
+                                             public class NullUnsafeConverter : ITypeConverter<string?, int>
                                              {
-                                                 public string CreatedDate { get; set; } = "2023-01-01";
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public DateTime CreatedDate { get; set; }
+                                                 public int Convert(string? source, int destination, ResolutionContext context)
+                                                 {
+                                                     if (source == null) throw new ArgumentNullException(nameof(source));
+                                                     return int.Parse(source);
+                                                 }
                                              }
 
                                              public class TestProfile : Profile
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(src => DateTime.Parse(src.CreatedDate)));
+                                                     CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
                                                  }
                                              }
                                          }
@@ -64,36 +60,30 @@ public class AM030_CodeFixTests
         await CodeFixVerifier<AM030_CustomTypeConverterAnalyzer, AM030_CustomTypeConverterCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule)
-                    .WithLocation(20, 13)
-                    .WithArguments("CreatedDate", "ITypeConverter<String, DateTime>"),
+                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule)
+                    .WithLocation(7, 20)
+                    .WithArguments("NullUnsafeConverter", "String"),
                 expectedFixedCode);
     }
 
     [Fact]
-    public async Task AM030_ShouldFixMissingConvertUsingWithConverter()
+    public async Task AM030_ShouldAddNullGuard_ForExpressionBodiedConvertMethod()
     {
         const string testCode = """
                                 using AutoMapper;
-                                using System;
 
                                 namespace TestNamespace
                                 {
-                                    public class Source
+                                    public class NullUnsafeConverter : ITypeConverter<string?, int>
                                     {
-                                        public string Price { get; set; } = "19.99";
-                                    }
-
-                                    public class Destination
-                                    {
-                                        public decimal Price { get; set; }
+                                        public int Convert(string? source, int destination, ResolutionContext context) => int.Parse(source);
                                     }
 
                                     public class TestProfile : Profile
                                     {
                                         public TestProfile()
                                         {
-                                            CreateMap<Source, Destination>();
+                                            CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
                                         }
                                     }
                                 }
@@ -105,21 +95,20 @@ public class AM030_CodeFixTests
 
                                          namespace TestNamespace
                                          {
-                                             public class Source
+                                             public class NullUnsafeConverter : ITypeConverter<string?, int>
                                              {
-                                                 public string Price { get; set; } = "19.99";
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public decimal Price { get; set; }
+                                                 public int Convert(string? source, int destination, ResolutionContext context)
+                                                 {
+                                                     if (source == null) throw new ArgumentNullException(nameof(source));
+                                                     return int.Parse(source);
+                                                 }
                                              }
 
                                              public class TestProfile : Profile
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Price, opt => opt.MapFrom(src => Convert.ToDecimal(src.Price)));
+                                                     CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
                                                  }
                                              }
                                          }
@@ -128,14 +117,14 @@ public class AM030_CodeFixTests
         await CodeFixVerifier<AM030_CustomTypeConverterAnalyzer, AM030_CustomTypeConverterCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule)
-                    .WithLocation(20, 13)
-                    .WithArguments("Price", "ITypeConverter<String, Decimal>"),
+                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule)
+                    .WithLocation(7, 20)
+                    .WithArguments("NullUnsafeConverter", "String"),
                 expectedFixedCode);
     }
 
     [Fact]
-    public async Task AM030_ShouldFixMissingConvertUsingWithForMember()
+    public async Task AM030_ShouldNotDuplicateSystemUsing_WhenAddingNullGuard()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -143,21 +132,19 @@ public class AM030_CodeFixTests
 
                                 namespace TestNamespace
                                 {
-                                    public class Source
+                                    public class NullUnsafeConverter : ITypeConverter<string?, int>
                                     {
-                                        public string UpdatedDate { get; set; } = "2023-01-02";
-                                    }
-
-                                    public class Destination
-                                    {
-                                        public DateTime UpdatedDate { get; set; }
+                                        public int Convert(string? source, int destination, ResolutionContext context)
+                                        {
+                                            return int.Parse(source);
+                                        }
                                     }
 
                                     public class TestProfile : Profile
                                     {
                                         public TestProfile()
                                         {
-                                            CreateMap<Source, Destination>();
+                                            CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
                                         }
                                     }
                                 }
@@ -169,21 +156,20 @@ public class AM030_CodeFixTests
 
                                          namespace TestNamespace
                                          {
-                                             public class Source
+                                             public class NullUnsafeConverter : ITypeConverter<string?, int>
                                              {
-                                                 public string UpdatedDate { get; set; } = "2023-01-02";
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public DateTime UpdatedDate { get; set; }
+                                                 public int Convert(string? source, int destination, ResolutionContext context)
+                                                 {
+                                                     if (source == null) throw new ArgumentNullException(nameof(source));
+                                                     return int.Parse(source);
+                                                 }
                                              }
 
                                              public class TestProfile : Profile
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.UpdatedDate, opt => opt.MapFrom(src => DateTime.Parse(src.UpdatedDate)));
+                                                     CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
                                                  }
                                              }
                                          }
@@ -192,9 +178,9 @@ public class AM030_CodeFixTests
         await CodeFixVerifier<AM030_CustomTypeConverterAnalyzer, AM030_CustomTypeConverterCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule)
-                    .WithLocation(20, 13)
-                    .WithArguments("UpdatedDate", "ITypeConverter<String, DateTime>"),
+                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule)
+                    .WithLocation(8, 20)
+                    .WithArguments("NullUnsafeConverter", "String"),
                 expectedFixedCode);
     }
 }

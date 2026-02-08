@@ -245,7 +245,7 @@ public class AM021_CodeFixTests
     }
 
     [Fact]
-    public async Task AM021_ShouldFixArrayToHashSet_WithSelect()
+    public async Task AM021_ShouldFixArrayToArray_WithSelect()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -260,7 +260,7 @@ public class AM021_CodeFixTests
 
                                     public class Destination
                                     {
-                                        public HashSet<int> Tags { get; set; }
+                                        public int[] Tags { get; set; }
                                     }
 
                                     public class TestProfile : Profile
@@ -288,14 +288,14 @@ public class AM021_CodeFixTests
 
                                              public class Destination
                                              {
-                                                 public HashSet<int> Tags { get; set; }
+                                                 public int[] Tags { get; set; }
                                              }
 
                                              public class TestProfile : Profile
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.Tags.Select(x => Convert.ToInt32(x)).ToHashSet()));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.Tags.Select(x => Convert.ToInt32(x)).ToArray()));
                                                  }
                                              }
                                          }
