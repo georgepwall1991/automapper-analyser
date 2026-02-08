@@ -347,7 +347,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             }
 
             // Check for reflection
-            if (IsReflectionOperation(methodName))
+            if (IsReflectionOperation(containingType, methodName))
             {
                 if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
                 {
@@ -431,7 +431,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                 {
                     if (reportedIssueTypes.Add(NonDeterministicIssueType))
                     {
-                        ReportNonDeterministicDiagnostic(context, lambda, propertyName, "DateTime.Now");
+                        string operationType = propertyName_member == "UtcNow" ? "DateTime.UtcNow" : "DateTime.Now";
+                        ReportNonDeterministicDiagnostic(context, lambda, propertyName, operationType);
                     }
                 }
             }
@@ -591,11 +592,11 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                containingType.Contains("IQueryable", StringComparison.Ordinal) ||
                containingType == "System.Linq.Queryable" ||
                containingType.Contains("EntityFrameworkQueryableExtensions", StringComparison.Ordinal) ||
-               containingType.Contains("ISession", StringComparison.Ordinal) ||
+               containingType == "NHibernate.ISession" ||
+               containingType.StartsWith("NHibernate.", StringComparison.Ordinal) ||
                containingType.Contains("SqlConnection", StringComparison.Ordinal) ||
                containingType.Contains("System.Data", StringComparison.Ordinal) ||
-               containingType.Contains("Dapper", StringComparison.Ordinal) ||
-               containingType.Contains("NHibernate", StringComparison.Ordinal);
+               containingType.Contains("Dapper", StringComparison.Ordinal);
     }
 
     private static bool IsFileIOOperation(string containingType, string methodName)
@@ -614,10 +615,22 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                containingType.Contains("HttpMessageInvoker");
     }
 
-    private static bool IsReflectionOperation(string methodName)
+    private static bool IsReflectionOperation(string containingType, string methodName)
     {
-        return methodName == "GetType" ||
-               methodName == "GetMethod" ||
+        if (methodName == "GetType" && (containingType == "System.Object" || containingType == "object"))
+        {
+            return true;
+        }
+
+        bool isReflectionType = containingType == "System.Type" ||
+                                containingType.StartsWith("System.Reflection.", StringComparison.Ordinal);
+
+        if (!isReflectionType)
+        {
+            return false;
+        }
+
+        return methodName == "GetMethod" ||
                methodName == "GetProperty" ||
                methodName == "GetField" ||
                methodName == "GetCustomAttributes" ||
@@ -654,7 +667,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
         if (containingType == "System.DateTime" && (methodName == "get_Now" || methodName == "get_UtcNow"))
         {
-            operationType = "DateTime.Now";
+            operationType = methodName == "get_UtcNow" ? "DateTime.UtcNow" : "DateTime.Now";
             return true;
         }
 

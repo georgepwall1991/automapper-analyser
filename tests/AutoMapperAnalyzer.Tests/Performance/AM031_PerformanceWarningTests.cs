@@ -966,6 +966,49 @@ public class AM031_PerformanceWarningTests
     }
 
     [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenTaskWaitUsedInMapFrom()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Threading.Tasks;
+
+                                namespace TestNamespace
+                                {
+                                    public static class DataService
+                                    {
+                                        public static Task<string> GetDataAsync(int id) => Task.FromResult("data");
+                                    }
+
+                                    public class Source
+                                    {
+                                        public int Id { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public bool Completed { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Completed, opt => opt.MapFrom(src => DataService.GetDataAsync(src.Id).Wait(1000)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule, 26, 71,
+                "Completed")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM031_ShouldNotReportDiagnostic_ForDeterministicMethodWithRandomInName()
     {
         const string testCode = """
@@ -1003,6 +1046,82 @@ public class AM031_PerformanceWarningTests
             .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
             .WithSource(testCode)
             .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_ForDelegateInvokeOnSourceProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public int Id { get; set; }
+                                        public Func<int, string> Formatter { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Data, opt => opt.MapFrom(src => src.Formatter.Invoke(src.Id)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenDateTimeUtcNowInMapFrom()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public DateTime CreatedDate { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int DaysOld { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.DaysOld, opt => opt.MapFrom(src => (DateTime.UtcNow - src.CreatedDate).Days));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.NonDeterministicOperationRule, 21, 69,
+                "DaysOld", "DateTime.UtcNow")
             .RunAsync();
     }
 }

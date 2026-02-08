@@ -88,6 +88,10 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         string issueType = diagnostic.Properties.TryGetValue(IssueTypePropertyName, out string? storedIssueType)
             ? storedIssueType ?? string.Empty
             : string.Empty;
+        if (string.IsNullOrEmpty(issueType))
+        {
+            issueType = InferIssueTypeFromDescriptor(diagnostic.Descriptor);
+        }
 
         switch (issueType)
         {
@@ -489,5 +493,40 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         }
 
         return "non-deterministic operation";
+    }
+
+    private static string InferIssueTypeFromDescriptor(DiagnosticDescriptor descriptor)
+    {
+        if (descriptor == AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule)
+        {
+            return MultipleEnumerationIssueType;
+        }
+
+        if (descriptor == AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule)
+        {
+            return TaskResultIssueType;
+        }
+
+        if (descriptor == AM031_PerformanceWarningAnalyzer.NonDeterministicOperationRule)
+        {
+            return NonDeterministicIssueType;
+        }
+
+        if (descriptor == AM031_PerformanceWarningAnalyzer.ExpensiveComputationRule)
+        {
+            return ExpensiveComputationIssueType;
+        }
+
+        if (descriptor == AM031_PerformanceWarningAnalyzer.ComplexLinqOperationRule)
+        {
+            return ComplexLinqIssueType;
+        }
+
+        if (descriptor == AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule)
+        {
+            return ExpensiveOperationIssueType;
+        }
+
+        return string.Empty;
     }
 }
