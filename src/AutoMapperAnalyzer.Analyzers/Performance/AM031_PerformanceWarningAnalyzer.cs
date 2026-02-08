@@ -14,6 +14,18 @@ namespace AutoMapperAnalyzer.Analyzers.Performance;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 {
+    private const string IssueTypePropertyName = "IssueType";
+    private const string PropertyNamePropertyName = "PropertyName";
+    private const string OperationTypePropertyName = "OperationType";
+    private const string CollectionNamePropertyName = "CollectionName";
+
+    private const string ExpensiveOperationIssueType = "ExpensiveOperation";
+    private const string MultipleEnumerationIssueType = "MultipleEnumeration";
+    private const string ExpensiveComputationIssueType = "ExpensiveComputation";
+    private const string TaskResultIssueType = "TaskResult";
+    private const string ComplexLinqIssueType = "ComplexLinq";
+    private const string NonDeterministicIssueType = "NonDeterministic";
+
     /// <summary>
     ///     Diagnostic rule for expensive operations in MapFrom expressions.
     /// </summary>
@@ -121,7 +133,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         }
 
         // Find all ForMember calls in the method chain
-        List<InvocationExpressionSyntax> forMemberCalls = GetForMemberInvocations(invocationExpr);
+        List<InvocationExpressionSyntax> forMemberCalls = GetForMemberInvocations(invocationExpr, context.SemanticModel);
 
         foreach (InvocationExpressionSyntax? forMemberCall in forMemberCalls)
         {
@@ -130,7 +142,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     }
 
     private static List<InvocationExpressionSyntax> GetForMemberInvocations(
-        InvocationExpressionSyntax createMapInvocation)
+        InvocationExpressionSyntax createMapInvocation,
+        SemanticModel semanticModel)
     {
         var forMemberCalls = new List<InvocationExpressionSyntax>();
 
@@ -147,7 +160,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         foreach (InvocationExpressionSyntax? invocation in allInvocations)
         {
             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-                memberAccess.Name.Identifier.Text == "ForMember")
+                memberAccess.Name.Identifier.Text == "ForMember" &&
+                IsAutoMapperMethodInvocation(invocation, semanticModel, "ForMember"))
             {
                 // Check if this ForMember is part of the CreateMap chain
                 if (IsPartOfCreateMapChain(invocation, createMapInvocation))
@@ -189,7 +203,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         InvocationExpressionSyntax forMemberInvocation)
     {
         // Get the lambda expression from MapFrom
-        LambdaExpressionSyntax? mapFromLambda = GetMapFromLambda(forMemberInvocation);
+        LambdaExpressionSyntax? mapFromLambda = GetMapFromLambda(forMemberInvocation, context.SemanticModel);
         if (mapFromLambda == null)
         {
             return;
@@ -203,10 +217,12 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         }
 
         // Analyze the lambda body for performance issues
-        AnalyzeLambdaExpression(context, mapFromLambda, propertyName, forMemberInvocation);
+        AnalyzeLambdaExpression(context, mapFromLambda, propertyName);
     }
 
-    private static LambdaExpressionSyntax? GetMapFromLambda(InvocationExpressionSyntax forMemberInvocation)
+    private static LambdaExpressionSyntax? GetMapFromLambda(
+        InvocationExpressionSyntax forMemberInvocation,
+        SemanticModel semanticModel)
     {
         // Look for the second argument which should contain the MapFrom call
         if (forMemberInvocation.ArgumentList.Arguments.Count < 2)
@@ -216,17 +232,18 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
         ArgumentSyntax optionsArg = forMemberInvocation.ArgumentList.Arguments[1];
 
-        // Navigate through the lambda to find MapFrom
-        if (optionsArg.Expression is not SimpleLambdaExpressionSyntax optionsLambda)
+        CSharpSyntaxNode? optionsBody = GetLambdaBody(optionsArg.Expression);
+        if (optionsBody == null)
         {
             return null;
         }
 
-        // Look for MapFrom invocation in the lambda body
-        InvocationExpressionSyntax? mapFromInvocation = optionsLambda.DescendantNodes()
+        // Look for MapFrom invocation in the options lambda body
+        InvocationExpressionSyntax? mapFromInvocation = optionsBody.DescendantNodesAndSelf()
             .OfType<InvocationExpressionSyntax>()
             .FirstOrDefault(inv => inv.Expression is MemberAccessExpressionSyntax mae &&
-                                   mae.Name.Identifier.Text == "MapFrom");
+                                   mae.Name.Identifier.Text == "MapFrom" &&
+                                   IsAutoMapperMethodInvocation(inv, semanticModel, "MapFrom"));
 
         if (mapFromInvocation == null)
         {
@@ -246,12 +263,13 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         }
 
         ArgumentSyntax firstArg = forMemberInvocation.ArgumentList.Arguments[0];
-        if (firstArg.Expression is not SimpleLambdaExpressionSyntax destLambda)
+        CSharpSyntaxNode? destLambdaBody = GetLambdaBody(firstArg.Expression);
+        if (destLambdaBody == null)
         {
             return null;
         }
 
-        if (destLambda.Body is MemberAccessExpressionSyntax memberAccess)
+        if (destLambdaBody is MemberAccessExpressionSyntax memberAccess)
         {
             return memberAccess.Name.Identifier.Text;
         }
@@ -259,11 +277,20 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
+    private static CSharpSyntaxNode? GetLambdaBody(ExpressionSyntax lambdaExpression)
+    {
+        return lambdaExpression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.Body,
+            _ => null
+        };
+    }
+
     private static void AnalyzeLambdaExpression(
         SyntaxNodeAnalysisContext context,
         LambdaExpressionSyntax lambda,
-        string propertyName,
-        InvocationExpressionSyntax forMemberInvocation)
+        string propertyName)
     {
         // Check for method invocations
         var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().ToList();
@@ -273,6 +300,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
         // Track collection accesses for multiple enumeration detection
         var collectionAccesses = new Dictionary<string, int>();
+        var reportedIssueTypes = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (InvocationExpressionSyntax? invocation in invocations)
         {
@@ -286,50 +314,78 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             string methodName = methodSymbol.Name;
 
             // Check for database operations
-            if (IsDatabaseOperation(containingType, methodName))
+            if (IsDatabaseOperation(containingType))
             {
-                ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName, "database query");
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "database query");
+                }
+
                 continue;
             }
 
             // Check for file I/O
             if (IsFileIOOperation(containingType, methodName))
             {
-                ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName, "file I/O operation");
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "file I/O operation");
+                }
+
                 continue;
             }
 
             // Check for HTTP requests
-            if (IsHttpOperation(containingType, methodName))
+            if (IsHttpOperation(containingType))
             {
-                ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName, "HTTP request");
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "HTTP request");
+                }
+
                 continue;
             }
 
             // Check for reflection
-            if (IsReflectionOperation(methodName))
+            if (IsReflectionOperation(containingType, methodName))
             {
-                ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName,
-                    "reflection operation");
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "reflection operation");
+                }
+
                 continue;
             }
 
             // Check for Task.Result
             if (IsTaskResultAccess(invocation, context.SemanticModel))
             {
-                ReportDiagnostic(context, lambda, TaskResultSynchronousAccessRule, propertyName);
+                if (reportedIssueTypes.Add(TaskResultIssueType))
+                {
+                    ReportTaskResultDiagnostic(context, lambda, propertyName);
+                }
+
+                continue;
+            }
+
+            if (IsTaskWaitAccess(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(TaskResultIssueType))
+                {
+                    ReportTaskResultDiagnostic(context, lambda, propertyName);
+                }
+
                 continue;
             }
 
             // Check for non-deterministic operations
             if (IsNonDeterministicOperation(containingType, methodName, out string operationType))
             {
-                var diagnostic = Diagnostic.Create(
-                    NonDeterministicOperationRule,
-                    lambda.GetLocation(),
-                    propertyName,
-                    operationType);
-                context.ReportDiagnostic(diagnostic);
+                if (reportedIssueTypes.Add(NonDeterministicIssueType))
+                {
+                    ReportNonDeterministicDiagnostic(context, lambda, propertyName, operationType);
+                }
+
                 continue;
             }
 
@@ -342,14 +398,21 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             // Check for complex LINQ operations
             if (IsComplexLinqOperation(methodName, invocation))
             {
-                ReportDiagnostic(context, lambda, ComplexLinqOperationRule, propertyName);
+                if (reportedIssueTypes.Add(ComplexLinqIssueType))
+                {
+                    ReportComplexLinqDiagnostic(context, lambda, propertyName);
+                }
+
                 continue;
             }
 
             // Check for external method calls (not on source properties)
             if (IsExternalMethodCall(invocation, context.SemanticModel))
             {
-                ReportDiagnostic(context, lambda, ExpensiveOperationInMapFromRule, propertyName, "method call");
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "method call");
+                }
             }
         }
 
@@ -366,12 +429,11 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                 if (containingType == "System.DateTime" &&
                     (propertyName_member == "Now" || propertyName_member == "UtcNow"))
                 {
-                    var diagnostic = Diagnostic.Create(
-                        NonDeterministicOperationRule,
-                        lambda.GetLocation(),
-                        propertyName,
-                        "DateTime.Now");
-                    context.ReportDiagnostic(diagnostic);
+                    if (reportedIssueTypes.Add(NonDeterministicIssueType))
+                    {
+                        string operationType = propertyName_member == "UtcNow" ? "DateTime.UtcNow" : "DateTime.Now";
+                        ReportNonDeterministicDiagnostic(context, lambda, propertyName, operationType);
+                    }
                 }
             }
         }
@@ -379,45 +441,162 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         // Check for multiple enumerations
         foreach (KeyValuePair<string, int> kvp in collectionAccesses)
         {
-            if (kvp.Value > 1)
+            if (kvp.Value > 1 && reportedIssueTypes.Add(MultipleEnumerationIssueType))
             {
-                var diagnostic = Diagnostic.Create(
-                    MultipleEnumerationRule,
-                    lambda.GetLocation(),
-                    propertyName,
-                    kvp.Key);
-                context.ReportDiagnostic(diagnostic);
+                ReportMultipleEnumerationDiagnostic(context, lambda, propertyName, kvp.Key);
             }
         }
 
         // Check for expensive computations (complex expressions with multiple operations)
-        if (IsExpensiveComputation(lambda))
+        if (IsExpensiveComputation(lambda) && reportedIssueTypes.Add(ExpensiveComputationIssueType))
         {
-            ReportDiagnostic(context, lambda, ExpensiveComputationRule, propertyName);
+            ReportExpensiveComputationDiagnostic(context, lambda, propertyName);
         }
+    }
+
+    private static void ReportExpensiveOperationDiagnostic(
+        SyntaxNodeAnalysisContext context,
+        LambdaExpressionSyntax lambda,
+        string propertyName,
+        string operationType)
+    {
+        ReportDiagnostic(
+            context,
+            lambda.GetLocation(),
+            ExpensiveOperationInMapFromRule,
+            ExpensiveOperationIssueType,
+            propertyName,
+            messageArgs: [propertyName, operationType],
+            operationType: operationType);
+    }
+
+    private static void ReportMultipleEnumerationDiagnostic(
+        SyntaxNodeAnalysisContext context,
+        LambdaExpressionSyntax lambda,
+        string propertyName,
+        string collectionName)
+    {
+        ReportDiagnostic(
+            context,
+            lambda.GetLocation(),
+            MultipleEnumerationRule,
+            MultipleEnumerationIssueType,
+            propertyName,
+            messageArgs: [propertyName, collectionName],
+            collectionName: collectionName);
+    }
+
+    private static void ReportExpensiveComputationDiagnostic(
+        SyntaxNodeAnalysisContext context,
+        LambdaExpressionSyntax lambda,
+        string propertyName)
+    {
+        ReportDiagnostic(
+            context,
+            lambda.GetLocation(),
+            ExpensiveComputationRule,
+            ExpensiveComputationIssueType,
+            propertyName,
+            messageArgs: [propertyName]);
+    }
+
+    private static void ReportTaskResultDiagnostic(
+        SyntaxNodeAnalysisContext context,
+        LambdaExpressionSyntax lambda,
+        string propertyName)
+    {
+        ReportDiagnostic(
+            context,
+            lambda.GetLocation(),
+            TaskResultSynchronousAccessRule,
+            TaskResultIssueType,
+            propertyName,
+            messageArgs: [propertyName]);
+    }
+
+    private static void ReportComplexLinqDiagnostic(
+        SyntaxNodeAnalysisContext context,
+        LambdaExpressionSyntax lambda,
+        string propertyName)
+    {
+        ReportDiagnostic(
+            context,
+            lambda.GetLocation(),
+            ComplexLinqOperationRule,
+            ComplexLinqIssueType,
+            propertyName,
+            messageArgs: [propertyName]);
+    }
+
+    private static void ReportNonDeterministicDiagnostic(
+        SyntaxNodeAnalysisContext context,
+        LambdaExpressionSyntax lambda,
+        string propertyName,
+        string operationType)
+    {
+        ReportDiagnostic(
+            context,
+            lambda.GetLocation(),
+            NonDeterministicOperationRule,
+            NonDeterministicIssueType,
+            propertyName,
+            messageArgs: [propertyName, operationType],
+            operationType: operationType);
     }
 
     private static void ReportDiagnostic(
         SyntaxNodeAnalysisContext context,
-        LambdaExpressionSyntax lambda,
+        Location location,
         DiagnosticDescriptor rule,
-        params string[] messageArgs)
+        string issueType,
+        string propertyName,
+        string[] messageArgs,
+        string? operationType = null,
+        string? collectionName = null)
     {
-        var diagnostic = Diagnostic.Create(rule, lambda.GetLocation(), messageArgs);
+        ImmutableDictionary<string, string?> properties =
+            CreateDiagnosticProperties(issueType, propertyName, operationType, collectionName);
+        var diagnostic = Diagnostic.Create(rule, location, properties, messageArgs);
         context.ReportDiagnostic(diagnostic);
     }
 
-    private static bool IsDatabaseOperation(string containingType, string methodName)
+    private static ImmutableDictionary<string, string?> CreateDiagnosticProperties(
+        string issueType,
+        string propertyName,
+        string? operationType,
+        string? collectionName)
     {
-        // Check for Entity Framework, NHibernate, Dapper, etc.
-        return containingType.Contains("DbSet") ||
-               containingType.Contains("DbContext") ||
-               containingType.Contains("IQueryable") ||
-               containingType.Contains("ISession") ||
-               containingType.Contains("SqlConnection") ||
-               methodName.Contains("Query") ||
-               methodName.Contains("Execute") ||
-               methodName.Contains("Load");
+        ImmutableDictionary<string, string?>.Builder properties =
+            ImmutableDictionary.CreateBuilder<string, string?>();
+        properties.Add(IssueTypePropertyName, issueType);
+        properties.Add(PropertyNamePropertyName, propertyName);
+
+        if (!string.IsNullOrEmpty(operationType))
+        {
+            properties.Add(OperationTypePropertyName, operationType);
+        }
+
+        if (!string.IsNullOrEmpty(collectionName))
+        {
+            properties.Add(CollectionNamePropertyName, collectionName);
+        }
+
+        return properties.ToImmutable();
+    }
+
+    private static bool IsDatabaseOperation(string containingType)
+    {
+        // Restrict to known data-access namespaces/types to avoid method-name false positives.
+        return containingType.Contains("DbSet", StringComparison.Ordinal) ||
+               containingType.Contains("DbContext", StringComparison.Ordinal) ||
+               containingType.Contains("IQueryable", StringComparison.Ordinal) ||
+               containingType == "System.Linq.Queryable" ||
+               containingType.Contains("EntityFrameworkQueryableExtensions", StringComparison.Ordinal) ||
+               containingType == "NHibernate.ISession" ||
+               containingType.StartsWith("NHibernate.", StringComparison.Ordinal) ||
+               containingType.Contains("SqlConnection", StringComparison.Ordinal) ||
+               containingType.Contains("System.Data", StringComparison.Ordinal) ||
+               containingType.Contains("Dapper", StringComparison.Ordinal);
     }
 
     private static bool IsFileIOOperation(string containingType, string methodName)
@@ -429,19 +608,29 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                (methodName.Contains("Write") && containingType.Contains("System.IO"));
     }
 
-    private static bool IsHttpOperation(string containingType, string methodName)
+    private static bool IsHttpOperation(string containingType)
     {
         return containingType.Contains("HttpClient") ||
                containingType.Contains("WebClient") ||
-               methodName.Contains("GetAsync") ||
-               methodName.Contains("PostAsync") ||
-               methodName.Contains("GetString");
+               containingType.Contains("HttpMessageInvoker");
     }
 
-    private static bool IsReflectionOperation(string methodName)
+    private static bool IsReflectionOperation(string containingType, string methodName)
     {
-        return methodName == "GetType" ||
-               methodName == "GetMethod" ||
+        if (methodName == "GetType" && (containingType == "System.Object" || containingType == "object"))
+        {
+            return true;
+        }
+
+        bool isReflectionType = containingType == "System.Type" ||
+                                containingType.StartsWith("System.Reflection.", StringComparison.Ordinal);
+
+        if (!isReflectionType)
+        {
+            return false;
+        }
+
+        return methodName == "GetMethod" ||
                methodName == "GetProperty" ||
                methodName == "GetField" ||
                methodName == "GetCustomAttributes" ||
@@ -450,18 +639,26 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
     private static bool IsTaskResultAccess(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
-        // Check if accessing .Result property on a Task
-        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+        // Check if this invocation is used with .Result (e.g., SomeTask().Result)
+        if (invocation.Parent is MemberAccessExpressionSyntax memberAccess &&
+            memberAccess.Name.Identifier.Text == "Result")
         {
-            if (memberAccess.Name.Identifier.Text == "Result")
+            SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(memberAccess);
+            if (symbolInfo.Symbol is IPropertySymbol propertySymbol &&
+                propertySymbol.Name == "Result")
             {
-                TypeInfo typeInfo = semanticModel.GetTypeInfo(memberAccess.Expression);
-                string typeName = typeInfo.Type?.ToDisplayString() ?? "";
-                return typeName.Contains("System.Threading.Tasks.Task");
+                string containingType = propertySymbol.ContainingType?.ToDisplayString() ?? "";
+                return containingType.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal);
             }
         }
 
         return false;
+    }
+
+    private static bool IsTaskWaitAccess(string containingType, string methodName)
+    {
+        return methodName == "Wait" &&
+               containingType.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal);
     }
 
     private static bool IsNonDeterministicOperation(string containingType, string methodName, out string operationType)
@@ -470,11 +667,12 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
         if (containingType == "System.DateTime" && (methodName == "get_Now" || methodName == "get_UtcNow"))
         {
-            operationType = "DateTime.Now";
+            operationType = methodName == "get_UtcNow" ? "DateTime.UtcNow" : "DateTime.Now";
             return true;
         }
 
-        if (containingType == "System.Random" || methodName.Contains("Random"))
+        if (containingType == "System.Random" &&
+            methodName is "Next" or "NextDouble" or "NextInt64" or "NextSingle" or "NextBytes")
         {
             operationType = "Random";
             return true;
@@ -604,5 +802,43 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    private static bool IsAutoMapperMethodInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel,
+        string methodName)
+    {
+        IMethodSymbol? methodSymbol = GetMethodSymbol(invocation, semanticModel);
+        if (methodSymbol == null || methodSymbol.Name != methodName)
+        {
+            return false;
+        }
+
+        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
+        return namespaceName == "AutoMapper" ||
+               (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
+    }
+
+    private static IMethodSymbol? GetMethodSymbol(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+
+        if (symbolInfo.Symbol is IMethodSymbol methodSymbol)
+        {
+            return methodSymbol;
+        }
+
+        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
+        {
+            if (candidateSymbol is IMethodSymbol candidateMethod)
+            {
+                return candidateMethod;
+            }
+        }
+
+        return null;
     }
 }

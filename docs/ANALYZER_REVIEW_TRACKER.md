@@ -15,9 +15,10 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | AM020 | Complex Mappings | [#51](https://github.com/georgepwall1991/automapper-analyser/pull/51) | [v2.12.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.12.0) | Unified analyzer/fixer suppression logic and direction-aware handling for `ForMember`/`ForPath`/construct-convert configuration. |
 | AM021 | Complex Mappings | [#52](https://github.com/georgepwall1991/automapper-analyser/pull/52) | [v2.13.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.13.0) | Direction-aware reverse-map handling, better custom-conversion suppression, and safer fixer type inference/output for collection element mismatches. |
 | AM022 | Complex Mappings | [#53](https://github.com/georgepwall1991/automapper-analyser/pull/53) | [v2.14.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.14.0) | Direction-aware reverse-map suppression, stricter ignore-all handling for recursion risks, and collection-aware recursion fixer behavior. |
+| AM030 | Complex Mappings | [#54](https://github.com/georgepwall1991/automapper-analyser/pull/54) | [v2.15.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.15.0) | Exact `ForMember` property matching (including case-insensitive suppression), `Ignore`/`ConstructUsing` suppression support, stronger converter signature/null-check analysis, and safer code-fix routing for missing-converter diagnostics. |
 
 ## In Progress
 
 | Analyzer | Area | Branch | Goal |
 |---|---|---|---|
-| AM030 | Complex Mappings | `codex/am030-next-pass` | Next analyzer pass for false positives/fixer reliability improvements. |
+| AM031 | Performance | `codex/am031-next-pass` | Next analyzer pass for false positives/fixer reliability improvements. |
