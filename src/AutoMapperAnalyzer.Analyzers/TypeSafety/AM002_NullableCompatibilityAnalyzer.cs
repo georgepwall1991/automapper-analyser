@@ -97,8 +97,10 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
 
         foreach (IPropertySymbol sourceProperty in sourceProperties)
         {
-            IPropertySymbol? destinationProperty = destinationProperties
-                .FirstOrDefault(p => string.Equals(p.Name, sourceProperty.Name, StringComparison.OrdinalIgnoreCase));
+            IPropertySymbol? destinationProperty = destinationProperties.FirstOrDefault(p => p.Name == sourceProperty.Name) ??
+                                                   destinationProperties.FirstOrDefault(p =>
+                                                       string.Equals(p.Name, sourceProperty.Name,
+                                                           StringComparison.OrdinalIgnoreCase));
 
             if (destinationProperty != null)
             {
