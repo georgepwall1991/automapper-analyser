@@ -110,4 +110,206 @@ public class AM004_ReverseMapTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
+
+    [Fact]
+    public async Task AM004_ShouldReportBothForwardAndReverse_WhenDifferentPropertiesMissingInEachDirection()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Extra { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Detail { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            // Source -> Destination: 'Extra' in Source has no destination
+                                            // Destination -> Source (ReverseMap): 'Detail' in Destination has no source
+                                            CreateMap<Source, Destination>().ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13, "Extra"),
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13, "Detail"));
+    }
+
+    [Fact]
+    public async Task AM004_ShouldNotReportDiagnostic_WhenForSourceMemberConfiguredOnReverse()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Tag { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            // ReverseMap followed by ForSourceMember to ignore Tag
+                                            // In Dest -> Source, 'Destination' is the source, so Tag is ignored
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap()
+                                                .ForSourceMember(d => d.Tag, opt => opt.DoNotValidate());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM004_ShouldNotReportDiagnostic_WhenForMemberConfiguredOnReverseMapping()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Tag { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            // ReverseMap followed by ForMember on reverse mapping
+                                            // In Dest -> Source, ForMember maps Destination.Tag to Source.Name
+                                            // So Tag is not a missing source property anymore
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap()
+                                                .ForMember(s => s.Name, opt => opt.MapFrom(d => d.Tag));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM004_ShouldNotReportDiagnostic_WhenConstructUsingConfiguredOnReverse()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Extra { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            // ReverseMap with ConstructUsing on reverse mapping
+                                            // ConstructUsing bypasses missing property checks for reverse direction
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap()
+                                                .ConstructUsing(d => new Source { Name = d.Name });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM004_ShouldReportCorrectlyForMultipleChainedMappingsWithReverse()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class A
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraA { get; set; }
+                                    }
+
+                                    public class B
+                                    {
+                                        public string Name { get; set; }
+                                        public string DetailB { get; set; }
+                                    }
+
+                                    public class C
+                                    {
+                                        public string Title { get; set; }
+                                        public string ExtraC { get; set; }
+                                    }
+
+                                    public class D
+                                    {
+                                        public string Title { get; set; }
+                                        public string DetailD { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            // First mapping with ReverseMap: A -> B and B -> A
+                                            // A has 'ExtraA', B has 'DetailB'
+                                            CreateMap<A, B>().ReverseMap();
+
+                                            // Second mapping without ReverseMap: C -> D
+                                            // C has 'ExtraC', D has 'DetailD'
+                                            CreateMap<C, D>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 35, 13, "ExtraA"),
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 35, 13, "DetailB"),
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 39, 13, "ExtraC"));
+    }
 }

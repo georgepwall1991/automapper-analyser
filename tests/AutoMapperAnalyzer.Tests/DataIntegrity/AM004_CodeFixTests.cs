@@ -916,4 +916,426 @@ public class AM004_CodeFixTests
                 null,
                 1);
     }
+
+    [Fact]
+    public async Task AM004_FuzzyMatch_ShouldSuggestSimilarProperty_WhenLevenshteinDistance1()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Emal { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Emal { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Email { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Emal));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[]
+                {
+                    new DiagnosticResult(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule)
+                        .WithLocation(21, 13)
+                        .WithArguments("Emal")
+                },
+                expectedFixedCode,
+                2, // Index 2 = first per-property fix (fuzzy match "Map to similar property 'Email'")
+                null,
+                1);
+    }
+
+    [Fact]
+    public async Task AM004_FuzzyMatch_ShouldSuggestSimilarProperty_WhenLevenshteinDistance2()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Usr { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string User { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Usr { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string User { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.User, opt => opt.MapFrom(src => src.Usr));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[]
+                {
+                    new DiagnosticResult(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule)
+                        .WithLocation(21, 13)
+                        .WithArguments("Usr")
+                },
+                expectedFixedCode,
+                2, // Index 2 = first per-property fix (fuzzy match)
+                null,
+                1);
+    }
+
+    [Fact]
+    public async Task AM004_FuzzyMatch_ShouldNotSuggest_WhenDistanceTooLarge()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string InternalTrackingCode { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // When no fuzzy match exists, first per-property fix is "Create property in destination type"
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string InternalTrackingCode { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string InternalTrackingCode { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[]
+                {
+                    new DiagnosticResult(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule)
+                        .WithLocation(20, 13)
+                        .WithArguments("InternalTrackingCode")
+                },
+                expectedFixedCode,
+                2, // Index 2 = first per-property fix ("Create property" since no fuzzy match)
+                null,
+                1);
+    }
+
+    [Fact]
+    public async Task AM004_BulkCreate_ShouldGenerateInitOnly_WhenDestinationUsesInitAccessor()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Extra { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; init; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Extra { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; init; }
+                                                 public string Extra { get; init; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[]
+                {
+                    new DiagnosticResult(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule)
+                        .WithLocation(20, 13)
+                        .WithArguments("Extra")
+                },
+                expectedFixedCode,
+                1, // Index 1 = "Create all missing properties in destination type"
+                null,
+                1);
+    }
+
+    [Fact]
+    public async Task AM004_BulkCreate_ShouldAddPositionalParameter_WhenDestinationIsPositionalRecord()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Extra { get; set; }
+                                    }
+
+                                    public record Destination(string Name);
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Extra { get; set; }
+                                             }
+
+                                             public record Destination(string Name, string Extra);
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[]
+                {
+                    new DiagnosticResult(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule)
+                        .WithLocation(17, 13)
+                        .WithArguments("Extra")
+                },
+                expectedFixedCode,
+                1, // Index 1 = "Create all missing properties in destination type"
+                null,
+                1);
+    }
+
+    [Fact]
+    public async Task AM004_BulkCreate_ShouldAddInitProperty_WhenDestinationIsRecordWithBody()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Extra { get; set; }
+                                    }
+
+                                    public record Destination
+                                    {
+                                        public string Name { get; init; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Extra { get; set; }
+                                             }
+
+                                             public record Destination
+                                             {
+                                                 public string Name { get; init; }
+                                                 public string Extra { get; init; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[]
+                {
+                    new DiagnosticResult(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule)
+                        .WithLocation(20, 13)
+                        .WithArguments("Extra")
+                },
+                expectedFixedCode,
+                1, // Index 1 = "Create all missing properties in destination type"
+                null,
+                1);
+    }
 }
