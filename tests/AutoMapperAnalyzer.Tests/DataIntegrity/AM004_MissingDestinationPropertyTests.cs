@@ -651,4 +651,115 @@ public class AM004_MissingDestinationPropertyTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
+
+    [Fact]
+    public async Task AM004_ShouldNotReportDiagnostic_ForCreateMapLikeApiOutsideAutoMapper()
+    {
+        const string testCode = """
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string LostData { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class FakeMapExpression<TSource, TDestination>
+                                    {
+                                    }
+
+                                    public class FakeProfile
+                                    {
+                                        public FakeMapExpression<TSource, TDestination> CreateMap<TSource, TDestination>() => new();
+                                    }
+
+                                    public class TestProfile : FakeProfile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM004_ShouldNotReportDiagnostic_WhenSourcePropertyHandledByParenthesizedForMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string FirstName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string FullName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember((dest) => dest.FullName, (opt) => opt.MapFrom((src) => src.FirstName));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM004_ShouldReportDiagnostic_WhenFlatteningPrefixMatchesButNestedMemberDoesNotExist()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Customer
+                                    {
+                                        public string FirstName { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Customer Customer { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string CustomerAge { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 24, 13, "Customer"));
+    }
 }

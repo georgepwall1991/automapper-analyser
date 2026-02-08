@@ -41,14 +41,14 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
     {
         var invocationExpr = (InvocationExpressionSyntax)context.Node;
 
-        // Check if this is a CreateMap<TSource, TDestination>() call
-        if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
+        // Check if this is an AutoMapper CreateMap<TSource, TDestination>() call
+        if (!IsAutoMapperCreateMapInvocation(invocationExpr, context.SemanticModel))
         {
             return;
         }
 
         (ITypeSymbol? sourceType, ITypeSymbol? destinationType) typeArguments =
-            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
+            GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
         if (typeArguments.sourceType == null || typeArguments.destinationType == null)
         {
             return;
@@ -60,7 +60,8 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             invocationExpr,
             typeArguments.sourceType,
             typeArguments.destinationType,
-            false
+            context.SemanticModel,
+            stopAtReverseMapBoundary: true
         );
 
         // Check for ReverseMap() and analyze Destination -> Source
@@ -70,26 +71,26 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         {
             AnalyzeMissingDestinationProperties(
                 context,
-                invocationExpr, // Use the original invocation for location, or maybe reverseMapInvocation?
+                reverseMapInvocation,
                 typeArguments.destinationType, // Source is now Destination
                 typeArguments.sourceType, // Destination is now Source
-                true,
-                reverseMapInvocation
+                context.SemanticModel,
+                stopAtReverseMapBoundary: false
             );
         }
     }
 
     private static void AnalyzeMissingDestinationProperties(
         SyntaxNodeAnalysisContext context,
-        InvocationExpressionSyntax invocation,
+        InvocationExpressionSyntax mappingInvocation,
         ITypeSymbol sourceType,
         ITypeSymbol destinationType,
-        bool isReverseMap,
-        InvocationExpressionSyntax? reverseMapInvocation = null)
+        SemanticModel semanticModel,
+        bool stopAtReverseMapBoundary)
     {
         // Custom construction/conversion can legitimately consume source members without
         // one-to-one destination properties. Skip this direction to avoid noisy false positives.
-        if (HasCustomConstructionOrConversion(invocation, isReverseMap, reverseMapInvocation))
+        if (HasCustomConstructionOrConversion(mappingInvocation, semanticModel, stopAtReverseMapBoundary))
         {
             return;
         }
@@ -113,33 +114,37 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
 
             // Check for flattening: if source property is complex and destination has properties starting with source name
             // AutoMapper flattens complex properties (e.g. Customer.Name -> CustomerName)
-            if (!AutoMapperAnalysisHelpers.IsBuiltInType(sourceProperty.Type))
+            if (IsFlatteningMatch(sourceProperty, destinationProperties))
             {
-                bool isUsedInFlattening = destinationProperties
-                    .Any(p => p.Name.StartsWith(sourceProperty.Name, StringComparison.OrdinalIgnoreCase));
-
-                if (isUsedInFlattening)
-                {
-                    continue; // Property is likely used in flattening
-                }
+                continue; // Property is used in flattening
             }
 
             // Check if this source property is handled by custom mapping configuration
-            if (IsSourcePropertyHandledByCustomMapping(invocation, sourceProperty.Name, isReverseMap,
-                    reverseMapInvocation))
+            if (IsSourcePropertyHandledByCustomMapping(
+                    mappingInvocation,
+                    sourceProperty.Name,
+                    semanticModel,
+                    stopAtReverseMapBoundary))
             {
                 continue; // Property is handled by custom mapping, no data loss
             }
 
             // Check if this source property is consumed by constructor parameter mapping
-            if (IsSourcePropertyHandledByCtorParamMapping(invocation, sourceProperty.Name, isReverseMap,
-                    reverseMapInvocation))
+            if (IsSourcePropertyHandledByCtorParamMapping(
+                    mappingInvocation,
+                    sourceProperty.Name,
+                    semanticModel,
+                    stopAtReverseMapBoundary))
             {
                 continue; // Property is mapped to ctor parameter, no data loss
             }
 
             // Check if this source property is explicitly ignored
-            if (IsSourcePropertyExplicitlyIgnored(invocation, sourceProperty.Name, isReverseMap, reverseMapInvocation))
+            if (IsSourcePropertyExplicitlyIgnored(
+                    mappingInvocation,
+                    sourceProperty.Name,
+                    semanticModel,
+                    stopAtReverseMapBoundary))
             {
                 continue; // Property is explicitly ignored, no diagnostic needed
             }
@@ -152,13 +157,9 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             properties.Add("SourceTypeName", GetTypeName(sourceType));
             properties.Add("DestinationTypeName", GetTypeName(destinationType));
 
-            // Use location of ReverseMap call if this is a reverse map issue, otherwise CreateMap
-            InvocationExpressionSyntax locationNode =
-                isReverseMap && reverseMapInvocation != null ? reverseMapInvocation : invocation;
-
             var diagnostic = Diagnostic.Create(
                 MissingDestinationPropertyRule,
-                locationNode.GetLocation(),
+                mappingInvocation.GetLocation(),
                 properties.ToImmutable(),
                 sourceProperty.Name);
 
@@ -176,26 +177,28 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         return type.Name;
     }
 
-    private static bool IsSourcePropertyHandledByCustomMapping(
-        InvocationExpressionSyntax createMapInvocation,
-        string sourcePropertyName,
-        bool isReverseMap,
-        InvocationExpressionSyntax? reverseMapInvocation)
+    private static bool IsFlatteningMatch(
+        IPropertySymbol sourceProperty,
+        IEnumerable<IPropertySymbol> destinationProperties)
     {
-        // Get all ForMember calls in the chain
-        IEnumerable<InvocationExpressionSyntax> forMemberCalls =
-            AutoMapperAnalysisHelpers.GetForMemberCalls(createMapInvocation);
-
-        foreach (InvocationExpressionSyntax? forMember in forMemberCalls)
+        if (AutoMapperAnalysisHelpers.IsBuiltInType(sourceProperty.Type))
         {
-            // Check if this ForMember call applies to the current direction
-            if (!AppliesToDirection(forMember, isReverseMap, reverseMapInvocation))
+            return false;
+        }
+
+        IEnumerable<IPropertySymbol> nestedProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceProperty.Type, requireSetter: false);
+
+        foreach (IPropertySymbol destinationProperty in destinationProperties)
+        {
+            if (!destinationProperty.Name.StartsWith(sourceProperty.Name, StringComparison.OrdinalIgnoreCase) ||
+                destinationProperty.Name.Length <= sourceProperty.Name.Length)
             {
                 continue;
             }
 
-            // Check if this ForMember call references the source property
-            if (ForMemberReferencesSourceProperty(forMember, sourcePropertyName))
+            string flattenedMemberName = destinationProperty.Name.Substring(sourceProperty.Name.Length);
+            if (nestedProperties.Any(p => string.Equals(p.Name, flattenedMemberName, StringComparison.OrdinalIgnoreCase)))
             {
                 return true;
             }
@@ -204,54 +207,131 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool AppliesToDirection(
-        InvocationExpressionSyntax mappingMethod,
-        bool isReverseMap,
-        InvocationExpressionSyntax? reverseMapInvocation)
+    private static bool IsSourcePropertyHandledByCustomMapping(
+        InvocationExpressionSyntax mappingInvocation,
+        string sourcePropertyName,
+        SemanticModel semanticModel,
+        bool stopAtReverseMapBoundary)
     {
-        if (reverseMapInvocation == null)
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(mappingInvocation, stopAtReverseMapBoundary))
         {
-            // No ReverseMap, so all calls apply to Forward (which is the only direction being analyzed if isReverseMap is false)
-            // If isReverseMap is true but no reverseMapInvocation, something is wrong, but we'll assume false.
-            return !isReverseMap;
+            if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForMember"))
+            {
+                continue;
+            }
+
+            if (ForMemberReferencesSourceProperty(chainedInvocation, sourcePropertyName))
+            {
+                return true;
+            }
         }
 
-        // If we have ReverseMap, we need to split the chain
-        // Forward Map: Methods that are DESCENDANTS of ReverseMap (inside its expression)
-        // Reverse Map: Methods that are ANCESTORS of ReverseMap (contain it)
-
-        // Check if mappingMethod contains ReverseMap (Ancestor)
-        bool isAncestor = reverseMapInvocation.Ancestors().Contains(mappingMethod);
-
-        if (isReverseMap)
-        {
-            // For Reverse Map, we want calls that come AFTER ReverseMap() in the chain
-            // In syntax tree, these are parents/ancestors of ReverseMap
-            return isAncestor;
-        }
-
-        // For Forward Map, we want calls that come BEFORE ReverseMap() in the chain
-        // In syntax tree, these are descendants (or simply NOT ancestors)
-        // Actually, strictly speaking, they should be descendants.
-        // If mappingMethod is neither ancestor nor descendant, it might be on a separate branch? 
-        // But usually it's a linear chain.
-        // If it's NOT an ancestor, it must be "inside" the expression of ReverseMap.
-        return !isAncestor;
+        return false;
     }
 
-    private static bool ForMemberReferencesSourceProperty(InvocationExpressionSyntax forMemberInvocation,
+    private static bool ForMemberReferencesSourceProperty(
+        InvocationExpressionSyntax forMemberInvocation,
         string sourcePropertyName)
     {
-        // Look for lambda expressions in ForMember arguments that reference the source property
-        foreach (ArgumentSyntax arg in forMemberInvocation.ArgumentList.Arguments)
+        // ForMember's second argument contains the mapping lambda where source usage appears.
+        if (forMemberInvocation.ArgumentList.Arguments.Count > 1)
         {
-            if (ContainsPropertyReference(arg.Expression, sourcePropertyName))
+            return ContainsPropertyReference(forMemberInvocation.ArgumentList.Arguments[1].Expression, sourcePropertyName);
+        }
+
+        return false;
+    }
+
+    private static bool HasCustomConstructionOrConversion(
+        InvocationExpressionSyntax mappingInvocation,
+        SemanticModel semanticModel,
+        bool stopAtReverseMapBoundary)
+    {
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(mappingInvocation, stopAtReverseMapBoundary))
+        {
+            if (IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ConstructUsing") ||
+                IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ConvertUsing"))
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private static bool IsSourcePropertyHandledByCtorParamMapping(
+        InvocationExpressionSyntax mappingInvocation,
+        string sourcePropertyName,
+        SemanticModel semanticModel,
+        bool stopAtReverseMapBoundary)
+    {
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(mappingInvocation, stopAtReverseMapBoundary))
+        {
+            if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForCtorParam") ||
+                chainedInvocation.ArgumentList.Arguments.Count <= 1)
+            {
+                continue;
+            }
+
+            ExpressionSyntax ctorMappingArg = chainedInvocation.ArgumentList.Arguments[1].Expression;
+            if (ContainsPropertyReference(ctorMappingArg, sourcePropertyName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsSourcePropertyExplicitlyIgnored(
+        InvocationExpressionSyntax mappingInvocation,
+        string sourcePropertyName,
+        SemanticModel semanticModel,
+        bool stopAtReverseMapBoundary)
+    {
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(mappingInvocation, stopAtReverseMapBoundary))
+        {
+            if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForSourceMember"))
+            {
+                continue;
+            }
+
+            if (IsForSourceMemberOfProperty(chainedInvocation, sourcePropertyName) &&
+                HasDoNotValidateCall(chainedInvocation))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsForSourceMemberOfProperty(
+        InvocationExpressionSyntax forSourceMemberInvocation,
+        string propertyName)
+    {
+        if (forSourceMemberInvocation.ArgumentList.Arguments.Count == 0)
+        {
+            return false;
+        }
+
+        string? selectedMember = GetSelectedMemberName(forSourceMemberInvocation.ArgumentList.Arguments[0].Expression);
+        return string.Equals(selectedMember, propertyName, StringComparison.Ordinal);
+    }
+
+    private static bool HasDoNotValidateCall(InvocationExpressionSyntax forSourceMemberInvocation)
+    {
+        if (forSourceMemberInvocation.ArgumentList.Arguments.Count <= 1)
+        {
+            return false;
+        }
+
+        ExpressionSyntax secondArg = forSourceMemberInvocation.ArgumentList.Arguments[1].Expression;
+        return secondArg.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Any(invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Name.Identifier.ValueText == "DoNotValidate");
     }
 
     private static bool ContainsPropertyReference(SyntaxNode node, string propertyName)
@@ -262,125 +342,124 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        // Recursively search for property access expressions that match the property name
         return node.DescendantNodes().OfType<MemberAccessExpressionSyntax>()
             .Any(memberAccess => memberAccess.Name.Identifier.ValueText == propertyName);
     }
 
-    private static bool HasCustomConstructionOrConversion(
-        InvocationExpressionSyntax createMapInvocation,
-        bool isReverseMap,
-        InvocationExpressionSyntax? reverseMapInvocation)
+    private static string? GetSelectedMemberName(ExpressionSyntax expression)
     {
-        SyntaxNode? parent = createMapInvocation.Parent;
+        return expression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda when simpleLambda.Body is MemberAccessExpressionSyntax memberAccess =>
+                memberAccess.Name.Identifier.ValueText,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda
+                when parenthesizedLambda.Body is MemberAccessExpressionSyntax memberAccess =>
+                memberAccess.Name.Identifier.ValueText,
+            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
+            _ => null
+        };
+    }
 
-        while (parent is MemberAccessExpressionSyntax memberAccess &&
+    private static IEnumerable<InvocationExpressionSyntax> GetScopedChainInvocations(
+        InvocationExpressionSyntax mappingInvocation,
+        bool stopAtReverseMapBoundary)
+    {
+        SyntaxNode? currentNode = mappingInvocation.Parent;
+
+        while (currentNode is MemberAccessExpressionSyntax memberAccess &&
                memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
         {
-            if ((memberAccess.Name.Identifier.ValueText is "ConstructUsing" or "ConvertUsing") &&
-                AppliesToDirection(chainedInvocation, isReverseMap, reverseMapInvocation))
+            if (stopAtReverseMapBoundary && memberAccess.Name.Identifier.ValueText == "ReverseMap")
+            {
+                break;
+            }
+
+            yield return chainedInvocation;
+            currentNode = chainedInvocation.Parent;
+        }
+    }
+
+    private static bool IsAutoMapperCreateMapInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        return IsAutoMapperMethodInvocation(invocation, semanticModel, "CreateMap");
+    }
+
+    private static bool IsAutoMapperMethodInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel,
+        string methodName)
+    {
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+
+        if (IsAutoMapperMethod(symbolInfo.Symbol as IMethodSymbol, methodName))
+        {
+            return true;
+        }
+
+        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
+        {
+            if (IsAutoMapperMethod(candidateSymbol as IMethodSymbol, methodName))
             {
                 return true;
             }
-
-            parent = chainedInvocation.Parent;
         }
 
         return false;
     }
 
-    private static bool IsSourcePropertyHandledByCtorParamMapping(
-        InvocationExpressionSyntax createMapInvocation,
-        string sourcePropertyName,
-        bool isReverseMap,
-        InvocationExpressionSyntax? reverseMapInvocation)
+    private static bool IsAutoMapperMethod(IMethodSymbol? methodSymbol, string methodName)
     {
-        SyntaxNode? parent = createMapInvocation.Parent;
-
-        while (parent is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
+        if (methodSymbol == null || methodSymbol.Name != methodName)
         {
-            if (memberAccess.Name.Identifier.ValueText == "ForCtorParam" &&
-                AppliesToDirection(chainedInvocation, isReverseMap, reverseMapInvocation) &&
-                chainedInvocation.ArgumentList.Arguments.Count > 1)
+            return false;
+        }
+
+        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
+        return namespaceName == "AutoMapper" ||
+               (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
+    }
+
+    private static (ITypeSymbol? sourceType, ITypeSymbol? destinationType) GetCreateMapTypeArguments(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+
+        if (TryGetCreateMapTypeArgumentsFromMethod(symbolInfo.Symbol as IMethodSymbol, out ITypeSymbol? sourceType,
+                out ITypeSymbol? destinationType))
+        {
+            return (sourceType, destinationType);
+        }
+
+        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
+        {
+            if (TryGetCreateMapTypeArgumentsFromMethod(candidateSymbol as IMethodSymbol, out sourceType,
+                    out destinationType))
             {
-                ExpressionSyntax ctorMappingArg = chainedInvocation.ArgumentList.Arguments[1].Expression;
-                if (ContainsPropertyReference(ctorMappingArg, sourcePropertyName))
-                {
-                    return true;
-                }
+                return (sourceType, destinationType);
             }
-
-            parent = chainedInvocation.Parent;
         }
 
-        return false;
+        return AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
     }
 
-    private static bool IsSourcePropertyExplicitlyIgnored(
-        InvocationExpressionSyntax createMapInvocation,
-        string sourcePropertyName,
-        bool isReverseMap,
-        InvocationExpressionSyntax? reverseMapInvocation)
+    private static bool TryGetCreateMapTypeArgumentsFromMethod(
+        IMethodSymbol? methodSymbol,
+        out ITypeSymbol? sourceType,
+        out ITypeSymbol? destinationType)
     {
-        // Look for ForSourceMember calls
-        SyntaxNode? parent = createMapInvocation.Parent;
+        sourceType = null;
+        destinationType = null;
 
-        while (parent is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
+        if (methodSymbol?.TypeArguments.Length != 2)
         {
-            if (memberAccess.Name.Identifier.ValueText == "ForSourceMember")
-            {
-                // Check direction
-                if (AppliesToDirection(chainedInvocation, isReverseMap, reverseMapInvocation))
-                {
-                    // Check if this ForSourceMember call is for the property we're analyzing
-                    if (IsForSourceMemberOfProperty(chainedInvocation, sourcePropertyName))
-                    {
-                        // Check if it has DoNotValidate
-                        if (HasDoNotValidateCall(chainedInvocation))
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-
-            // Move up the chain
-            parent = chainedInvocation.Parent;
+            return false;
         }
 
-        return false;
-    }
-
-    private static bool IsForSourceMemberOfProperty(InvocationExpressionSyntax forSourceMemberInvocation,
-        string propertyName)
-    {
-        // Check the first argument of ForSourceMember to see if it references the property
-        if (forSourceMemberInvocation.ArgumentList.Arguments.Count > 0)
-        {
-            ExpressionSyntax firstArg = forSourceMemberInvocation.ArgumentList.Arguments[0].Expression;
-            return ContainsPropertyReference(firstArg, propertyName);
-        }
-
-        return false;
-    }
-
-    private static bool HasDoNotValidateCall(InvocationExpressionSyntax forSourceMemberInvocation)
-    {
-        // Look for DoNotValidate call in the second argument (options)
-        if (forSourceMemberInvocation.ArgumentList.Arguments.Count > 1)
-        {
-            ExpressionSyntax secondArg = forSourceMemberInvocation.ArgumentList.Arguments[1].Expression;
-
-            // Look for lambda expressions that contain DoNotValidate calls
-            return secondArg.DescendantNodes()
-                .OfType<InvocationExpressionSyntax>()
-                .Any(invocation =>
-                    invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-                    memberAccess.Name.Identifier.ValueText == "DoNotValidate");
-        }
-
-        return false;
+        sourceType = methodSymbol.TypeArguments[0];
+        destinationType = methodSymbol.TypeArguments[1];
+        return true;
     }
 }
