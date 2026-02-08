@@ -22,9 +22,10 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | AM003 | Type Safety | [#58](https://github.com/georgepwall1991/automapper-analyser/pull/58) | [v2.19.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.19.0) | Added strict AutoMapper `CreateMap`/`ForMember` symbol checks, hardened explicit-mapping suppression, fixed custom-collection-name false positives, and improved analyzer/fixer diagnostic metadata compatibility. |
 | AM006 (2nd pass) | Data Integrity | [#59](https://github.com/georgepwall1991/automapper-analyser/pull/59) | [v2.20.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.20.0) | Tightened AutoMapper symbol gating, scoped `ForMember` suppression correctly across `ReverseMap`, validated flattening members, added candidate-symbol type-argument fallback, and expanded AM006 regression coverage. |
 | AM011 (2nd pass) | Data Integrity | [#60](https://github.com/georgepwall1991/automapper-analyser/pull/60) | [v2.21.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.21.0) | Added strict AutoMapper symbol checks, parenthesized-lambda `ForMember` support, `ReverseMap`-scoped required-member analysis, candidate-symbol type argument fallback, and aligned bulk fixer suppression for `ForCtorParam`. |
+| AM004 (2nd pass) | Data Integrity | [#61](https://github.com/georgepwall1991/automapper-analyser/pull/61) | [v2.22.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.22.0) | Tightened AutoMapper symbol gating, direction-scoped forward/reverse analysis, stricter flattening/member-source detection, reverse-map aware bulk fixer context, and semantic `ReverseMap` boundary handling with new regression coverage. |
 
 ## In Progress
 
 | Analyzer | Area | Branch | Goal |
 |---|---|---|---|
-| AM004 (2nd pass) | Data Integrity | `codex/am004-second-pass` | Second pass focused on strict AutoMapper symbol gating, parenthesized-lambda suppression coverage, and analyzer/fixer consistency around explicit construction/conversion handling. |
+| _(none)_ | - | - | Ready for next analyzer selection. |
