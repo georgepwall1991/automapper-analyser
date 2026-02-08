@@ -13,9 +13,9 @@ namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 {
-    private const string PropertyNamePropertyName = "PropertyName";
-    private const string SourcePropertyTypePropertyName = "SourcePropertyType";
-    private const string DestinationPropertyTypePropertyName = "DestinationPropertyType";
+    internal const string PropertyNamePropertyName = "PropertyName";
+    internal const string SourcePropertyTypePropertyName = "SourcePropertyType";
+    internal const string DestinationPropertyTypePropertyName = "DestinationPropertyType";
 
     /// <summary>
     ///     Diagnostic rule for property type mismatches.
@@ -344,7 +344,26 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         SemanticModel semanticModel,
         string methodName)
     {
-        IMethodSymbol? methodSymbol = GetMethodSymbol(invocation, semanticModel);
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+
+        if (IsAutoMapperMethod(symbolInfo.Symbol as IMethodSymbol, methodName))
+        {
+            return true;
+        }
+
+        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
+        {
+            if (IsAutoMapperMethod(candidateSymbol as IMethodSymbol, methodName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsAutoMapperMethod(IMethodSymbol? methodSymbol, string methodName)
+    {
         if (methodSymbol == null || methodSymbol.Name != methodName)
         {
             return false;
@@ -353,27 +372,5 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
         return namespaceName == "AutoMapper" ||
                (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
-    }
-
-    private static IMethodSymbol? GetMethodSymbol(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-
-        if (symbolInfo.Symbol is IMethodSymbol methodSymbol)
-        {
-            return methodSymbol;
-        }
-
-        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
-        {
-            if (candidateSymbol is IMethodSymbol candidateMethod)
-            {
-                return candidateMethod;
-            }
-        }
-
-        return null;
     }
 }

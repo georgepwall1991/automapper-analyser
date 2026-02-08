@@ -17,10 +17,6 @@ namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 [Shared]
 public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProviderBase
 {
-    private const string PropertyNamePropertyName = "PropertyName";
-    private const string SourcePropertyTypePropertyName = "SourcePropertyType";
-    private const string DestinationPropertyTypePropertyName = "DestinationPropertyType";
-
     /// <summary>
     ///     Gets the diagnostic IDs that this provider can fix.
     /// </summary>
@@ -216,7 +212,8 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
     private string? ExtractPropertyNameFromDiagnostic(Diagnostic diagnostic)
     {
         // Try to get property name from diagnostic properties
-        if (diagnostic.Properties.TryGetValue(PropertyNamePropertyName, out string? propertyName))
+        if (diagnostic.Properties.TryGetValue(AM001_PropertyTypeMismatchAnalyzer.PropertyNamePropertyName,
+                out string? propertyName))
         {
             return propertyName;
         }
@@ -231,9 +228,11 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
     {
         // Try to get from diagnostic properties first
         string? sourceType =
-            diagnostic.Properties.TryGetValue(SourcePropertyTypePropertyName, out string? st) ? st : null;
+            diagnostic.Properties.TryGetValue(AM001_PropertyTypeMismatchAnalyzer.SourcePropertyTypePropertyName,
+                out string? st) ? st : null;
         string? destType =
-            diagnostic.Properties.TryGetValue(DestinationPropertyTypePropertyName, out string? dt) ? dt : null;
+            diagnostic.Properties.TryGetValue(AM001_PropertyTypeMismatchAnalyzer.DestinationPropertyTypePropertyName,
+                out string? dt) ? dt : null;
 
         if (!string.IsNullOrEmpty(sourceType) && !string.IsNullOrEmpty(destType))
         {
