@@ -19,9 +19,11 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | AM031 | Performance | [#55](https://github.com/georgepwall1991/automapper-analyser/pull/55) | [v2.16.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.16.0) | Stricter AutoMapper semantic checks, reduced heuristic false positives (`Random`/reflection/database), richer diagnostic metadata for fixer routing, and broader performance regression coverage (`Task.Wait`, parenthesized lambdas, `DateTime.UtcNow`). |
 | AM001 | Type Safety | [#56](https://github.com/georgepwall1991/automapper-analyser/pull/56) | [v2.17.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.17.0) | Added semantic AutoMapper invocation guards, fixed AM001/AM002 overlap for nullable + incompatible types, improved fixer conversion safety/routing, and expanded AM001 regression coverage. |
 | AM002 | Type Safety | [#57](https://github.com/georgepwall1991/automapper-analyser/pull/57) | [v2.18.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.18.0) | Added strict AutoMapper symbol checks, parenthesized-lambda `ForMember` suppression, metadata-backed fixer extraction, and regression coverage for lookalike APIs and nullable+incompatible scenarios. |
+| AM003 | Type Safety | [#58](https://github.com/georgepwall1991/automapper-analyser/pull/58) | [v2.19.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.19.0) | Added strict AutoMapper `CreateMap`/`ForMember` symbol checks, hardened explicit-mapping suppression, fixed custom-collection-name false positives, and improved analyzer/fixer diagnostic metadata compatibility. |
+| AM006 (2nd pass) | Data Integrity | [#59](https://github.com/georgepwall1991/automapper-analyser/pull/59) | [v2.20.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.20.0) | Tightened AutoMapper symbol gating, scoped `ForMember` suppression correctly across `ReverseMap`, validated flattening members, added candidate-symbol type-argument fallback, and expanded AM006 regression coverage. |
 
 ## In Progress
 
 | Analyzer | Area | Branch | Goal |
 |---|---|---|---|
-| AM003 | Type Safety | `codex/am003-next-pass` | Next analyzer pass for false positives/fixer reliability improvements. |
+| AM011 (2nd pass) | Data Integrity | `codex/am011-second-pass` | Second pass focused on reducing AM006/AM011 overlap risks, improving explicit-configuration suppression, and hardening code-fix reliability. |
