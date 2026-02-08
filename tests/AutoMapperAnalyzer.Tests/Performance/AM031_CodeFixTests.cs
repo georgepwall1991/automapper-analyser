@@ -398,4 +398,90 @@ public class AM031_CodeFixTests
                     .WithLocation(29, 13),
                 expectedFixedCode);
     }
+
+    [Fact(Skip = "Test framework limitation: solution-level code fix registration - AM031 returns Solution edits")]
+    public async Task AM031_ShouldPreserveOtherForMemberCalls_WhenApplyingFix()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class ScoreService
+                                    {
+                                        public int Calculate(int id) => id * 2;
+                                    }
+
+                                    public class Source
+                                    {
+                                        public int Id { get; set; }
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Score { get; set; }
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private readonly ScoreService _service;
+
+                                        public TestProfile(ScoreService service)
+                                        {
+                                            _service = service;
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Score, opt => opt.MapFrom(src => _service.Calculate(src.Id)))
+                                                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class ScoreService
+                                             {
+                                                 public int Calculate(int id) => id * 2;
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public int Id { get; set; }
+                                                 public string Name { get; set; }
+                                                 public int Score { get; set; } // TODO: Populate this property before mapping
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public int Score { get; set; }
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 private readonly ScoreService _service;
+
+                                                 public TestProfile(ScoreService service)
+                                                 {
+                                                     _service = service;
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM031_PerformanceWarningAnalyzer, AM031_PerformanceWarningCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule)
+                    .WithLocation(30, 67)
+                    .WithArguments("Score", "method call"),
+                expectedFixedCode);
+    }
 }

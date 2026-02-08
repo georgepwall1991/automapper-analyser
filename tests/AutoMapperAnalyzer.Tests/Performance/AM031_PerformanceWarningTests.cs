@@ -811,4 +811,198 @@ public class AM031_PerformanceWarningTests
             .ExpectNoDiagnostics()
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_ForCreateMapLikeApiOutsideAutoMapper()
+    {
+        const string testCode = """
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class ExternalService
+                                    {
+                                        public string GetData(int id) => "data";
+                                    }
+
+                                    public class Source
+                                    {
+                                        public int Id { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Data { get; set; }
+                                    }
+
+                                    public class FakeMapOptions<TSource, TDestMember>
+                                    {
+                                        public void MapFrom(Func<TSource, TDestMember> resolver)
+                                        {
+                                        }
+                                    }
+
+                                    public class FakeMapExpression<TSource, TDestination>
+                                    {
+                                        public FakeMapExpression<TSource, TDestination> ForMember<TDestMember>(
+                                            Func<TDestination, TDestMember> destinationMember,
+                                            Action<FakeMapOptions<TSource, TDestMember>> optionsAction)
+                                        {
+                                            return this;
+                                        }
+                                    }
+
+                                    public class Profile
+                                    {
+                                        public FakeMapExpression<TSource, TDestination> CreateMap<TSource, TDestination>() => new();
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private readonly ExternalService _service = new();
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Data, opt => opt.MapFrom(src => _service.GetData(src.Id)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_ForParenthesizedLambdasInMapFrom()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class DataService
+                                    {
+                                        public string GetData(int id) => "data";
+                                    }
+
+                                    public class Source
+                                    {
+                                        public int Id { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private readonly DataService _service;
+
+                                        public TestProfile(DataService service)
+                                        {
+                                            _service = service;
+                                            CreateMap<Source, Destination>()
+                                                .ForMember((dest) => dest.Data, (opt) => opt.MapFrom((src) => _service.GetData(src.Id)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule, 28, 70,
+                "Data", "method call")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_ForTaskResultOnStaticAsyncMethod()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Threading.Tasks;
+
+                                namespace TestNamespace
+                                {
+                                    public static class DataService
+                                    {
+                                        public static Task<string> GetDataAsync(int id) => Task.FromResult("data");
+                                    }
+
+                                    public class Source
+                                    {
+                                        public int Id { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Data, opt => opt.MapFrom(src => DataService.GetDataAsync(src.Id).Result));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule, 26, 66,
+                "Data")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_ForDeterministicMethodWithRandomInName()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public static class ValueTransformations
+                                    {
+                                        public static int RandomizeSeed(int value) => value + 1;
+                                    }
+
+                                    public class Source
+                                    {
+                                        public int Value { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Result { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Result, opt => opt.MapFrom(src => ValueTransformations.RandomizeSeed(src.Value)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
 }
