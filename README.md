@@ -14,7 +14,7 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.23.0
+## 🎉 Latest Release: v2.24.0
 
 **Project Audit: Deduplication, AM006 Code Fix, Docs Sync**
 

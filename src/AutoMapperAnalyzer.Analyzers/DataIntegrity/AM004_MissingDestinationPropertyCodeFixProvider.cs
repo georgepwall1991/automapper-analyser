@@ -287,8 +287,17 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         InvocationExpressionSyntax invocation,
         SemanticModel semanticModel)
     {
-        return invocation
-            .DescendantNodesAndSelf()
+        // Walk up the fluent chain to find CreateMap (ancestor direction)
+        var current = invocation;
+        while (current != null)
+        {
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(current, semanticModel, "CreateMap"))
+                return current;
+            current = (current.Expression as MemberAccessExpressionSyntax)?.Expression as InvocationExpressionSyntax;
+        }
+
+        // Also check descendants (for cases where invocation IS the CreateMap chain)
+        return invocation.DescendantNodesAndSelf()
             .OfType<InvocationExpressionSyntax>()
             .FirstOrDefault(node => MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(node, semanticModel, "CreateMap"));
     }

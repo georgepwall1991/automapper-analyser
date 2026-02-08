@@ -547,4 +547,85 @@ public class AM011_CodeFixTests
                 expectedFixedCode,
                 1); // Bulk fix: "Map all unmapped properties to default value"
     }
+
+    [Fact]
+    public async Task AM011_BulkFix_ShouldProduceValidForMemberCalls_NotPlaceholder()
+    {
+        // This test verifies the fix for Bug 1: CreateForMemberCallExpression
+        // previously returned placeholder() code in the chunked bulk fix path.
+        // Even in the non-chunked path, we verify proper ForMember generation.
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public required string RequiredA { get; set; }
+                                        public required int RequiredB { get; set; }
+                                        public required bool RequiredC { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public required string RequiredA { get; set; }
+                                                 public required int RequiredB { get; set; }
+                                                 public required bool RequiredC { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredA, opt => opt.MapFrom(src => string.Empty)).ForMember(dest => dest.RequiredB, opt => opt.MapFrom(src => 0)).ForMember(dest => dest.RequiredC, opt => opt.MapFrom(src => false));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM011_UnmappedRequiredPropertyAnalyzer, AM011_UnmappedRequiredPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[]
+                {
+                    new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
+                        .WithLocation(22, 13)
+                        .WithArguments("RequiredA"),
+                    new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
+                        .WithLocation(22, 13)
+                        .WithArguments("RequiredB"),
+                    new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
+                        .WithLocation(22, 13)
+                        .WithArguments("RequiredC")
+                },
+                expectedFixedCode,
+                1, 1); // Selects Bulk Fix, 1 iteration
+    }
 }

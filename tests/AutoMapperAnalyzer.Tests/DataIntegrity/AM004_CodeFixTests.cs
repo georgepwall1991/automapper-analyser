@@ -1338,4 +1338,160 @@ public class AM004_CodeFixTests
                 null,
                 1);
     }
+
+    [Fact]
+    public async Task AM004_PerPropertyIgnore_ShouldWorkWithReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string DestExtra { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.DestExtra, opt => opt.Ignore())
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string DestExtra { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.DestExtra, opt => opt.Ignore())
+                                                         .ReverseMap().ForSourceMember(src => src.DestExtra, opt => opt.DoNotValidate());
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[]
+                {
+                    new DiagnosticResult(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule)
+                        .WithLocation(20, 13)
+                        .WithArguments("DestExtra")
+                },
+                expectedFixedCode,
+                0, // Index 0 = "Ignore all unmapped source properties"
+                null,
+                1);
+    }
+
+    [Fact]
+    public async Task AM004_BulkIgnore_ShouldHandleMultiplePropertiesWithReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraA { get; set; }
+                                        public string ExtraB { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.ExtraA, opt => opt.Ignore())
+                                                .ForMember(dest => dest.ExtraB, opt => opt.Ignore())
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string ExtraA { get; set; }
+                                                 public string ExtraB { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.ExtraA, opt => opt.Ignore())
+                                                         .ForMember(dest => dest.ExtraB, opt => opt.Ignore())
+                                                         .ReverseMap().ForSourceMember(src => src.ExtraA, opt => opt.DoNotValidate()).ForSourceMember(src => src.ExtraB, opt => opt.DoNotValidate());
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        var diagA = Diagnostic(
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            21, 13,
+            "ExtraA");
+        var diagB = Diagnostic(
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            21, 13,
+            "ExtraB");
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[] { diagA, diagB },
+                expectedFixedCode,
+                0, // Index 0 = "Ignore all unmapped source properties"
+                null,
+                1);
+    }
 }

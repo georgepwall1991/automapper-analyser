@@ -559,17 +559,21 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         PropertyFixAction action,
         IEnumerable<IPropertySymbol> sourceProperties)
     {
-        // This creates the ForMember call for the helper method
-        string mappingExpression = action.Action switch
-        {
-            BulkFixAction.Default => TypeConversionHelper.GetDefaultValueForType(action.PropertyType),
-            BulkFixAction.FuzzyMatch when !string.IsNullOrEmpty(action.Parameter) => $"src.{action.Parameter}",
-            BulkFixAction.Ignore => "/* ignored */",
-            _ => TypeConversionHelper.GetDefaultValueForType(action.PropertyType)
-        };
+        // Create a dummy invocation to use as the base for CodeFixSyntaxHelper methods.
+        // We use IdentifierName("map") as the base expression since this will be chained
+        // onto the "map" parameter in the helper method body.
+        var baseInvocation = SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName("map"));
 
-        // For simplicity, return a placeholder - the actual implementation would create proper syntax nodes
-        return SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName("placeholder"));
+        return action.Action switch
+        {
+            BulkFixAction.Ignore =>
+                CodeFixSyntaxHelper.CreateForMemberWithIgnore(baseInvocation, action.PropertyName),
+            BulkFixAction.FuzzyMatch when !string.IsNullOrEmpty(action.Parameter) =>
+                CodeFixSyntaxHelper.CreateForMemberWithMapFrom(baseInvocation, action.PropertyName, $"src.{action.Parameter}"),
+            _ =>
+                CodeFixSyntaxHelper.CreateForMemberWithMapFrom(baseInvocation, action.PropertyName,
+                    TypeConversionHelper.GetDefaultValueForType(action.PropertyType))
+        };
     }
 
     private InvocationExpressionSyntax CreateHelperMethodInvocation(

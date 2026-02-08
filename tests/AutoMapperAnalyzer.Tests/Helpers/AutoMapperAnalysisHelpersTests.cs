@@ -1033,4 +1033,149 @@ public class AutoMapperAnalysisHelpersTests
     }
 
     #endregion
+
+    #region GetLambdaBody Tests
+
+    [Fact]
+    public void GetLambdaBody_ShouldReturnBody_ForSimpleLambda()
+    {
+        const string code = @"
+            using System;
+            public class Test
+            {
+                public void Method()
+                {
+                    Func<int, int> f = x => x + 1;
+                }
+            }";
+
+        CSharpCompilation compilation = CreateCompilation(code);
+        SyntaxTree tree = compilation.SyntaxTrees.First();
+        SimpleLambdaExpressionSyntax lambda = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .First();
+
+        CSharpSyntaxNode? body = AutoMapperAnalysisHelpers.GetLambdaBody(lambda);
+
+        Assert.NotNull(body);
+    }
+
+    [Fact]
+    public void GetLambdaBody_ShouldReturnBody_ForParenthesizedLambda()
+    {
+        const string code = @"
+            using System;
+            public class Test
+            {
+                public void Method()
+                {
+                    Func<int, int, int> f = (x, y) => x + y;
+                }
+            }";
+
+        CSharpCompilation compilation = CreateCompilation(code);
+        SyntaxTree tree = compilation.SyntaxTrees.First();
+        ParenthesizedLambdaExpressionSyntax lambda = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .First();
+
+        CSharpSyntaxNode? body = AutoMapperAnalysisHelpers.GetLambdaBody(lambda);
+
+        Assert.NotNull(body);
+    }
+
+    [Fact]
+    public void GetLambdaBody_ShouldReturnNull_ForNonLambdaExpression()
+    {
+        const string code = @"
+            public class Test
+            {
+                public void Method()
+                {
+                    var x = 5;
+                }
+            }";
+
+        CSharpCompilation compilation = CreateCompilation(code);
+        SyntaxTree tree = compilation.SyntaxTrees.First();
+        // Use any non-lambda expression
+        var literalExpr = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<LiteralExpressionSyntax>()
+            .First();
+
+        CSharpSyntaxNode? body = AutoMapperAnalysisHelpers.GetLambdaBody(literalExpr);
+
+        Assert.Null(body);
+    }
+
+    #endregion
+
+    #region GetTypeName Tests
+
+    [Fact]
+    public void GetTypeName_ShouldReturnName_ForNamedTypeSymbol()
+    {
+        const string code = @"
+            public class MyCustomClass
+            {
+                public string Value { get; set; }
+            }";
+
+        CSharpCompilation compilation = CreateCompilation(code);
+        SyntaxTree tree = compilation.SyntaxTrees.First();
+        SemanticModel semanticModel = compilation.GetSemanticModel(tree);
+        ClassDeclarationSyntax classDecl = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .First();
+        INamedTypeSymbol? typeSymbol = semanticModel.GetDeclaredSymbol(classDecl);
+
+        string name = AutoMapperAnalysisHelpers.GetTypeName(typeSymbol!);
+
+        Assert.Equal("MyCustomClass", name);
+    }
+
+    [Fact]
+    public void GetTypeName_ShouldReturnName_ForArrayType()
+    {
+        const string code = "public class Test { public string[] Values { get; set; } }";
+
+        CSharpCompilation compilation = CreateCompilation(code);
+        SyntaxTree tree = compilation.SyntaxTrees.First();
+        SemanticModel semanticModel = compilation.GetSemanticModel(tree);
+        PropertyDeclarationSyntax property = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PropertyDeclarationSyntax>()
+            .First();
+        IPropertySymbol? propertySymbol = semanticModel.GetDeclaredSymbol(property);
+
+        string name = AutoMapperAnalysisHelpers.GetTypeName(propertySymbol!.Type);
+
+        // IArrayTypeSymbol.Name returns empty string; GetTypeName doesn't special-case arrays
+        Assert.Equal("", name);
+    }
+
+    [Fact]
+    public void GetTypeName_ShouldReturnName_ForPrimitiveType()
+    {
+        const string code = "public class Test { public int Value { get; set; } }";
+
+        CSharpCompilation compilation = CreateCompilation(code);
+        SyntaxTree tree = compilation.SyntaxTrees.First();
+        SemanticModel semanticModel = compilation.GetSemanticModel(tree);
+        PropertyDeclarationSyntax property = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PropertyDeclarationSyntax>()
+            .First();
+        IPropertySymbol? propertySymbol = semanticModel.GetDeclaredSymbol(property);
+
+        string name = AutoMapperAnalysisHelpers.GetTypeName(propertySymbol!.Type);
+
+        Assert.Equal("Int32", name);
+    }
+
+    #endregion
 }
