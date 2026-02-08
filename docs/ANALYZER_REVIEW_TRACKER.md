@@ -17,9 +17,10 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | AM022 | Complex Mappings | [#53](https://github.com/georgepwall1991/automapper-analyser/pull/53) | [v2.14.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.14.0) | Direction-aware reverse-map suppression, stricter ignore-all handling for recursion risks, and collection-aware recursion fixer behavior. |
 | AM030 | Complex Mappings | [#54](https://github.com/georgepwall1991/automapper-analyser/pull/54) | [v2.15.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.15.0) | Exact `ForMember` property matching (including case-insensitive suppression), `Ignore`/`ConstructUsing` suppression support, stronger converter signature/null-check analysis, and safer code-fix routing for missing-converter diagnostics. |
 | AM031 | Performance | [#55](https://github.com/georgepwall1991/automapper-analyser/pull/55) | [v2.16.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.16.0) | Stricter AutoMapper semantic checks, reduced heuristic false positives (`Random`/reflection/database), richer diagnostic metadata for fixer routing, and broader performance regression coverage (`Task.Wait`, parenthesized lambdas, `DateTime.UtcNow`). |
+| AM001 | Type Safety | [#56](https://github.com/georgepwall1991/automapper-analyser/pull/56) | [v2.17.0](https://github.com/georgepwall1991/automapper-analyser/releases/tag/v2.17.0) | Added semantic AutoMapper invocation guards, fixed AM001/AM002 overlap for nullable + incompatible types, improved fixer conversion safety/routing, and expanded AM001 regression coverage. |
 
 ## In Progress
 
 | Analyzer | Area | Branch | Goal |
 |---|---|---|---|
-| AM001 | Type Safety | `codex/am001-next-pass` | Next analyzer pass for false positives/fixer reliability improvements. |
+| AM002 | Type Safety | `codex/am002-next-pass` | Next analyzer pass for false positives/fixer reliability improvements. |
