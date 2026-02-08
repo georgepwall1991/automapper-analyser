@@ -248,4 +248,45 @@ public class AM006_UnmappedDestinationPropertyTests
                 "CustomerAge", "Source")
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM006_ShouldReportDiagnostic_WhenOnlyReverseMapConfiguresProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        // ProtectedOrInternal is intentionally excluded by GetMappableProperties.
+                                        protected internal string ReverseOnly { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ReverseOnly { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap()
+                                                .ForMember(src => src.ReverseOnly, opt => opt.MapFrom(dest => dest.ReverseOnly));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 22, 13,
+                "ReverseOnly", "Source")
+            .RunAsync();
+    }
 }

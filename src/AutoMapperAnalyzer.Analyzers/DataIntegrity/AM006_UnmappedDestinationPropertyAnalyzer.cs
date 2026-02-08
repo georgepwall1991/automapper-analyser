@@ -47,7 +47,7 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         }
 
         (ITypeSymbol? sourceType, ITypeSymbol? destinationType) typeArguments =
-            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
+            GetCreateMapTypeArguments(invocationExpr, context.SemanticModel);
         if (typeArguments.sourceType == null || typeArguments.destinationType == null)
         {
             return;
@@ -114,7 +114,11 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
             if (matchesFlattening) continue;
 
             // 3. Check for explicit configuration (ForMember)
-            if (IsPropertyConfiguredWithForMember(mappingInvocation, destProperty.Name, context.SemanticModel))
+            if (IsPropertyConfiguredWithForMember(
+                    mappingInvocation,
+                    destProperty.Name,
+                    context.SemanticModel,
+                    stopAtReverseMapBoundary: !isReverseMap))
             {
                 continue;
             }
@@ -131,12 +135,9 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
             properties.Add("DestinationTypeName", destinationType.Name);
             properties.Add("SourceTypeName", sourceType.Name);
 
-            InvocationExpressionSyntax locationNode =
-                isReverseMap && reverseMapInvocation != null ? reverseMapInvocation : invocation;
-
             var diagnostic = Diagnostic.Create(
                 UnmappedDestinationPropertyRule,
-                locationNode.GetLocation(),
+                mappingInvocation.GetLocation(),
                 properties.ToImmutable(),
                 destProperty.Name,
                 sourceType.Name);
@@ -172,10 +173,11 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
     private static bool IsPropertyConfiguredWithForMember(
         InvocationExpressionSyntax createMapInvocation,
         string propertyName,
-        SemanticModel semanticModel)
+        SemanticModel semanticModel,
+        bool stopAtReverseMapBoundary)
     {
         IEnumerable<InvocationExpressionSyntax> forMemberCalls =
-            AutoMapperAnalysisHelpers.GetForMemberCalls(createMapInvocation);
+            GetScopedForMemberCalls(createMapInvocation, stopAtReverseMapBoundary);
 
         foreach (InvocationExpressionSyntax forMemberCall in forMemberCalls)
         {
@@ -203,6 +205,33 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    private static IEnumerable<InvocationExpressionSyntax> GetScopedForMemberCalls(
+        InvocationExpressionSyntax mappingInvocation,
+        bool stopAtReverseMapBoundary)
+    {
+        var forMemberCalls = new List<InvocationExpressionSyntax>();
+        SyntaxNode? currentNode = mappingInvocation.Parent;
+
+        while (currentNode is MemberAccessExpressionSyntax memberAccess &&
+               memberAccess.Parent is InvocationExpressionSyntax invocation)
+        {
+            string methodName = memberAccess.Name.Identifier.Text;
+            if (stopAtReverseMapBoundary && methodName == "ReverseMap")
+            {
+                break;
+            }
+
+            if (methodName == "ForMember")
+            {
+                forMemberCalls.Add(invocation);
+            }
+
+            currentNode = invocation.Parent;
+        }
+
+        return forMemberCalls;
     }
 
     private static CSharpSyntaxNode? GetLambdaBody(ExpressionSyntax expression)
@@ -255,5 +284,45 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
         return namespaceName == "AutoMapper" ||
                (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
+    }
+
+    private static (ITypeSymbol? sourceType, ITypeSymbol? destinationType) GetCreateMapTypeArguments(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+
+        if (TryGetCreateMapTypeArgumentsFromMethod(symbolInfo.Symbol as IMethodSymbol, out ITypeSymbol? sourceType, out ITypeSymbol? destinationType))
+        {
+            return (sourceType, destinationType);
+        }
+
+        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
+        {
+            if (TryGetCreateMapTypeArgumentsFromMethod(candidateSymbol as IMethodSymbol, out sourceType, out destinationType))
+            {
+                return (sourceType, destinationType);
+            }
+        }
+
+        return AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+    }
+
+    private static bool TryGetCreateMapTypeArgumentsFromMethod(
+        IMethodSymbol? methodSymbol,
+        out ITypeSymbol? sourceType,
+        out ITypeSymbol? destinationType)
+    {
+        sourceType = null;
+        destinationType = null;
+
+        if (methodSymbol?.TypeArguments.Length != 2)
+        {
+            return false;
+        }
+
+        sourceType = methodSymbol.TypeArguments[0];
+        destinationType = methodSymbol.TypeArguments[1];
+        return true;
     }
 }
