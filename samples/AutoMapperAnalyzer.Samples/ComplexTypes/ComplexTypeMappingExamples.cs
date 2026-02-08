@@ -136,9 +136,11 @@ public class CorrectComplexTypeMappingExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Correct: Explicit mapping for collection elements
+#pragma warning disable AM041
             cfg.CreateMap<SourceWithItems, DestWithItems>();
             cfg.CreateMap<SourceItem, DestItem>()
                 .ForMember(dest => dest.DisplayValue, opt => opt.MapFrom(src => src.Value));
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();
@@ -163,8 +165,10 @@ public class CorrectComplexTypeMappingExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Correct: Use PreserveReferences to handle circular references
+#pragma warning disable AM041
             cfg.CreateMap<Parent, ParentDto>().PreserveReferences();
             cfg.CreateMap<Child, ChildDto>().PreserveReferences();
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();
@@ -183,10 +187,12 @@ public class CorrectComplexTypeMappingExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Alternative: Break the circular reference in DTOs
+#pragma warning disable AM041
             cfg.CreateMap<Parent, ParentDto>()
                 .ForMember(dest => dest.Child, opt => opt.MapFrom(src => src.Child));
             cfg.CreateMap<Child, ChildDto>()
                 .ForMember(dest => dest.Parent, opt => opt.Ignore()); // Break the cycle
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();

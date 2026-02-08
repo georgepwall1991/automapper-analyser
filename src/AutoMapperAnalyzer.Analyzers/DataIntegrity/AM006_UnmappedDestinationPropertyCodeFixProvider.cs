@@ -4,9 +4,7 @@ using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Editing;
 
 namespace AutoMapperAnalyzer.Analyzers.DataIntegrity;
 
@@ -52,33 +50,31 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
 
         // Phase 1: Fuzzy match suggestions — find similar source properties
         (ITypeSymbol? sourceType, ITypeSymbol? destType) = MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
+        IPropertySymbol? destPropertySymbol = null;
         if (sourceType != null && destType != null)
         {
-            IPropertySymbol? destPropertySymbol = AutoMapperAnalysisHelpers
+            destPropertySymbol = AutoMapperAnalysisHelpers
                 .GetMappableProperties(destType, requireSetter: true)
                 .FirstOrDefault(p => p.Name == propertyName);
 
             if (destPropertySymbol != null)
             {
                 var sourceProperties = AutoMapperAnalysisHelpers
-                    .GetMappableProperties(sourceType, requireSetter: false).ToList();
+                    .GetMappableProperties(sourceType, requireSetter: false);
 
-                foreach (var srcProp in sourceProperties)
+                foreach (var srcProp in FuzzyMatchHelper.FindFuzzyMatches(propertyName, sourceProperties, destPropertySymbol.Type))
                 {
-                    if (FuzzyMatchHelper.IsFuzzyMatchCandidate(propertyName, srcProp, destPropertySymbol.Type))
-                    {
-                        string srcName = srcProp.Name;
-                        nestedActions.Add(CodeAction.Create(
-                            $"Map from similar source property '{srcName}'",
-                            cancellationToken =>
-                            {
-                                InvocationExpressionSyntax newInvocation =
-                                    CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                                        invocation, propertyName, $"src.{srcName}");
-                                return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
-                            },
-                            $"FuzzyMatch_{propertyName}_{srcName}"));
-                    }
+                    string srcName = srcProp.Name;
+                    nestedActions.Add(CodeAction.Create(
+                        $"Map from similar source property '{srcName}'",
+                        cancellationToken =>
+                        {
+                            InvocationExpressionSyntax newInvocation =
+                                CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                                    invocation, propertyName, $"src.{srcName}");
+                            return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
+                        },
+                        $"FuzzyMatch_{propertyName}_{srcName}"));
                 }
             }
         }
@@ -97,10 +93,6 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
         // Phase 3: Create source property
         if (sourceType != null && destType != null)
         {
-            IPropertySymbol? destPropertySymbol = AutoMapperAnalysisHelpers
-                .GetMappableProperties(destType, requireSetter: true)
-                .FirstOrDefault(p => p.Name == propertyName);
-
             string propertyType = destPropertySymbol?.Type.ToDisplayString() ?? "object";
 
             nestedActions.Add(CodeAction.Create(
@@ -196,7 +188,7 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
             return document.Project.Solution;
         }
 
-        return await AddPropertiesToTypeAsync(document, sourceType, propertiesToAdd);
+        return await CodeFixSyntaxHelper.AddPropertiesToTypeAsync(document, sourceType, propertiesToAdd);
     }
 
     private async Task<Solution> CreateSourcePropertyAsync(
@@ -205,88 +197,6 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
         string propertyName,
         string propertyType)
     {
-        return await AddPropertiesToTypeAsync(document, sourceType, [(propertyName, propertyType)]);
-    }
-
-    private static async Task<Solution> AddPropertiesToTypeAsync(
-        Document document,
-        ITypeSymbol targetType,
-        IEnumerable<(string Name, string Type)> properties)
-    {
-        if (targetType.Locations.All(l => !l.IsInSource))
-        {
-            return document.Project.Solution;
-        }
-
-        var syntaxReference = targetType.DeclaringSyntaxReferences.FirstOrDefault();
-        if (syntaxReference == null)
-        {
-            return document.Project.Solution;
-        }
-
-        var targetSyntaxRoot = await syntaxReference.SyntaxTree.GetRootAsync();
-        var targetDecl = targetSyntaxRoot.FindNode(syntaxReference.Span);
-
-        if (targetDecl == null)
-        {
-            return document.Project.Solution;
-        }
-
-        var editor = new SyntaxEditor(targetSyntaxRoot, document.Project.Solution.Workspace.Services);
-        var propertyList = properties.ToList();
-
-        editor.ReplaceNode(targetDecl, (originalNode, generator) =>
-        {
-            if (originalNode is RecordDeclarationSyntax recordDecl && recordDecl.ParameterList != null)
-            {
-                var newParams = propertyList.Select(prop =>
-                        SyntaxFactory.Parameter(SyntaxFactory.Identifier(prop.Name))
-                            .WithType(SyntaxFactory.ParseTypeName(prop.Type)
-                                .WithTrailingTrivia(SyntaxFactory.Space)))
-                    .ToArray();
-
-                return recordDecl.WithParameterList(recordDecl.ParameterList.AddParameters(newParams));
-            }
-
-            var typeDecl = (TypeDeclarationSyntax)originalNode;
-            bool useInitAccessor = typeDecl.Members.OfType<PropertyDeclarationSyntax>()
-                .SelectMany(p => p.AccessorList?.Accessors ?? SyntaxFactory.List<AccessorDeclarationSyntax>())
-                .Any(a => a.IsKind(SyntaxKind.InitAccessorDeclaration));
-
-            var setterKind = useInitAccessor
-                ? SyntaxKind.InitAccessorDeclaration
-                : SyntaxKind.SetAccessorDeclaration;
-
-            var newMembers = new List<MemberDeclarationSyntax>();
-
-            foreach (var (name, type) in propertyList)
-            {
-                var newProperty = SyntaxFactory.PropertyDeclaration(
-                        SyntaxFactory.ParseTypeName(type),
-                        SyntaxFactory.Identifier(name))
-                    .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
-                    .WithAccessorList(SyntaxFactory.AccessorList(SyntaxFactory.List(new[]
-                    {
-                        SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
-                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)),
-                        SyntaxFactory.AccessorDeclaration(setterKind)
-                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
-                    })));
-
-                newMembers.Add(newProperty);
-            }
-
-            return typeDecl.AddMembers(newMembers.ToArray());
-        });
-
-        var newTargetRoot = editor.GetChangedRoot();
-        var targetDocument = document.Project.Solution.GetDocument(targetSyntaxRoot.SyntaxTree);
-
-        if (targetDocument == null)
-        {
-            return document.Project.Solution;
-        }
-
-        return document.Project.Solution.WithDocumentSyntaxRoot(targetDocument.Id, newTargetRoot);
+        return await CodeFixSyntaxHelper.AddPropertiesToTypeAsync(document, sourceType, [(propertyName, propertyType)]);
     }
 }

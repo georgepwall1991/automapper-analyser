@@ -53,7 +53,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
 
         // Fix 0: Fuzzy Matching - Find similar source properties
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            GetCreateMapTypeArguments(invocation, semanticModel);
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType != null)
         {
             var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
@@ -62,14 +62,12 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
                 : AutoMapperAnalysisHelpers.GetMappableProperties(destType, false)
                     .FirstOrDefault(p => string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
 
-            foreach (var sourceProp in sourceProperties)
-            {
-                if (destinationProperty != null &&
-                    !IsFuzzyMatchCandidate(propertyName, sourceProp, destinationProperty.Type))
-                {
-                    continue;
-                }
+            var fuzzyMatches = destinationProperty != null
+                ? FuzzyMatchHelper.FindFuzzyMatches(propertyName, sourceProperties, destinationProperty.Type)
+                : sourceProperties;
 
+            foreach (var sourceProp in fuzzyMatches)
+            {
                 var matchAction = CodeAction.Create(
                     $"Map from similar property '{sourceProp.Name}'",
                     cancellationToken =>
@@ -201,7 +199,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
     {
         // 1. Identify unmapped properties
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            GetCreateMapTypeArguments(invocation, semanticModel);
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType == null || destType == null)
         {
             return document;
@@ -267,7 +265,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
     {
         // 1. Identify unmapped properties (same logic as BulkFixAsync)
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            GetCreateMapTypeArguments(invocation, semanticModel);
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType == null || destType == null)
         {
             return document;
@@ -306,14 +304,11 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             string? parameter = null;
 
             // Try fuzzy matching to find similar property
-            foreach (var sourceProp in sourceProperties)
+            var fuzzyMatch = FuzzyMatchHelper.FindFuzzyMatches(destProp.Name, sourceProperties, destProp.Type).FirstOrDefault();
+            if (fuzzyMatch != null)
             {
-                if (IsFuzzyMatchCandidate(destProp.Name, sourceProp, destProp.Type))
-                {
-                    defaultAction = BulkFixAction.FuzzyMatch;
-                    parameter = sourceProp.Name;
-                    break;
-                }
+                defaultAction = BulkFixAction.FuzzyMatch;
+                parameter = fuzzyMatch.Name;
             }
 
             missingProperties.Add((destProp, defaultAction, parameter));
@@ -381,7 +376,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
 
         // 2. Get type information
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            GetCreateMapTypeArguments(invocation, semanticModel);
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType == null || destType == null)
         {
             return document;
@@ -462,7 +457,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         }
 
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            GetCreateMapTypeArguments(invocation, latestSemanticModel);
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, latestSemanticModel);
         if (sourceType == null || destType == null)
         {
             return document;
@@ -640,18 +635,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         }
     }
 
-    private static bool IsFuzzyMatchCandidate(string destinationPropertyName, IPropertySymbol sourceProperty,
-        ITypeSymbol destinationPropertyType)
-    {
-        return FuzzyMatchHelper.IsFuzzyMatchCandidate(destinationPropertyName, sourceProperty, destinationPropertyType);
-    }
 
-    private static (ITypeSymbol? sourceType, ITypeSymbol? destinationType) GetCreateMapTypeArguments(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
-    {
-        return MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
-    }
 
     private static bool IsPropertyConfiguredWithForMember(
         InvocationExpressionSyntax createMapInvocation,

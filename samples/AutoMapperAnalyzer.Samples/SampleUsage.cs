@@ -105,9 +105,11 @@ public class TestProfile : Profile
         CreateMap<CompanySource, CompanyDestination>();
 
         // Proper mapping with explicit conversion - should NOT trigger AM021
+#pragma warning disable AM041
         CreateMap<PersonSource, PersonDestination>()
             .ForMember(dest => dest.PhoneNumbers,
                 opt => opt.MapFrom(src => src.PhoneNumbers.Select(int.Parse).ToList()));
+#pragma warning restore AM041
 
         // AM030 Examples: Custom Type Converter Issues
 
@@ -115,6 +117,7 @@ public class TestProfile : Profile
         CreateMap<ProductSource, ProductDestination>();
 
         // Proper mapping with ConvertUsing - should NOT trigger AM030
+#pragma warning disable AM041
         CreateMap<ProductSource, ProductDestination>()
             .ForMember(dest => dest.CreatedDate,
                 opt => opt.MapFrom(src => new SafeStringToDateTimeConverter().Convert(src.CreatedDate, default, null!)))
@@ -122,6 +125,7 @@ public class TestProfile : Profile
                 opt => opt.MapFrom(src => ParseDecimalSafely(src.Price)))
             .ForMember(dest => dest.Description,
                 opt => opt.MapFrom(src => src.Description ?? string.Empty));
+#pragma warning restore AM041
     }
 
     private static decimal ParseDecimalSafely(string value)

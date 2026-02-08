@@ -159,12 +159,14 @@ public class CorrectTypeConverterExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Correct: Explicit type conversion with error handling
+#pragma warning disable AM041
             cfg.CreateMap<PersonWithStringDate, PersonWithDateTime>()
                 .ForMember(dest => dest.BirthDate,
                     opt => opt.MapFrom(src =>
                         string.IsNullOrEmpty(src.BirthDate)
                             ? DateTime.MinValue
                             : DateTime.Parse(src.BirthDate)));
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();
@@ -184,12 +186,14 @@ public class CorrectTypeConverterExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Correct: Explicit enum conversion with fallback
+#pragma warning disable AM041
             cfg.CreateMap<OrderWithStringStatus, OrderWithEnumStatus>()
                 .ForMember(dest => dest.Status,
                     opt => opt.MapFrom(src =>
                         Enum.IsDefined(typeof(StatusEnum), src.Status)
                             ? (StatusEnum)Enum.Parse(typeof(StatusEnum), src.Status, true)
                             : StatusEnum.Pending));
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();
@@ -208,6 +212,7 @@ public class CorrectTypeConverterExamples
     {
         var config = new MapperConfiguration(cfg =>
         {
+#pragma warning disable AM041
             cfg.CreateMap<SourceWithNullableString, DestWithGuid>()
                 // ✅ Correct: Null-safe conversion with default value
                 .ForMember(dest => dest.UniqueId,
@@ -215,6 +220,7 @@ public class CorrectTypeConverterExamples
                         string.IsNullOrEmpty(src.GuidString)
                             ? Guid.Empty
                             : Guid.Parse(src.GuidString)));
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();
@@ -234,8 +240,10 @@ public class CorrectTypeConverterExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Correct: Using a dedicated ITypeConverter class
+#pragma warning disable AM041
             cfg.CreateMap<PersonWithStringDate, PersonWithDateTime>()
                 .ConvertUsing<StringToDateTimeConverter>();
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();

@@ -140,6 +140,7 @@ public class CorrectTypeSafetyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Correct: Explicit type conversion
+#pragma warning disable AM041
             cfg.CreateMap<PersonWithStringAge, PersonWithIntAge>()
                 .ForMember(
                     dest => dest.Age,
@@ -148,6 +149,7 @@ public class CorrectTypeSafetyExamples
                             string.IsNullOrEmpty(src.Age) ? 0 : Convert.ToInt32(src.Age)
                         )
                 );
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();
@@ -162,8 +164,10 @@ public class CorrectTypeSafetyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Correct: Explicit null handling
+#pragma warning disable AM041
             cfg.CreateMap<PersonWithNullableName, PersonWithRequiredName>()
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? "Unknown"));
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();

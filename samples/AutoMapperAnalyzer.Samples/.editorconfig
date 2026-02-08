@@ -13,9 +13,10 @@ dotnet_diagnostic.AM001.severity = warning # Property Type Mismatch
 dotnet_diagnostic.AM002.severity = warning # Nullable Compatibility
 dotnet_diagnostic.AM003.severity = warning # Collection Type Incompatibility
 
-# Property Mapping (AM004-AM005, AM011)
+# Property Mapping (AM004-AM006, AM011)
 dotnet_diagnostic.AM004.severity = warning # Missing Destination Property
 dotnet_diagnostic.AM005.severity = warning # Case Sensitivity Mismatch
+dotnet_diagnostic.AM006.severity = warning # Unmapped Destination Property
 dotnet_diagnostic.AM011.severity = warning # Unmapped Required Property
 
 # Complex Types (AM020-AM022)

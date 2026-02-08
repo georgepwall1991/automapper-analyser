@@ -86,4 +86,19 @@ public static class FuzzyMatchHelper
 
         return AutoMapperAnalysisHelpers.AreTypesCompatible(typeA, propertyB.Type);
     }
+
+    /// <summary>
+    ///     Finds all fuzzy match candidates from a collection of properties for a given target property name and type.
+    /// </summary>
+    /// <param name="targetPropertyName">The property name to find fuzzy matches for.</param>
+    /// <param name="candidateProperties">The properties to search for matches.</param>
+    /// <param name="targetPropertyType">The type of the target property, used for compatibility checking.</param>
+    /// <returns>Properties that are fuzzy match candidates.</returns>
+    public static IEnumerable<IPropertySymbol> FindFuzzyMatches(
+        string targetPropertyName,
+        IEnumerable<IPropertySymbol> candidateProperties,
+        ITypeSymbol targetPropertyType)
+    {
+        return candidateProperties.Where(p => IsFuzzyMatchCandidate(targetPropertyName, p, targetPropertyType));
+    }
 }

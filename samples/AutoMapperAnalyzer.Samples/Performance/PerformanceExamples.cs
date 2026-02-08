@@ -164,12 +164,14 @@ public class CorrectPerformanceExamples
     {
         var config = new MapperConfiguration(cfg =>
         {
+#pragma warning disable AM041
             cfg.CreateMap<Company, CompanyDto>()
                 // ✅ Correct: Null-safe mapping
                 .ForMember(dest => dest.City,
                     opt => opt.MapFrom(src => src.Address != null ? src.Address.City : string.Empty))
                 .ForMember(dest => dest.Country,
                     opt => opt.MapFrom(src => src.Address != null ? src.Address.Country : string.Empty));
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();
@@ -185,10 +187,12 @@ public class CorrectPerformanceExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Correct: Single mapping configuration
+#pragma warning disable AM041
             cfg.CreateMap<Customer, CustomerDto>();
 
             // Different mappings are fine
             cfg.CreateMap<Employee, EmployeeDto>();
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();
