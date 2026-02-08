@@ -1,12 +1,11 @@
 # EditorConfig for AutoMapper Analyzer Samples
-# This configuration ensures all analyzer diagnostics appear as warnings
-# so the build succeeds while demonstrating all analyzer features
+# Keep diagnostics visible (warning-level) so the sample project demonstrates
+# analyzer output while still compiling successfully.
 
 root = true
 
 [*.cs]
-# AutoMapper Analyzer Rules - All set to Warning severity
-# This allows the build to pass while showing all diagnostics in action
+# AutoMapper Analyzer Rules - set implemented rules to warning severity.
 
 # Type Safety (AM001-AM003)
 dotnet_diagnostic.AM001.severity = warning # Property Type Mismatch
@@ -27,12 +26,12 @@ dotnet_diagnostic.AM022.severity = warning # Infinite Recursion Risk
 # Custom Converters (AM030)
 dotnet_diagnostic.AM030.severity = warning # Custom Type Converter Issues
 
-# Future Rules (AM031+) - Configured as warnings for when implemented
+# Additional rules reserved for future implementations.
 dotnet_diagnostic.AM031.severity = warning # Performance Analysis
 dotnet_diagnostic.AM040.severity = warning # Missing Profile Registration
 dotnet_diagnostic.AM041.severity = warning # Conflicting Mapping Rules
 dotnet_diagnostic.AM042.severity = warning # Ignore vs MapFrom Conflict
-dotnet_diagnostic.AM050.severity = warning # Static Mapper Usage
+dotnet_diagnostic.AM050.severity = warning # Redundant MapFrom Configuration
 dotnet_diagnostic.AM051.severity = warning # Repeated Mapping Configuration
 dotnet_diagnostic.AM052.severity = warning # Missing Null Propagation
 

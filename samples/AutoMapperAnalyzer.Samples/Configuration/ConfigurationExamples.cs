@@ -10,12 +10,12 @@ namespace AutoMapperAnalyzer.Samples.Configuration;
 public class ConfigurationExamples
 {
     /// <summary>
-    ///     AM040: Missing Profile Registration
-    ///     This should trigger AM040 diagnostic
+    ///     AM040 placeholder: Missing Profile Registration
+    ///     Note: AM040 is not currently implemented in this analyzer package.
     /// </summary>
     public void MissingProfileRegistrationExample()
     {
-        // ❌ AM040: Profile 'UserMappingProfile' is defined but not registered
+        // Placeholder scenario for a future AM040 rule.
         var config = new MapperConfiguration(cfg =>
         {
             // Profile exists but is not registered here!

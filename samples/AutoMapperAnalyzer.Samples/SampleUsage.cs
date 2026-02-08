@@ -74,7 +74,7 @@ public class UnsafeStringToDateTimeConverter : ITypeConverter<string?, DateTime>
 {
     public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
     {
-        // No null check - should trigger AM030 null handling warning
+        // No null check - should trigger AM030 null-handling warning.
         return DateTime.Parse(source);
     }
 }
@@ -111,12 +111,11 @@ public class TestProfile : Profile
                 opt => opt.MapFrom(src => src.PhoneNumbers.Select(int.Parse).ToList()));
 #pragma warning restore AM041
 
-        // AM030 Examples: Custom Type Converter Issues
-
-        // Should trigger AM030: Missing ConvertUsing configuration for incompatible types
+        // Property-level conversion ownership lives with AM001/AM002 (not AM030).
+        // This should trigger AM001 (Price/CreatedDate) and AM002 (Description).
         CreateMap<ProductSource, ProductDestination>();
 
-        // Proper mapping with ConvertUsing - should NOT trigger AM030
+        // Explicit per-property conversions should avoid AM001/AM002 for this mapping.
 #pragma warning disable AM041
         CreateMap<ProductSource, ProductDestination>()
             .ForMember(dest => dest.CreatedDate,

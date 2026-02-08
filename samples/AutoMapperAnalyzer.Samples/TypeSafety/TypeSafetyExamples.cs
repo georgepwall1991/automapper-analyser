@@ -66,7 +66,7 @@ public class TypeSafetyExamples
     {
         var config = new MapperConfiguration(cfg =>
         {
-            // ❌ AM003: Collection element type mismatch: List<string> to HashSet<int>
+            // ❌ AM003: Collection container mismatch: List<string> to HashSet<int>
             cfg.CreateMap<ArticleWithStringTags, ArticleWithIntTags>();
         });
 

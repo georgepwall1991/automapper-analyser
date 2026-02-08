@@ -3,15 +3,13 @@ using AutoMapper;
 namespace AutoMapperAnalyzer.Samples.Performance;
 
 /// <summary>
-///     ⚠️ FUTURE IMPLEMENTATION - These analyzers (AM050-AM052) are NOT yet implemented.
-///     These examples are included for future development reference and documentation.
-///     Examples of performance issues that AutoMapper analyzer will detect (when implemented)
+///     Additional runtime/performance anti-pattern examples.
+///     Note: dedicated analyzer diagnostics in this project come from AM031 and AM050.
 /// </summary>
 public class PerformanceExamples
 {
     /// <summary>
-    ///     AM050: Static Mapper Usage
-    ///     This should trigger AM050 diagnostic
+    ///     Local mapper creation is a runtime smell, but no dedicated rule currently reports it.
     /// </summary>
     public void StaticMapperUsageExample()
     {
@@ -22,7 +20,7 @@ public class PerformanceExamples
 
         var employee = new Employee { Id = 1, Name = "John Doe", Department = "Engineering" };
 
-        // ❌ AM050: Creating mapper locally instead of using injected IMapper
+        // ❌ Runtime smell: creating mapper locally instead of using injected IMapper
         var employeeDto = mapper.Map<EmployeeDto>(employee);
 
         Console.WriteLine($"Mapped: {employeeDto.Name} in {employeeDto.Department}");
@@ -30,15 +28,15 @@ public class PerformanceExamples
     }
 
     /// <summary>
-    ///     AM052: Missing Null Propagation
-    ///     This should trigger AM052 diagnostic
+    ///     Null-unsafe map expressions can fail at runtime.
+    ///     This scenario is shown for education; no dedicated rule currently reports it.
     /// </summary>
     public void MissingNullPropagationExample()
     {
         var config = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<Company, CompanyDto>()
-                // ❌ AM052: Missing null propagation - Address could be null
+                // ❌ Runtime risk: missing null propagation (Address can be null)
                 .ForMember(dest => dest.City, opt => opt.MapFrom(src => src.Address.City))
                 .ForMember(dest => dest.Country, opt => opt.MapFrom(src => src.Address.Country));
         });
@@ -62,14 +60,14 @@ public class PerformanceExamples
     }
 
     /// <summary>
-    ///     AM051: Repeated Mapping Configuration (future implementation)
-    ///     This would trigger AM051 diagnostic when implemented
+    ///     AM041: Duplicate CreateMap registration.
+    ///     This should trigger an AM041 diagnostic.
     /// </summary>
     public void RepeatedMappingConfigurationExample()
     {
         var config = new MapperConfiguration(cfg =>
         {
-            // ❌ AM051: Same mapping configured multiple times
+            // ❌ AM041: Same mapping configured multiple times.
             cfg.CreateMap<Customer, CustomerDto>();
 
             // Later in configuration...

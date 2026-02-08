@@ -1,4 +1,4 @@
-﻿using AutoMapperAnalyzer.Samples.Configuration;
+using AutoMapperAnalyzer.Samples.Configuration;
 using AutoMapperAnalyzer.Samples.MissingProperties;
 using AutoMapperAnalyzer.Samples.Performance;
 using AutoMapperAnalyzer.Samples.TypeSafety;
@@ -13,27 +13,27 @@ public class Program
 {
     public static void Main(string[] args)
     {
-        Console.WriteLine("🔍 AutoMapper Analyzer Sample Scenarios");
-        Console.WriteLine("=========================================");
+        Console.WriteLine("AutoMapper Analyzer Sample Scenarios");
+        Console.WriteLine("===================================");
         Console.WriteLine();
 
         // These scenarios will be flagged by our analyzer
-        Console.WriteLine("⚠️  Type Safety Issues:");
+        Console.WriteLine("Type Safety Issues:");
         RunTypeSafetyExamples();
 
-        Console.WriteLine("\n⚠️  Missing Property Issues:");
+        Console.WriteLine("\nMissing Property Issues:");
         RunMissingPropertyExamples();
 
-        Console.WriteLine("\n⚠️  Unmapped Destination Issues:");
+        Console.WriteLine("\nUnmapped Destination Issues:");
         RunUnmappedDestinationExamples();
 
-        Console.WriteLine("\n⚠️  Configuration Issues:");
+        Console.WriteLine("\nConfiguration Issues:");
         RunConfigurationExamples();
 
-        Console.WriteLine("\n⚠️  Performance Issues:");
+        Console.WriteLine("\nPerformance Issues:");
         RunPerformanceExamples();
 
-        Console.WriteLine("\n✅ Analysis complete. See analyzer diagnostics for issues.");
+        Console.WriteLine("\nAnalysis complete. See analyzer diagnostics for issues.");
     }
 
     private static void RunTypeSafetyExamples()
@@ -87,11 +87,14 @@ public class Program
     {
         var performanceExamples = new PerformanceExamples();
 
-        Console.WriteLine("  - Static mapper usage");
+        Console.WriteLine("  - Local mapper creation (runtime smell)");
         performanceExamples.StaticMapperUsageExample();
 
-        Console.WriteLine("  - Missing null propagation");
+        Console.WriteLine("  - Null-sensitive map expressions (runtime smell)");
         performanceExamples.MissingNullPropagationExample();
+
+        Console.WriteLine("  - Duplicate CreateMap registration (AM041)");
+        performanceExamples.RepeatedMappingConfigurationExample();
 
         var am031Examples = new AM031_PerformanceExamples();
 
