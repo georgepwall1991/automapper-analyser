@@ -17,6 +17,9 @@ namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 [Shared]
 public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCodeFixProviderBase
 {
+    private const string LegacySourceTypePropertyName = "SourceType";
+    private const string LegacyDestinationTypePropertyName = "DestType";
+
     /// <summary>
     ///     Gets the diagnostic IDs that this code fix provider can fix.
     /// </summary>
@@ -34,11 +37,18 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
             return;
         }
 
-        foreach (Diagnostic? diagnostic in context.Diagnostics)
+        ImmutableArray<Diagnostic> diagnostics = context.Diagnostics
+            .Where(diag =>
+                diag.Id == "AM003" &&
+                diag.Location.IsInSource &&
+                diag.Location.SourceTree == operationContext.Root.SyntaxTree &&
+                diag.Location.SourceSpan.IntersectsWith(context.Span))
+            .ToImmutableArray();
+
+        foreach (Diagnostic diagnostic in diagnostics)
         {
-            var properties = TryGetDiagnosticProperties(diagnostic,
-                "PropertyName", "SourceType", "DestType", "SourceElementType", "DestElementType");
-            if (properties == null)
+            if (!TryGetStringProperty(diagnostic, AM003_CollectionTypeIncompatibilityAnalyzer.PropertyNamePropertyName,
+                    out string? safePropertyName))
             {
                 continue;
             }
@@ -49,23 +59,50 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                 continue;
             }
 
-            // Extract properties
-            string safePropertyName = properties["PropertyName"];
-            string safeSourceType = properties["SourceType"];
-            string safeDestType = properties["DestType"];
-            string safeSourceElementType = properties["SourceElementType"];
-            string safeDestElementType = properties["DestElementType"];
+            string? safeSourceType = TryGetStringProperty(diagnostic,
+                    AM003_CollectionTypeIncompatibilityAnalyzer.SourcePropertyTypePropertyName, out string? sourceType)
+                ? sourceType
+                : TryGetStringProperty(diagnostic, LegacySourceTypePropertyName, out string? legacySourceType)
+                    ? legacySourceType
+                    : null;
+            string? safeDestType = TryGetStringProperty(diagnostic,
+                    AM003_CollectionTypeIncompatibilityAnalyzer.DestinationPropertyTypePropertyName,
+                    out string? destinationType)
+                ? destinationType
+                : TryGetStringProperty(diagnostic, LegacyDestinationTypePropertyName, out string? legacyDestinationType)
+                    ? legacyDestinationType
+                    : null;
+
+            if (!TryGetStringProperty(diagnostic, AM003_CollectionTypeIncompatibilityAnalyzer.SourceElementTypePropertyName,
+                    out string? safeSourceElementType) ||
+                !TryGetStringProperty(diagnostic,
+                    AM003_CollectionTypeIncompatibilityAnalyzer.DestinationElementTypePropertyName,
+                    out string? safeDestElementType))
+            {
+                continue;
+            }
+
+            if (string.IsNullOrEmpty(safeSourceType) || string.IsNullOrEmpty(safeDestType))
+            {
+                continue;
+            }
+
+            string propertyName = safePropertyName!;
+            string sourceCollectionType = safeSourceType!;
+            string destinationCollectionType = safeDestType!;
+            string sourceElementType = safeSourceElementType!;
+            string destinationElementType = safeDestElementType!;
 
             if (diagnostic.Descriptor == AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule)
             {
                 foreach ((string Title, string Expression, bool RequiresLinq, string EquivalenceKey) fix in
-                         CreateCollectionFixes(safePropertyName, safeSourceType, safeDestType, safeSourceElementType,
-                             safeDestElementType))
+                         CreateCollectionFixes(propertyName, sourceCollectionType, destinationCollectionType, sourceElementType,
+                             destinationElementType))
                 {
                     context.RegisterCodeFix(
                         CodeAction.Create(
                             fix.Title,
-                            ct => AddMapFromAsync(context.Document, operationContext.Root, invocation, safePropertyName,
+                            ct => AddMapFromAsync(context.Document, operationContext.Root, invocation, propertyName,
                                 fix.Expression, fix.RequiresLinq, ct),
                             fix.EquivalenceKey),
                         diagnostic);
@@ -73,32 +110,45 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
             }
             else
             {
-                string conversionLambda = GetElementConversion(safeSourceElementType, safeDestElementType);
+                string conversionLambda = GetElementConversion(sourceElementType, destinationElementType);
                 if (!string.IsNullOrEmpty(conversionLambda))
                 {
                     context.RegisterCodeFix(
                         CodeAction.Create(
-                            $"Convert {safePropertyName} elements using Select()",
+                            $"Convert {propertyName} elements using Select()",
                             ct => AddMapFromAsync(
                                 context.Document,
                                 operationContext.Root,
                                 invocation,
-                                safePropertyName,
-                                $"src.{safePropertyName}.Select({conversionLambda})",
+                                propertyName,
+                                $"src.{propertyName}.Select({conversionLambda})",
                                 true,
                                 ct),
-                            $"Select_{safePropertyName}"),
+                            $"Select_{propertyName}"),
                         diagnostic);
                 }
 
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        $"Ignore property '{safePropertyName}'",
-                        ct => AddIgnoreAsync(context.Document, operationContext.Root, invocation, safePropertyName),
-                        $"Ignore_{safePropertyName}"),
+                        $"Ignore property '{propertyName}'",
+                        ct => AddIgnoreAsync(context.Document, operationContext.Root, invocation, propertyName),
+                        $"Ignore_{propertyName}"),
                     diagnostic);
             }
         }
+    }
+
+    private static bool TryGetStringProperty(Diagnostic diagnostic, string key, out string? value)
+    {
+        if (diagnostic.Properties.TryGetValue(key, out string? propertyValue) &&
+            !string.IsNullOrWhiteSpace(propertyValue))
+        {
+            value = propertyValue;
+            return true;
+        }
+
+        value = null;
+        return false;
     }
 
     private async Task<Document> AddMapFromAsync(

@@ -368,4 +368,131 @@ public class AM003_CollectionTypeIncompatibilityTests
                 "Numbers", "Source", "System.Collections.Generic.Queue<int>", "Destination",
                 "System.Collections.Generic.List<int>"));
     }
+
+    [Fact]
+    public async Task AM003_ShouldNotReportDiagnostic_ForCreateMapLikeApiOutsideAutoMapper()
+    {
+        const string testCode = """
+
+                                using System;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public HashSet<string> Tags { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<string> Tags { get; set; }
+                                    }
+
+                                    public class FakeMapOptions<TSource, TDestMember>
+                                    {
+                                        public void MapFrom(Func<TSource, TDestMember> resolver)
+                                        {
+                                        }
+                                    }
+
+                                    public class FakeMapExpression<TSource, TDestination>
+                                    {
+                                        public FakeMapExpression<TSource, TDestination> ForMember<TDestMember>(
+                                            Func<TDestination, TDestMember> destinationMember,
+                                            Action<FakeMapOptions<TSource, TDestMember>> optionsAction)
+                                        {
+                                            return this;
+                                        }
+                                    }
+
+                                    public class Profile
+                                    {
+                                        public FakeMapExpression<TSource, TDestination> CreateMap<TSource, TDestination>() => new();
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM003_ShouldNotReportDiagnostic_WhenExplicitMappingProvidedWithParenthesizedLambda()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public HashSet<string> Tags { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<string> Tags { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember((dest) => dest.Tags, (opt) => opt.MapFrom((src) => src.Tags.ToList()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM003_ShouldNotReportDiagnostic_ForCustomCollectionTypeNameContainingStack()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class StackCollection<T> : List<T>
+                                    {
+                                    }
+
+                                    public class Source
+                                    {
+                                        public StackCollection<int> Items { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Items { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
 }

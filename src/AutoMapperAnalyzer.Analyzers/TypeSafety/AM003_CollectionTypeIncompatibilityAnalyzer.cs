@@ -13,6 +13,12 @@ namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
 {
+    internal const string PropertyNamePropertyName = "PropertyName";
+    internal const string SourcePropertyTypePropertyName = "SourcePropertyType";
+    internal const string DestinationPropertyTypePropertyName = "DestinationPropertyType";
+    internal const string SourceElementTypePropertyName = "SourceElementType";
+    internal const string DestinationElementTypePropertyName = "DestinationElementType";
+
     /// <summary>
     ///     AM003: Collection type incompatibility without proper conversion
     /// </summary>
@@ -56,8 +62,8 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Check if this is a CreateMap<TSource, TDestination>() call
-        if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
+        // Ensure this invocation resolves to AutoMapper CreateMap to avoid lookalike false positives.
+        if (!IsAutoMapperCreateMapInvocation(invocationExpr, context.SemanticModel))
         {
             return;
         }
@@ -87,8 +93,10 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
 
         foreach (IPropertySymbol sourceProperty in sourceProperties)
         {
-            IPropertySymbol? destinationProperty = destinationProperties
-                .FirstOrDefault(p => p.Name == sourceProperty.Name);
+            IPropertySymbol? destinationProperty =
+                destinationProperties.FirstOrDefault(p => p.Name == sourceProperty.Name) ??
+                destinationProperties.FirstOrDefault(p =>
+                    string.Equals(p.Name, sourceProperty.Name, StringComparison.OrdinalIgnoreCase));
 
             if (destinationProperty == null)
             {
@@ -96,8 +104,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
             }
 
             // Check for explicit property mapping that might handle collection conversion
-            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProperty.Name,
-                    context.SemanticModel))
+            if (IsPropertyConfiguredWithForMember(invocation, sourceProperty.Name, context.SemanticModel))
             {
                 continue;
             }
@@ -137,13 +144,16 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         {
             ImmutableDictionary<string, string?>.Builder properties =
                 ImmutableDictionary.CreateBuilder<string, string?>();
-            properties.Add("PropertyName", sourceProperty.Name);
+            properties.Add(PropertyNamePropertyName, sourceProperty.Name);
+            properties.Add(SourcePropertyTypePropertyName, sourceTypeName);
+            properties.Add(DestinationPropertyTypePropertyName, destTypeName);
+            properties.Add(SourceElementTypePropertyName, sourceElementType.ToDisplayString());
+            properties.Add(DestinationElementTypePropertyName, destElementType.ToDisplayString());
+            // Backward-compatible aliases for existing fixers/consumers.
             properties.Add("SourceType", sourceTypeName);
             properties.Add("DestType", destTypeName);
             properties.Add("SourceTypeName", GetTypeName(sourceType));
             properties.Add("DestTypeName", GetTypeName(destinationType));
-            properties.Add("SourceElementType", sourceElementType.ToDisplayString());
-            properties.Add("DestElementType", destElementType.ToDisplayString());
 
             var diagnostic = Diagnostic.Create(
                 CollectionTypeIncompatibilityRule,
@@ -162,22 +172,25 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         {
             ImmutableDictionary<string, string?>.Builder properties =
                 ImmutableDictionary.CreateBuilder<string, string?>();
-            properties.Add("PropertyName", sourceProperty.Name);
+            properties.Add(PropertyNamePropertyName, sourceProperty.Name);
+            properties.Add(SourcePropertyTypePropertyName, sourceTypeName);
+            properties.Add(DestinationPropertyTypePropertyName, destTypeName);
+            properties.Add(SourceElementTypePropertyName, sourceElementType.ToDisplayString());
+            properties.Add(DestinationElementTypePropertyName, destElementType.ToDisplayString());
+            // Backward-compatible aliases for existing fixers/consumers.
             properties.Add("SourceType", sourceTypeName);
             properties.Add("DestType", destTypeName);
             properties.Add("SourceTypeName", GetTypeName(sourceType));
             properties.Add("DestTypeName", GetTypeName(destinationType));
-            properties.Add("SourceElementType", sourceElementType.ToDisplayString());
-            properties.Add("DestElementType", destElementType.ToDisplayString());
 
             var diagnostic = Diagnostic.Create(
                 CollectionElementIncompatibilityRule,
                 invocation.GetLocation(),
                 properties.ToImmutable(),
                 sourceProperty.Name,
-                sourceType.Name,
+                GetTypeName(sourceType),
                 sourceElementType.ToDisplayString(),
-                destinationType.Name,
+                GetTypeName(destinationType),
                 destElementType.ToDisplayString());
 
             context.ReportDiagnostic(diagnostic);
@@ -197,16 +210,12 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         }
 
         // Check for specific incompatible combinations
-        string sourceTypeName = sourceType.ToDisplayString();
-        string destTypeName = destType.ToDisplayString();
-
-        // Detect specific collection types
-        bool sourceIsHashSet = sourceTypeName.Contains("HashSet");
-        bool destIsHashSet = destTypeName.Contains("HashSet");
-        bool sourceIsQueue = sourceTypeName.Contains("Queue");
-        bool destIsQueue = destTypeName.Contains("Queue");
-        bool sourceIsStack = sourceTypeName.Contains("Stack");
-        bool destIsStack = destTypeName.Contains("Stack");
+        bool sourceIsHashSet = IsConstructedFromType(sourceType, "System.Collections.Generic.HashSet<T>");
+        bool destIsHashSet = IsConstructedFromType(destType, "System.Collections.Generic.HashSet<T>");
+        bool sourceIsQueue = IsConstructedFromType(sourceType, "System.Collections.Generic.Queue<T>");
+        bool destIsQueue = IsConstructedFromType(destType, "System.Collections.Generic.Queue<T>");
+        bool sourceIsStack = IsConstructedFromType(sourceType, "System.Collections.Generic.Stack<T>");
+        bool destIsStack = IsConstructedFromType(destType, "System.Collections.Generic.Stack<T>");
 
         // HashSet ↔ List/Array/IEnumerable bidirectional incompatibility
         if (sourceIsHashSet && !destIsHashSet)
@@ -256,6 +265,12 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
                namedType.TypeArguments.Length > 0;
     }
 
+    private static bool IsConstructedFromType(ITypeSymbol type, string genericDefinitionName)
+    {
+        return type is INamedTypeSymbol namedType &&
+               namedType.OriginalDefinition.ToDisplayString() == genericDefinitionName;
+    }
+
 
     /// <summary>
     ///     Gets the type name from an ITypeSymbol.
@@ -265,5 +280,93 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
     private static string GetTypeName(ITypeSymbol type)
     {
         return type.Name;
+    }
+
+    private static bool IsPropertyConfiguredWithForMember(
+        InvocationExpressionSyntax createMapInvocation,
+        string propertyName,
+        SemanticModel semanticModel)
+    {
+        IEnumerable<InvocationExpressionSyntax> forMemberCalls =
+            AutoMapperAnalysisHelpers.GetForMemberCalls(createMapInvocation);
+
+        foreach (InvocationExpressionSyntax forMemberCall in forMemberCalls)
+        {
+            if (!IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForMember"))
+            {
+                continue;
+            }
+
+            if (forMemberCall.ArgumentList.Arguments.Count == 0)
+            {
+                continue;
+            }
+
+            ArgumentSyntax destinationArgument = forMemberCall.ArgumentList.Arguments[0];
+            CSharpSyntaxNode? lambdaBody = GetLambdaBody(destinationArgument.Expression);
+            if (lambdaBody is not MemberAccessExpressionSyntax memberAccess)
+            {
+                continue;
+            }
+
+            if (string.Equals(memberAccess.Name.Identifier.Text, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static CSharpSyntaxNode? GetLambdaBody(ExpressionSyntax expression)
+    {
+        return expression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.Body,
+            _ => null
+        };
+    }
+
+    private static bool IsAutoMapperCreateMapInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        return IsAutoMapperMethodInvocation(invocation, semanticModel, "CreateMap");
+    }
+
+    private static bool IsAutoMapperMethodInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel,
+        string methodName)
+    {
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+
+        if (IsAutoMapperMethod(symbolInfo.Symbol as IMethodSymbol, methodName))
+        {
+            return true;
+        }
+
+        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
+        {
+            if (IsAutoMapperMethod(candidateSymbol as IMethodSymbol, methodName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsAutoMapperMethod(IMethodSymbol? methodSymbol, string methodName)
+    {
+        if (methodSymbol == null || methodSymbol.Name != methodName)
+        {
+            return false;
+        }
+
+        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
+        return namespaceName == "AutoMapper" ||
+               (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
     }
 }
