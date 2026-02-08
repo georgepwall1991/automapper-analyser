@@ -480,4 +480,71 @@ public class AM011_CodeFixTests
                 expectedFixedCode,
                 1); // Bulk fix: "Map all to default value"
     }
+
+    [Fact]
+    public async Task AM011_BulkFix_ShouldNotAddForMember_WhenPropertyAlreadyConfiguredWithForCtorParam()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public required string RequiredByCtor { get; set; }
+                                        public required string RequiredMissing { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForCtorParam(nameof(Destination.RequiredByCtor), opt => opt.MapFrom(src => src.Name));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+        using AutoMapper;
+
+        namespace TestNamespace
+        {
+            public class Source
+            {
+                public string Name { get; set; }
+            }
+
+            public class Destination
+            {
+                public required string RequiredByCtor { get; set; }
+                public required string RequiredMissing { get; set; }
+            }
+
+            public class TestProfile : Profile
+            {
+                public TestProfile()
+                {
+                    CreateMap<Source, Destination>()
+        .ForMember(dest => dest.RequiredMissing, opt => opt.MapFrom(src => string.Empty)).ForCtorParam(nameof(Destination.RequiredByCtor), opt => opt.MapFrom(src => src.Name));
+                }
+            }
+        }
+        """;
+
+        await CodeFixVerifier<AM011_UnmappedRequiredPropertyAnalyzer, AM011_UnmappedRequiredPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("RequiredMissing"),
+                expectedFixedCode,
+                1); // Bulk fix: "Map all unmapped properties to default value"
+    }
 }

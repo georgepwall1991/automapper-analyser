@@ -53,7 +53,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
 
         // Fix 0: Fuzzy Matching - Find similar source properties
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+            GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType != null)
         {
             var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
@@ -201,7 +201,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
     {
         // 1. Identify unmapped properties
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+            GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType == null || destType == null)
         {
             return document;
@@ -228,7 +228,8 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             }
 
             // Check if explicitly configured
-            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, destProp.Name, semanticModel))
+            if (IsPropertyConfiguredWithForMember(invocation, destProp.Name, semanticModel) ||
+                IsPropertyConfiguredWithForCtorParam(invocation, destProp.Name, semanticModel))
             {
                 continue;
             }
@@ -266,7 +267,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
     {
         // 1. Identify unmapped properties (same logic as BulkFixAsync)
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+            GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType == null || destType == null)
         {
             return document;
@@ -294,7 +295,8 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             }
 
             // Check if explicitly configured
-            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, destProp.Name, semanticModel))
+            if (IsPropertyConfiguredWithForMember(invocation, destProp.Name, semanticModel) ||
+                IsPropertyConfiguredWithForCtorParam(invocation, destProp.Name, semanticModel))
             {
                 continue;
             }
@@ -379,7 +381,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
 
         // 2. Get type information
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+            GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType == null || destType == null)
         {
             return document;
@@ -460,7 +462,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         }
 
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, latestSemanticModel);
+            GetCreateMapTypeArguments(invocation, latestSemanticModel);
         if (sourceType == null || destType == null)
         {
             return document;
@@ -644,6 +646,185 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         }
 
         return AutoMapperAnalysisHelpers.AreTypesCompatible(sourceProperty.Type, destinationPropertyType);
+    }
+
+    private static (ITypeSymbol? sourceType, ITypeSymbol? destinationType) GetCreateMapTypeArguments(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+
+        if (TryGetCreateMapTypeArgumentsFromMethod(symbolInfo.Symbol as IMethodSymbol, out ITypeSymbol? sourceType,
+                out ITypeSymbol? destinationType))
+        {
+            return (sourceType, destinationType);
+        }
+
+        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
+        {
+            if (TryGetCreateMapTypeArgumentsFromMethod(candidateSymbol as IMethodSymbol, out sourceType,
+                    out destinationType))
+            {
+                return (sourceType, destinationType);
+            }
+        }
+
+        return AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+    }
+
+    private static bool TryGetCreateMapTypeArgumentsFromMethod(
+        IMethodSymbol? methodSymbol,
+        out ITypeSymbol? sourceType,
+        out ITypeSymbol? destinationType)
+    {
+        sourceType = null;
+        destinationType = null;
+
+        if (methodSymbol?.TypeArguments.Length != 2)
+        {
+            return false;
+        }
+
+        sourceType = methodSymbol.TypeArguments[0];
+        destinationType = methodSymbol.TypeArguments[1];
+        return true;
+    }
+
+    private static bool IsPropertyConfiguredWithForMember(
+        InvocationExpressionSyntax createMapInvocation,
+        string propertyName,
+        SemanticModel semanticModel)
+    {
+        foreach (InvocationExpressionSyntax forMemberCall in GetScopedForMemberCalls(createMapInvocation))
+        {
+            if (!IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForMember"))
+            {
+                continue;
+            }
+
+            if (forMemberCall.ArgumentList.Arguments.Count == 0)
+            {
+                continue;
+            }
+
+            CSharpSyntaxNode? lambdaBody = GetLambdaBody(forMemberCall.ArgumentList.Arguments[0].Expression);
+            if (lambdaBody is not MemberAccessExpressionSyntax memberAccess)
+            {
+                continue;
+            }
+
+            if (string.Equals(memberAccess.Name.Identifier.Text, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsPropertyConfiguredWithForCtorParam(
+        InvocationExpressionSyntax createMapInvocation,
+        string propertyName,
+        SemanticModel semanticModel)
+    {
+        SyntaxNode? currentNode = createMapInvocation.Parent;
+
+        while (currentNode is MemberAccessExpressionSyntax memberAccess &&
+               memberAccess.Parent is InvocationExpressionSyntax invocation)
+        {
+            string methodName = memberAccess.Name.Identifier.ValueText;
+            if (methodName == "ReverseMap")
+            {
+                break;
+            }
+
+            if (methodName == "ForCtorParam" &&
+                IsAutoMapperMethodInvocation(invocation, semanticModel, "ForCtorParam") &&
+                invocation.ArgumentList.Arguments.Count > 0)
+            {
+                Optional<object?> constantValue = semanticModel.GetConstantValue(invocation.ArgumentList.Arguments[0].Expression);
+                if (constantValue.HasValue &&
+                    constantValue.Value is string configuredParam &&
+                    string.Equals(configuredParam, propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            currentNode = invocation.Parent;
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<InvocationExpressionSyntax> GetScopedForMemberCalls(
+        InvocationExpressionSyntax createMapInvocation)
+    {
+        var forMemberCalls = new List<InvocationExpressionSyntax>();
+        SyntaxNode? currentNode = createMapInvocation.Parent;
+
+        while (currentNode is MemberAccessExpressionSyntax memberAccess &&
+               memberAccess.Parent is InvocationExpressionSyntax invocation)
+        {
+            string methodName = memberAccess.Name.Identifier.ValueText;
+            if (methodName == "ReverseMap")
+            {
+                break;
+            }
+
+            if (methodName == "ForMember")
+            {
+                forMemberCalls.Add(invocation);
+            }
+
+            currentNode = invocation.Parent;
+        }
+
+        return forMemberCalls;
+    }
+
+    private static CSharpSyntaxNode? GetLambdaBody(ExpressionSyntax expression)
+    {
+        return expression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.Body,
+            _ => null
+        };
+    }
+
+    private static bool IsAutoMapperMethodInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel,
+        string methodName)
+    {
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+        if (IsAutoMapperMethod(symbolInfo.Symbol as IMethodSymbol, methodName))
+        {
+            return true;
+        }
+
+        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
+        {
+            if (IsAutoMapperMethod(candidateSymbol as IMethodSymbol, methodName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsAutoMapperMethod(IMethodSymbol? methodSymbol, string methodName)
+    {
+        if (methodSymbol == null || methodSymbol.Name != methodName)
+        {
+            return false;
+        }
+
+        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
+        return namespaceName == "AutoMapper" ||
+               (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
     }
 
     /// <summary>
