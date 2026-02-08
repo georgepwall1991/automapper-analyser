@@ -161,7 +161,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         {
             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
                 memberAccess.Name.Identifier.Text == "ForMember" &&
-                IsAutoMapperMethodInvocation(invocation, semanticModel, "ForMember"))
+                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ForMember"))
             {
                 // Check if this ForMember is part of the CreateMap chain
                 if (IsPartOfCreateMapChain(invocation, createMapInvocation))
@@ -232,7 +232,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
         ArgumentSyntax optionsArg = forMemberInvocation.ArgumentList.Arguments[1];
 
-        CSharpSyntaxNode? optionsBody = GetLambdaBody(optionsArg.Expression);
+        CSharpSyntaxNode? optionsBody = AutoMapperAnalysisHelpers.GetLambdaBody(optionsArg.Expression);
         if (optionsBody == null)
         {
             return null;
@@ -243,7 +243,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             .OfType<InvocationExpressionSyntax>()
             .FirstOrDefault(inv => inv.Expression is MemberAccessExpressionSyntax mae &&
                                    mae.Name.Identifier.Text == "MapFrom" &&
-                                   IsAutoMapperMethodInvocation(inv, semanticModel, "MapFrom"));
+                                   MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(inv, semanticModel, "MapFrom"));
 
         if (mapFromInvocation == null)
         {
@@ -263,7 +263,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         }
 
         ArgumentSyntax firstArg = forMemberInvocation.ArgumentList.Arguments[0];
-        CSharpSyntaxNode? destLambdaBody = GetLambdaBody(firstArg.Expression);
+        CSharpSyntaxNode? destLambdaBody = AutoMapperAnalysisHelpers.GetLambdaBody(firstArg.Expression);
         if (destLambdaBody == null)
         {
             return null;
@@ -275,16 +275,6 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         }
 
         return null;
-    }
-
-    private static CSharpSyntaxNode? GetLambdaBody(ExpressionSyntax lambdaExpression)
-    {
-        return lambdaExpression switch
-        {
-            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body,
-            ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.Body,
-            _ => null
-        };
     }
 
     private static void AnalyzeLambdaExpression(
@@ -804,41 +794,4 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsAutoMapperMethodInvocation(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel,
-        string methodName)
-    {
-        IMethodSymbol? methodSymbol = GetMethodSymbol(invocation, semanticModel);
-        if (methodSymbol == null || methodSymbol.Name != methodName)
-        {
-            return false;
-        }
-
-        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
-        return namespaceName == "AutoMapper" ||
-               (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
-    }
-
-    private static IMethodSymbol? GetMethodSymbol(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-
-        if (symbolInfo.Symbol is IMethodSymbol methodSymbol)
-        {
-            return methodSymbol;
-        }
-
-        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
-        {
-            if (candidateSymbol is IMethodSymbol candidateMethod)
-            {
-                return candidateMethod;
-            }
-        }
-
-        return null;
-    }
 }

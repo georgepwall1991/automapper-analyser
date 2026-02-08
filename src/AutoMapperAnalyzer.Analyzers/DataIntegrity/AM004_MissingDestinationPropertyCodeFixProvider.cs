@@ -83,7 +83,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
             {
                 foreach (var destProp in destProperties)
                 {
-                    if (IsFuzzyMatchCandidate(propertyName, destProp, sourcePropertySymbol.Type))
+                    if (FuzzyMatchHelper.IsFuzzyMatchCandidate(propertyName, destProp, sourcePropertySymbol.Type))
                     {
                         string destName = destProp.Name;
                         nestedActions.Add(CodeAction.Create(
@@ -368,75 +368,4 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         return document.Project.Solution.WithDocumentSyntaxRoot(destDocument.Id, newDestRoot);
     }
 
-    /// <summary>
-    ///     Determines whether a destination property is a fuzzy match candidate for the given source property name.
-    ///     Returns true when the Levenshtein distance is at most 2, length difference at most 2, and types are compatible.
-    /// </summary>
-    private static bool IsFuzzyMatchCandidate(string sourcePropertyName, IPropertySymbol destProperty,
-        ITypeSymbol sourcePropertyType)
-    {
-        int distance = ComputeLevenshteinDistance(sourcePropertyName, destProperty.Name);
-        if (distance > 2 || Math.Abs(sourcePropertyName.Length - destProperty.Name.Length) > 2)
-        {
-            return false;
-        }
-
-        // distance == 0 means exact match — the analyzer wouldn't flag it, so skip
-        if (distance == 0)
-        {
-            return false;
-        }
-
-        return AutoMapperAnalysisHelpers.AreTypesCompatible(sourcePropertyType, destProperty.Type);
-    }
-
-    /// <summary>
-    ///     Computes the Levenshtein distance between two strings.
-    /// </summary>
-    private static int ComputeLevenshteinDistance(string s, string t)
-    {
-        if (string.IsNullOrEmpty(s))
-        {
-            return string.IsNullOrEmpty(t) ? 0 : t.Length;
-        }
-
-        if (string.IsNullOrEmpty(t))
-        {
-            return s.Length;
-        }
-
-        int n = s.Length;
-        int m = t.Length;
-        int[,] d = new int[n + 1, m + 1];
-
-        for (int i = 0; i <= n; i++)
-        {
-            d[i, 0] = i;
-        }
-
-        for (int j = 0; j <= m; j++)
-        {
-            d[0, j] = j;
-        }
-
-        for (int j = 1; j <= m; j++)
-        {
-            for (int i = 1; i <= n; i++)
-            {
-                if (s[i - 1] == t[j - 1])
-                {
-                    d[i, j] = d[i - 1, j - 1];
-                }
-                else
-                {
-                    d[i, j] = Math.Min(Math.Min(
-                            d[i - 1, j] + 1,
-                            d[i, j - 1] + 1),
-                        d[i - 1, j - 1] + 1);
-                }
-            }
-        }
-
-        return d[n, m];
-    }
 }

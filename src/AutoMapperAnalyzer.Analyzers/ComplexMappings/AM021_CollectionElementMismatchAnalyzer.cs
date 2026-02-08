@@ -144,22 +144,13 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
                 invocation.GetLocation(),
                 properties.ToImmutable(),
                 sourceProperty.Name,
-                GetTypeName(sourceType),
+                AutoMapperAnalysisHelpers.GetTypeName(sourceType),
                 sourceElementType.ToDisplayString(),
-                GetTypeName(destinationType),
+                AutoMapperAnalysisHelpers.GetTypeName(destinationType),
                 destElementType.ToDisplayString());
 
             context.ReportDiagnostic(diagnostic);
         }
     }
 
-    /// <summary>
-    ///     Gets the type name from an ITypeSymbol.
-    /// </summary>
-    /// <param name="type">The type symbol.</param>
-    /// <returns>The type name.</returns>
-    private static string GetTypeName(ITypeSymbol type)
-    {
-        return type.Name;
-    }
 }

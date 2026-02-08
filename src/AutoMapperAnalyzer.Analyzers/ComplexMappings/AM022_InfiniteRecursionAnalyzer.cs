@@ -258,8 +258,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             var diagnostic = Diagnostic.Create(
                 SelfReferencingTypeRule,
                 invocation.GetLocation(),
-                GetTypeName(sourceType),
-                GetTypeName(destinationType)
+                AutoMapperAnalysisHelpers.GetTypeName(sourceType),
+                AutoMapperAnalysisHelpers.GetTypeName(destinationType)
             );
 
             context.ReportDiagnostic(diagnostic);
@@ -272,8 +272,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             var diagnostic = Diagnostic.Create(
                 InfiniteRecursionRiskRule,
                 invocation.GetLocation(),
-                GetTypeName(sourceType),
-                GetTypeName(destinationType)
+                AutoMapperAnalysisHelpers.GetTypeName(sourceType),
+                AutoMapperAnalysisHelpers.GetTypeName(destinationType)
             );
 
             context.ReportDiagnostic(diagnostic);
@@ -425,16 +425,6 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         return circularProperties;
     }
 
-
-    /// <summary>
-    ///     Gets the type name from an ITypeSymbol.
-    /// </summary>
-    /// <param name="type">The type symbol.</param>
-    /// <returns>The type name.</returns>
-    private static string GetTypeName(ITypeSymbol type)
-    {
-        return type.Name;
-    }
 
     private static bool IsSimpleType(ITypeSymbol type)
     {

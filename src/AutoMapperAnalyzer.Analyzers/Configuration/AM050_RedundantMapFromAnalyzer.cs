@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -44,7 +45,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
             memberAccess.Name.Identifier.Text == "MapFrom")
         {
-            if (!IsAutoMapperMethodInvocation(invocation, context.SemanticModel, "MapFrom"))
+            if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, context.SemanticModel, "MapFrom"))
             {
                 return;
             }
@@ -55,7 +56,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
                 .FirstOrDefault(inv =>
                     inv.Expression is MemberAccessExpressionSyntax ma &&
                     ma.Name.Identifier.Text == "ForMember" &&
-                    IsAutoMapperMethodInvocation(inv, context.SemanticModel, "ForMember"));
+                    MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(inv, context.SemanticModel, "ForMember"));
 
             if (forMemberInvocation == null)
             {
@@ -138,41 +139,4 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    private static bool IsAutoMapperMethodInvocation(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel,
-        string methodName)
-    {
-        IMethodSymbol? methodSymbol = GetMethodSymbol(invocation, semanticModel);
-        if (methodSymbol == null || methodSymbol.Name != methodName)
-        {
-            return false;
-        }
-
-        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
-        return namespaceName == "AutoMapper" ||
-               (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
-    }
-
-    private static IMethodSymbol? GetMethodSymbol(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-
-        if (symbolInfo.Symbol is IMethodSymbol methodSymbol)
-        {
-            return methodSymbol;
-        }
-
-        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
-        {
-            if (candidateSymbol is IMethodSymbol candidateMethod)
-            {
-                return candidateMethod;
-            }
-        }
-
-        return null;
-    }
 }

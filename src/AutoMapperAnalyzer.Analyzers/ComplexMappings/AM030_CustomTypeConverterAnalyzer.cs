@@ -190,8 +190,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
                 InvalidConverterImplementationRule,
                 classDeclaration.Identifier.GetLocation(),
                 classSymbol.Name,
-                GetTypeName(typeConverterInterface.TypeArguments[0]),
-                GetTypeName(typeConverterInterface.TypeArguments[1]));
+                AutoMapperAnalysisHelpers.GetTypeName(typeConverterInterface.TypeArguments[0]),
+                AutoMapperAnalysisHelpers.GetTypeName(typeConverterInterface.TypeArguments[1]));
 
             context.ReportDiagnostic(diagnostic);
             return;
@@ -613,16 +613,6 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
     private static string GetConverterTypeName(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
-        return $"ITypeConverter<{GetTypeName(sourceType)}, {GetTypeName(destinationType)}>";
-    }
-
-    /// <summary>
-    ///     Gets the type name from an ITypeSymbol.
-    /// </summary>
-    /// <param name="type">The type symbol.</param>
-    /// <returns>The type name.</returns>
-    private static string GetTypeName(ITypeSymbol type)
-    {
-        return type.Name;
+        return $"ITypeConverter<{AutoMapperAnalysisHelpers.GetTypeName(sourceType)}, {AutoMapperAnalysisHelpers.GetTypeName(destinationType)}>";
     }
 }
