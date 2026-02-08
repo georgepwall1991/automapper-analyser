@@ -29,30 +29,34 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
     /// </summary>
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root == null)
+        CodeFixOperationContext? operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
         {
             return;
         }
 
-        SemanticModel? semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (semanticModel == null)
-        {
-            return;
-        }
+        ImmutableArray<Diagnostic> diagnostics = context.Diagnostics
+            .Where(diag =>
+                diag.Id == "AM002" &&
+                diag.Descriptor == AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule &&
+                diag.Location.IsInSource &&
+                diag.Location.SourceTree == operationContext.Root.SyntaxTree &&
+                diag.Location.SourceSpan.IntersectsWith(context.Span))
+            .ToImmutableArray();
 
         var handledInvocations = new HashSet<InvocationExpressionSyntax>();
 
-        foreach (Diagnostic? diagnostic in context.Diagnostics)
+        foreach (Diagnostic? diagnostic in diagnostics)
         {
-            if (diagnostic.Descriptor != AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            if (diagnostic == null)
             {
                 continue;
             }
 
             TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
 
-            InvocationExpressionSyntax? invocation = root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
+            InvocationExpressionSyntax? invocation = GetCreateMapInvocation(operationContext.Root, diagnostic) ??
+                                                   operationContext.Root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
                 .OfType<InvocationExpressionSyntax>()
                 .FirstOrDefault(i => i.Span.Contains(diagnosticSpan));
 
@@ -70,11 +74,11 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
             // 1. Register Bulk Fixes (only once per invocation)
             if (handledInvocations.Add(invocation))
             {
-                RegisterBulkFixes(context, invocation, semanticModel, root);
+                RegisterBulkFixes(context, invocation, operationContext.SemanticModel, operationContext.Root);
             }
 
             // 2. Register Grouped Per-Property Fixes
-            RegisterPerPropertyFixes(context, diagnostic, invocation, propertyName!, root);
+            RegisterPerPropertyFixes(context, diagnostic, invocation, propertyName!, operationContext.Root);
         }
     }
 
@@ -334,7 +338,8 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
     private string? ExtractPropertyNameFromDiagnostic(Diagnostic diagnostic)
     {
         // Try to get property name from diagnostic properties
-        if (diagnostic.Properties.TryGetValue("PropertyName", out string? propertyName))
+        if (diagnostic.Properties.TryGetValue(AM002_NullableCompatibilityAnalyzer.PropertyNamePropertyName,
+                out string? propertyName))
         {
             return propertyName;
         }
@@ -348,6 +353,13 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
     private string? ExtractDestinationTypeFromDiagnostic(Diagnostic diagnostic)
     {
         // Try to get from diagnostic properties
+        if (diagnostic.Properties.TryGetValue(AM002_NullableCompatibilityAnalyzer.DestinationPropertyTypePropertyName,
+                out string? destinationType))
+        {
+            return destinationType;
+        }
+
+        // Backward-compatible fallback for older diagnostics.
         if (diagnostic.Properties.TryGetValue("DestType", out string? destType))
         {
             return destType;
