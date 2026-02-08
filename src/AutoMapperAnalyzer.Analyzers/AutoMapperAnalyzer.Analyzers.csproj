@@ -16,7 +16,7 @@
         <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
-        <MinorVersion>11</MinorVersion>
+        <MinorVersion>23</MinorVersion>
         <PatchVersion>0</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
@@ -32,18 +32,23 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.11.0 - AM050 Redundant MapFrom False-Positive Fixes
+        <PackageReleaseNotes>Version 2.23.0 - Project Audit: Deduplication, AM006 Code Fix, Docs Sync
 
-            🛡️ Analyzer Improvements (AM050):
-            - Redundant MapFrom detection now validates AutoMapper symbols for both MapFrom and ForMember
-            - Redundancy now only triggers for direct source-lambda member access (src =&gt; src.Property)
-            - Prevents false positives from captured variables and similarly named non-AutoMapper APIs
+            Refactoring:
+            - Consolidated ~42 duplicate helper methods across 13 analyzer files into shared helpers
+            - Created FuzzyMatchHelper and added GetLambdaBody/GetTypeName to AutoMapperAnalysisHelpers
+            - Net reduction of ~538 lines of duplicated code
 
-            ✅ Validation:
-            - Added regression tests for captured-variable mappings and non-AutoMapper ForMember/MapFrom patterns
-            - All 450 tests passing locally (438 passed, 12 skipped)
+            New Feature:
+            - Added AM006 code fix provider (unmapped destination properties)
+            - Per-property fixes: fuzzy match, ignore destination, create source property
+            - Bulk fixes: ignore all unmapped, create all missing source properties
 
-            Previous Release: v2.10.0 - AM041 Accuracy &amp; Fix Safety
+            Validation:
+            - All 554 tests passing (554 passed, 12 skipped)
+            - 6 new AM006 code fix tests added
+
+            Previous Release: v2.22.0 - AM004 Second Pass
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
