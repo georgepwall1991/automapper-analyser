@@ -436,6 +436,17 @@ CreateMap<Source, Destination>()
     .ForMember(dest => dest.ExtraInfo, opt => opt.MapFrom(src => "Default Value"));
 ```
 
+#### Code Fixes
+
+**Per-property fixes:**
+- Map from similar source property (fuzzy match suggestion)
+- Ignore destination property (`ForMember` + `Ignore`)
+- Create property in source type
+
+**Bulk fixes:**
+- Ignore all unmapped destination properties
+- Create all missing properties in source type
+
 #### Configuration
 
 ```ini
@@ -1189,7 +1200,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.5.0">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.24.0">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>

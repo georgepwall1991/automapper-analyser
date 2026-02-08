@@ -16,7 +16,7 @@
         <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
-        <MinorVersion>11</MinorVersion>
+        <MinorVersion>24</MinorVersion>
         <PatchVersion>0</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
@@ -32,18 +32,21 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.11.0 - AM050 Redundant MapFrom False-Positive Fixes
+        <PackageReleaseNotes>Version 2.24.0 - Bug Fixes and Test Coverage Improvement
 
-            🛡️ Analyzer Improvements (AM050):
-            - Redundant MapFrom detection now validates AutoMapper symbols for both MapFrom and ForMember
-            - Redundancy now only triggers for direct source-lambda member access (src =&gt; src.Property)
-            - Prevents false positives from captured variables and similarly named non-AutoMapper APIs
+            Bug Fixes:
+            - Fixed AM011 chunked bulk fix producing placeholder code instead of valid ForMember calls
+            - Fixed AM004 FindCreateMapInvocation not traversing up syntax tree for ReverseMap scenarios
 
-            ✅ Validation:
-            - Added regression tests for captured-variable mappings and non-AutoMapper ForMember/MapFrom patterns
-            - All 450 tests passing locally (438 passed, 12 skipped)
+            Test Coverage:
+            - Added 32 new tests (554 → 586 passing, 12 skipped)
+            - New FuzzyMatchHelper unit tests (19 tests for Levenshtein distance and fuzzy matching)
+            - New AutoMapperAnalysisHelpers tests for GetLambdaBody and GetTypeName (6 tests)
+            - AM004 ReverseMap code fix regression tests (2 tests)
+            - AM006 edge case and ReverseMap code fix tests (4 tests)
+            - AM011 chunked bulk fix regression test (1 test)
 
-            Previous Release: v2.10.0 - AM041 Accuracy &amp; Fix Safety
+            Previous Release: v2.23.0 - Project Audit
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

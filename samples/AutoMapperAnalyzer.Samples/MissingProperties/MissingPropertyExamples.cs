@@ -145,11 +145,13 @@ public class CorrectMissingPropertyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Correct: Explicit handling of data loss
+#pragma warning disable AM041
             cfg.CreateMap<SourceWithExtraData, DestinationMissingData>()
                 .ForMember(
                     dest => dest.Name,
                     opt => opt.MapFrom(src => $"{src.Name} (Data: {src.ImportantData})")
                 );
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();
@@ -169,8 +171,10 @@ public class CorrectMissingPropertyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Correct: Explicit mapping for required field
+#pragma warning disable AM041
             cfg.CreateMap<SourceWithoutRequired, DestinationWithRequired>()
                 .ForMember(dest => dest.RequiredField, opt => opt.MapFrom(src => "Default Value"));
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();
@@ -187,10 +191,12 @@ public class CorrectMissingPropertyExamples
         var config = new MapperConfiguration(cfg =>
         {
             // ✅ Correct: Explicit case-insensitive mapping
+#pragma warning disable AM041
             cfg.CreateMap<SourceWithCamelCase, DestinationWithPascalCase>()
                 .ForMember(dest => dest.FirstName, opt => opt.MapFrom(src => src.firstName))
                 .ForMember(dest => dest.LastName, opt => opt.MapFrom(src => src.lastName))
                 .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.userName));
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();

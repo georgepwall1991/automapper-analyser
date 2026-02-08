@@ -152,9 +152,9 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                     invocation.GetLocation(),
                     properties.ToImmutable(),
                     sourceProperty.Name,
-                    GetTypeName(sourceType),
+                    AutoMapperAnalysisHelpers.GetTypeName(sourceType),
                     sourceTypeName,
-                    GetTypeName(destinationType),
+                    AutoMapperAnalysisHelpers.GetTypeName(destinationType),
                     destTypeName
                 );
                 context.ReportDiagnostic(diagnostic);
@@ -178,9 +178,9 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                     invocation.GetLocation(),
                     properties.ToImmutable(),
                     sourceProperty.Name,
-                    GetTypeName(sourceType),
+                    AutoMapperAnalysisHelpers.GetTypeName(sourceType),
                     sourceTypeName,
-                    GetTypeName(destinationType),
+                    AutoMapperAnalysisHelpers.GetTypeName(destinationType),
                     destTypeName
                 );
                 context.ReportDiagnostic(diagnostic);
@@ -226,15 +226,6 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         return AutoMapperAnalysisHelpers.AreTypesCompatible(sourceType, destType);
     }
 
-    private static string GetTypeName(ITypeSymbol type)
-    {
-        if (type is INamedTypeSymbol namedType)
-        {
-            return namedType.Name;
-        }
-
-        return type.Name;
-    }
 
     private static bool IsPropertyConfiguredWithForMember(
         InvocationExpressionSyntax createMapInvocation,
@@ -245,7 +236,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
 
         foreach (InvocationExpressionSyntax forMemberCall in forMemberCalls)
         {
-            if (!IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForMember"))
+            if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForMember"))
             {
                 continue;
             }
@@ -256,7 +247,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             }
 
             ArgumentSyntax destinationArgument = forMemberCall.ArgumentList.Arguments[0];
-            CSharpSyntaxNode? lambdaBody = GetLambdaBody(destinationArgument.Expression);
+            CSharpSyntaxNode? lambdaBody = AutoMapperAnalysisHelpers.GetLambdaBody(destinationArgument.Expression);
             if (lambdaBody is not MemberAccessExpressionSyntax memberAccess)
             {
                 continue;
@@ -271,55 +262,13 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static CSharpSyntaxNode? GetLambdaBody(ExpressionSyntax expression)
-    {
-        return expression switch
-        {
-            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body,
-            ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.Body,
-            _ => null
-        };
-    }
 
     private static bool IsAutoMapperCreateMapInvocation(
         InvocationExpressionSyntax invocation,
         SemanticModel semanticModel)
     {
-        return IsAutoMapperMethodInvocation(invocation, semanticModel, "CreateMap");
+        return MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "CreateMap");
     }
 
-    private static bool IsAutoMapperMethodInvocation(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel,
-        string methodName)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
 
-        if (IsAutoMapperMethod(symbolInfo.Symbol as IMethodSymbol, methodName))
-        {
-            return true;
-        }
-
-        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
-        {
-            if (IsAutoMapperMethod(candidateSymbol as IMethodSymbol, methodName))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsAutoMapperMethod(IMethodSymbol? methodSymbol, string methodName)
-    {
-        if (methodSymbol == null || methodSymbol.Name != methodName)
-        {
-            return false;
-        }
-
-        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
-        return namespaceName == "AutoMapper" ||
-               (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
-    }
 }

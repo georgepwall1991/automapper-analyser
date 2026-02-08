@@ -53,7 +53,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
 
         // Fix 0: Fuzzy Matching - Find similar source properties
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            GetCreateMapTypeArguments(invocation, semanticModel);
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType != null)
         {
             var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
@@ -62,14 +62,12 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
                 : AutoMapperAnalysisHelpers.GetMappableProperties(destType, false)
                     .FirstOrDefault(p => string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
 
-            foreach (var sourceProp in sourceProperties)
-            {
-                if (destinationProperty != null &&
-                    !IsFuzzyMatchCandidate(propertyName, sourceProp, destinationProperty.Type))
-                {
-                    continue;
-                }
+            var fuzzyMatches = destinationProperty != null
+                ? FuzzyMatchHelper.FindFuzzyMatches(propertyName, sourceProperties, destinationProperty.Type)
+                : sourceProperties;
 
+            foreach (var sourceProp in fuzzyMatches)
+            {
                 var matchAction = CodeAction.Create(
                     $"Map from similar property '{sourceProp.Name}'",
                     cancellationToken =>
@@ -201,7 +199,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
     {
         // 1. Identify unmapped properties
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            GetCreateMapTypeArguments(invocation, semanticModel);
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType == null || destType == null)
         {
             return document;
@@ -267,7 +265,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
     {
         // 1. Identify unmapped properties (same logic as BulkFixAsync)
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            GetCreateMapTypeArguments(invocation, semanticModel);
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType == null || destType == null)
         {
             return document;
@@ -306,14 +304,11 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             string? parameter = null;
 
             // Try fuzzy matching to find similar property
-            foreach (var sourceProp in sourceProperties)
+            var fuzzyMatch = FuzzyMatchHelper.FindFuzzyMatches(destProp.Name, sourceProperties, destProp.Type).FirstOrDefault();
+            if (fuzzyMatch != null)
             {
-                if (IsFuzzyMatchCandidate(destProp.Name, sourceProp, destProp.Type))
-                {
-                    defaultAction = BulkFixAction.FuzzyMatch;
-                    parameter = sourceProp.Name;
-                    break;
-                }
+                defaultAction = BulkFixAction.FuzzyMatch;
+                parameter = fuzzyMatch.Name;
             }
 
             missingProperties.Add((destProp, defaultAction, parameter));
@@ -381,7 +376,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
 
         // 2. Get type information
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            GetCreateMapTypeArguments(invocation, semanticModel);
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
         if (sourceType == null || destType == null)
         {
             return document;
@@ -462,7 +457,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         }
 
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            GetCreateMapTypeArguments(invocation, latestSemanticModel);
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, latestSemanticModel);
         if (sourceType == null || destType == null)
         {
             return document;
@@ -559,17 +554,21 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         PropertyFixAction action,
         IEnumerable<IPropertySymbol> sourceProperties)
     {
-        // This creates the ForMember call for the helper method
-        string mappingExpression = action.Action switch
-        {
-            BulkFixAction.Default => TypeConversionHelper.GetDefaultValueForType(action.PropertyType),
-            BulkFixAction.FuzzyMatch when !string.IsNullOrEmpty(action.Parameter) => $"src.{action.Parameter}",
-            BulkFixAction.Ignore => "/* ignored */",
-            _ => TypeConversionHelper.GetDefaultValueForType(action.PropertyType)
-        };
+        // Create a dummy invocation to use as the base for CodeFixSyntaxHelper methods.
+        // We use IdentifierName("map") as the base expression since this will be chained
+        // onto the "map" parameter in the helper method body.
+        var baseInvocation = SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName("map"));
 
-        // For simplicity, return a placeholder - the actual implementation would create proper syntax nodes
-        return SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName("placeholder"));
+        return action.Action switch
+        {
+            BulkFixAction.Ignore =>
+                CodeFixSyntaxHelper.CreateForMemberWithIgnore(baseInvocation, action.PropertyName),
+            BulkFixAction.FuzzyMatch when !string.IsNullOrEmpty(action.Parameter) =>
+                CodeFixSyntaxHelper.CreateForMemberWithMapFrom(baseInvocation, action.PropertyName, $"src.{action.Parameter}"),
+            _ =>
+                CodeFixSyntaxHelper.CreateForMemberWithMapFrom(baseInvocation, action.PropertyName,
+                    TypeConversionHelper.GetDefaultValueForType(action.PropertyType))
+        };
     }
 
     private InvocationExpressionSyntax CreateHelperMethodInvocation(
@@ -636,59 +635,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         }
     }
 
-    private static bool IsFuzzyMatchCandidate(string destinationPropertyName, IPropertySymbol sourceProperty,
-        ITypeSymbol destinationPropertyType)
-    {
-        int distance = ComputeLevenshteinDistance(destinationPropertyName, sourceProperty.Name);
-        if (distance > 2 || Math.Abs(destinationPropertyName.Length - sourceProperty.Name.Length) > 2)
-        {
-            return false;
-        }
 
-        return AutoMapperAnalysisHelpers.AreTypesCompatible(sourceProperty.Type, destinationPropertyType);
-    }
-
-    private static (ITypeSymbol? sourceType, ITypeSymbol? destinationType) GetCreateMapTypeArguments(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-
-        if (TryGetCreateMapTypeArgumentsFromMethod(symbolInfo.Symbol as IMethodSymbol, out ITypeSymbol? sourceType,
-                out ITypeSymbol? destinationType))
-        {
-            return (sourceType, destinationType);
-        }
-
-        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
-        {
-            if (TryGetCreateMapTypeArgumentsFromMethod(candidateSymbol as IMethodSymbol, out sourceType,
-                    out destinationType))
-            {
-                return (sourceType, destinationType);
-            }
-        }
-
-        return AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
-    }
-
-    private static bool TryGetCreateMapTypeArgumentsFromMethod(
-        IMethodSymbol? methodSymbol,
-        out ITypeSymbol? sourceType,
-        out ITypeSymbol? destinationType)
-    {
-        sourceType = null;
-        destinationType = null;
-
-        if (methodSymbol?.TypeArguments.Length != 2)
-        {
-            return false;
-        }
-
-        sourceType = methodSymbol.TypeArguments[0];
-        destinationType = methodSymbol.TypeArguments[1];
-        return true;
-    }
 
     private static bool IsPropertyConfiguredWithForMember(
         InvocationExpressionSyntax createMapInvocation,
@@ -697,7 +644,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
     {
         foreach (InvocationExpressionSyntax forMemberCall in GetScopedForMemberCalls(createMapInvocation))
         {
-            if (!IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForMember"))
+            if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForMember"))
             {
                 continue;
             }
@@ -707,7 +654,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
                 continue;
             }
 
-            CSharpSyntaxNode? lambdaBody = GetLambdaBody(forMemberCall.ArgumentList.Arguments[0].Expression);
+            CSharpSyntaxNode? lambdaBody = AutoMapperAnalysisHelpers.GetLambdaBody(forMemberCall.ArgumentList.Arguments[0].Expression);
             if (lambdaBody is not MemberAccessExpressionSyntax memberAccess)
             {
                 continue;
@@ -739,7 +686,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             }
 
             if (methodName == "ForCtorParam" &&
-                IsAutoMapperMethodInvocation(invocation, semanticModel, "ForCtorParam") &&
+                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ForCtorParam") &&
                 invocation.ArgumentList.Arguments.Count > 0)
             {
                 Optional<object?> constantValue = semanticModel.GetConstantValue(invocation.ArgumentList.Arguments[0].Expression);
@@ -781,100 +728,5 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         }
 
         return forMemberCalls;
-    }
-
-    private static CSharpSyntaxNode? GetLambdaBody(ExpressionSyntax expression)
-    {
-        return expression switch
-        {
-            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body,
-            ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.Body,
-            _ => null
-        };
-    }
-
-    private static bool IsAutoMapperMethodInvocation(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel,
-        string methodName)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (IsAutoMapperMethod(symbolInfo.Symbol as IMethodSymbol, methodName))
-        {
-            return true;
-        }
-
-        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
-        {
-            if (IsAutoMapperMethod(candidateSymbol as IMethodSymbol, methodName))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsAutoMapperMethod(IMethodSymbol? methodSymbol, string methodName)
-    {
-        if (methodSymbol == null || methodSymbol.Name != methodName)
-        {
-            return false;
-        }
-
-        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
-        return namespaceName == "AutoMapper" ||
-               (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
-    }
-
-    /// <summary>
-    /// Compute the Levenshtein distance between two strings.
-    /// </summary>
-    private static int ComputeLevenshteinDistance(string s, string t)
-    {
-        if (string.IsNullOrEmpty(s))
-        {
-            return string.IsNullOrEmpty(t) ? 0 : t.Length;
-        }
-
-        if (string.IsNullOrEmpty(t))
-        {
-            return s.Length;
-        }
-
-        int n = s.Length;
-        int m = t.Length;
-        int[,] d = new int[n + 1, m + 1];
-
-        for (int i = 0; i <= n; i++)
-        {
-            d[i, 0] = i;
-        }
-
-        for (int j = 0; j <= m; j++)
-        {
-            d[0, j] = j;
-        }
-
-        for (int j = 1; j <= m; j++)
-        {
-            for (int i = 1; i <= n; i++)
-            {
-                if (s[i - 1] == t[j - 1])
-                {
-                    d[i, j] = d[i - 1, j - 1];
-                }
-                else
-                {
-                    d[i, j] = Math.Min(Math.Min(
-                            d[i - 1, j] + 1, // deletion
-                            d[i, j - 1] + 1), // insertion
-                        d[i - 1, j - 1] + 1 // substitution
-                    );
-                }
-            }
-        }
-
-        return d[n, m];
     }
 }

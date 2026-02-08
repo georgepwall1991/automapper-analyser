@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-438%20passing%2C%2012%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-554%20passing%2C%2012%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,21 +14,32 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.11.0
+## 🎉 Latest Release: v2.24.0
 
-**AM050 Redundant MapFrom False-Positive Fixes**
+**Project Audit: Deduplication, AM006 Code Fix, Docs Sync**
 
-🛡️ **Analyzer Improvements (AM050):**
+**Refactoring:**
 
-- Redundant `MapFrom` detection now verifies `MapFrom` and `ForMember` resolve to actual AutoMapper symbols.
-- Redundancy is now only reported for direct source-member access (`src => src.Name`), avoiding captured-variable false positives.
+- Consolidated ~42 duplicate helper methods across 13 analyzer files into shared helpers.
+- Created `FuzzyMatchHelper` and added `GetLambdaBody`/`GetTypeName` to `AutoMapperAnalysisHelpers`.
+- Net reduction of ~538 lines of duplicated code.
+
+**New Feature:**
+
+- Added AM006 code fix provider for unmapped destination properties.
+- Per-property fixes: fuzzy match suggestion, ignore destination, create source property.
+- Bulk fixes: ignore all unmapped, create all missing source properties.
 
 ✅ **Validation:**
 
-- Added regression tests for captured-variable mapping and non-AutoMapper APIs with similarly named methods.
-- All 450 tests passing locally (`438 passed`, `12 skipped`).
+- All 554 tests passing (`554 passed`, `12 skipped`).
+- 6 new AM006 code fix tests added.
 
-### Previous Release: v2.10.0
+### Previous Release: v2.22.0
+
+**AM004 Second Pass** - Tightened symbol gating, direction-scoped analysis, reverse-map aware bulk fixer.
+
+### Previous Release: v2.11.0
 
 **AM041 Accuracy & Fix Safety**
 

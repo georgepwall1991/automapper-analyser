@@ -3,9 +3,9 @@ using AutoMapper;
 namespace AutoMapperAnalyzer.Samples.Configuration;
 
 /// <summary>
-///     ⚠️ FUTURE IMPLEMENTATION - These analyzers (AM040-AM042) are NOT yet implemented.
-///     These examples are included for future development reference and documentation.
-///     Examples of configuration issues that AutoMapper analyzer will detect (when implemented)
+///     Configuration issue examples for AutoMapper analyzer.
+///     AM041 (Duplicate Mapping) IS implemented and will fire diagnostics.
+///     AM040 (Missing Profile Registration) and AM042 (Ignore vs MapFrom Conflict) are future.
 /// </summary>
 public class ConfigurationExamples
 {
@@ -142,8 +142,10 @@ public class UserMappingProfile : Profile
 {
     public UserMappingProfile()
     {
+#pragma warning disable AM041
         CreateMap<User, UserDto>()
             .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => $"{src.FirstName} {src.LastName}"));
+#pragma warning restore AM041
     }
 }
 
@@ -171,10 +173,12 @@ public class CorrectConfigurationExamples
     {
         var config = new MapperConfiguration(cfg =>
         {
+#pragma warning disable AM041
             cfg.CreateMap<Product, ProductDto>()
                 // ✅ Correct: Single, clear mapping rule
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src =>
                     string.IsNullOrEmpty(src.Title) ? src.ProductName : src.Title));
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();
@@ -188,10 +192,12 @@ public class CorrectConfigurationExamples
     {
         var config = new MapperConfiguration(cfg =>
         {
+#pragma warning disable AM041
             cfg.CreateMap<Order, OrderDto>()
                 // ✅ Correct: Either ignore OR map, not both
                 .ForMember(dest => dest.CustomerName, opt => opt.MapFrom(src => src.Customer.Name));
             // OR: .ForMember(dest => dest.CustomerName, opt => opt.Ignore());
+#pragma warning restore AM041
         });
 
         var mapper = config.CreateMapper();

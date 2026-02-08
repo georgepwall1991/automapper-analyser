@@ -118,8 +118,8 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
                 ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add("PropertyName", destinationProperty.Name);
             properties.Add("PropertyType", destinationProperty.Type.ToDisplayString());
-            properties.Add("SourceTypeName", GetTypeName(sourceType));
-            properties.Add("DestinationTypeName", GetTypeName(destinationType));
+            properties.Add("SourceTypeName", AutoMapperAnalysisHelpers.GetTypeName(sourceType));
+            properties.Add("DestinationTypeName", AutoMapperAnalysisHelpers.GetTypeName(destinationType));
 
             var diagnostic = Diagnostic.Create(
                 UnmappedRequiredPropertyRule,
@@ -131,15 +131,6 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>
-    ///     Gets the type name from an ITypeSymbol.
-    /// </summary>
-    /// <param name="type">The type symbol.</param>
-    /// <returns>The type name.</returns>
-    private static string GetTypeName(ITypeSymbol type)
-    {
-        return type.Name;
-    }
 
     private static bool IsRequiredProperty(IPropertySymbol property)
     {
@@ -164,7 +155,7 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
             }
 
             if (methodName is "ConstructUsing" or "ConvertUsing" &&
-                IsAutoMapperMethodInvocation(invocation, semanticModel, methodName))
+                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, methodName))
             {
                 return true;
             }
@@ -192,7 +183,7 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
             }
 
             if (methodName == "ForCtorParam" &&
-                IsAutoMapperMethodInvocation(invocation, semanticModel, "ForCtorParam") &&
+                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ForCtorParam") &&
                 invocation.ArgumentList.Arguments.Count > 0)
             {
                 ArgumentSyntax firstArg = invocation.ArgumentList.Arguments[0];
@@ -219,7 +210,7 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
     {
         foreach (InvocationExpressionSyntax forMemberCall in GetScopedForMemberCalls(createMapInvocation))
         {
-            if (!IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForMember"))
+            if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForMember"))
             {
                 continue;
             }
@@ -229,7 +220,7 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            CSharpSyntaxNode? lambdaBody = GetLambdaBody(forMemberCall.ArgumentList.Arguments[0].Expression);
+            CSharpSyntaxNode? lambdaBody = AutoMapperAnalysisHelpers.GetLambdaBody(forMemberCall.ArgumentList.Arguments[0].Expression);
             if (lambdaBody is not MemberAccessExpressionSyntax memberAccess)
             {
                 continue;
@@ -270,97 +261,17 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         return forMemberCalls;
     }
 
-    private static CSharpSyntaxNode? GetLambdaBody(ExpressionSyntax expression)
-    {
-        return expression switch
-        {
-            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body,
-            ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.Body,
-            _ => null
-        };
-    }
-
     private static bool IsAutoMapperCreateMapInvocation(
         InvocationExpressionSyntax invocation,
         SemanticModel semanticModel)
     {
-        return IsAutoMapperMethodInvocation(invocation, semanticModel, "CreateMap");
-    }
-
-    private static bool IsAutoMapperMethodInvocation(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel,
-        string methodName)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-
-        if (IsAutoMapperMethod(symbolInfo.Symbol as IMethodSymbol, methodName))
-        {
-            return true;
-        }
-
-        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
-        {
-            if (IsAutoMapperMethod(candidateSymbol as IMethodSymbol, methodName))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsAutoMapperMethod(IMethodSymbol? methodSymbol, string methodName)
-    {
-        if (methodSymbol == null || methodSymbol.Name != methodName)
-        {
-            return false;
-        }
-
-        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
-        return namespaceName == "AutoMapper" ||
-               (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
+        return MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "CreateMap");
     }
 
     private static (ITypeSymbol? sourceType, ITypeSymbol? destinationType) GetCreateMapTypeArguments(
         InvocationExpressionSyntax invocation,
         SemanticModel semanticModel)
     {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-
-        if (TryGetCreateMapTypeArgumentsFromMethod(symbolInfo.Symbol as IMethodSymbol, out ITypeSymbol? sourceType,
-                out ITypeSymbol? destinationType))
-        {
-            return (sourceType, destinationType);
-        }
-
-        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
-        {
-            if (TryGetCreateMapTypeArgumentsFromMethod(candidateSymbol as IMethodSymbol, out sourceType,
-                    out destinationType))
-            {
-                return (sourceType, destinationType);
-            }
-        }
-
-        return AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
-    }
-
-    private static bool TryGetCreateMapTypeArgumentsFromMethod(
-        IMethodSymbol? methodSymbol,
-        out ITypeSymbol? sourceType,
-        out ITypeSymbol? destinationType)
-    {
-        sourceType = null;
-        destinationType = null;
-
-        if (methodSymbol?.TypeArguments.Length != 2)
-        {
-            return false;
-        }
-
-        sourceType = methodSymbol.TypeArguments[0];
-        destinationType = methodSymbol.TypeArguments[1];
-        return true;
+        return MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
     }
 }

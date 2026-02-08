@@ -561,4 +561,34 @@ public static class AutoMapperAnalysisHelpers
             _ => int.MaxValue
         };
     }
+
+    /// <summary>
+    ///     Extracts the body from a lambda expression (simple or parenthesized).
+    /// </summary>
+    /// <param name="expression">The expression to extract the lambda body from.</param>
+    /// <returns>The lambda body syntax node, or null if the expression is not a lambda.</returns>
+    public static CSharpSyntaxNode? GetLambdaBody(ExpressionSyntax expression)
+    {
+        return expression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.Body,
+            _ => null
+        };
+    }
+
+    /// <summary>
+    ///     Gets the simple type name from a type symbol.
+    /// </summary>
+    /// <param name="type">The type symbol.</param>
+    /// <returns>The type name.</returns>
+    public static string GetTypeName(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol namedType)
+        {
+            return namedType.Name;
+        }
+
+        return type.Name;
+    }
 }

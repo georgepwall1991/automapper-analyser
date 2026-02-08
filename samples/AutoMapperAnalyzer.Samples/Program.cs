@@ -2,6 +2,7 @@
 using AutoMapperAnalyzer.Samples.MissingProperties;
 using AutoMapperAnalyzer.Samples.Performance;
 using AutoMapperAnalyzer.Samples.TypeSafety;
+using AutoMapperAnalyzer.Samples.UnmappedDestination;
 
 namespace AutoMapperAnalyzer.Samples;
 
@@ -22,6 +23,9 @@ public class Program
 
         Console.WriteLine("\n⚠️  Missing Property Issues:");
         RunMissingPropertyExamples();
+
+        Console.WriteLine("\n⚠️  Unmapped Destination Issues:");
+        RunUnmappedDestinationExamples();
 
         Console.WriteLine("\n⚠️  Configuration Issues:");
         RunConfigurationExamples();
@@ -58,6 +62,14 @@ public class Program
 
         Console.WriteLine("  - Case sensitivity mismatch");
         missingPropertyExamples.CaseSensitivityMismatchExample();
+    }
+
+    private static void RunUnmappedDestinationExamples()
+    {
+        var examples = new UnmappedDestinationExamples();
+
+        Console.WriteLine("  - Unmapped destination property");
+        examples.UnmappedDestinationPropertyExample();
     }
 
     private static void RunConfigurationExamples()

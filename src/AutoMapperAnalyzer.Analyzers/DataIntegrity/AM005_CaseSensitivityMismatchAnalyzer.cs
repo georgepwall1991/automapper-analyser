@@ -158,8 +158,8 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
             properties.Add("SourcePropertyName", sourceProperty.Name);
             properties.Add("DestinationPropertyName", caseInsensitiveMatch.Name);
             properties.Add("PropertyType", sourceProperty.Type.ToDisplayString());
-            properties.Add("SourceTypeName", GetTypeName(sourceType));
-            properties.Add("DestinationTypeName", GetTypeName(destinationType));
+            properties.Add("SourceTypeName", AutoMapperAnalysisHelpers.GetTypeName(sourceType));
+            properties.Add("DestinationTypeName", AutoMapperAnalysisHelpers.GetTypeName(destinationType));
 
             InvocationExpressionSyntax locationNode =
                 isReverseMap && reverseMapInvocation != null ? reverseMapInvocation : invocation;
@@ -326,16 +326,5 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
 
         bool isAncestor = reverseMapInvocation.Ancestors().Contains(mappingMethod);
         return isReverseMap ? isAncestor : !isAncestor;
-    }
-
-
-    /// <summary>
-    ///     Gets the type name from an ITypeSymbol.
-    /// </summary>
-    /// <param name="type">The type symbol.</param>
-    /// <returns>The type name.</returns>
-    private static string GetTypeName(ITypeSymbol type)
-    {
-        return type.Name;
     }
 }

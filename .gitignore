@@ -527,3 +527,7 @@ launchSettings.json.user
 *.db
 *.sqlite
 *.sqlite3
+
+# Claude Code plugin config and complexity logs
+.plugin-config/
+.complexity-log.md

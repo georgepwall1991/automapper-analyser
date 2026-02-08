@@ -1,5 +1,7 @@
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Editing;
 
 namespace AutoMapperAnalyzer.Analyzers.Helpers;
 
@@ -151,5 +153,95 @@ public static class CodeFixSyntaxHelper
                                 SyntaxFactory.SimpleLambdaExpression(
                                     SyntaxFactory.Parameter(SyntaxFactory.Identifier("src")),
                                     SyntaxFactory.ParseExpression(mapFromExpression)))))));
+    }
+
+    /// <summary>
+    ///     Adds properties to a type declaration (class or record). Handles positional record parameters,
+    ///     init accessors, and standard class properties. Shared by AM004 and AM006 code fix providers.
+    /// </summary>
+    /// <param name="document">The document containing the mapping invocation.</param>
+    /// <param name="targetType">The type symbol to add properties to.</param>
+    /// <param name="properties">The properties to add, as (Name, Type) tuples.</param>
+    /// <returns>The updated solution with the new properties added.</returns>
+    public static async Task<Solution> AddPropertiesToTypeAsync(
+        Document document,
+        ITypeSymbol targetType,
+        IEnumerable<(string Name, string Type)> properties)
+    {
+        if (targetType.Locations.All(l => !l.IsInSource))
+        {
+            return document.Project.Solution;
+        }
+
+        var syntaxReference = targetType.DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference == null)
+        {
+            return document.Project.Solution;
+        }
+
+        var targetSyntaxRoot = await syntaxReference.SyntaxTree.GetRootAsync();
+        var targetDecl = targetSyntaxRoot.FindNode(syntaxReference.Span);
+
+        if (targetDecl == null)
+        {
+            return document.Project.Solution;
+        }
+
+        var editor = new SyntaxEditor(targetSyntaxRoot, document.Project.Solution.Workspace.Services);
+        var propertyList = properties.ToList();
+
+        editor.ReplaceNode(targetDecl, (originalNode, generator) =>
+        {
+            if (originalNode is RecordDeclarationSyntax recordDecl && recordDecl.ParameterList != null)
+            {
+                var newParams = propertyList.Select(prop =>
+                        SyntaxFactory.Parameter(SyntaxFactory.Identifier(prop.Name))
+                            .WithType(SyntaxFactory.ParseTypeName(prop.Type)
+                                .WithTrailingTrivia(SyntaxFactory.Space)))
+                    .ToArray();
+
+                return recordDecl.WithParameterList(recordDecl.ParameterList.AddParameters(newParams));
+            }
+
+            var typeDecl = (TypeDeclarationSyntax)originalNode;
+            bool useInitAccessor = typeDecl.Members.OfType<PropertyDeclarationSyntax>()
+                .SelectMany(p => p.AccessorList?.Accessors ?? SyntaxFactory.List<AccessorDeclarationSyntax>())
+                .Any(a => a.IsKind(SyntaxKind.InitAccessorDeclaration));
+
+            var setterKind = useInitAccessor
+                ? SyntaxKind.InitAccessorDeclaration
+                : SyntaxKind.SetAccessorDeclaration;
+
+            var newMembers = new List<MemberDeclarationSyntax>();
+
+            foreach (var (name, type) in propertyList)
+            {
+                var newProperty = SyntaxFactory.PropertyDeclaration(
+                        SyntaxFactory.ParseTypeName(type),
+                        SyntaxFactory.Identifier(name))
+                    .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
+                    .WithAccessorList(SyntaxFactory.AccessorList(SyntaxFactory.List(new[]
+                    {
+                        SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)),
+                        SyntaxFactory.AccessorDeclaration(setterKind)
+                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
+                    })));
+
+                newMembers.Add(newProperty);
+            }
+
+            return typeDecl.AddMembers(newMembers.ToArray());
+        });
+
+        var newTargetRoot = editor.GetChangedRoot();
+        var targetDocument = document.Project.Solution.GetDocument(targetSyntaxRoot.SyntaxTree);
+
+        if (targetDocument == null)
+        {
+            return document.Project.Solution;
+        }
+
+        return document.Project.Solution.WithDocumentSyntaxRoot(targetDocument.Id, newTargetRoot);
     }
 }

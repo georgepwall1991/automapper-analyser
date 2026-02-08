@@ -5,9 +5,7 @@ using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Editing;
 
 namespace AutoMapperAnalyzer.Analyzers.DataIntegrity;
 
@@ -58,16 +56,52 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
             registerPerPropertyFixes: (ctx, diagnostic, invocation, properties, semanticModel, root) =>
             {
                 RegisterPerPropertyFixes(ctx, diagnostic, invocation, properties["PropertyName"],
-                    properties["PropertyType"], root);
+                    properties["PropertyType"], semanticModel, root);
             });
     }
 
     private void RegisterPerPropertyFixes(CodeFixContext context, Diagnostic diagnostic,
-        InvocationExpressionSyntax invocation, string propertyName, string propertyType, SyntaxNode root)
+        InvocationExpressionSyntax invocation, string propertyName, string propertyType,
+        SemanticModel semanticModel, SyntaxNode root)
     {
         var nestedActions = ImmutableArray.CreateBuilder<CodeAction>();
 
-        // Fix 1: Ignore the source property
+        // Phase 1: Fuzzy match suggestions
+        if (TryResolveMappingContext(invocation, semanticModel, out MappingAnalysisContext? mappingContext))
+        {
+            var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(
+                mappingContext!.DestinationType, requireSetter: true);
+
+            IPropertySymbol? sourcePropertySymbol = AutoMapperAnalysisHelpers
+                .GetMappableProperties(mappingContext.SourceType, requireSetter: false)
+                .FirstOrDefault(p => p.Name == propertyName);
+
+            if (sourcePropertySymbol != null)
+            {
+                foreach (var destProp in FuzzyMatchHelper.FindFuzzyMatches(propertyName, destProperties, sourcePropertySymbol.Type))
+                {
+                    string destName = destProp.Name;
+                    nestedActions.Add(CodeAction.Create(
+                        $"Map to similar property '{destName}'",
+                        cancellationToken =>
+                        {
+                            InvocationExpressionSyntax newInvocation =
+                                CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                                    invocation, destName, $"src.{propertyName}");
+                            return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
+                        },
+                        $"FuzzyMatch_{propertyName}_{destName}"));
+                }
+            }
+        }
+
+        // Phase 2: Create property in destination type
+        nestedActions.Add(CodeAction.Create(
+            "Create property in destination type",
+            cancellationToken => CreateDestinationPropertyAsync(context.Document, invocation, propertyName, propertyType, cancellationToken),
+            $"CreateProperty_{propertyName}"));
+
+        // Phase 3: Ignore the source property
         nestedActions.Add(CodeAction.Create(
             "Ignore source property",
             cancellationToken =>
@@ -77,46 +111,6 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
                 return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
             },
             $"Ignore_{propertyName}"));
-
-        // Fix 2: Add custom mapping comment
-        nestedActions.Add(CodeAction.Create(
-            "Add custom mapping (comment)",
-            cancellationToken =>
-            {
-                SyntaxTrivia commentTrivia = SyntaxFactory.Comment(
-                    $"// TODO: Create destination property or map '{propertyName}' to an existing property");
-                InvocationExpressionSyntax newInvocation = invocation.WithLeadingTrivia(
-                    invocation.GetLeadingTrivia()
-                        .Add(commentTrivia)
-                        .Add(SyntaxFactory.EndOfLine("\n")));
-
-                return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
-            },
-            $"CustomMapping_{propertyName}"));
-
-        // Fix 3: Combine properties (string only)
-        if (!string.IsNullOrEmpty(propertyType) && TypeConversionHelper.IsStringType(propertyType))
-        {
-            nestedActions.Add(CodeAction.Create(
-                "Map to existing property with custom logic",
-                cancellationToken =>
-                {
-                    InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper
-                        .CreateForSourceMemberWithDoNotValidate(invocation, propertyName)
-                        .WithLeadingTrivia(
-                            SyntaxFactory.Comment(
-                                $"// TODO: Map '{propertyName}' to destination property with custom logic"));
-
-                    return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
-                },
-                $"Combine_{propertyName}"));
-        }
-
-        // Fix 4: Create destination property
-        nestedActions.Add(CodeAction.Create(
-            "Create property in destination type",
-            cancellationToken => CreateDestinationPropertyAsync(context.Document, invocation, propertyName, propertyType, cancellationToken),
-            $"CreateProperty_{propertyName}"));
 
         // Register grouped action using base class helper
         var groupAction = CreateGroupedAction($"Fix missing destination for '{propertyName}'...", nestedActions);
@@ -152,8 +146,8 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
             return Task.FromResult(document);
         }
 
-        if (HasCustomConstructionOrConversion(
-                mappingContext.MappingInvocation,
+        if (MappingChainAnalysisHelper.HasCustomConstructionOrConversion(
+                mappingContext!.MappingInvocation,
                 semanticModel,
                 mappingContext.StopAtReverseMapBoundary))
         {
@@ -161,7 +155,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         }
 
         List<IPropertySymbol> propertiesToIgnore =
-            GetUnmappedSourceProperties(
+            MappingChainAnalysisHelper.GetUnmappedSourceProperties(
                 mappingContext.MappingInvocation,
                 mappingContext.SourceType,
                 mappingContext.DestinationType,
@@ -183,60 +177,6 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         return Task.FromResult(document.WithSyntaxRoot(newRoot));
     }
 
-    private static bool IsSourcePropertyExplicitlyIgnored(
-        InvocationExpressionSyntax mappingInvocation,
-        string sourcePropertyName,
-        SemanticModel semanticModel,
-        bool stopAtReverseMapBoundary)
-    {
-        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
-                     mappingInvocation,
-                     semanticModel,
-                     stopAtReverseMapBoundary))
-        {
-            if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForSourceMember"))
-            {
-                continue;
-            }
-
-            if (IsForSourceMemberOfProperty(chainedInvocation, sourcePropertyName) &&
-                HasDoNotValidateCall(chainedInvocation))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsForSourceMemberOfProperty(
-        InvocationExpressionSyntax forSourceMemberInvocation,
-        string propertyName)
-    {
-        if (forSourceMemberInvocation.ArgumentList.Arguments.Count == 0)
-        {
-            return false;
-        }
-
-        string? selectedMember = GetSelectedMemberName(forSourceMemberInvocation.ArgumentList.Arguments[0].Expression);
-        return string.Equals(selectedMember, propertyName, StringComparison.Ordinal);
-    }
-
-    private static bool HasDoNotValidateCall(InvocationExpressionSyntax forSourceMemberInvocation)
-    {
-        if (forSourceMemberInvocation.ArgumentList.Arguments.Count <= 1)
-        {
-            return false;
-        }
-
-        ExpressionSyntax secondArg = forSourceMemberInvocation.ArgumentList.Arguments[1].Expression;
-        return secondArg.DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .Any(invocation =>
-                invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-                memberAccess.Name.Identifier.ValueText == "DoNotValidate");
-    }
-
     private async Task<Solution> CreateDestinationPropertyAsync(
         Document document,
         InvocationExpressionSyntax invocation,
@@ -252,7 +192,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
             return document.Project.Solution;
         }
 
-        return await AddPropertiesToDestinationAsync(document, mappingContext.DestinationType, new[] { (propertyName, propertyType) });
+        return await CodeFixSyntaxHelper.AddPropertiesToTypeAsync(document, mappingContext!.DestinationType, new[] { (propertyName, propertyType) });
     }
 
     private async Task<Solution> BulkCreatePropertiesAsync(
@@ -265,15 +205,15 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
             return document.Project.Solution;
         }
 
-        if (HasCustomConstructionOrConversion(
-                mappingContext.MappingInvocation,
+        if (MappingChainAnalysisHelper.HasCustomConstructionOrConversion(
+                mappingContext!.MappingInvocation,
                 semanticModel,
                 mappingContext.StopAtReverseMapBoundary))
         {
             return document.Project.Solution;
         }
 
-        List<(string Name, string Type)> propertiesToAdd = GetUnmappedSourceProperties(
+        List<(string Name, string Type)> propertiesToAdd = MappingChainAnalysisHelper.GetUnmappedSourceProperties(
                 mappingContext.MappingInvocation,
                 mappingContext.SourceType,
                 mappingContext.DestinationType,
@@ -284,192 +224,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
 
         if (!propertiesToAdd.Any()) return document.Project.Solution;
 
-        return await AddPropertiesToDestinationAsync(document, mappingContext.DestinationType, propertiesToAdd);
-    }
-
-    private static List<IPropertySymbol> GetUnmappedSourceProperties(
-        InvocationExpressionSyntax mappingInvocation,
-        ITypeSymbol sourceType,
-        ITypeSymbol destinationType,
-        SemanticModel semanticModel,
-        bool stopAtReverseMapBoundary)
-    {
-        IEnumerable<IPropertySymbol> sourceProperties =
-            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
-        IEnumerable<IPropertySymbol> destinationProperties =
-            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
-
-        var unmappedProperties = new List<IPropertySymbol>();
-
-        foreach (IPropertySymbol sourceProp in sourceProperties)
-        {
-            if (destinationProperties.Any(p => string.Equals(p.Name, sourceProp.Name, StringComparison.OrdinalIgnoreCase)))
-            {
-                continue;
-            }
-
-            if (IsFlatteningMatch(sourceProp, destinationProperties))
-            {
-                continue;
-            }
-
-            if (IsSourcePropertyHandledByCustomMapping(
-                    mappingInvocation,
-                    sourceProp.Name,
-                    semanticModel,
-                    stopAtReverseMapBoundary))
-            {
-                continue;
-            }
-
-            if (IsSourcePropertyHandledByCtorParamMapping(
-                    mappingInvocation,
-                    sourceProp.Name,
-                    semanticModel,
-                    stopAtReverseMapBoundary))
-            {
-                continue;
-            }
-
-            if (IsSourcePropertyExplicitlyIgnored(
-                    mappingInvocation,
-                    sourceProp.Name,
-                    semanticModel,
-                    stopAtReverseMapBoundary))
-            {
-                continue;
-            }
-
-            unmappedProperties.Add(sourceProp);
-        }
-
-        return unmappedProperties;
-    }
-
-    private static bool IsSourcePropertyHandledByCustomMapping(
-        InvocationExpressionSyntax mappingInvocation,
-        string sourcePropertyName,
-        SemanticModel semanticModel,
-        bool stopAtReverseMapBoundary)
-    {
-        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
-                     mappingInvocation,
-                     semanticModel,
-                     stopAtReverseMapBoundary))
-        {
-            if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForMember"))
-            {
-                continue;
-            }
-
-            if (ForMemberReferencesSourceProperty(chainedInvocation, sourcePropertyName))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool ForMemberReferencesSourceProperty(InvocationExpressionSyntax forMemberInvocation,
-        string sourcePropertyName)
-    {
-        // ForMember's second argument contains the mapping lambda where source usage appears.
-        if (forMemberInvocation.ArgumentList.Arguments.Count > 1)
-        {
-            return ContainsPropertyReference(forMemberInvocation.ArgumentList.Arguments[1].Expression, sourcePropertyName);
-        }
-
-        return false;
-    }
-
-    private static bool ContainsPropertyReference(SyntaxNode node, string propertyName)
-    {
-        if (node is MemberAccessExpressionSyntax rootMemberAccess &&
-            rootMemberAccess.Name.Identifier.ValueText == propertyName)
-        {
-            return true;
-        }
-
-        return node.DescendantNodes().OfType<MemberAccessExpressionSyntax>()
-            .Any(memberAccess => memberAccess.Name.Identifier.ValueText == propertyName);
-    }
-
-    private static bool IsSourcePropertyHandledByCtorParamMapping(
-        InvocationExpressionSyntax mappingInvocation,
-        string sourcePropertyName,
-        SemanticModel semanticModel,
-        bool stopAtReverseMapBoundary)
-    {
-        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
-                     mappingInvocation,
-                     semanticModel,
-                     stopAtReverseMapBoundary))
-        {
-            if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForCtorParam") ||
-                chainedInvocation.ArgumentList.Arguments.Count <= 1)
-            {
-                continue;
-            }
-
-            ExpressionSyntax ctorMappingArg = chainedInvocation.ArgumentList.Arguments[1].Expression;
-            if (ContainsPropertyReference(ctorMappingArg, sourcePropertyName))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool HasCustomConstructionOrConversion(
-        InvocationExpressionSyntax mappingInvocation,
-        SemanticModel semanticModel,
-        bool stopAtReverseMapBoundary)
-    {
-        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
-                     mappingInvocation,
-                     semanticModel,
-                     stopAtReverseMapBoundary))
-        {
-            if (IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ConstructUsing") ||
-                IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ConvertUsing"))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsFlatteningMatch(
-        IPropertySymbol sourceProperty,
-        IEnumerable<IPropertySymbol> destinationProperties)
-    {
-        if (AutoMapperAnalysisHelpers.IsBuiltInType(sourceProperty.Type))
-        {
-            return false;
-        }
-
-        IEnumerable<IPropertySymbol> nestedProperties =
-            AutoMapperAnalysisHelpers.GetMappableProperties(sourceProperty.Type, requireSetter: false);
-
-        foreach (IPropertySymbol destinationProperty in destinationProperties)
-        {
-            if (!destinationProperty.Name.StartsWith(sourceProperty.Name, StringComparison.OrdinalIgnoreCase) ||
-                destinationProperty.Name.Length <= sourceProperty.Name.Length)
-            {
-                continue;
-            }
-
-            string flattenedMemberName = destinationProperty.Name.Substring(sourceProperty.Name.Length);
-            if (nestedProperties.Any(p => string.Equals(p.Name, flattenedMemberName, StringComparison.OrdinalIgnoreCase)))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return await CodeFixSyntaxHelper.AddPropertiesToTypeAsync(document, mappingContext.DestinationType, propertiesToAdd);
     }
 
     private static bool TryResolveMappingContext(
@@ -480,7 +235,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         mappingContext = null;
 
         // Reverse-map diagnostic location
-        if (IsAutoMapperMethodInvocation(invocation, semanticModel, "ReverseMap"))
+        if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ReverseMap"))
         {
             InvocationExpressionSyntax? createMapInvocation = FindCreateMapInvocation(invocation, semanticModel);
             if (createMapInvocation == null)
@@ -488,8 +243,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
                 return false;
             }
 
-            (ITypeSymbol? sourceType, ITypeSymbol? destinationType) forwardTypes =
-                GetCreateMapTypeArguments(createMapInvocation, semanticModel);
+            var forwardTypes = MappingChainAnalysisHelper.GetCreateMapTypeArguments(createMapInvocation, semanticModel);
             if (forwardTypes.sourceType == null || forwardTypes.destinationType == null)
             {
                 return false;
@@ -504,10 +258,9 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         }
 
         // Forward-map diagnostic location
-        if (IsAutoMapperMethodInvocation(invocation, semanticModel, "CreateMap"))
+        if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "CreateMap"))
         {
-            (ITypeSymbol? sourceType, ITypeSymbol? destinationType) forwardTypes =
-                GetCreateMapTypeArguments(invocation, semanticModel);
+            var forwardTypes = MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
             if (forwardTypes.sourceType == null || forwardTypes.destinationType == null)
             {
                 return false;
@@ -528,178 +281,19 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         InvocationExpressionSyntax invocation,
         SemanticModel semanticModel)
     {
-        return invocation
-            .DescendantNodesAndSelf()
+        // Walk up the fluent chain to find CreateMap (ancestor direction)
+        var current = invocation;
+        while (current != null)
+        {
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(current, semanticModel, "CreateMap"))
+                return current;
+            current = (current.Expression as MemberAccessExpressionSyntax)?.Expression as InvocationExpressionSyntax;
+        }
+
+        // Also check descendants (for cases where invocation IS the CreateMap chain)
+        return invocation.DescendantNodesAndSelf()
             .OfType<InvocationExpressionSyntax>()
-            .FirstOrDefault(node => IsAutoMapperMethodInvocation(node, semanticModel, "CreateMap"));
+            .FirstOrDefault(node => MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(node, semanticModel, "CreateMap"));
     }
 
-    private static string? GetSelectedMemberName(ExpressionSyntax expression)
-    {
-        return expression switch
-        {
-            SimpleLambdaExpressionSyntax simpleLambda when simpleLambda.Body is MemberAccessExpressionSyntax memberAccess =>
-                memberAccess.Name.Identifier.ValueText,
-            ParenthesizedLambdaExpressionSyntax parenthesizedLambda
-                when parenthesizedLambda.Body is MemberAccessExpressionSyntax memberAccess =>
-                memberAccess.Name.Identifier.ValueText,
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            _ => null
-        };
-    }
-
-    private static IEnumerable<InvocationExpressionSyntax> GetScopedChainInvocations(
-        InvocationExpressionSyntax mappingInvocation,
-        SemanticModel semanticModel,
-        bool stopAtReverseMapBoundary)
-    {
-        SyntaxNode? currentNode = mappingInvocation.Parent;
-
-        while (currentNode is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
-        {
-            if (stopAtReverseMapBoundary &&
-                IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ReverseMap"))
-            {
-                break;
-            }
-
-            yield return chainedInvocation;
-            currentNode = chainedInvocation.Parent;
-        }
-    }
-
-    private static bool IsAutoMapperMethodInvocation(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel,
-        string methodName)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (IsAutoMapperMethod(symbolInfo.Symbol as IMethodSymbol, methodName))
-        {
-            return true;
-        }
-
-        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
-        {
-            if (IsAutoMapperMethod(candidateSymbol as IMethodSymbol, methodName))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsAutoMapperMethod(IMethodSymbol? methodSymbol, string methodName)
-    {
-        if (methodSymbol == null || methodSymbol.Name != methodName)
-        {
-            return false;
-        }
-
-        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
-        return namespaceName == "AutoMapper" ||
-               (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
-    }
-
-    private static (ITypeSymbol? sourceType, ITypeSymbol? destinationType) GetCreateMapTypeArguments(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
-    {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-
-        if (TryGetCreateMapTypeArgumentsFromMethod(symbolInfo.Symbol as IMethodSymbol, out ITypeSymbol? sourceType,
-                out ITypeSymbol? destinationType))
-        {
-            return (sourceType, destinationType);
-        }
-
-        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
-        {
-            if (TryGetCreateMapTypeArgumentsFromMethod(candidateSymbol as IMethodSymbol, out sourceType,
-                    out destinationType))
-            {
-                return (sourceType, destinationType);
-            }
-        }
-
-        return AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
-    }
-
-    private static bool TryGetCreateMapTypeArgumentsFromMethod(
-        IMethodSymbol? methodSymbol,
-        out ITypeSymbol? sourceType,
-        out ITypeSymbol? destinationType)
-    {
-        sourceType = null;
-        destinationType = null;
-
-        if (methodSymbol?.TypeArguments.Length != 2)
-        {
-            return false;
-        }
-
-        sourceType = methodSymbol.TypeArguments[0];
-        destinationType = methodSymbol.TypeArguments[1];
-        return true;
-    }
-
-    private async Task<Solution> AddPropertiesToDestinationAsync(
-        Document document,
-        ITypeSymbol destType,
-        IEnumerable<(string Name, string Type)> properties)
-    {
-        // Check if the destination type is source code
-        if (destType.Locations.All(l => !l.IsInSource))
-        {
-             return document.Project.Solution;
-        }
-
-        var syntaxReference = destType.DeclaringSyntaxReferences.FirstOrDefault();
-        if (syntaxReference == null) return document.Project.Solution;
-        
-        var destSyntaxRoot = await syntaxReference.SyntaxTree.GetRootAsync();
-        var destClassDecl = destSyntaxRoot.FindNode(syntaxReference.Span);
-        
-        if (destClassDecl == null) return document.Project.Solution;
-        
-        var editor = new SyntaxEditor(destSyntaxRoot, document.Project.Solution.Workspace.Services);
-        
-        // We need to know which node to replace/edit. Since we are adding members, we can just edit the class declaration.
-        // However, SyntaxEditor.Edit usually takes a node.
-        
-        editor.ReplaceNode(destClassDecl, (originalNode, generator) =>
-        {
-            var currentClassDecl = (ClassDeclarationSyntax)originalNode;
-            var newMembers = new List<MemberDeclarationSyntax>();
-
-            foreach (var (name, type) in properties)
-            {
-                // Create property syntax
-                var newProperty = SyntaxFactory.PropertyDeclaration(
-                    SyntaxFactory.ParseTypeName(type),
-                    SyntaxFactory.Identifier(name))
-                    .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
-                    .WithAccessorList(SyntaxFactory.AccessorList(SyntaxFactory.List(new[]
-                    {
-                        SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
-                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)),
-                        SyntaxFactory.AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
-                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
-                    })));
-                
-                newMembers.Add(newProperty);
-            }
-            
-            return currentClassDecl.AddMembers(newMembers.ToArray());
-        });
-
-        var newDestRoot = editor.GetChangedRoot();
-        var destDocument = document.Project.Solution.GetDocument(destSyntaxRoot.SyntaxTree);
-        
-        if (destDocument == null) return document.Project.Solution;
-        
-        return document.Project.Solution.WithDocumentSyntaxRoot(destDocument.Id, newDestRoot);
-    }
 }
