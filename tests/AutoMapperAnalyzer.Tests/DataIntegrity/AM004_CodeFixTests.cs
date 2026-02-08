@@ -301,7 +301,7 @@ public class AM004_CodeFixTests
                 expectedFixedCode,
                 null, 
                 null, 
-                1); // Index 0 = "Ignore all unmapped source properties"
+                1); // Index 0 = "Ignore N unmapped source properties"
     }
 
     [Fact]
@@ -380,7 +380,7 @@ public class AM004_CodeFixTests
                 testCode,
                 new[] { diag1, diag2 },
                 expectedFixedCode,
-                1, // Index 1 = "Create all missing properties in destination type"
+                1, // Index 1 = "Add N missing properties to 'DestType'"
                 null, // remainingDiagnostics
                 1); // Iterations
     }
@@ -593,7 +593,7 @@ public class AM004_CodeFixTests
                 testCode,
                 new[] { middleNameDiagnostic },
                 expectedFixedCode,
-                0, // Index 0 = "Ignore all unmapped source properties"
+                0, // Index 0 = "Ignore N unmapped source properties"
                 null,
                 1);
     }
@@ -684,7 +684,7 @@ public class AM004_CodeFixTests
                 testCode,
                 new[] { middleNameDiagnostic },
                 expectedFixedCode,
-                0, // Index 0 = "Ignore all unmapped source properties"
+                0, // Index 0 = "Ignore N unmapped source properties"
                 null,
                 1);
     }
@@ -760,7 +760,7 @@ public class AM004_CodeFixTests
                 testCode,
                 new[] { middleNameDiagnostic },
                 expectedFixedCode,
-                1, // Index 1 = "Create all missing properties in destination type"
+                1, // Index 1 = "Add N missing properties to 'DestType'"
                 null,
                 1);
     }
@@ -830,7 +830,7 @@ public class AM004_CodeFixTests
                         .WithArguments("Description")
                 },
                 expectedFixedCode,
-                0, // Index 0 = "Ignore all unmapped source properties"
+                0, // Index 0 = "Ignore N unmapped source properties"
                 null,
                 1);
     }
@@ -912,7 +912,7 @@ public class AM004_CodeFixTests
                         .WithArguments("ExtraData")
                 },
                 expectedFixedCode,
-                0, // Index 0 = "Ignore all unmapped source properties"
+                0, // Index 0 = "Ignore N unmapped source properties"
                 null,
                 1);
     }
@@ -984,7 +984,7 @@ public class AM004_CodeFixTests
                         .WithArguments("Emal")
                 },
                 expectedFixedCode,
-                2, // Index 2 = first per-property fix (fuzzy match "Map to similar property 'Email'")
+                2, // Index 2 = first per-property fix "'Emal' (string) — missing from 'Destination'" -> fuzzy match
                 null,
                 1);
     }
@@ -1056,7 +1056,7 @@ public class AM004_CodeFixTests
                         .WithArguments("Usr")
                 },
                 expectedFixedCode,
-                2, // Index 2 = first per-property fix (fuzzy match)
+                2, // Index 2 = first per-property fix "'Usr' (string) — missing from 'Destination'" -> fuzzy match
                 null,
                 1);
     }
@@ -1128,7 +1128,7 @@ public class AM004_CodeFixTests
                         .WithArguments("InternalTrackingCode")
                 },
                 expectedFixedCode,
-                2, // Index 2 = first per-property fix ("Create property" since no fuzzy match)
+                2, // Index 2 = first per-property fix "'InternalTrackingCode' (string) — missing from 'Destination'" -> create
                 null,
                 1);
     }
@@ -1199,7 +1199,7 @@ public class AM004_CodeFixTests
                         .WithArguments("Extra")
                 },
                 expectedFixedCode,
-                1, // Index 1 = "Create all missing properties in destination type"
+                1, // Index 1 = "Add N missing properties to 'DestType'"
                 null,
                 1);
     }
@@ -1263,7 +1263,7 @@ public class AM004_CodeFixTests
                         .WithArguments("Extra")
                 },
                 expectedFixedCode,
-                1, // Index 1 = "Create all missing properties in destination type"
+                1, // Index 1 = "Add N missing properties to 'DestType'"
                 null,
                 1);
     }
@@ -1334,7 +1334,7 @@ public class AM004_CodeFixTests
                         .WithArguments("Extra")
                 },
                 expectedFixedCode,
-                1, // Index 1 = "Create all missing properties in destination type"
+                1, // Index 1 = "Add N missing properties to 'DestType'"
                 null,
                 1);
     }
@@ -1408,7 +1408,7 @@ public class AM004_CodeFixTests
                         .WithArguments("DestExtra")
                 },
                 expectedFixedCode,
-                0, // Index 0 = "Ignore all unmapped source properties"
+                0, // Index 0 = "Ignore N unmapped source properties"
                 null,
                 1);
     }
@@ -1490,7 +1490,167 @@ public class AM004_CodeFixTests
                 testCode,
                 new[] { diagA, diagB },
                 expectedFixedCode,
-                0, // Index 0 = "Ignore all unmapped source properties"
+                0, // Index 0 = "Ignore N unmapped source properties"
+                null,
+                1);
+    }
+
+    [Fact]
+    public async Task AM004_BulkIgnore_ShouldWorkWhenPerPropertyFixesAreNested()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string A { get; set; }
+                                        public string B { get; set; }
+                                        public string C { get; set; }
+                                        public string D { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string A { get; set; }
+                                                 public string B { get; set; }
+                                                 public string C { get; set; }
+                                                 public string D { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.A, opt => opt.DoNotValidate()).ForSourceMember(src => src.B, opt => opt.DoNotValidate()).ForSourceMember(src => src.C, opt => opt.DoNotValidate()).ForSourceMember(src => src.D, opt => opt.DoNotValidate());
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        var diagA = Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13, "A");
+        var diagB = Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13, "B");
+        var diagC = Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13, "C");
+        var diagD = Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13, "D");
+
+        // 4 diagnostics triggers action-oriented grouping: actions grouped by type (ignore/create)
+        // Bulk fixes remain at top level: Index 0 = bulk ignore, Index 1 = bulk create
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[] { diagA, diagB, diagC, diagD },
+                expectedFixedCode,
+                0, // Index 0 = "Ignore 4 unmapped 'Source' properties"
+                null,
+                1);
+    }
+
+    [Fact]
+    public async Task AM004_BulkCreate_ShouldWorkWhenPerPropertyFixesAreNested()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string A { get; set; }
+                                        public int B { get; set; }
+                                        public string C { get; set; }
+                                        public int D { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string A { get; set; }
+                                                 public int B { get; set; }
+                                                 public string C { get; set; }
+                                                 public int D { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string A { get; set; }
+                                                 public int B { get; set; }
+                                                 public string C { get; set; }
+                                                 public int D { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        var diagA = Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13, "A");
+        var diagB = Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13, "B");
+        var diagC = Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13, "C");
+        var diagD = Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 23, 13, "D");
+
+        // 4 diagnostics triggers action-oriented grouping: actions grouped by type (ignore/create)
+        // Bulk fixes remain at top level: Index 0 = bulk ignore, Index 1 = bulk create
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[] { diagA, diagB, diagC, diagD },
+                expectedFixedCode,
+                1, // Index 1 = "Add 4 missing properties to 'Destination'"
                 null,
                 1);
     }

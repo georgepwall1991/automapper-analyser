@@ -42,6 +42,35 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         }
     }
 
+    private sealed class PerPropertyFixData
+    {
+        public string PropertyName { get; }
+        public string PropertyType { get; }
+        public string DestTypeName { get; }
+        public bool IsReverseMap { get; }
+        public Diagnostic Diagnostic { get; }
+        public InvocationExpressionSyntax Invocation { get; }
+        public List<IPropertySymbol> FuzzyMatches { get; set; } = new();
+
+        public PerPropertyFixData(
+            string propertyName,
+            string propertyType,
+            string destTypeName,
+            bool isReverseMap,
+            Diagnostic diagnostic,
+            InvocationExpressionSyntax invocation)
+        {
+            PropertyName = propertyName;
+            PropertyType = propertyType;
+            DestTypeName = destTypeName;
+            IsReverseMap = isReverseMap;
+            Diagnostic = diagnostic;
+            Invocation = invocation;
+        }
+    }
+
+    private const int NestingThreshold = 3;
+
     /// <summary>
     ///     Registers code fixes for the specified context.
     /// </summary>
@@ -49,87 +78,212 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
     /// <returns>A task representing the asynchronous operation.</returns>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
+        var perPropertyData = new List<PerPropertyFixData>();
+        SyntaxNode? capturedRoot = null;
+
         await ProcessDiagnosticsAsync(
             context,
-            propertyNames: ["PropertyName", "PropertyType"],
+            propertyNames: ["PropertyName", "PropertyType", "SourceTypeName", "DestinationTypeName", "IsReverseMap"],
             registerBulkFixes: RegisterBulkFixes,
             registerPerPropertyFixes: (ctx, diagnostic, invocation, properties, semanticModel, root) =>
             {
-                RegisterPerPropertyFixes(ctx, diagnostic, invocation, properties["PropertyName"],
-                    properties["PropertyType"], semanticModel, root);
+                capturedRoot = root;
+                var propertyName = properties["PropertyName"];
+                var data = new PerPropertyFixData(
+                    propertyName,
+                    properties["PropertyType"],
+                    properties["DestinationTypeName"],
+                    properties["IsReverseMap"] == "true",
+                    diagnostic,
+                    invocation);
+
+                // Compute fuzzy matches
+                if (TryResolveMappingContext(invocation, semanticModel, out MappingAnalysisContext? mappingContext))
+                {
+                    var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(
+                        mappingContext!.DestinationType, requireSetter: true);
+
+                    IPropertySymbol? sourcePropertySymbol = AutoMapperAnalysisHelpers
+                        .GetMappableProperties(mappingContext.SourceType, requireSetter: false)
+                        .FirstOrDefault(p => p.Name == propertyName);
+
+                    if (sourcePropertySymbol != null)
+                    {
+                        data.FuzzyMatches = FuzzyMatchHelper.FindFuzzyMatches(propertyName, destProperties, sourcePropertySymbol.Type).ToList();
+                    }
+                }
+
+                perPropertyData.Add(data);
             });
+
+        if (capturedRoot == null || perPropertyData.Count == 0)
+        {
+            return;
+        }
+
+        // For >3 diagnostics: nest per-property fixes under parent group to batch them together
+        if (perPropertyData.Count > NestingThreshold)
+        {
+            var actionGroups = ImmutableArray.CreateBuilder<CodeAction>();
+            var allDiagnostics = perPropertyData.Select(d => d.Diagnostic).ToImmutableArray();
+
+            RegisterActionOrientedGroups(context.Document, perPropertyData, capturedRoot, actionGroups);
+
+            var parentGroup = CodeAction.Create(
+                $"Fix {perPropertyData.Count} individual properties\u2026",
+                actionGroups.ToImmutable(),
+                isInlinable: false);
+            context.RegisterCodeFix(parentGroup, allDiagnostics);
+        }
+        else
+        {
+            RegisterPropertyOrientedFixes(context, perPropertyData, capturedRoot);
+        }
     }
 
-    private void RegisterPerPropertyFixes(CodeFixContext context, Diagnostic diagnostic,
-        InvocationExpressionSyntax invocation, string propertyName, string propertyType,
-        SemanticModel semanticModel, SyntaxNode root)
+    private void RegisterActionOrientedGroups(Document document, List<PerPropertyFixData> dataList, SyntaxNode root, ImmutableArray<CodeAction>.Builder actionGroups)
     {
-        var nestedActions = ImmutableArray.CreateBuilder<CodeAction>();
+        var destTypeName = dataList[0].DestTypeName;
 
-        // Phase 1: Fuzzy match suggestions
-        if (TryResolveMappingContext(invocation, semanticModel, out MappingAnalysisContext? mappingContext))
+        // Group 1: Ignore individual properties
+        var ignoreActions = ImmutableArray.CreateBuilder<CodeAction>();
+        foreach (var data in dataList)
         {
-            var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(
-                mappingContext!.DestinationType, requireSetter: true);
-
-            IPropertySymbol? sourcePropertySymbol = AutoMapperAnalysisHelpers
-                .GetMappableProperties(mappingContext.SourceType, requireSetter: false)
-                .FirstOrDefault(p => p.Name == propertyName);
-
-            if (sourcePropertySymbol != null)
-            {
-                foreach (var destProp in FuzzyMatchHelper.FindFuzzyMatches(propertyName, destProperties, sourcePropertySymbol.Type))
+            ignoreActions.Add(CodeAction.Create(
+                $"'{data.PropertyName}' ({data.PropertyType})",
+                cancellationToken =>
                 {
-                    string destName = destProp.Name;
-                    nestedActions.Add(CodeAction.Create(
-                        $"Map to similar property '{destName}'",
-                        cancellationToken =>
-                        {
-                            InvocationExpressionSyntax newInvocation =
-                                CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                                    invocation, destName, $"src.{propertyName}");
-                            return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
-                        },
-                        $"FuzzyMatch_{propertyName}_{destName}"));
-                }
+                    InvocationExpressionSyntax newInvocation =
+                        CodeFixSyntaxHelper.CreateForSourceMemberWithDoNotValidate(data.Invocation, data.PropertyName);
+                    return ReplaceNodeAsync(document, root, data.Invocation, newInvocation);
+                },
+                $"Ignore_{data.PropertyName}"));
+        }
+
+        var ignoreGroup = CodeAction.Create(
+            "Ignore individual properties\u2026",
+            ignoreActions.ToImmutable(),
+            isInlinable: false);
+        actionGroups.Add(ignoreGroup);
+
+        // Group 2: Create individual properties in destination
+        var createActions = ImmutableArray.CreateBuilder<CodeAction>();
+        foreach (var data in dataList)
+        {
+            createActions.Add(CodeAction.Create(
+                $"'{data.PropertyName}' ({data.PropertyType})",
+                cancellationToken => CreateDestinationPropertyAsync(document, data.Invocation, data.PropertyName, data.PropertyType, cancellationToken),
+                $"CreateProperty_{data.PropertyName}"));
+        }
+
+        var createGroup = CodeAction.Create(
+            $"Create individual properties in '{destTypeName}'\u2026",
+            createActions.ToImmutable(),
+            isInlinable: false);
+        actionGroups.Add(createGroup);
+
+        // Group 3: Fuzzy matches (only if any exist)
+        var fuzzyActions = ImmutableArray.CreateBuilder<CodeAction>();
+        foreach (var data in dataList)
+        {
+            foreach (var destProp in data.FuzzyMatches)
+            {
+                string destName = destProp.Name;
+                fuzzyActions.Add(CodeAction.Create(
+                    $"'{data.PropertyName}' \u2192 '{destName}'",
+                    cancellationToken =>
+                    {
+                        InvocationExpressionSyntax newInvocation =
+                            CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                                data.Invocation, destName, $"src.{data.PropertyName}");
+                        return ReplaceNodeAsync(document, root, data.Invocation, newInvocation);
+                    },
+                    $"FuzzyMatch_{data.PropertyName}_{destName}"));
             }
         }
 
-        // Phase 2: Create property in destination type
-        nestedActions.Add(CodeAction.Create(
-            "Create property in destination type",
-            cancellationToken => CreateDestinationPropertyAsync(context.Document, invocation, propertyName, propertyType, cancellationToken),
-            $"CreateProperty_{propertyName}"));
+        if (fuzzyActions.Count > 0)
+        {
+            var fuzzyGroup = CodeAction.Create(
+                "Map to similar properties\u2026",
+                fuzzyActions.ToImmutable(),
+                isInlinable: false);
+            actionGroups.Add(fuzzyGroup);
+        }
+    }
 
-        // Phase 3: Ignore the source property
-        nestedActions.Add(CodeAction.Create(
-            "Ignore source property",
-            cancellationToken =>
+    private void RegisterPropertyOrientedFixes(CodeFixContext context, List<PerPropertyFixData> dataList, SyntaxNode root)
+    {
+        foreach (var data in dataList)
+        {
+            var nestedActions = ImmutableArray.CreateBuilder<CodeAction>();
+
+            // Phase 1: Fuzzy match suggestions
+            foreach (var destProp in data.FuzzyMatches)
             {
-                InvocationExpressionSyntax newInvocation =
-                    CodeFixSyntaxHelper.CreateForSourceMemberWithDoNotValidate(invocation, propertyName);
-                return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
-            },
-            $"Ignore_{propertyName}"));
+                string destName = destProp.Name;
+                nestedActions.Add(CodeAction.Create(
+                    $"Map to similar property '{destName}'",
+                    cancellationToken =>
+                    {
+                        InvocationExpressionSyntax newInvocation =
+                            CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                                data.Invocation, destName, $"src.{data.PropertyName}");
+                        return ReplaceNodeAsync(context.Document, root, data.Invocation, newInvocation);
+                    },
+                    $"FuzzyMatch_{data.PropertyName}_{destName}"));
+            }
 
-        // Register grouped action using base class helper
-        var groupAction = CreateGroupedAction($"Fix missing destination for '{propertyName}'...", nestedActions);
-        context.RegisterCodeFix(groupAction, diagnostic);
+            // Phase 2: Create property in destination type
+            nestedActions.Add(CodeAction.Create(
+                $"Create '{data.PropertyName}' in '{data.DestTypeName}'",
+                cancellationToken => CreateDestinationPropertyAsync(context.Document, data.Invocation, data.PropertyName, data.PropertyType, cancellationToken),
+                $"CreateProperty_{data.PropertyName}"));
+
+            // Phase 3: Ignore the source property
+            nestedActions.Add(CodeAction.Create(
+                "Ignore via DoNotValidate()",
+                cancellationToken =>
+                {
+                    InvocationExpressionSyntax newInvocation =
+                        CodeFixSyntaxHelper.CreateForSourceMemberWithDoNotValidate(data.Invocation, data.PropertyName);
+                    return ReplaceNodeAsync(context.Document, root, data.Invocation, newInvocation);
+                },
+                $"Ignore_{data.PropertyName}"));
+
+            string reverseHint = data.IsReverseMap ? " (reverse)" : "";
+            var action = CreateGroupedAction(
+                $"'{data.PropertyName}' ({data.PropertyType}) \u2014 missing from '{data.DestTypeName}'{reverseHint}",
+                nestedActions);
+
+            context.RegisterCodeFix(action, data.Diagnostic);
+        }
     }
 
     private void RegisterBulkFixes(CodeFixContext context, InvocationExpressionSyntax invocation,
         SemanticModel semanticModel, SyntaxNode root)
     {
+        int count = context.Diagnostics.Length;
+        string propWord = count == 1 ? "property" : "properties";
+
+        string sourceTypeName = "source";
+        string destTypeName = "destination type";
+        if (TryResolveMappingContext(invocation, semanticModel, out MappingAnalysisContext? mappingContext))
+        {
+            sourceTypeName = $"'{mappingContext!.SourceType.Name}'";
+            destTypeName = $"'{mappingContext.DestinationType.Name}'";
+        }
+
         // Bulk Fix 1: Ignore all unmapped source properties
         var ignoreAction = CodeAction.Create(
-            "Ignore all unmapped source properties",
+            $"Ignore {count} unmapped {sourceTypeName} {propWord}",
             cancellationToken => BulkIgnoreAsync(context.Document, root, invocation, semanticModel),
             "AM004_Bulk_Ignore"
         );
 
         // Bulk Fix 2: Create all missing properties in destination
         var createPropsAction = CodeAction.Create(
-            "Create all missing properties in destination type",
+            $"Add {count} missing {propWord} to {destTypeName}",
             cancellationToken => BulkCreatePropertiesAsync(context.Document, invocation, semanticModel),
             "AM004_Bulk_CreateProperties"
         );

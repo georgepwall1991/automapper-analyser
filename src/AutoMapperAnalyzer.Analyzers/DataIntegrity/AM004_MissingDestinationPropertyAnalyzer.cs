@@ -54,7 +54,7 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
 
         // Forward direction: Source -> Destination
         ReportUnmappedProperties(context, invocationExpr, typeArguments.sourceType, typeArguments.destinationType,
-            context.SemanticModel, stopAtReverseMapBoundary: true);
+            context.SemanticModel, stopAtReverseMapBoundary: true, isReverseMap: false);
 
         // Reverse direction: find ReverseMap and analyze Destination -> Source
         foreach (InvocationExpressionSyntax chainedInvocation in MappingChainAnalysisHelper.GetScopedChainInvocations(
@@ -63,7 +63,7 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedInvocation, context.SemanticModel, "ReverseMap"))
             {
                 ReportUnmappedProperties(context, chainedInvocation, typeArguments.destinationType,
-                    typeArguments.sourceType, context.SemanticModel, stopAtReverseMapBoundary: false);
+                    typeArguments.sourceType, context.SemanticModel, stopAtReverseMapBoundary: false, isReverseMap: true);
                 break;
             }
         }
@@ -75,7 +75,8 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType,
         SemanticModel semanticModel,
-        bool stopAtReverseMapBoundary)
+        bool stopAtReverseMapBoundary,
+        bool isReverseMap)
     {
         if (MappingChainAnalysisHelper.HasCustomConstructionOrConversion(mappingInvocation, semanticModel, stopAtReverseMapBoundary))
         {
@@ -90,9 +91,10 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             ImmutableDictionary<string, string?>.Builder properties =
                 ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add("PropertyName", sourceProperty.Name);
-            properties.Add("PropertyType", sourceProperty.Type.ToDisplayString());
+            properties.Add("PropertyType", sourceProperty.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
             properties.Add("SourceTypeName", sourceType.Name);
             properties.Add("DestinationTypeName", destinationType.Name);
+            properties.Add("IsReverseMap", isReverseMap ? "true" : "false");
 
             context.ReportDiagnostic(Diagnostic.Create(
                 MissingDestinationPropertyRule,

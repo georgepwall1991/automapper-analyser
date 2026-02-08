@@ -132,6 +132,7 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
             ImmutableDictionary<string, string?>.Builder properties =
                 ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add("PropertyName", destProperty.Name);
+            properties.Add("PropertyType", destProperty.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
             properties.Add("DestinationTypeName", destinationType.Name);
             properties.Add("SourceTypeName", sourceType.Name);
 

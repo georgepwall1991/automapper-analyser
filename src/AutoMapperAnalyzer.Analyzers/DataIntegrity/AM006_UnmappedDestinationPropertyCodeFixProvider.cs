@@ -30,12 +30,13 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
     {
         await ProcessDiagnosticsAsync(
             context,
-            propertyNames: ["PropertyName", "DestinationTypeName", "SourceTypeName"],
+            propertyNames: ["PropertyName", "PropertyType", "DestinationTypeName", "SourceTypeName"],
             registerBulkFixes: RegisterBulkFixes,
             registerPerPropertyFixes: (ctx, diagnostic, invocation, properties, semanticModel, root) =>
             {
                 RegisterPerPropertyFixes(ctx, diagnostic, invocation,
                     properties["PropertyName"],
+                    properties["PropertyType"],
                     properties["SourceTypeName"],
                     properties["DestinationTypeName"],
                     semanticModel, root);
@@ -43,8 +44,9 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
     }
 
     private void RegisterPerPropertyFixes(CodeFixContext context, Diagnostic diagnostic,
-        InvocationExpressionSyntax invocation, string propertyName, string sourceTypeName,
-        string destinationTypeName, SemanticModel semanticModel, SyntaxNode root)
+        InvocationExpressionSyntax invocation, string propertyName, string propertyType,
+        string sourceTypeName, string destinationTypeName,
+        SemanticModel semanticModel, SyntaxNode root)
     {
         var nestedActions = ImmutableArray.CreateBuilder<CodeAction>();
 
@@ -81,7 +83,7 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
 
         // Phase 2: Ignore destination property
         nestedActions.Add(CodeAction.Create(
-            "Ignore destination property",
+            $"Ignore '{propertyName}' via .Ignore()",
             cancellationToken =>
             {
                 InvocationExpressionSyntax newInvocation =
@@ -93,33 +95,44 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
         // Phase 3: Create source property
         if (sourceType != null && destType != null)
         {
-            string propertyType = destPropertySymbol?.Type.ToDisplayString() ?? "object";
-
             nestedActions.Add(CodeAction.Create(
-                "Create property in source type",
+                $"Create '{propertyName}' in '{sourceTypeName}'",
                 cancellationToken => CreateSourcePropertyAsync(context.Document, sourceType,
                     propertyName, propertyType),
                 $"CreateProperty_{propertyName}"));
         }
 
         // Register grouped action
-        var groupAction = CreateGroupedAction($"Fix unmapped destination '{propertyName}'...", nestedActions);
+        var groupAction = CreateGroupedAction($"'{propertyName}' ({propertyType}) \u2014 unmapped in '{destinationTypeName}'", nestedActions);
         context.RegisterCodeFix(groupAction, diagnostic);
     }
 
     private void RegisterBulkFixes(CodeFixContext context, InvocationExpressionSyntax invocation,
         SemanticModel semanticModel, SyntaxNode root)
     {
+        int count = context.Diagnostics.Length;
+        string propWord = count == 1 ? "property" : "properties";
+
+        string destTypeName = "destination";
+        string sourceTypeName = "source type";
+        (ITypeSymbol? sourceType, ITypeSymbol? destType) =
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
+        if (sourceType != null && destType != null)
+        {
+            destTypeName = $"'{destType.Name}'";
+            sourceTypeName = $"'{sourceType.Name}'";
+        }
+
         // Bulk Fix 1: Ignore all unmapped destination properties
         var ignoreAction = CodeAction.Create(
-            "Ignore all unmapped destination properties",
+            $"Ignore {count} unmapped {destTypeName} {propWord}",
             cancellationToken => BulkIgnoreAsync(context.Document, root, invocation, semanticModel),
             "AM006_Bulk_Ignore"
         );
 
         // Bulk Fix 2: Create all missing source properties
         var createPropsAction = CodeAction.Create(
-            "Create all missing properties in source type",
+            $"Add {count} missing {propWord} to {sourceTypeName}",
             cancellationToken => BulkCreateSourcePropertiesAsync(context.Document, invocation, semanticModel),
             "AM006_Bulk_CreateProperties"
         );

@@ -265,7 +265,7 @@ public class AM006_CodeFixTests
                                          }
                                          """;
 
-        // Code action index 2 = fuzzy match suggestion (after Ignore and Create Property)
+        // Code action index 2 = fuzzy match suggestion (after Ignore via .Ignore() and Create in source)
         await VerifyFixAsync(
             testCode,
             AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
@@ -404,7 +404,7 @@ public class AM006_CodeFixTests
                                          }
                                          """;
 
-        // Code action index 1 = "Create property in source type" (after Ignore)
+        // Code action index 1 = "Create 'X' in 'Source'" (after Ignore via .Ignore())
         await VerifyFixAsync(
             testCode,
             AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
@@ -685,7 +685,7 @@ public class AM006_CodeFixTests
                                          }
                                          """;
 
-        // Code action index 1 = "Create property in source type" (after Ignore)
+        // Code action index 1 = "Create 'X' in 'Source'" (after Ignore via .Ignore())
         await VerifyFixAsync(
             testCode,
             AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
