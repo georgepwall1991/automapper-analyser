@@ -47,6 +47,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
 
         SyntaxTree documentTree = operationContext.Root.SyntaxTree;
         Diagnostic? diagnostic = context.Diagnostics.FirstOrDefault(diag =>
+            diag.Id == "AM031" &&
             diag.Location.IsInSource &&
             diag.Location.SourceTree == documentTree &&
             diag.Location.SourceSpan.IntersectsWith(context.Span));

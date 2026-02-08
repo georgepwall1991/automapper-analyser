@@ -1,6 +1,11 @@
 using AutoMapperAnalyzer.Analyzers.DataIntegrity;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using AutoMapperAnalyzer.Tests.Infrastructure;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Testing;
+using System.Reflection;
 
 namespace AutoMapperAnalyzer.Tests.DataIntegrity;
 
@@ -627,5 +632,178 @@ public class AM011_CodeFixTests
                 },
                 expectedFixedCode,
                 1, 1); // Selects Bulk Fix, 1 iteration
+    }
+
+    [Fact]
+    public async Task AM011_BulkFix_ShouldIgnoreAllUnmappedRequiredProperties()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public required string RequiredA { get; set; }
+                                        public required int RequiredB { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public required string RequiredA { get; set; }
+                                                 public required int RequiredB { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredA, opt => opt.Ignore()).ForMember(dest => dest.RequiredB, opt => opt.Ignore());
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM011_UnmappedRequiredPropertyAnalyzer, AM011_UnmappedRequiredPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[]
+                {
+                    new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
+                        .WithLocation(21, 13)
+                        .WithArguments("RequiredA"),
+                    new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
+                        .WithLocation(21, 13)
+                        .WithArguments("RequiredB")
+                },
+                expectedFixedCode,
+                3,
+                1);
+    }
+
+    [Fact]
+    public async Task AM011_BulkFix_ShouldCreateAllMissingSourceProperties()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public required string RequiredTitle { get; set; }
+                                        public required bool IsActive { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string RequiredTitle { get; set; }
+                                                 public bool IsActive { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public required string RequiredTitle { get; set; }
+                                                 public required bool IsActive { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM011_UnmappedRequiredPropertyAnalyzer, AM011_UnmappedRequiredPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[]
+                {
+                    new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
+                        .WithLocation(21, 13)
+                        .WithArguments("IsActive"),
+                    new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
+                        .WithLocation(21, 13)
+                        .WithArguments("RequiredTitle")
+                },
+                expectedFixedCode,
+                4,
+                1);
+    }
+
+    [Theory]
+    [InlineData(BulkFixAction.Todo)]
+    [InlineData(BulkFixAction.Custom)]
+    [InlineData(BulkFixAction.Nullable)]
+    public void AM011_ApplyPropertyAction_ShouldFallbackToDefault_ForLegacyActions(BulkFixAction legacyAction)
+    {
+        var provider = new AM011_UnmappedRequiredPropertyCodeFixProvider();
+        InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)SyntaxFactory
+            .ParseExpression("CreateMap<Source, Destination>()");
+        var propertyAction = new PropertyFixAction("RequiredField", "string", legacyAction);
+
+        MethodInfo applyPropertyActionMethod =
+            typeof(AM011_UnmappedRequiredPropertyCodeFixProvider).GetMethod(
+                "ApplyPropertyAction",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        var result = (InvocationExpressionSyntax)applyPropertyActionMethod.Invoke(
+            provider,
+            [invocation, propertyAction, Enumerable.Empty<IPropertySymbol>()])!;
+
+        Assert.Contains("MapFrom(", result.ToString(), StringComparison.Ordinal);
     }
 }

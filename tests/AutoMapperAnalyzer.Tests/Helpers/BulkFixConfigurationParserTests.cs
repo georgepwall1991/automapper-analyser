@@ -39,4 +39,23 @@ public class BulkFixConfigurationParserTests
         Assert.Equal(3, config!.PropertyActions.Count);
         Assert.All(config.PropertyActions, action => Assert.Equal(BulkFixAction.Default, action.Action));
     }
+
+    [Fact]
+    public void GenerateConfigurationComment_ShouldRenderLegacyEnumValuesAsDefault()
+    {
+        string comment = BulkFixConfigurationParser.GenerateConfigurationComment(new[]
+        {
+            ("LegacyTodo", "string", BulkFixAction.Todo, (string?)null),
+            ("LegacyCustom", "int", BulkFixAction.Custom, (string?)null),
+            ("LegacyNullable", "bool", BulkFixAction.Nullable, (string?)null)
+        });
+
+        Assert.Contains("LegacyTodo", comment, StringComparison.Ordinal);
+        Assert.Contains("LegacyCustom", comment, StringComparison.Ordinal);
+        Assert.Contains("LegacyNullable", comment, StringComparison.Ordinal);
+        Assert.DoesNotContain("| TODO", comment, StringComparison.Ordinal);
+        Assert.DoesNotContain("| CUSTOM", comment, StringComparison.Ordinal);
+        Assert.DoesNotContain("| NULLABLE", comment, StringComparison.Ordinal);
+        Assert.Contains("| DEFAULT", comment, StringComparison.Ordinal);
+    }
 }

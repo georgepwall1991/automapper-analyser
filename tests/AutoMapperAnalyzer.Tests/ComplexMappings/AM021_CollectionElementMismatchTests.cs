@@ -870,4 +870,121 @@ public class AM021_CollectionElementMismatchTests
                 "Numbers", "Source", "string", "Destination", "int")
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_ForCreateMapLikeApiOutsideAutoMapper()
+    {
+        const string testCode = """
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class MappingConfig
+                                    {
+                                        public void CreateMap<TSource, TDestination>()
+                                        {
+                                        }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            var cfg = new MappingConfig();
+                                            cfg.CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_WhenListToQueueContainerMismatch()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Items { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Queue<int> Items { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // AM003 owns collection container incompatibilities.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_WhenListToStackContainerMismatch()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Items { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Stack<int> Items { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // AM003 owns collection container incompatibilities.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
 }

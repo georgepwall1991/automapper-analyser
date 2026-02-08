@@ -148,6 +148,32 @@ public class AutoMapperAnalysisHelpersTests
     }
 
     [Fact]
+    public void IsCreateMapInvocation_ShouldReturnTrue_WhenAutoMapperMethodIsCandidateSymbol()
+    {
+        const string code = @"
+            using AutoMapper;
+            public class TestProfile : Profile
+            {
+                public TestProfile()
+                {
+                    CreateMap<string, int>(42);
+                }
+            }";
+
+        CSharpCompilation compilation = CreateCompilation(code);
+        SyntaxTree tree = compilation.SyntaxTrees.First();
+        SemanticModel semanticModel = compilation.GetSemanticModel(tree);
+        InvocationExpressionSyntax invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .First(inv => inv.Expression.ToString().Contains("CreateMap"));
+
+        bool result = AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocation, semanticModel);
+
+        Assert.True(result);
+    }
+
+    [Fact]
     public void IsCreateMapInvocation_ShouldReturnFalse_WhenNotCreateMapMethod()
     {
         const string code = @"

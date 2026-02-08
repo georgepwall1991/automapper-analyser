@@ -122,4 +122,65 @@ public class AM030_CodeFixTests
                     .WithArguments("NullUnsafeConverter", "String"),
                 expectedFixedCode);
     }
+
+    [Fact]
+    public async Task AM030_ShouldNotDuplicateSystemUsing_WhenAddingNullGuard()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class NullUnsafeConverter : ITypeConverter<string?, int>
+                                    {
+                                        public int Convert(string? source, int destination, ResolutionContext context)
+                                        {
+                                            return int.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class NullUnsafeConverter : ITypeConverter<string?, int>
+                                             {
+                                                 public int Convert(string? source, int destination, ResolutionContext context)
+                                                 {
+                                                     if (source == null) throw new ArgumentNullException(nameof(source));
+                                                     return int.Parse(source);
+                                                 }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM030_CustomTypeConverterAnalyzer, AM030_CustomTypeConverterCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule)
+                    .WithLocation(8, 20)
+                    .WithArguments("NullUnsafeConverter", "String"),
+                expectedFixedCode);
+    }
 }

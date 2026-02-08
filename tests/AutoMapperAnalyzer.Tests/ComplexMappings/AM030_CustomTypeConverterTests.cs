@@ -82,6 +82,41 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_ForPropertyTypeMismatchWithoutConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string CreatedDate { get; set; } = string.Empty;
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public System.DateTime CreatedDate { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldReportDiagnostic_WhenInvalidTypeConverterImplementation()
     {
         const string testCode = """
@@ -188,6 +223,40 @@ public class AM030_CustomTypeConverterTests
                                         public TestProfile()
                                         {
                                             CreateMap<Source, Destination>().ConvertUsing<UsedConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenTypeConverterInstanceIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class InstanceConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string, DateTime>().ConvertUsing(new InstanceConverter());
                                         }
                                     }
                                 }
