@@ -152,6 +152,8 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
             // Backward-compatible aliases for existing fixers/consumers.
             properties.Add("SourceType", sourceTypeName);
             properties.Add("DestType", destTypeName);
+            properties.Add("SourceTypeName", GetTypeName(sourceType));
+            properties.Add("DestTypeName", GetTypeName(destinationType));
 
             var diagnostic = Diagnostic.Create(
                 CollectionTypeIncompatibilityRule,
@@ -178,6 +180,8 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
             // Backward-compatible aliases for existing fixers/consumers.
             properties.Add("SourceType", sourceTypeName);
             properties.Add("DestType", destTypeName);
+            properties.Add("SourceTypeName", GetTypeName(sourceType));
+            properties.Add("DestTypeName", GetTypeName(destinationType));
 
             var diagnostic = Diagnostic.Create(
                 CollectionElementIncompatibilityRule,
