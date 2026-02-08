@@ -189,7 +189,10 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         SemanticModel semanticModel,
         bool stopAtReverseMapBoundary)
     {
-        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(mappingInvocation, stopAtReverseMapBoundary))
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
+                     mappingInvocation,
+                     semanticModel,
+                     stopAtReverseMapBoundary))
         {
             if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForSourceMember"))
             {
@@ -349,7 +352,10 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         SemanticModel semanticModel,
         bool stopAtReverseMapBoundary)
     {
-        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(mappingInvocation, stopAtReverseMapBoundary))
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
+                     mappingInvocation,
+                     semanticModel,
+                     stopAtReverseMapBoundary))
         {
             if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForMember"))
             {
@@ -395,7 +401,10 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         SemanticModel semanticModel,
         bool stopAtReverseMapBoundary)
     {
-        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(mappingInvocation, stopAtReverseMapBoundary))
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
+                     mappingInvocation,
+                     semanticModel,
+                     stopAtReverseMapBoundary))
         {
             if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForCtorParam") ||
                 chainedInvocation.ArgumentList.Arguments.Count <= 1)
@@ -418,7 +427,10 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         SemanticModel semanticModel,
         bool stopAtReverseMapBoundary)
     {
-        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(mappingInvocation, stopAtReverseMapBoundary))
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
+                     mappingInvocation,
+                     semanticModel,
+                     stopAtReverseMapBoundary))
         {
             if (IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ConstructUsing") ||
                 IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ConvertUsing"))
@@ -538,6 +550,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
 
     private static IEnumerable<InvocationExpressionSyntax> GetScopedChainInvocations(
         InvocationExpressionSyntax mappingInvocation,
+        SemanticModel semanticModel,
         bool stopAtReverseMapBoundary)
     {
         SyntaxNode? currentNode = mappingInvocation.Parent;
@@ -545,7 +558,8 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         while (currentNode is MemberAccessExpressionSyntax memberAccess &&
                memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
         {
-            if (stopAtReverseMapBoundary && memberAccess.Name.Identifier.ValueText == "ReverseMap")
+            if (stopAtReverseMapBoundary &&
+                IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ReverseMap"))
             {
                 break;
             }

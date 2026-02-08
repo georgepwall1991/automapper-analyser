@@ -726,6 +726,49 @@ public class AM004_MissingDestinationPropertyTests
     }
 
     [Fact]
+    public async Task AM004_ShouldNotTreatNonAutoMapperReverseMapAsBoundary()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public static class MappingExtensions
+                                    {
+                                        public static IMappingExpression<TSource, TDestination> ReverseMap<TSource, TDestination>(
+                                            this IMappingExpression<TSource, TDestination> expression,
+                                            int marker) => expression;
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string FirstName { get; set; }
+                                        public string LastName { get; set; }
+                                        public string MiddleName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string FullName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap(1)
+                                                .ForMember(dest => dest.FullName, opt => opt.MapFrom(src =>
+                                                    src.FirstName + " " + src.LastName + " " + src.MiddleName));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
     public async Task AM004_ShouldReportDiagnostic_WhenFlatteningPrefixMatchesButNestedMemberDoesNotExist()
     {
         const string testCode = """

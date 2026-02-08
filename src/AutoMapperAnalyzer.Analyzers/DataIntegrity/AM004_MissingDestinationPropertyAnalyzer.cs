@@ -66,7 +66,7 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
 
         // Check for ReverseMap() and analyze Destination -> Source
         InvocationExpressionSyntax? reverseMapInvocation =
-            AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocationExpr);
+            GetAutoMapperReverseMapInvocation(invocationExpr, context.SemanticModel);
         if (reverseMapInvocation != null)
         {
             AnalyzeMissingDestinationProperties(
@@ -78,6 +78,24 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
                 stopAtReverseMapBoundary: false
             );
         }
+    }
+
+    private static InvocationExpressionSyntax? GetAutoMapperReverseMapInvocation(
+        InvocationExpressionSyntax createMapInvocation,
+        SemanticModel semanticModel)
+    {
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
+                     createMapInvocation,
+                     semanticModel,
+                     stopAtReverseMapBoundary: false))
+        {
+            if (IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ReverseMap"))
+            {
+                return chainedInvocation;
+            }
+        }
+
+        return null;
     }
 
     private static void AnalyzeMissingDestinationProperties(
@@ -213,7 +231,10 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         SemanticModel semanticModel,
         bool stopAtReverseMapBoundary)
     {
-        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(mappingInvocation, stopAtReverseMapBoundary))
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
+                     mappingInvocation,
+                     semanticModel,
+                     stopAtReverseMapBoundary))
         {
             if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForMember"))
             {
@@ -247,7 +268,10 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         SemanticModel semanticModel,
         bool stopAtReverseMapBoundary)
     {
-        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(mappingInvocation, stopAtReverseMapBoundary))
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
+                     mappingInvocation,
+                     semanticModel,
+                     stopAtReverseMapBoundary))
         {
             if (IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ConstructUsing") ||
                 IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ConvertUsing"))
@@ -265,7 +289,10 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         SemanticModel semanticModel,
         bool stopAtReverseMapBoundary)
     {
-        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(mappingInvocation, stopAtReverseMapBoundary))
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
+                     mappingInvocation,
+                     semanticModel,
+                     stopAtReverseMapBoundary))
         {
             if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForCtorParam") ||
                 chainedInvocation.ArgumentList.Arguments.Count <= 1)
@@ -289,7 +316,10 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         SemanticModel semanticModel,
         bool stopAtReverseMapBoundary)
     {
-        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(mappingInvocation, stopAtReverseMapBoundary))
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
+                     mappingInvocation,
+                     semanticModel,
+                     stopAtReverseMapBoundary))
         {
             if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForSourceMember"))
             {
@@ -362,6 +392,7 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
 
     private static IEnumerable<InvocationExpressionSyntax> GetScopedChainInvocations(
         InvocationExpressionSyntax mappingInvocation,
+        SemanticModel semanticModel,
         bool stopAtReverseMapBoundary)
     {
         SyntaxNode? currentNode = mappingInvocation.Parent;
@@ -369,7 +400,8 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         while (currentNode is MemberAccessExpressionSyntax memberAccess &&
                memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
         {
-            if (stopAtReverseMapBoundary && memberAccess.Name.Identifier.ValueText == "ReverseMap")
+            if (stopAtReverseMapBoundary &&
+                IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ReverseMap"))
             {
                 break;
             }
