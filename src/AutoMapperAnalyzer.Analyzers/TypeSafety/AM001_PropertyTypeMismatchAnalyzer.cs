@@ -13,6 +13,10 @@ namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 {
+    internal const string PropertyNamePropertyName = "PropertyName";
+    internal const string SourcePropertyTypePropertyName = "SourcePropertyType";
+    internal const string DestinationPropertyTypePropertyName = "DestinationPropertyType";
+
     /// <summary>
     ///     Diagnostic rule for property type mismatches.
     /// </summary>
@@ -51,6 +55,12 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 
         // Check if this is a CreateMap<TSource, TDestination>() call
         if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
+        {
+            return;
+        }
+
+        // Ensure this invocation resolves to AutoMapper APIs to avoid lookalike false positives.
+        if (!IsAutoMapperCreateMapInvocation(invocationExpr, context.SemanticModel))
         {
             return;
         }
@@ -94,8 +104,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if explicit mapping is configured for this property
-            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, sourceProp.Name,
-                    context.SemanticModel))
+            if (IsPropertyConfiguredWithForMember(invocation, sourceProp.Name, context.SemanticModel))
             {
                 continue;
             }
@@ -149,9 +158,15 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         // Check for basic type incompatibilities
         if (!AreTypesCompatible(sourceProperty.Type, destinationProperty.Type))
         {
+            var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+            properties.Add(PropertyNamePropertyName, sourceProperty.Name);
+            properties.Add(SourcePropertyTypePropertyName, sourceTypeName);
+            properties.Add(DestinationPropertyTypePropertyName, destTypeName);
+
             var diagnostic = Diagnostic.Create(
                 PropertyTypeMismatchRule,
                 invocation.GetLocation(),
+                properties.ToImmutable(),
                 sourceProperty.Name,
                 GetTypeName(sourceType),
                 sourceTypeName,
@@ -164,9 +179,16 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 
     private static bool IsNullableCompatibilityIssue(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
-        // Check if source is nullable reference type and destination is non-nullable
-        return sourceType is { CanBeReferencedByName: true, NullableAnnotation: NullableAnnotation.Annotated } &&
-               destinationType.NullableAnnotation == NullableAnnotation.NotAnnotated;
+        if (!IsNullableType(sourceType) || IsNullableType(destinationType))
+        {
+            return false;
+        }
+
+        // Only suppress AM001 when the underlying types are otherwise compatible.
+        // This leaves purely nullability concerns to AM002 but still reports true type mismatches.
+        ITypeSymbol sourceUnderlyingType = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceType);
+        ITypeSymbol destinationUnderlyingType = AutoMapperAnalysisHelpers.GetUnderlyingType(destinationType);
+        return AutoMapperAnalysisHelpers.AreTypesCompatible(sourceUnderlyingType, destinationUnderlyingType);
     }
 
     private static bool IsGenericTypeMismatch(ITypeSymbol sourceType, ITypeSymbol destinationType)
@@ -191,6 +213,17 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    private static bool IsNullableType(ITypeSymbol type)
+    {
+        if (type.NullableAnnotation == NullableAnnotation.Annotated)
+        {
+            return true;
+        }
+
+        return type is INamedTypeSymbol namedType &&
+               namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
     }
 
     private static bool IsComplexTypeMappingRequired(ITypeSymbol sourceType, ITypeSymbol destinationType)
@@ -252,5 +285,92 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         }
 
         return type.Name;
+    }
+
+    private static bool IsPropertyConfiguredWithForMember(
+        InvocationExpressionSyntax createMapInvocation,
+        string propertyName,
+        SemanticModel semanticModel)
+    {
+        IEnumerable<InvocationExpressionSyntax> forMemberCalls = AutoMapperAnalysisHelpers.GetForMemberCalls(createMapInvocation);
+
+        foreach (InvocationExpressionSyntax forMemberCall in forMemberCalls)
+        {
+            if (!IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForMember"))
+            {
+                continue;
+            }
+
+            if (forMemberCall.ArgumentList.Arguments.Count == 0)
+            {
+                continue;
+            }
+
+            ArgumentSyntax destinationArgument = forMemberCall.ArgumentList.Arguments[0];
+            CSharpSyntaxNode? lambdaBody = GetLambdaBody(destinationArgument.Expression);
+            if (lambdaBody is not MemberAccessExpressionSyntax memberAccess)
+            {
+                continue;
+            }
+
+            if (string.Equals(memberAccess.Name.Identifier.Text, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static CSharpSyntaxNode? GetLambdaBody(ExpressionSyntax expression)
+    {
+        return expression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.Body,
+            _ => null
+        };
+    }
+
+    private static bool IsAutoMapperCreateMapInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        return IsAutoMapperMethodInvocation(invocation, semanticModel, "CreateMap");
+    }
+
+    private static bool IsAutoMapperMethodInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel,
+        string methodName)
+    {
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+
+        if (IsAutoMapperMethod(symbolInfo.Symbol as IMethodSymbol, methodName))
+        {
+            return true;
+        }
+
+        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
+        {
+            if (IsAutoMapperMethod(candidateSymbol as IMethodSymbol, methodName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsAutoMapperMethod(IMethodSymbol? methodSymbol, string methodName)
+    {
+        if (methodSymbol == null || methodSymbol.Name != methodName)
+        {
+            return false;
+        }
+
+        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
+        return namespaceName == "AutoMapper" ||
+               (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
     }
 }

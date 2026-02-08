@@ -184,7 +184,7 @@ public class AM001_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value is not null ? int.Parse(src.Value) : 0));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value != null ? int.Parse(src.Value) : 0));
                                                  }
                                              }
                                          }
@@ -267,5 +267,68 @@ public class AM001_CodeFixTests
                     Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 21, 13,
                         "Score", "Source", "double", "Destination", "string")
                 });
+    }
+
+    [Fact]
+    public async Task AM001_ShouldFixNullableStringToIntWithParsePattern()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Value { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Value { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string? Value { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public int Value { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value != null ? int.Parse(src.Value) : 0));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                    "Value", "Source", "string?", "Destination", "int"),
+                expectedFixedCode);
     }
 }

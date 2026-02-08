@@ -33,9 +33,13 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
             return;
         }
 
-        Diagnostic diagnostic = context.Diagnostics.First();
+        Diagnostic? diagnostic = context.Diagnostics.FirstOrDefault(diag =>
+            diag.Id == "AM001" &&
+            diag.Location.IsInSource &&
+            diag.Location.SourceTree == operationContext.Root.SyntaxTree &&
+            diag.Location.SourceSpan.IntersectsWith(context.Span));
 
-        if (diagnostic.Descriptor != AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule)
+        if (diagnostic == null)
         {
             return;
         }
@@ -134,13 +138,6 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
 
         string destinationTypeName = destinationType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
-        // Nullable source to non-nullable destination -> coalesce to default literal
-        if (sourceType.NullableAnnotation == NullableAnnotation.Annotated)
-        {
-            string fallback = TypeConversionHelper.GetDefaultValueForType(destinationTypeName);
-            return $"src.{propertyName} ?? {fallback}";
-        }
-
         // Numeric conversions: add cast
         if (IsNumericConversion(sourceType.SpecialType) && IsNumericConversion(destinationType.SpecialType))
         {
@@ -151,13 +148,30 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
         if (IsString(sourceType) && IsNumericConversion(destinationType.SpecialType))
         {
             return
-                $"src.{propertyName} is not null ? {destinationTypeName}.Parse(src.{propertyName}) : {TypeConversionHelper.GetDefaultValueForType(destinationTypeName)}";
+                $"src.{propertyName} != null ? {destinationTypeName}.Parse(src.{propertyName}) : {TypeConversionHelper.GetDefaultValueForType(destinationTypeName)}";
         }
 
         // Primitive -> string: use ToString with invariant culture for numeric types
         if (IsNumericConversion(sourceType.SpecialType) && IsString(destinationType))
         {
             return $"src.{propertyName}.ToString()";
+        }
+
+        // Nullable source to non-nullable destination where underlying types are compatible.
+        ITypeSymbol sourceUnderlyingType = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceType);
+        if (IsNullableType(sourceType) &&
+            !IsNullableType(destinationType) &&
+            AutoMapperAnalysisHelpers.AreTypesCompatible(sourceUnderlyingType, destinationType))
+        {
+            string fallback = TypeConversionHelper.GetDefaultValueForType(destinationTypeName);
+            if (IsNumericConversion(sourceUnderlyingType.SpecialType) &&
+                IsNumericConversion(destinationType.SpecialType) &&
+                !SymbolEqualityComparer.Default.Equals(sourceUnderlyingType, destinationType))
+            {
+                return $"({destinationTypeName})(src.{propertyName} ?? {fallback})";
+            }
+
+            return $"src.{propertyName} ?? {fallback}";
         }
 
         // As a safe catch-all, allow cast when the destination is assignable from source
@@ -184,10 +198,22 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
         return typeSymbol.SpecialType == SpecialType.System_String;
     }
 
+    private static bool IsNullableType(ITypeSymbol type)
+    {
+        if (type.NullableAnnotation == NullableAnnotation.Annotated)
+        {
+            return true;
+        }
+
+        return type is INamedTypeSymbol namedType &&
+               namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
+    }
+
     private string? ExtractPropertyNameFromDiagnostic(Diagnostic diagnostic)
     {
         // Try to get property name from diagnostic properties
-        if (diagnostic.Properties.TryGetValue("PropertyName", out string? propertyName))
+        if (diagnostic.Properties.TryGetValue(AM001_PropertyTypeMismatchAnalyzer.PropertyNamePropertyName,
+                out string? propertyName))
         {
             return propertyName;
         }
@@ -201,8 +227,12 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
     private (string? sourceType, string? destType) ExtractTypesFromDiagnostic(Diagnostic diagnostic)
     {
         // Try to get from diagnostic properties first
-        string? sourceType = diagnostic.Properties.TryGetValue("SourceType", out string? st) ? st : null;
-        string? destType = diagnostic.Properties.TryGetValue("DestType", out string? dt) ? dt : null;
+        string? sourceType =
+            diagnostic.Properties.TryGetValue(AM001_PropertyTypeMismatchAnalyzer.SourcePropertyTypePropertyName,
+                out string? st) ? st : null;
+        string? destType =
+            diagnostic.Properties.TryGetValue(AM001_PropertyTypeMismatchAnalyzer.DestinationPropertyTypePropertyName,
+                out string? dt) ? dt : null;
 
         if (!string.IsNullOrEmpty(sourceType) && !string.IsNullOrEmpty(destType))
         {
