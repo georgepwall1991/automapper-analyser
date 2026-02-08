@@ -327,4 +327,124 @@ public class AM001_PropertyTypeMismatchTests
         // When both mappings are configured, no diagnostics should be reported
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
+
+    [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_ForCreateMapLikeApiOutsideAutoMapper()
+    {
+        const string testCode = """
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class FakeMapOptions<TSource, TDestMember>
+                                    {
+                                        public void MapFrom(Func<TSource, TDestMember> resolver)
+                                        {
+                                        }
+                                    }
+
+                                    public class FakeMapExpression<TSource, TDestination>
+                                    {
+                                        public FakeMapExpression<TSource, TDestination> ForMember<TDestMember>(
+                                            Func<TDestination, TDestMember> destinationMember,
+                                            Action<FakeMapOptions<TSource, TDestMember>> optionsAction)
+                                        {
+                                            return this;
+                                        }
+                                    }
+
+                                    public class Profile
+                                    {
+                                        public FakeMapExpression<TSource, TDestination> CreateMap<TSource, TDestination>() => new();
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenExplicitConversionProvidedWithParenthesizedLambda()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember((dest) => dest.Age, (opt) => opt.MapFrom((src) => int.Parse(src.Age)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldReportDiagnostic_WhenNullableSourceTypeIsAlsoTypeIncompatible()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Age", "Source",
+                "string?", "Destination", "int"));
+    }
 }
