@@ -52,9 +52,9 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
         int remainingCount = remainingDiagnostics?.Length ?? 0;
         int expectedCount = expectedDiagnostics?.Length ?? 1;
         int defaultIterations = Math.Max(1, Math.Max(remainingCount + 1, expectedCount));
-        
+
         int finalIterations = iterations ?? defaultIterations;
-        
+
         test.NumberOfFixAllIterations = finalIterations;
         test.NumberOfIncrementalIterations = finalIterations;
         test.ExpectedDiagnostics.AddRange(expectedDiagnostics);
@@ -70,33 +70,7 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
     public static async Task VerifyFixAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource,
         int? codeActionIndex, DiagnosticResult[]? remainingDiagnostics = null, int? iterations = null)
     {
-         var test = new CSharpCodeFixTest<TAnalyzer, TCodeFix, DefaultVerifier>
-        {
-            TestCode = source,
-            FixedCode = fixedSource,
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            CodeActionIndex = codeActionIndex
-        };
-
-        AddAutoMapperReferences(test.TestState);
-        AddAutoMapperReferences(test.FixedState);
-
-        int remainingCount = remainingDiagnostics?.Length ?? 0;
-        int expectedCount = expectedDiagnostics?.Length ?? 1;
-        int defaultIterations = Math.Max(1, Math.Max(remainingCount + 1, expectedCount));
-        
-        int finalIterations = iterations ?? defaultIterations;
-        
-        test.NumberOfFixAllIterations = finalIterations;
-        test.NumberOfIncrementalIterations = finalIterations;
-        test.ExpectedDiagnostics.AddRange(expectedDiagnostics);
-
-        if (remainingDiagnostics != null)
-        {
-            test.FixedState.ExpectedDiagnostics.AddRange(remainingDiagnostics);
-        }
-
-        await test.RunAsync();
+        await VerifyFixAsync(source, expectedDiagnostics, fixedSource, codeActionIndex, iterations, remainingDiagnostics);
     }
 
     public static async Task VerifyFixWithIterationsAsync(string source, DiagnosticResult[] expectedDiagnostics,

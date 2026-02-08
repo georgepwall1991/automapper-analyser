@@ -1654,4 +1654,292 @@ public class AM004_CodeFixTests
                 null,
                 1);
     }
+
+    [Fact]
+    public async Task AM004_ShouldHandleInternalProperties()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        internal string InternalData { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 internal string InternalData { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.InternalData, opt => opt.DoNotValidate());
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            20,
+            13,
+            expectedFixedCode,
+            "InternalData");
+    }
+
+    [Fact]
+    public async Task AM004_ShouldHandlePrivateSetAccessors()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string ReadOnlyData { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ReadOnlyData { get; private set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Private set should still be mappable (AutoMapper can set it)
+        // No diagnostic should be raised
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM004_ShouldHandleProtectedPropertiesInInheritance()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class BaseSource
+                                    {
+                                        protected string ProtectedField { get; set; }
+                                    }
+
+                                    public class Source : BaseSource
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Protected properties are not publicly accessible and should not be flagged
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM004_ShouldHandleGenericTypesWithConstraints()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source<T> where T : class
+                                    {
+                                        public string Name { get; set; }
+                                        public T Value { get; set; }
+                                        public string Extra { get; set; }
+                                    }
+
+                                    public class Destination<T> where T : class
+                                    {
+                                        public string Name { get; set; }
+                                        public T Value { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source<string>, Destination<string>>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source<T> where T : class
+                                             {
+                                                 public string Name { get; set; }
+                                                 public T Value { get; set; }
+                                                 public string Extra { get; set; }
+                                             }
+
+                                             public class Destination<T> where T : class
+                                             {
+                                                 public string Name { get; set; }
+                                                 public T Value { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source<string>, Destination<string>>().ForSourceMember(src => src.Extra, opt => opt.DoNotValidate());
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            22,
+            13,
+            expectedFixedCode,
+            "Extra");
+    }
+
+    [Fact]
+    public async Task AM004_ShouldHandleRecordWithInheritance()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public record BaseSource
+                                    {
+                                        public string Id { get; init; }
+                                    }
+
+                                    public record Source : BaseSource
+                                    {
+                                        public string Name { get; init; }
+                                        public string Extra { get; init; }
+                                    }
+
+                                    public record BaseDestination
+                                    {
+                                        public string Id { get; init; }
+                                    }
+
+                                    public record Destination : BaseDestination
+                                    {
+                                        public string Name { get; init; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public record BaseSource
+                                             {
+                                                 public string Id { get; init; }
+                                             }
+
+                                             public record Source : BaseSource
+                                             {
+                                                 public string Name { get; init; }
+                                                 public string Extra { get; init; }
+                                             }
+
+                                             public record BaseDestination
+                                             {
+                                                 public string Id { get; init; }
+                                             }
+
+                                             public record Destination : BaseDestination
+                                             {
+                                                 public string Name { get; init; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.Extra, opt => opt.DoNotValidate());
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+            30,
+            13,
+            expectedFixedCode,
+            "Extra");
+    }
 }

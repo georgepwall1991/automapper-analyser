@@ -80,6 +80,12 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
             // Check if source property access has same name
             if (string.Equals(sourcePropName, destPropName, StringComparison.Ordinal))
             {
+                // Check if types are compatible (same type including nullability)
+                if (!AreTypesCompatibleForAutoMapping(forMemberInvocation, invocation, context))
+                {
+                    return; // Not redundant if types differ (e.g., int? to int)
+                }
+
                 var diagnostic = Diagnostic.Create(
                     RedundantMapFromRule,
                     invocation.GetLocation(),
@@ -88,6 +94,74 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
                 context.ReportDiagnostic(diagnostic);
             }
         }
+    }
+
+    private bool AreTypesCompatibleForAutoMapping(
+        InvocationExpressionSyntax forMemberInvocation,
+        InvocationExpressionSyntax mapFromInvocation,
+        SyntaxNodeAnalysisContext context)
+    {
+        // Get source and destination property types
+        ITypeSymbol? sourceType = GetSourcePropertyType(mapFromInvocation, context);
+        ITypeSymbol? destType = GetDestinationPropertyType(forMemberInvocation, context);
+
+        if (sourceType == null || destType == null)
+        {
+            return true; // Can't determine, assume compatible
+        }
+
+        // Check if types are exactly the same (including nullability)
+        return SymbolEqualityComparer.Default.Equals(sourceType, destType);
+    }
+
+    private ITypeSymbol? GetSourcePropertyType(
+        InvocationExpressionSyntax mapFromInvocation,
+        SyntaxNodeAnalysisContext context)
+    {
+        if (mapFromInvocation.ArgumentList.Arguments.Count < 1)
+        {
+            return null;
+        }
+
+        ExpressionSyntax arg = mapFromInvocation.ArgumentList.Arguments[0].Expression;
+
+        // Expecting src => src.Name
+        if (arg is SimpleLambdaExpressionSyntax lambda &&
+            lambda.Body is MemberAccessExpressionSyntax memberAccess)
+        {
+            SymbolInfo symbolInfo = context.SemanticModel.GetSymbolInfo(memberAccess);
+            if (symbolInfo.Symbol is IPropertySymbol propertySymbol)
+            {
+                return propertySymbol.Type;
+            }
+        }
+
+        return null;
+    }
+
+    private ITypeSymbol? GetDestinationPropertyType(
+        InvocationExpressionSyntax forMemberInvocation,
+        SyntaxNodeAnalysisContext context)
+    {
+        if (forMemberInvocation.ArgumentList.Arguments.Count < 1)
+        {
+            return null;
+        }
+
+        ExpressionSyntax arg = forMemberInvocation.ArgumentList.Arguments[0].Expression;
+
+        // Expecting dest => dest.Name
+        if (arg is SimpleLambdaExpressionSyntax lambda &&
+            lambda.Body is MemberAccessExpressionSyntax memberAccess)
+        {
+            SymbolInfo symbolInfo = context.SemanticModel.GetSymbolInfo(memberAccess);
+            if (symbolInfo.Symbol is IPropertySymbol propertySymbol)
+            {
+                return propertySymbol.Type;
+            }
+        }
+
+        return null;
     }
 
     private string? GetDestinationPropertyName(InvocationExpressionSyntax forMemberInvocation)
