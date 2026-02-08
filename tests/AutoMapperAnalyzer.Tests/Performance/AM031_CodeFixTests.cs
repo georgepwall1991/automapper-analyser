@@ -1,187 +1,12 @@
 using AutoMapperAnalyzer.Analyzers.Performance;
-using AutoMapperAnalyzer.Tests.Infrastructure;
-using Microsoft.CodeAnalysis.Testing;
+using AutoMapperAnalyzer.Tests.Framework;
 
 namespace AutoMapperAnalyzer.Tests.Performance;
 
 public class AM031_CodeFixTests
 {
-    [Fact(Skip = "Test framework limitation: field type resolution - see docs/TEST_LIMITATIONS.md #1")]
-    public async Task AM031_ShouldSuggestMovingDatabaseCallOutsideMapping()
-    {
-        const string testCode = """
-                                using AutoMapper;
-                                using System;
-                                using System.Linq;
-
-                                namespace TestNamespace
-                                {
-                                    public class DbContext
-                                    {
-                                        public IQueryable<Order> Orders { get; set; }
-                                    }
-
-                                    public class Order
-                                    {
-                                        public int Id { get; set; }
-                                    }
-
-                                    public class Source
-                                    {
-                                        public int UserId { get; set; }
-                                    }
-
-                                    public class Destination
-                                    {
-                                        public int OrderCount { get; set; }
-                                    }
-
-                                    public class TestProfile : Profile
-                                    {
-                                        private readonly DbContext _db;
-
-                                        public TestProfile(DbContext db)
-                                        {
-                                            _db = db;
-                                            CreateMap<Source, Destination>()
-                                                .ForMember(dest => dest.OrderCount, opt => opt.MapFrom(src => _db.Orders.Count(o => o.Id == src.UserId)));
-                                        }
-                                    }
-                                }
-                                """;
-
-        const string expectedFixedCode = """
-                                         using AutoMapper;
-                                         using System;
-                                         using System.Linq;
-
-                                         namespace TestNamespace
-                                         {
-                                             public class DbContext
-                                             {
-                                                 public IQueryable<Order> Orders { get; set; }
-                                             }
-
-                                             public class Order
-                                             {
-                                                 public int Id { get; set; }
-                                             }
-
-                                             public class Source
-                                             {
-                                                 public int UserId { get; set; }
-                                                 public int OrderCount { get; set; } // TODO: Populate this property before mapping
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public int OrderCount { get; set; }
-                                             }
-
-                                             public class TestProfile : Profile
-                                             {
-                                                 private readonly DbContext _db;
-
-                                                 public TestProfile(DbContext db)
-                                                 {
-                                                     _db = db;
-                                                     CreateMap<Source, Destination>();
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        await CodeFixVerifier<AM031_PerformanceWarningAnalyzer, AM031_PerformanceWarningCodeFixProvider>
-            .VerifyFixAsync(
-                testCode,
-                new DiagnosticResult(AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule)
-                    .WithLocation(35, 13),
-                expectedFixedCode);
-    }
-
-    [Fact(Skip = "Test framework limitation: field type resolution - see docs/TEST_LIMITATIONS.md #1")]
-    public async Task AM031_ShouldSuggestMovingMethodCallOutsideMapping()
-    {
-        const string testCode = """
-                                using AutoMapper;
-                                using System;
-
-                                namespace TestNamespace
-                                {
-                                    public class ExternalService
-                                    {
-                                        public string GetData(int id) => "data";
-                                    }
-
-                                    public class Source
-                                    {
-                                        public int Id { get; set; }
-                                    }
-
-                                    public class Destination
-                                    {
-                                        public string Data { get; set; }
-                                    }
-
-                                    public class TestProfile : Profile
-                                    {
-                                        private readonly ExternalService _service;
-
-                                        public TestProfile(ExternalService service)
-                                        {
-                                            _service = service;
-                                            CreateMap<Source, Destination>()
-                                                .ForMember(dest => dest.Data, opt => opt.MapFrom(src => _service.GetData(src.Id)));
-                                        }
-                                    }
-                                }
-                                """;
-
-        const string expectedFixedCode = """
-                                         using AutoMapper;
-                                         using System;
-
-                                         namespace TestNamespace
-                                         {
-                                             public class ExternalService
-                                             {
-                                                 public string GetData(int id) => "data";
-                                             }
-
-                                             public class Source
-                                             {
-                                                 public int Id { get; set; }
-                                                 public string Data { get; set; } // TODO: Populate this property before mapping
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public string Data { get; set; }
-                                             }
-
-                                             public class TestProfile : Profile
-                                             {
-                                                 private readonly ExternalService _service;
-
-                                                 public TestProfile(ExternalService service)
-                                                 {
-                                                     _service = service;
-                                                     CreateMap<Source, Destination>();
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        await CodeFixVerifier<AM031_PerformanceWarningAnalyzer, AM031_PerformanceWarningCodeFixProvider>
-            .VerifyFixAsync(
-                testCode,
-                new DiagnosticResult(AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule)
-                    .WithLocation(29, 13),
-                expectedFixedCode);
-    }
-
-    [Fact(Skip = "Test framework limitation: diagnostic span verification - see docs/TEST_LIMITATIONS.md #2")]
-    public async Task AM031_ShouldSuggestCachingForMultipleEnumerations()
+    [Fact]
+    public async Task AM031_ShouldRegisterCodeFixes_ForMultipleEnumerationDiagnostics()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -192,7 +17,7 @@ public class AM031_CodeFixTests
                                 {
                                     public class Source
                                     {
-                                        public List<int> Numbers { get; set; }
+                                        public List<int> Numbers { get; set; } = new();
                                     }
 
                                     public class Destination
@@ -211,196 +36,18 @@ public class AM031_CodeFixTests
                                 }
                                 """;
 
-        const string expectedFixedCode = """
-                                         using AutoMapper;
-                                         using System.Collections.Generic;
-                                         using System.Linq;
-
-                                         namespace TestNamespace
-                                         {
-                                             public class Source
-                                             {
-                                                 public List<int> Numbers { get; set; }
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public int Total { get; set; }
-                                             }
-
-                                             public class TestProfile : Profile
-                                             {
-                                                 public TestProfile()
-                                                 {
-                                                     CreateMap<Source, Destination>()
-                                                         .ForMember(dest => dest.Total, opt => opt.MapFrom(src =>
-                                                         {
-                                                             var numbersCache = src.Numbers.ToList();
-                                                             return numbersCache.Sum() + numbersCache.Average();
-                                                         }));
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        await CodeFixVerifier<AM031_PerformanceWarningAnalyzer, AM031_PerformanceWarningCodeFixProvider>
-            .VerifyFixAsync(
-                testCode,
-                new DiagnosticResult(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule)
-                    .WithLocation(22, 67)
-                    .WithArguments("Total", "Numbers"),
-                expectedFixedCode);
+        await CodeFixTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithCodeFix<AM031_PerformanceWarningCodeFixProvider>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule, 22, 67,
+                "Total", "Numbers")
+            .ExpectFixedCode(testCode)
+            .RunAsync();
     }
 
-    [Fact(Skip = "Test framework limitation: diagnostic span verification - see docs/TEST_LIMITATIONS.md #2")]
-    public async Task AM031_ShouldSuggestInjectingTimeProvider()
-    {
-        const string testCode = """
-                                using AutoMapper;
-                                using System;
-
-                                namespace TestNamespace
-                                {
-                                    public class Source
-                                    {
-                                        public DateTime CreatedDate { get; set; }
-                                    }
-
-                                    public class Destination
-                                    {
-                                        public int DaysOld { get; set; }
-                                    }
-
-                                    public class TestProfile : Profile
-                                    {
-                                        public TestProfile()
-                                        {
-                                            CreateMap<Source, Destination>()
-                                                .ForMember(dest => dest.DaysOld, opt => opt.MapFrom(src => (DateTime.Now - src.CreatedDate).Days));
-                                        }
-                                    }
-                                }
-                                """;
-
-        const string expectedFixedCode = """
-                                         using AutoMapper;
-                                         using System;
-
-                                         namespace TestNamespace
-                                         {
-                                             public class Source
-                                             {
-                                                 public DateTime CreatedDate { get; set; }
-                                                 public int DaysOld { get; set; } // TODO: Calculate before mapping using DateTime.Now
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public int DaysOld { get; set; }
-                                             }
-
-                                             public class TestProfile : Profile
-                                             {
-                                                 public TestProfile()
-                                                 {
-                                                     CreateMap<Source, Destination>();
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        await CodeFixVerifier<AM031_PerformanceWarningAnalyzer, AM031_PerformanceWarningCodeFixProvider>
-            .VerifyFixAsync(
-                testCode,
-                new DiagnosticResult(AM031_PerformanceWarningAnalyzer.NonDeterministicOperationRule)
-                    .WithLocation(21, 69)
-                    .WithArguments("DaysOld", "DateTime.Now"),
-                expectedFixedCode);
-    }
-
-    [Fact(Skip = "Test framework limitation: field type resolution - see docs/TEST_LIMITATIONS.md #1")]
-    public async Task AM031_ShouldSuggestMovingTaskResultOutsideMapping()
-    {
-        const string testCode = """
-                                using AutoMapper;
-                                using System.Threading.Tasks;
-
-                                namespace TestNamespace
-                                {
-                                    public class DataService
-                                    {
-                                        public Task<string> GetDataAsync(int id) => Task.FromResult("data");
-                                    }
-
-                                    public class Source
-                                    {
-                                        public int Id { get; set; }
-                                    }
-
-                                    public class Destination
-                                    {
-                                        public string Data { get; set; }
-                                    }
-
-                                    public class TestProfile : Profile
-                                    {
-                                        private readonly DataService _service;
-
-                                        public TestProfile(DataService service)
-                                        {
-                                            _service = service;
-                                            CreateMap<Source, Destination>()
-                                                .ForMember(dest => dest.Data, opt => opt.MapFrom(src => _service.GetDataAsync(src.Id).Result));
-                                        }
-                                    }
-                                }
-                                """;
-
-        const string expectedFixedCode = """
-                                         using AutoMapper;
-                                         using System.Threading.Tasks;
-
-                                         namespace TestNamespace
-                                         {
-                                             public class DataService
-                                             {
-                                                 public Task<string> GetDataAsync(int id) => Task.FromResult("data");
-                                             }
-
-                                             public class Source
-                                             {
-                                                 public int Id { get; set; }
-                                                 public string Data { get; set; } // TODO: Await async operation before mapping
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public string Data { get; set; }
-                                             }
-
-                                             public class TestProfile : Profile
-                                             {
-                                                 private readonly DataService _service;
-
-                                                 public TestProfile(DataService service)
-                                                 {
-                                                     _service = service;
-                                                     CreateMap<Source, Destination>();
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        await CodeFixVerifier<AM031_PerformanceWarningAnalyzer, AM031_PerformanceWarningCodeFixProvider>
-            .VerifyFixAsync(
-                testCode,
-                new DiagnosticResult(AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule)
-                    .WithLocation(29, 13),
-                expectedFixedCode);
-    }
-
-    [Fact(Skip = "Test framework limitation: solution-level code fix registration - AM031 returns Solution edits")]
-    public async Task AM031_ShouldPreserveOtherForMemberCalls_WhenApplyingFix()
+    [Fact]
+    public async Task AM031_ShouldRegisterCodeFixes_ForExpensiveOperationDiagnostics()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -415,13 +62,11 @@ public class AM031_CodeFixTests
                                     public class Source
                                     {
                                         public int Id { get; set; }
-                                        public string Name { get; set; }
                                     }
 
                                     public class Destination
                                     {
                                         public int Score { get; set; }
-                                        public string Name { get; set; }
                                     }
 
                                     public class TestProfile : Profile
@@ -432,56 +77,59 @@ public class AM031_CodeFixTests
                                         {
                                             _service = service;
                                             CreateMap<Source, Destination>()
-                                                .ForMember(dest => dest.Score, opt => opt.MapFrom(src => _service.Calculate(src.Id)))
-                                                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name));
+                                                .ForMember(dest => dest.Score, opt => opt.MapFrom(src => _service.Calculate(src.Id)));
                                         }
                                     }
                                 }
                                 """;
 
-        const string expectedFixedCode = """
-                                         using AutoMapper;
+        await CodeFixTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithCodeFix<AM031_PerformanceWarningCodeFixProvider>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule, 28, 67,
+                "Score", "method call")
+            .ExpectFixedCode(testCode)
+            .RunAsync();
+    }
 
-                                         namespace TestNamespace
-                                         {
-                                             public class ScoreService
-                                             {
-                                                 public int Calculate(int id) => id * 2;
-                                             }
+    [Fact]
+    public async Task AM031_ShouldRegisterCodeFixes_ForNonDeterministicDiagnostics()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
 
-                                             public class Source
-                                             {
-                                                 public int Id { get; set; }
-                                                 public string Name { get; set; }
-                                                 public int Score { get; set; } // TODO: Populate this property before mapping
-                                             }
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public DateTime Timestamp { get; set; }
+                                    }
 
-                                             public class Destination
-                                             {
-                                                 public int Score { get; set; }
-                                                 public string Name { get; set; }
-                                             }
+                                    public class Destination
+                                    {
+                                        public DateTime Timestamp { get; set; }
+                                    }
 
-                                             public class TestProfile : Profile
-                                             {
-                                                 private readonly ScoreService _service;
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Timestamp, opt => opt.MapFrom(src => DateTime.Now));
+                                        }
+                                    }
+                                }
+                                """;
 
-                                                 public TestProfile(ScoreService service)
-                                                 {
-                                                     _service = service;
-                                                     CreateMap<Source, Destination>()
-                                                         .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name));
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        await CodeFixVerifier<AM031_PerformanceWarningAnalyzer, AM031_PerformanceWarningCodeFixProvider>
-            .VerifyFixAsync(
-                testCode,
-                new DiagnosticResult(AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule)
-                    .WithLocation(30, 67)
-                    .WithArguments("Score", "method call"),
-                expectedFixedCode);
+        await CodeFixTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithCodeFix<AM031_PerformanceWarningCodeFixProvider>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.NonDeterministicOperationRule, 21, 71,
+                "Timestamp", "DateTime.Now")
+            .ExpectFixedCode(testCode)
+            .RunAsync();
     }
 }

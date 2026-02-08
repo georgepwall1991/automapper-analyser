@@ -75,7 +75,7 @@ public class AM005_CodeFixTests
     }
 
     [Fact]
-    public async Task AM005_ShouldAddCaseInsensitiveConfigComment()
+    public async Task AM005_ShouldOfferExecutableFix_ForSimpleCaseMismatch()
     {
         const string testCode = """
 
@@ -123,10 +123,8 @@ public class AM005_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     // TODO: Consider configuring case-insensitive property matching in MapperConfiguration
-                                                     // Alternative: cfg.DestinationMemberNamingConvention = LowerUnderscoreNamingConvention.Instance;
-                                                     // or cfg.SourceMemberNamingConvention = PascalCaseNamingConvention.Instance;
-                                                     CreateMap<Source, Destination>();
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.userName));
                                                  }
                                              }
                                          }
@@ -142,7 +140,7 @@ public class AM005_CodeFixTests
     }
 
     [Fact]
-    public async Task AM005_ShouldAddCasingCorrectionComment()
+    public async Task AM005_ShouldOfferExecutableFix_ForLowerCamelSourceProperty()
     {
         const string testCode = """
 
@@ -190,9 +188,8 @@ public class AM005_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     // TODO: Standardize property casing - consider renaming 'emailAddress' to 'EmailAddress' in source class
-                                                     // This will eliminate case sensitivity issues and improve code consistency
-                                                     CreateMap<Source, Destination>();
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.EmailAddress, opt => opt.MapFrom(src => src.emailAddress));
                                                  }
                                              }
                                          }

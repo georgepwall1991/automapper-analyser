@@ -13,7 +13,7 @@ namespace AutoMapperAnalyzer.Analyzers.Performance;
 
 /// <summary>
 ///     Code fix provider for AM031 Performance Warning diagnostics.
-///     Provides fixes for expensive operations in mapping expressions.
+///     Prefers safe, executable fixes over cross-file speculative rewrites.
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM031_PerformanceWarningCodeFixProvider))]
 [Shared]
@@ -21,14 +21,13 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
 {
     private const string IssueTypePropertyName = "IssueType";
     private const string PropertyNamePropertyName = "PropertyName";
-    private const string OperationTypePropertyName = "OperationType";
 
-    private const string ExpensiveOperationIssueType = "ExpensiveOperation";
     private const string MultipleEnumerationIssueType = "MultipleEnumeration";
-    private const string ExpensiveComputationIssueType = "ExpensiveComputation";
     private const string TaskResultIssueType = "TaskResult";
-    private const string ComplexLinqIssueType = "ComplexLinq";
     private const string NonDeterministicIssueType = "NonDeterministic";
+    private const string ExpensiveComputationIssueType = "ExpensiveComputation";
+    private const string ComplexLinqIssueType = "ComplexLinq";
+    private const string ExpensiveOperationIssueType = "ExpensiveOperation";
 
     /// <summary>
     ///     Gets the diagnostic IDs that this provider can fix.
@@ -84,52 +83,27 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
             return;
         }
 
-        string safePropertyName = propertyName!;
         string issueType = diagnostic.Properties.TryGetValue(IssueTypePropertyName, out string? storedIssueType)
             ? storedIssueType ?? string.Empty
             : string.Empty;
+
         if (string.IsNullOrEmpty(issueType))
         {
             issueType = InferIssueTypeFromDescriptor(diagnostic.Descriptor);
         }
 
-        switch (issueType)
+        // Keep targeted caching fix for multiple-enumeration diagnostics.
+        if (issueType == MultipleEnumerationIssueType)
         {
-            case ExpensiveOperationIssueType:
-            case ExpensiveComputationIssueType:
-            case ComplexLinqIssueType:
-                RegisterExpensiveOperationFix(context, forMemberInvocation, safePropertyName, diagnostic);
-                break;
-            case MultipleEnumerationIssueType:
-                RegisterMultipleEnumerationFix(context, operationContext.Root, lambda, diagnostic);
-                break;
-            case TaskResultIssueType:
-                RegisterTaskResultFix(context, forMemberInvocation, safePropertyName, diagnostic);
-                break;
-            case NonDeterministicIssueType:
-                RegisterNonDeterministicOperationFix(context, forMemberInvocation, safePropertyName, diagnostic);
-                break;
+            RegisterMultipleEnumerationFix(context, operationContext.Root, lambda, diagnostic);
         }
-    }
 
-    private void RegisterExpensiveOperationFix(
-        CodeFixContext context,
-        InvocationExpressionSyntax forMemberInvocation,
-        string propertyName,
-        Diagnostic diagnostic)
-    {
-        context.RegisterCodeFix(
-            CodeAction.Create(
-                $"Move computation to source property '{propertyName}'",
-                cancellationToken =>
-                    MoveComputationToSourcePropertyAsync(
-                        context.Document,
-                        forMemberInvocation,
-                        propertyName,
-                        "TODO: Populate this property before mapping",
-                        cancellationToken),
-                $"AM031_MoveToSource_{propertyName}"),
-            diagnostic);
+        RegisterIgnoreMappingFix(context, operationContext.Root, forMemberInvocation, propertyName!, diagnostic);
+
+        if (await CanUseConventionMappingAsync(context.Document, forMemberInvocation, propertyName!, context.CancellationToken))
+        {
+            RegisterRemoveForMemberFix(context, operationContext.Root, forMemberInvocation, propertyName!, diagnostic);
+        }
     }
 
     private void RegisterMultipleEnumerationFix(
@@ -141,169 +115,125 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         context.RegisterCodeFix(
             CodeAction.Create(
                 "Cache collection with ToList() to avoid multiple enumerations",
-                cancellationToken =>
-                    AddCollectionCaching(context.Document, root, lambda, cancellationToken),
+                cancellationToken => AddCollectionCaching(context.Document, root, lambda, cancellationToken),
                 "AM031_CacheCollection"),
             diagnostic);
     }
 
-    private void RegisterTaskResultFix(
+    private void RegisterIgnoreMappingFix(
         CodeFixContext context,
+        SyntaxNode root,
         InvocationExpressionSyntax forMemberInvocation,
         string propertyName,
         Diagnostic diagnostic)
     {
         context.RegisterCodeFix(
             CodeAction.Create(
-                $"Move async operation to source property '{propertyName}'",
-                cancellationToken =>
-                    MoveComputationToSourcePropertyAsync(
-                        context.Document,
-                        forMemberInvocation,
-                        propertyName,
-                        "TODO: Await async operation before mapping",
-                        cancellationToken),
-                $"AM031_MoveAsync_{propertyName}"),
+                $"Ignore mapping for '{propertyName}'",
+                cancellationToken => ReplaceWithIgnoreAsync(
+                    context.Document,
+                    root,
+                    forMemberInvocation,
+                    propertyName,
+                    cancellationToken),
+                $"AM031_Ignore_{propertyName}"),
             diagnostic);
     }
 
-    private void RegisterNonDeterministicOperationFix(
+    private void RegisterRemoveForMemberFix(
         CodeFixContext context,
+        SyntaxNode root,
         InvocationExpressionSyntax forMemberInvocation,
         string propertyName,
         Diagnostic diagnostic)
     {
-        string operationType = ExtractOperationTypeFromDiagnostic(diagnostic);
-
         context.RegisterCodeFix(
             CodeAction.Create(
-                $"Move {operationType} calculation to source property '{propertyName}'",
-                cancellationToken =>
-                    MoveComputationToSourcePropertyAsync(
-                        context.Document,
-                        forMemberInvocation,
-                        propertyName,
-                        $"TODO: Calculate before mapping using {operationType}",
-                        cancellationToken),
-                $"AM031_MoveNonDeterministic_{propertyName}"),
+                $"Remove redundant ForMember for '{propertyName}'",
+                cancellationToken => RemoveForMemberAsync(context.Document, root, forMemberInvocation, cancellationToken),
+                $"AM031_RemoveForMember_{propertyName}"),
             diagnostic);
     }
 
-    private async Task<Solution> MoveComputationToSourcePropertyAsync(
+    private async Task<bool> CanUseConventionMappingAsync(
         Document document,
         InvocationExpressionSyntax forMemberInvocation,
         string propertyName,
-        string todoComment,
         CancellationToken cancellationToken)
     {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null) return document.Project.Solution;
+        SemanticModel? semanticModel = await document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
+        if (semanticModel == null)
+        {
+            return false;
+        }
 
-        // Find the CreateMap invocation
         InvocationExpressionSyntax? createMapInvocation = forMemberInvocation.AncestorsAndSelf()
             .OfType<InvocationExpressionSyntax>()
-            .FirstOrDefault(inv =>
-            {
-                if (inv.Expression is GenericNameSyntax genericName)
-                {
-                    return genericName.Identifier.Text == "CreateMap";
-                }
-
-                if (inv.Expression is MemberAccessExpressionSyntax memberAccess)
-                {
-                    return memberAccess.Name.Identifier.Text == "CreateMap";
-                }
-
-                return false;
-            });
+            .FirstOrDefault(inv => MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(inv, semanticModel, "CreateMap"));
 
         if (createMapInvocation == null)
         {
-            return document.Project.Solution;
+            return false;
         }
-        
-        var semanticModel = await document.GetSemanticModelAsync(cancellationToken);
-        if (semanticModel == null) return document.Project.Solution;
 
-        // Find the Source/Destination types via CreateMap<TSource, TDestination>
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(createMapInvocation);
-        if (symbolInfo.Symbol is not IMethodSymbol methodSymbol || methodSymbol.TypeArguments.Length < 2)
+        (ITypeSymbol? sourceType, ITypeSymbol? destinationType) =
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(createMapInvocation, semanticModel);
+        if (sourceType == null || destinationType == null)
         {
-            return document.Project.Solution;
+            return false;
         }
 
-        ITypeSymbol sourceType = methodSymbol.TypeArguments[0];
-        ITypeSymbol destinationType = methodSymbol.TypeArguments[1];
+        IPropertySymbol? sourceProperty = AutoMapperAnalysisHelpers
+            .GetMappableProperties(sourceType, requireSetter: false)
+            .FirstOrDefault(prop => string.Equals(prop.Name, propertyName, StringComparison.OrdinalIgnoreCase));
 
-        // Get Syntax Reference for Source Class
-        var syntaxRef = sourceType.DeclaringSyntaxReferences.FirstOrDefault();
-        if (syntaxRef == null) return document.Project.Solution;
+        IPropertySymbol? destinationProperty = AutoMapperAnalysisHelpers
+            .GetMappableProperties(destinationType, requireSetter: true)
+            .FirstOrDefault(prop => string.Equals(prop.Name, propertyName, StringComparison.OrdinalIgnoreCase));
 
-        string propertyTypeName = GetDestinationPropertyTypeName(destinationType, propertyName);
-
-        Document? sourceDocument = document.Project.Solution.GetDocument(syntaxRef.SyntaxTree);
-        if (sourceDocument == null)
+        if (sourceProperty == null || destinationProperty == null)
         {
-            return document.Project.Solution;
+            return false;
         }
 
-        // Determine if Source Class is in the same document as the diagnostic.
-        bool sameDocument = sourceDocument.Id == document.Id;
+        return AutoMapperAnalysisHelpers.AreTypesCompatible(sourceProperty.Type, destinationProperty.Type);
+    }
 
-        InvocationExpressionSyntax? updatedMappingInvocation = GetInvocationWithoutForMember(forMemberInvocation);
-        if (updatedMappingInvocation == null)
+    private Task<Document> ReplaceWithIgnoreAsync(
+        Document document,
+        SyntaxNode root,
+        InvocationExpressionSyntax forMemberInvocation,
+        string propertyName,
+        CancellationToken cancellationToken)
+    {
+        InvocationExpressionSyntax? previousInvocation = GetInvocationWithoutForMember(forMemberInvocation);
+        if (previousInvocation == null)
         {
-            return document.Project.Solution;
+            return Task.FromResult(document);
         }
 
-        if (sameDocument)
+        InvocationExpressionSyntax ignoreInvocation =
+            CodeFixSyntaxHelper.CreateForMemberWithIgnore(previousInvocation, propertyName)
+                .WithTriviaFrom(forMemberInvocation);
+
+        SyntaxNode newRoot = root.ReplaceNode(forMemberInvocation, ignoreInvocation);
+        return Task.FromResult(document.WithSyntaxRoot(newRoot));
+    }
+
+    private Task<Document> RemoveForMemberAsync(
+        Document document,
+        SyntaxNode root,
+        InvocationExpressionSyntax forMemberInvocation,
+        CancellationToken cancellationToken)
+    {
+        InvocationExpressionSyntax? previousInvocation = GetInvocationWithoutForMember(forMemberInvocation);
+        if (previousInvocation == null)
         {
-            var sourceClass = root.FindNode(syntaxRef.Span) as ClassDeclarationSyntax;
-            if (sourceClass == null) return document.Project.Solution;
-
-            ClassDeclarationSyntax newSourceClass = AddPropertyIfMissing(
-                sourceClass,
-                propertyName,
-                propertyTypeName,
-                todoComment);
-
-            SyntaxNode newRoot = root.ReplaceNodes(
-                new SyntaxNode[] { sourceClass, forMemberInvocation },
-                (original, _) =>
-                {
-                    if (original == sourceClass) return newSourceClass;
-                    if (original == forMemberInvocation) return updatedMappingInvocation;
-                    return original;
-                });
-
-            return document.Project.Solution.WithDocumentSyntaxRoot(document.Id, newRoot);
+            return Task.FromResult(document);
         }
-        else
-        {
-            // Multi-document change
 
-            // 1. Update Source Document
-            var sourceRoot = await syntaxRef.SyntaxTree.GetRootAsync(cancellationToken);
-            var sourceClass = sourceRoot.FindNode(syntaxRef.Span) as ClassDeclarationSyntax;
-            if (sourceClass == null) return document.Project.Solution; // Should check if editable
-
-            ClassDeclarationSyntax newSourceClass = AddPropertyIfMissing(
-                sourceClass,
-                propertyName,
-                propertyTypeName,
-                todoComment);
-            SyntaxNode newSourceRoot = sourceRoot.ReplaceNode(sourceClass, newSourceClass);
-
-            // 2. Update Profile Document
-            SyntaxNode newProfileRoot = root.ReplaceNode(forMemberInvocation, updatedMappingInvocation);
-
-            // Apply changes
-            var solution = document.Project.Solution;
-            solution = solution.WithDocumentSyntaxRoot(sourceDocument.Id, newSourceRoot);
-            solution = solution.WithDocumentSyntaxRoot(document.Id, newProfileRoot);
-
-            return solution;
-        }
+        SyntaxNode newRoot = root.ReplaceNode(forMemberInvocation, previousInvocation.WithTriviaFrom(forMemberInvocation));
+        return Task.FromResult(document.WithSyntaxRoot(newRoot));
     }
 
     private Task<Document> AddCollectionCaching(
@@ -312,22 +242,16 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         LambdaExpressionSyntax lambda,
         CancellationToken cancellationToken)
     {
-        // Find the collection name that's being enumerated multiple times
         string? collectionName = ExtractCollectionNameFromLambda(lambda);
         if (string.IsNullOrEmpty(collectionName))
         {
             return Task.FromResult(document);
         }
 
-        // After null check, we know collectionName is not null
         string safeCollectionName = collectionName!;
-
-        // Create a new lambda body with caching
         string cachedVariableName = $"{safeCollectionName.ToLowerInvariant()}Cache";
 
-        // Create the new lambda with block body
         BlockSyntax newLambdaBody = SyntaxFactory.Block(
-            // var collectionCache = src.Collection.ToList();
             SyntaxFactory.LocalDeclarationStatement(
                 SyntaxFactory.VariableDeclaration(
                         SyntaxFactory.IdentifierName("var"))
@@ -338,7 +262,6 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
                                 .WithInitializer(
                                     SyntaxFactory.EqualsValueClause(
                                         SyntaxFactory.ParseExpression($"src.{safeCollectionName}.ToList()")))))),
-            // return cachedVariable.Sum() + cachedVariable.Average();
             SyntaxFactory.ReturnStatement(
                 ReplaceCollectionReferencesWithCache(lambda.Body as ExpressionSyntax, safeCollectionName,
                     cachedVariableName)));
@@ -350,55 +273,13 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         }
         else
         {
-            // For ParenthesizedLambdaExpressionSyntax, create a simple lambda
             newLambda = SyntaxFactory.SimpleLambdaExpression(
                 SyntaxFactory.Parameter(SyntaxFactory.Identifier("src")),
                 newLambdaBody);
         }
 
-        // Replace the lambda in the tree
         SyntaxNode newRoot = root.ReplaceNode(lambda, newLambda);
         return Task.FromResult(document.WithSyntaxRoot(newRoot));
-    }
-
-    private static ClassDeclarationSyntax AddPropertyIfMissing(
-        ClassDeclarationSyntax sourceClass,
-        string propertyName,
-        string propertyTypeName,
-        string comment)
-    {
-        bool hasProperty = sourceClass.Members
-            .OfType<PropertyDeclarationSyntax>()
-            .Any(property => string.Equals(property.Identifier.ValueText, propertyName, StringComparison.OrdinalIgnoreCase));
-
-        if (hasProperty)
-        {
-            return sourceClass;
-        }
-
-        PropertyDeclarationSyntax newProperty = CreatePropertyWithComment(propertyTypeName, propertyName, comment);
-        return sourceClass.AddMembers(newProperty);
-    }
-
-    private static PropertyDeclarationSyntax CreatePropertyWithComment(string propertyTypeName, string propertyName, string comment)
-    {
-        return SyntaxFactory.PropertyDeclaration(
-                SyntaxFactory.ParseTypeName(propertyTypeName),
-                SyntaxFactory.Identifier(propertyName))
-            .WithModifiers(
-                SyntaxFactory.TokenList(
-                    SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
-            .WithAccessorList(
-                SyntaxFactory.AccessorList(
-                    SyntaxFactory.List(new[]
-                    {
-                        SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
-                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)),
-                        SyntaxFactory.AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
-                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
-                    })))
-            .WithTrailingTrivia(
-                SyntaxFactory.Comment($" // {comment}"));
     }
 
     private static InvocationExpressionSyntax? GetInvocationWithoutForMember(InvocationExpressionSyntax forMemberToRemove)
@@ -413,7 +294,6 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
 
     private string? ExtractCollectionNameFromLambda(LambdaExpressionSyntax lambda)
     {
-        // Look for src.CollectionName patterns
         var memberAccesses = lambda.DescendantNodes()
             .OfType<MemberAccessExpressionSyntax>()
             .Where(ma => ma.Expression.ToString().StartsWith("src."))
@@ -421,8 +301,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
 
         if (memberAccesses.Any())
         {
-            string first = memberAccesses.First().Name.Identifier.Text;
-            return first;
+            return memberAccesses.First().Name.Identifier.Text;
         }
 
         return null;
@@ -438,23 +317,8 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
             return SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0));
         }
 
-        // Replace all occurrences of src.CollectionName with cachedVariableName
         string expressionString = expression.ToString().Replace($"src.{collectionName}", cachedVariableName);
         return SyntaxFactory.ParseExpression(expressionString);
-    }
-
-    private string GetDestinationPropertyTypeName(ITypeSymbol destinationType, string propertyName)
-    {
-        IPropertySymbol? destinationProperty = AutoMapperAnalysisHelpers
-            .GetMappableProperties(destinationType, false)
-            .FirstOrDefault(property => string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase));
-
-        if (destinationProperty == null)
-        {
-            return "string";
-        }
-
-        return destinationProperty.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
     }
 
     private string? GetPropertyName(Diagnostic diagnostic)
@@ -466,33 +330,6 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         }
 
         return null;
-    }
-
-    private string ExtractOperationTypeFromDiagnostic(Diagnostic diagnostic)
-    {
-        if (diagnostic.Properties.TryGetValue(OperationTypePropertyName, out string? operationType) &&
-            !string.IsNullOrEmpty(operationType))
-        {
-            return operationType!;
-        }
-
-        string message = diagnostic.GetMessage();
-        if (message.Contains("DateTime.Now"))
-        {
-            return "DateTime.Now";
-        }
-
-        if (message.Contains("Random"))
-        {
-            return "Random";
-        }
-
-        if (message.Contains("Guid.NewGuid"))
-        {
-            return "Guid.NewGuid";
-        }
-
-        return "non-deterministic operation";
     }
 
     private static string InferIssueTypeFromDescriptor(DiagnosticDescriptor descriptor)

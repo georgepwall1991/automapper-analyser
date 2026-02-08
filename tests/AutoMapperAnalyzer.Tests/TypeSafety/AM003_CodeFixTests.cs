@@ -99,7 +99,7 @@ public class AM003_CodeFixTests
     }
 
     [Fact]
-    public async Task AM003_ShouldFixElementTypeIncompatibilityWithSelect()
+    public async Task AM003_ShouldNotReportDiagnostic_WhenElementTypesAreIncompatible()
     {
         const string testCode = """
 
@@ -128,45 +128,8 @@ public class AM003_CodeFixTests
                                 }
                                 """;
 
-        const string expectedFixedCode = """
-
-                                         using AutoMapper;
-                                         using System.Collections.Generic;
-                                         using System.Linq;
-
-                                         namespace TestNamespace
-                                         {
-                                             public class Source
-                                             {
-                                                 public List<string> Items { get; set; }
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public List<int> Items { get; set; }
-                                             }
-
-                                             public class TestProfile : Profile
-                                             {
-                                                 public TestProfile()
-                                                 {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Items, opt => opt.MapFrom(src => src.Items.Select(x => int.Parse(x))));
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        await VerifyFixAsync(
-            testCode,
-            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionElementIncompatibilityRule,
-            21,
-            13,
-            expectedFixedCode,
-            "Items",
-            "Source",
-            "string",
-            "Destination",
-            "int");
+        // AM021 owns collection element mismatch diagnostics.
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -445,7 +408,7 @@ public class AM003_CodeFixTests
     }
 
     [Fact]
-    public async Task AM003_ShouldFixListWithComplexElementTypeConversion()
+    public async Task AM003_ShouldNotReportDiagnostic_WhenComplexElementTypesDiffer()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -473,48 +436,12 @@ public class AM003_CodeFixTests
                                 }
                                 """;
 
-        const string expectedFixedCode = """
-                                         using AutoMapper;
-                                         using System.Collections.Generic;
-                                         using System.Linq;
-
-                                         namespace TestNamespace
-                                         {
-                                             public class Source
-                                             {
-                                                 public List<object> Data { get; set; }
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public List<string> Data { get; set; }
-                                             }
-
-                                             public class TestProfile : Profile
-                                             {
-                                                 public TestProfile()
-                                                 {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Data, opt => opt.MapFrom(src => src.Data.Select(x => x != null ? x.ToString() : string.Empty)));
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        await VerifyFixAsync(
-            testCode,
-            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionElementIncompatibilityRule,
-            20,
-            13,
-            expectedFixedCode,
-            "Data",
-            "Source",
-            "object",
-            "Destination",
-            "string");
+        // AM021 owns collection element mismatch diagnostics.
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
-    public async Task AM003_ShouldFixListToBoolConversionWithParse()
+    public async Task AM003_ShouldNotReportDiagnostic_WhenPrimitiveElementTypesDiffer()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -542,44 +469,8 @@ public class AM003_CodeFixTests
                                 }
                                 """;
 
-        const string expectedFixedCode = """
-                                         using AutoMapper;
-                                         using System.Collections.Generic;
-                                         using System.Linq;
-
-                                         namespace TestNamespace
-                                         {
-                                             public class Source
-                                             {
-                                                 public List<string> Flags { get; set; }
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public List<bool> Flags { get; set; }
-                                             }
-
-                                             public class TestProfile : Profile
-                                             {
-                                                 public TestProfile()
-                                                 {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Flags, opt => opt.MapFrom(src => src.Flags.Select(x => bool.Parse(x))));
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        await VerifyFixAsync(
-            testCode,
-            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionElementIncompatibilityRule,
-            20,
-            13,
-            expectedFixedCode,
-            "Flags",
-            "Source",
-            "string",
-            "Destination",
-            "bool");
+        // AM021 owns collection element mismatch diagnostics.
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -719,7 +610,7 @@ public class AM003_CodeFixTests
     }
 
     [Fact]
-    public async Task AM003_ShouldHandleDoubleToIntElementConversion()
+    public async Task AM003_ShouldNotReportDiagnostic_WhenNumericElementTypesDiffer()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -747,44 +638,8 @@ public class AM003_CodeFixTests
                                 }
                                 """;
 
-        const string expectedFixedCode = """
-                                         using AutoMapper;
-                                         using System.Collections.Generic;
-                                         using System.Linq;
-
-                                         namespace TestNamespace
-                                         {
-                                             public class Source
-                                             {
-                                                 public List<double> Measurements { get; set; }
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public List<int> Measurements { get; set; }
-                                             }
-
-                                             public class TestProfile : Profile
-                                             {
-                                                 public TestProfile()
-                                                 {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Measurements, opt => opt.MapFrom(src => src.Measurements.Select(x => global::System.Convert.ToInt32(x))));
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        await VerifyFixAsync(
-            testCode,
-            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionElementIncompatibilityRule,
-            20,
-            13,
-            expectedFixedCode,
-            "Measurements",
-            "Source",
-            "double",
-            "Destination",
-            "int");
+        // AM021 owns collection element mismatch diagnostics.
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]

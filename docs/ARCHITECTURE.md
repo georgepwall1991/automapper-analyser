@@ -70,6 +70,21 @@ Diagnostic Results (warnings/errors)
 Code Fix Providers (optional fixes)
 ```
 
+### Semantic Gating and Ownership
+
+Recent analyzer passes enforce two architectural rules across mapping analyzers:
+
+1. **Strict semantic AutoMapper gating**
+   - CreateMap/ForMember/ConvertUsing checks are symbol-based (`MappingChainAnalysisHelper.IsAutoMapperMethodInvocation`).
+   - Name/text heuristics (`mapper`, `cfg`, `config`) are intentionally not used.
+   - This reduces false positives from lookalike APIs.
+
+2. **Single-owner diagnostics for overlap-prone patterns**
+   - `AM003` owns collection container mismatches.
+   - `AM021` owns collection element mismatches (when containers are otherwise compatible).
+   - `AM030` owns converter-quality diagnostics only (invalid implementation, null handling, unused converter).
+   - Property-level conversion absence is intentionally handled by `AM001`/`AM020`/`AM021`, not `AM030`.
+
 ### Diagnostic Lifecycle
 
 1. **Registration**: Analyzers register callbacks for specific syntax kinds

@@ -107,45 +107,30 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             $"ConstantValue_{propertyName}");
         nestedActions.Add(constantValueAction);
 
-        // Fix 3: Add ForMember mapping with custom logic placeholder
-        var customLogicAction = CodeAction.Create(
-            "Map with custom logic (requires implementation)",
+        // Fix 3: Explicitly ignore required destination property.
+        var ignoreAction = CodeAction.Create(
+            "Ignore required property",
             cancellationToken =>
             {
-                // Use default(T) as a safe placeholder that compiles for both reference and value types
-                InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper
-                    .CreateForMemberWithMapFrom(invocation, propertyName, $"default({propertyType})")
-                    .WithLeadingTrivia(
-                        invocation.GetLeadingTrivia()
-                            .Add(SyntaxFactory.Comment(
-                                $"// TODO: Implement custom mapping logic for required property '{propertyName}'"))
-                            .Add(SyntaxFactory.ElasticCarriageReturnLineFeed));
+                InvocationExpressionSyntax newInvocation =
+                    CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
                 return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
             },
-            $"CustomLogic_{propertyName}");
-        nestedActions.Add(customLogicAction);
+            $"Ignore_{propertyName}");
+        nestedActions.Add(ignoreAction);
 
-        // Fix 4: Add comment suggesting to add property to source class
-        var addPropertyAction = CodeAction.Create(
-            "Add comment to suggest adding property to source class",
-            cancellationToken =>
-            {
-                SyntaxTrivia commentTrivia = SyntaxFactory.Comment(
-                    $"// TODO: Consider adding '{propertyName}' property of type '{propertyType}' to source class");
-                SyntaxTrivia secondCommentTrivia =
-                    SyntaxFactory.Comment("// This will ensure the required property is automatically mapped");
-
-                InvocationExpressionSyntax newInvocation = invocation.WithLeadingTrivia(
-                    invocation.GetLeadingTrivia()
-                        .Add(commentTrivia)
-                        .Add(SyntaxFactory.EndOfLine("\n"))
-                        .Add(secondCommentTrivia)
-                        .Add(SyntaxFactory.EndOfLine("\n")));
-
-                return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
-            },
-            $"AddProperty_{propertyName}");
-        nestedActions.Add(addPropertyAction);
+        // Fix 4: Create missing source property so convention mapping succeeds.
+        if (sourceType != null &&
+            !AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false)
+                .Any(property => string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase)))
+        {
+            var createSourcePropertyAction = CodeAction.Create(
+                "Create property in source type",
+                cancellationToken =>
+                    CreateSourcePropertyAsync(context.Document, sourceType, propertyName, propertyType),
+                $"CreateSourceProperty_{propertyName}");
+            nestedActions.Add(createSourcePropertyAction);
+        }
 
         // Register the grouped action using base class helper
         RegisterGroupedPropertyFix(context, diagnostic, propertyName, nestedActions);
@@ -190,8 +175,21 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             "AM011_Bulk_Constant"
         );
 
+        var bulkIgnoreAction = CodeAction.Create(
+            "⚡ Ignore all unmapped required properties",
+            cancellationToken => BulkIgnoreAsync(context.Document, root, invocation, semanticModel),
+            "AM011_Bulk_Ignore"
+        );
+
+        var bulkCreateSourcePropertiesAction = CodeAction.Create(
+            "⚡ Create all missing properties in source type",
+            cancellationToken => BulkCreateSourcePropertiesAsync(context.Document, invocation, semanticModel),
+            "AM011_Bulk_CreateSourceProperties"
+        );
+
         // Register all bulk fixes using base class helper
-        RegisterBulkFixes(context, configureAction, bulkDefaultAction, bulkConstantAction);
+        RegisterBulkFixes(context, configureAction, bulkDefaultAction, bulkConstantAction, bulkIgnoreAction,
+            bulkCreateSourcePropertiesAction);
     }
 
     private async Task<Document> BulkFixAsync(Document document, SyntaxNode root, InvocationExpressionSyntax invocation,
@@ -255,6 +253,90 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
 
         SyntaxNode newRoot = root.ReplaceNode(invocation, currentInvocation);
         return document.WithSyntaxRoot(newRoot);
+    }
+
+    private Task<Document> BulkIgnoreAsync(
+        Document document,
+        SyntaxNode root,
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        (ITypeSymbol? sourceType, ITypeSymbol? destType) =
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
+        if (sourceType == null || destType == null)
+        {
+            return Task.FromResult(document);
+        }
+
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destType, false);
+
+        var missingProperties = destProperties
+            .Where(destProp => destProp.IsRequired)
+            .Where(destProp =>
+                !sourceProperties.Any(sourceProp =>
+                    string.Equals(sourceProp.Name, destProp.Name, StringComparison.OrdinalIgnoreCase)))
+            .Where(destProp =>
+                !IsPropertyConfiguredWithForMember(invocation, destProp.Name, semanticModel) &&
+                !IsPropertyConfiguredWithForCtorParam(invocation, destProp.Name, semanticModel))
+            .ToList();
+
+        if (!missingProperties.Any())
+        {
+            return Task.FromResult(document);
+        }
+
+        InvocationExpressionSyntax currentInvocation = invocation;
+        foreach (IPropertySymbol missingProperty in missingProperties)
+        {
+            currentInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(currentInvocation, missingProperty.Name);
+        }
+
+        SyntaxNode newRoot = root.ReplaceNode(invocation, currentInvocation);
+        return Task.FromResult(document.WithSyntaxRoot(newRoot));
+    }
+
+    private async Task<Solution> BulkCreateSourcePropertiesAsync(
+        Document document,
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        (ITypeSymbol? sourceType, ITypeSymbol? destType) =
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
+        if (sourceType == null || destType == null)
+        {
+            return document.Project.Solution;
+        }
+
+        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        var destinationProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destType, false);
+
+        List<(string Name, string Type)> propertiesToAdd = destinationProperties
+            .Where(destinationProperty => destinationProperty.IsRequired)
+            .Where(destinationProperty =>
+                !sourceProperties.Any(sourceProperty =>
+                    string.Equals(sourceProperty.Name, destinationProperty.Name, StringComparison.OrdinalIgnoreCase)))
+            .Where(destinationProperty =>
+                !IsPropertyConfiguredWithForMember(invocation, destinationProperty.Name, semanticModel) &&
+                !IsPropertyConfiguredWithForCtorParam(invocation, destinationProperty.Name, semanticModel))
+            .Select(destinationProperty => (destinationProperty.Name, destinationProperty.Type.ToDisplayString()))
+            .ToList();
+
+        if (!propertiesToAdd.Any())
+        {
+            return document.Project.Solution;
+        }
+
+        return await CodeFixSyntaxHelper.AddPropertiesToTypeAsync(document, sourceType, propertiesToAdd);
+    }
+
+    private async Task<Solution> CreateSourcePropertyAsync(
+        Document document,
+        ITypeSymbol sourceType,
+        string propertyName,
+        string propertyType)
+    {
+        return await CodeFixSyntaxHelper.AddPropertiesToTypeAsync(document, sourceType, [(propertyName, propertyType)]);
     }
 
     private async Task<Document> GenerateConfigurationCommentAsync(
@@ -606,29 +688,10 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
                 return CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, action.PropertyName);
 
             case BulkFixAction.Todo:
-                var todoInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, action.PropertyName);
-                return todoInvocation.WithLeadingTrivia(
-                    todoInvocation.GetLeadingTrivia()
-                        .Add(SyntaxFactory.Comment($"// TODO: Configure mapping for '{action.PropertyName}'"))
-                        .Add(SyntaxFactory.ElasticCarriageReturnLineFeed));
-
             case BulkFixAction.Custom:
-                var customInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                    invocation, action.PropertyName, $"default({action.PropertyType})");
-                return customInvocation.WithLeadingTrivia(
-                    customInvocation.GetLeadingTrivia()
-                        .Add(SyntaxFactory.Comment($"// TODO: Implement custom mapping for '{action.PropertyName}'"))
-                        .Add(SyntaxFactory.ElasticCarriageReturnLineFeed));
-
             case BulkFixAction.Nullable:
-                // TODO: Implement cross-file edit to make destination property nullable
-                // For now, map to default with comment
-                var nullableInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                    invocation, action.PropertyName, $"default({action.PropertyType})");
-                return nullableInvocation.WithLeadingTrivia(
-                    nullableInvocation.GetLeadingTrivia()
-                        .Add(SyntaxFactory.Comment($"// TODO: Consider making destination property '{action.PropertyName}' nullable"))
-                        .Add(SyntaxFactory.ElasticCarriageReturnLineFeed));
+                // Backward compatibility for legacy configuration comments.
+                goto case BulkFixAction.Default;
 
             default:
                 return invocation;

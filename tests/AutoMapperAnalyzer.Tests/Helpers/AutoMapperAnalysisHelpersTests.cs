@@ -870,9 +870,9 @@ public class AutoMapperAnalysisHelpersTests
     }
 
     [Fact]
-    public void IsCreateMapInvocation_ShouldReturnTrue_WithMapperConfigurationContainingType()
+    public void IsCreateMapInvocation_ShouldReturnFalse_WithMapperConfigurationNamedTypeOutsideAutoMapper()
     {
-        // This tests lines 47-48: return true when containing type name contains "MapperConfiguration"
+        // Strict semantic gating should ignore lookalike CreateMap methods.
         const string code = @"
             using AutoMapper;
             public class CustomMapperConfiguration
@@ -892,7 +892,7 @@ public class AutoMapperAnalysisHelpersTests
 
         bool result = AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocation, semanticModel);
 
-        Assert.True(result);
+        Assert.False(result);
     }
 
     [Fact]

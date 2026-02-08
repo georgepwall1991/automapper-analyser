@@ -33,6 +33,19 @@ Complete reference guide for all AutoMapper Analyzer diagnostic rules, including
 - **Warning** (🟡): May cause runtime issues
 - **Info** (🔵): Suggestions for improvement
 
+### Rule Ownership Contract
+
+To avoid duplicate/conflicting diagnostics, each issue pattern has a single primary owner:
+
+| Issue Pattern | Primary Rule | Suppressed Rules |
+|----------|-------|---------|
+| Nullable source to non-nullable destination (compatible underlying type) | `AM002` | `AM001`, `AM030` |
+| Scalar incompatible type conversion | `AM001` | `AM030` |
+| Collection container mismatch (`HashSet<T>` vs `List<T>`, etc.) | `AM003` | `AM021`, `AM030` |
+| Collection element mismatch (`List<A>` to `List<B>`) with no `CreateMap<A,B>` | `AM021` | `AM003` (element branch), `AM030` |
+| Nested complex property requires map (`Address` -> `AddressDto`) | `AM020` | `AM030` |
+| Converter implementation quality problems | `AM030` | none |
+
 ---
 
 ## Type Safety Rules
@@ -173,19 +186,19 @@ dotnet_diagnostic.AM002.severity = warning
 
 #### Description
 
-Detects incompatible collection types that require explicit conversion configuration.
+Detects incompatible **collection container** types that require explicit conversion configuration.
 
 #### Problem
 
 ```csharp
 public class Source
 {
-    public List<string> Tags { get; set; }
+    public HashSet<string> Tags { get; set; }
 }
 
 public class Destination
 {
-    public HashSet<int> Tags { get; set; }
+    public List<string> Tags { get; set; }
 }
 
 public class MappingProfile : Profile
@@ -198,20 +211,16 @@ public class MappingProfile : Profile
 }
 ```
 
-**Issues**:
-1. Collection type mismatch: `List` → `HashSet`
-2. Element type mismatch: `string` → `int`
+**Issue**:
+1. Collection container mismatch: `HashSet<T>` → `List<T>`
 
 #### Solution
 
-**Code Fix: Add ForMember with Conversion**
+**Code Fix: Add ForMember with Container Conversion**
 
 ```csharp
 CreateMap<Source, Destination>()
-    .ForMember(dest => dest.Tags, opt => opt.MapFrom(src =>
-        src.Tags
-            .Select((tag, index) => index)  // string → int conversion
-            .ToHashSet()));                  // List → HashSet conversion
+    .ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.Tags.ToList()));
 ```
 
 #### Detected Incompatibilities
@@ -219,7 +228,7 @@ CreateMap<Source, Destination>()
 - ✅ `HashSet` ↔ `List`/`Array`
 - ✅ `Queue` ↔ other collections
 - ✅ `Stack` ↔ other collections
-- ✅ Element type mismatches
+- ❌ Element type mismatches (owned by `AM021`)
 - ❌ `List` → `Array` (AutoMapper handles this)
 
 #### Configuration
@@ -656,7 +665,7 @@ dotnet_diagnostic.AM020.severity = warning
 
 #### Description
 
-Detects collection properties where element types are incompatible and require custom mapping.
+Detects collection properties where **container types are compatible** but element types are incompatible and require custom mapping.
 
 #### Problem
 
@@ -690,6 +699,10 @@ public class MappingProfile : Profile
     }
 }
 ```
+
+`AM021` checks for an existing `CreateMap<SourceItem, DestinationItem>()` before reporting. If element mapping exists, no diagnostic is emitted.
+
+If collection containers are incompatible (`HashSet<T>` vs `List<T>`, `Queue<T>` vs `Stack<T>`, etc.), `AM003` owns the diagnostic.
 
 #### Solution
 
@@ -820,12 +833,17 @@ dotnet_diagnostic.AM022.severity = warning
 
 ### AM030: Custom Type Converter Issues
 
-**Severity**: Warning 🟡
+**Severity**: Mixed (Error/Warning/Info)
 **Category**: AutoMapper.CustomConversions
 
 #### Description
 
-Validates custom type converter implementations and detects issues with null safety, signature compatibility, and unused converters.
+Validates custom type converter implementations and detects converter-quality issues:
+- Invalid converter implementation/signature (`Error`)
+- Missing null handling for nullable source converters (`Warning`)
+- Unused converter declarations (`Info`)
+
+`AM030` no longer reports missing property-level conversion setup. Those mismatches are owned by `AM001`, `AM020`, and `AM021`.
 
 #### Problem 1: Invalid Converter Signature
 
@@ -856,32 +874,27 @@ public class StringToIntConverter : ITypeConverter<string, int>
     }
 }
 
-CreateMap<Source, Destination>()
+CreateMap<string?, int>()
     .ConvertUsing<StringToIntConverter>();
 // ⚠️ AM030: Converter doesn't handle null values
 ```
 
-#### Solutions
-
-**Option 1: Generate Valid Converter (Smart Fix)**
-
-The analyzer can generate the class for you:
+#### Problem 3: Unused Converter
 
 ```csharp
-private class CustomConverter : IValueConverter<string, int>
+public class LegacyConverter : ITypeConverter<string, DateTime>
 {
-    public int Convert(string sourceMember, ResolutionContext context)
-    {
-        // TODO: Implementation
-        throw new NotImplementedException();
-    }
+    public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+        => DateTime.Parse(source);
 }
 
-// And wires it up:
-.ConvertUsing(new CustomConverter(), src => src.Prop);
+// Converter declared but never used in ConvertUsing
+// ℹ️ AM030: Type converter 'LegacyConverter' is defined but not used
 ```
 
-**Option 2: Fix Converter Implementation**
+#### Solutions
+
+**Option 1: Fix Converter Implementation**
 
 ```csharp
 public class StringToIntConverter : ITypeConverter<string, int>
@@ -895,6 +908,14 @@ public class StringToIntConverter : ITypeConverter<string, int>
         return int.TryParse(source, out var result) ? result : 0;
     }
 }
+```
+
+**Option 2: Add Null Guard (Code Fix)**
+
+For nullable-source converters, AM030 offers an executable fix that inserts:
+
+```csharp
+if (source == null) throw new ArgumentNullException(nameof(source));
 ```
 
 #### Configuration
@@ -968,26 +989,7 @@ CreateMap<Source, Destination>()
 
 #### Solutions
 
-**Code Fix 1: Move Operation Before Mapping (Smart Fix)**
-
-The analyzer can automatically:
-1. Add a computed property to the `Source` class (e.g., `OrderCount`).
-2. Remove the expensive operation from the `Profile`.
-
-```csharp
-// Updated Source Class
-public class Source 
-{
-    // ...
-    public int OrderCount { get; set; } // ✅ Added
-}
-
-// Updated Profile
-CreateMap<Source, Destination>()
-    .ForMember(dest => dest.OrderCount, opt => opt.MapFrom(src => src.OrderCount));
-```
-
-**Code Fix 2: Cache Collection Enumeration**
+**Code Fix 1: Cache Collection Enumeration**
 
 ```csharp
 CreateMap<Source, Destination>()
@@ -997,6 +999,17 @@ CreateMap<Source, Destination>()
         return numbersCache.Sum() + numbersCache.Average();
     }));
 ```
+
+**Code Fix 2: Ignore Mapping for the Expensive Property**
+
+```csharp
+CreateMap<Source, Destination>()
+    .ForMember(dest => dest.OrderCount, opt => opt.Ignore());
+```
+
+**Code Fix 3: Remove Redundant ForMember (when convention mapping is valid)**
+
+If source/destination have compatible same-name members, AM031 can remove the redundant `ForMember(...)` and let AutoMapper convention mapping apply.
 
 #### Detected Patterns
 

@@ -135,4 +135,67 @@ public class AM005_CodeFixIntegrationTests
                 expectedFixedCode,
                 0);
     }
+
+    [Fact]
+    public async Task AM005_ShouldApplyRenameCodeFix_WhenSourcePropertyIsEditable()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string emailAddress { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string EmailAddress { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string EmailAddress { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string EmailAddress { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM005_CaseSensitivityMismatchAnalyzer, AM005_CaseSensitivityMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule)
+                    .WithLocation(19, 13)
+                    .WithArguments("emailAddress", "EmailAddress"),
+                expectedFixedCode,
+                1);
+    }
 }

@@ -4,8 +4,8 @@ using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Rename;
 
 namespace AutoMapperAnalyzer.Analyzers.DataIntegrity;
 
@@ -52,7 +52,7 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : AutoMapperCodeFixPro
             string sourcePropertyName = properties["SourcePropertyName"];
             string destinationPropertyName = properties["DestinationPropertyName"];
 
-            // Fix 1: Add explicit ForMember mapping to handle case sensitivity
+            // Fix 1: Add explicit ForMember mapping to handle case sensitivity.
             var explicitMappingAction = CodeAction.Create(
                 $"Map '{sourcePropertyName}' to '{destinationPropertyName}' explicitly",
                 cancellationToken =>
@@ -67,57 +67,43 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : AutoMapperCodeFixPro
 
             context.RegisterCodeFix(explicitMappingAction, diagnostic);
 
-            // Fix 2: Add configuration comment for case-insensitive mapping
-            var caseInsensitiveConfigAction = CodeAction.Create(
-                "Add comment about case-insensitive configuration",
-                cancellationToken =>
-                {
-                    SyntaxTrivia commentTrivia = SyntaxFactory.Comment(
-                        "// TODO: Consider configuring case-insensitive property matching in MapperConfiguration");
-                    SyntaxTrivia secondCommentTrivia = SyntaxFactory.Comment(
-                        "// Alternative: cfg.DestinationMemberNamingConvention = LowerUnderscoreNamingConvention.Instance;");
-                    SyntaxTrivia thirdCommentTrivia =
-                        SyntaxFactory.Comment(
-                            "// or cfg.SourceMemberNamingConvention = PascalCaseNamingConvention.Instance;");
+            // Fix 2: Rename source property when it is editable in source.
+            var sourcePropertySymbol = FindSourcePropertySymbol(
+                invocation,
+                operationContext.SemanticModel,
+                sourcePropertyName);
+            if (sourcePropertySymbol?.Locations.Any(location => location.IsInSource) == true)
+            {
+                var renameAction = CodeAction.Create(
+                    $"Rename source property '{sourcePropertyName}' to '{destinationPropertyName}'",
+                    cancellationToken =>
+                        Renamer.RenameSymbolAsync(
+                            context.Document.Project.Solution,
+                            sourcePropertySymbol,
+                            new SymbolRenameOptions(),
+                            destinationPropertyName,
+                            cancellationToken),
+                    $"Rename_{sourcePropertyName}_{destinationPropertyName}");
 
-                    InvocationExpressionSyntax newInvocation = invocation.WithLeadingTrivia(
-                        invocation.GetLeadingTrivia()
-                            .Add(commentTrivia)
-                            .Add(SyntaxFactory.EndOfLine("\n"))
-                            .Add(secondCommentTrivia)
-                            .Add(SyntaxFactory.EndOfLine("\n"))
-                            .Add(thirdCommentTrivia)
-                            .Add(SyntaxFactory.EndOfLine("\n")));
-
-                    return ReplaceNodeAsync(context.Document, operationContext.Root, invocation, newInvocation);
-                },
-                $"CaseInsensitiveConfig_{sourcePropertyName}_{destinationPropertyName}");
-
-            context.RegisterCodeFix(caseInsensitiveConfigAction, diagnostic);
-
-            // Fix 3: Add proper casing correction comment
-            var casingCorrectionAction = CodeAction.Create(
-                $"Add comment to standardize casing (rename '{sourcePropertyName}' to '{destinationPropertyName}')",
-                cancellationToken =>
-                {
-                    SyntaxTrivia commentTrivia = SyntaxFactory.Comment(
-                        $"// TODO: Standardize property casing - consider renaming '{sourcePropertyName}' to '{destinationPropertyName}' in source class");
-                    SyntaxTrivia secondCommentTrivia =
-                        SyntaxFactory.Comment(
-                            "// This will eliminate case sensitivity issues and improve code consistency");
-
-                    InvocationExpressionSyntax newInvocation = invocation.WithLeadingTrivia(
-                        invocation.GetLeadingTrivia()
-                            .Add(commentTrivia)
-                            .Add(SyntaxFactory.EndOfLine("\n"))
-                            .Add(secondCommentTrivia)
-                            .Add(SyntaxFactory.EndOfLine("\n")));
-
-                    return ReplaceNodeAsync(context.Document, operationContext.Root, invocation, newInvocation);
-                },
-                $"CasingCorrection_{sourcePropertyName}_{destinationPropertyName}");
-
-            context.RegisterCodeFix(casingCorrectionAction, diagnostic);
+                context.RegisterCodeFix(renameAction, diagnostic);
+            }
         }
+    }
+
+    private static IPropertySymbol? FindSourcePropertySymbol(
+        InvocationExpressionSyntax createMapInvocation,
+        SemanticModel semanticModel,
+        string sourcePropertyName)
+    {
+        (ITypeSymbol? sourceType, ITypeSymbol? _) =
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(createMapInvocation, semanticModel);
+        if (sourceType == null)
+        {
+            return null;
+        }
+
+        return AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false)
+            .FirstOrDefault(property =>
+                string.Equals(property.Name, sourcePropertyName, StringComparison.OrdinalIgnoreCase));
     }
 }

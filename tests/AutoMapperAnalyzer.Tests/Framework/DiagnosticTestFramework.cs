@@ -203,13 +203,50 @@ public class MultiAnalyzerTestRunner
     }
 
     /// <summary>
-    ///     Runs the test with all configured analyzers (placeholder implementation)
+    ///     Runs the test with all configured analyzers
     /// </summary>
     public async Task RunAsync()
     {
-        // For now, we'll focus on single analyzer testing
-        // Multi-analyzer testing can be implemented later when needed
-        throw new NotImplementedException("Multi-analyzer testing will be implemented in a future iteration");
+        var test = new MultiAnalyzerCSharpTest(_analyzers)
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80
+        };
+
+        test.TestState.AdditionalReferences.Add(
+            MetadataReference.CreateFromFile(typeof(IMapper).Assembly.Location));
+        test.TestState.AdditionalReferences.Add(
+            MetadataReference.CreateFromFile(typeof(Profile).Assembly.Location));
+
+        if (_sources.Count == 0)
+        {
+            throw new InvalidOperationException("At least one source file must be provided");
+        }
+
+        (string FileName, string Source) primarySource = _sources[0];
+        test.TestCode = primarySource.Source;
+
+        for (int i = 1; i < _sources.Count; i++)
+        {
+            test.TestState.Sources.Add((_sources[i].FileName, _sources[i].Source));
+        }
+
+        test.ExpectedDiagnostics.AddRange(_expectedDiagnostics);
+        await test.RunAsync();
+    }
+}
+
+internal sealed class MultiAnalyzerCSharpTest : CSharpAnalyzerTest<EmptyDiagnosticAnalyzer, DefaultVerifier>
+{
+    private readonly DiagnosticAnalyzer[] _analyzers;
+
+    internal MultiAnalyzerCSharpTest(DiagnosticAnalyzer[] analyzers)
+    {
+        _analyzers = analyzers;
+    }
+
+    protected override IEnumerable<DiagnosticAnalyzer> GetDiagnosticAnalyzers()
+    {
+        return _analyzers;
     }
 }
 
