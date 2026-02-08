@@ -16,7 +16,7 @@
         <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
-        <MinorVersion>24</MinorVersion>
+        <MinorVersion>25</MinorVersion>
         <PatchVersion>0</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
@@ -32,21 +32,27 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.24.0 - Bug Fixes and Test Coverage Improvement
+        <PackageReleaseNotes>Version 2.25.0 - Code Fix Consolidation and Sample Verification
 
-            Bug Fixes:
-            - Fixed AM011 chunked bulk fix producing placeholder code instead of valid ForMember calls
-            - Fixed AM004 FindCreateMapInvocation not traversing up syntax tree for ReverseMap scenarios
+            Refactoring:
+            - Consolidated AddPropertiesToTypeAsync into shared CodeFixSyntaxHelper (~130 lines removed)
+            - Added FindFuzzyMatches to FuzzyMatchHelper, used by AM004/AM006/AM011
+            - Removed delegating wrapper methods from AM011 code fix provider
+            - Fixed duplicate destPropertySymbol lookup in AM006 RegisterPerPropertyFixes
 
-            Test Coverage:
-            - Added 32 new tests (554 → 586 passing, 12 skipped)
-            - New FuzzyMatchHelper unit tests (19 tests for Levenshtein distance and fuzzy matching)
-            - New AutoMapperAnalysisHelpers tests for GetLambdaBody and GetTypeName (6 tests)
-            - AM004 ReverseMap code fix regression tests (2 tests)
-            - AM006 edge case and ReverseMap code fix tests (4 tests)
-            - AM011 chunked bulk fix regression test (1 test)
+            Fixes:
+            - Fixed AM006 not firing on samples (missing .editorconfig severity)
+            - Fixed CS8602 nullable warnings in AM004 CodeFixProvider
+            - Suppressed spurious AM041 diagnostics on correct example sections
 
-            Previous Release: v2.23.0 - Project Audit
+            Samples:
+            - Added AM006 correct fix examples (Ignore, MapFrom)
+            - Added UnmappedDestination category to sample runner
+            - Updated stale AM041 documentation in ConfigurationExamples.cs
+
+            Validation: 586 tests passing, 12 skipped, 0 warnings
+
+            Previous Release: v2.24.0 - Bug Fixes and Test Coverage
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

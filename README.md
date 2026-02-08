@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-554%20passing%2C%2012%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-586%20passing%2C%2012%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,26 +14,36 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.24.0
+## 🎉 Latest Release: v2.25.0
 
-**Project Audit: Deduplication, AM006 Code Fix, Docs Sync**
+**Code Fix Consolidation and Sample Verification**
 
 **Refactoring:**
 
-- Consolidated ~42 duplicate helper methods across 13 analyzer files into shared helpers.
-- Created `FuzzyMatchHelper` and added `GetLambdaBody`/`GetTypeName` to `AutoMapperAnalysisHelpers`.
-- Net reduction of ~538 lines of duplicated code.
+- Consolidated `AddPropertiesToTypeAsync` into shared `CodeFixSyntaxHelper` (~130 lines removed from AM004/AM006).
+- Added `FindFuzzyMatches` to `FuzzyMatchHelper`, used by AM004/AM006/AM011 code fix providers.
+- Removed delegating wrapper methods from AM011, replaced with direct helper calls.
 
-**New Feature:**
+**Fixes:**
 
-- Added AM006 code fix provider for unmapped destination properties.
-- Per-property fixes: fuzzy match suggestion, ignore destination, create source property.
-- Bulk fixes: ignore all unmapped, create all missing source properties.
+- Fixed AM006 not firing on samples (missing `.editorconfig` severity configuration).
+- Fixed CS8602 nullable warnings in AM004 CodeFixProvider.
+- Suppressed spurious AM041 diagnostics on correct example sections.
+- Fixed duplicate `destPropertySymbol` lookup in AM006 `RegisterPerPropertyFixes`.
+
+**Samples:**
+
+- Added AM006 correct fix examples (Ignore, MapFrom) with `CorrectUnmappedDestinationExamples`.
+- Added UnmappedDestination category to sample runner.
 
 ✅ **Validation:**
 
-- All 554 tests passing (`554 passed`, `12 skipped`).
-- 6 new AM006 code fix tests added.
+- All 586 tests passing (`586 passed`, `12 skipped`).
+- AM006 fires correctly on samples; AM041 only on intentional duplicates.
+
+### Previous Release: v2.24.0
+
+**Bug Fixes and Test Coverage** - Fixed AM011 placeholder bug and AM004 tree traversal, added 32 tests.
 
 ### Previous Release: v2.22.0
 
@@ -172,6 +182,7 @@ var config = new MapperConfiguration(cfg =>
 ### 🔍 **Zero Data Loss**
 
 - **AM004**: Missing destination properties (prevent silent data loss)
+- **AM006**: Unmapped destination properties (detect unintentional defaults)
 - **AM011**: Required property validation (avoid runtime exceptions)
 - **AM005**: Case sensitivity issues (cross-platform reliability)
 
@@ -230,7 +241,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.5.0">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.25.0">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -352,6 +363,7 @@ public void ConfigureSafeUserMapping() { }
 | **📊 Data Integrity**   |                                |          |          |
 | AM004                   | Missing Destination Property   | ✅        | ✅        | Info     |
 | AM005                   | Case Sensitivity Issues        | ✅        | ✅        | Info     |
+| AM006                   | Unmapped Destination Property  | ✅        | ✅        | Info     |
 | AM011                   | Required Property Missing      | ✅        | ✅        | Error    |
 | **🧩 Complex Mappings** |                                |          |          |
 | AM020                   | Nested Object Issues           | ✅        | ✅        | Warning  |
@@ -413,7 +425,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 - **🏎️ Performance-First**: Incremental analysis with minimal IDE impact
 - **🔧 Extensible Design**: Clean plugin architecture for new rules
-- **🧪 Battle-Tested**: 418 unit tests with 405 passing, 13 skipped for known limitations (97% passing)
+- **🧪 Battle-Tested**: 598 unit tests with 586 passing, 12 skipped for known limitations (98% passing)
 - **🌐 Cross-Platform**: Identical behavior on Windows, macOS, Linux
 - **⚡ CI/CD Ready**: Automated GitHub Actions with codecov integration
 - **📊 Code Coverage**: 55%+ coverage with comprehensive testing
