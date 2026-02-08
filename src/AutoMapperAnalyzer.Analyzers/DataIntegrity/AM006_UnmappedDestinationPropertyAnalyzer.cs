@@ -41,7 +41,7 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
     {
         var invocationExpr = (InvocationExpressionSyntax)context.Node;
 
-        if (!AutoMapperAnalysisHelpers.IsCreateMapInvocation(invocationExpr, context.SemanticModel))
+        if (!IsAutoMapperCreateMapInvocation(invocationExpr, context.SemanticModel))
         {
             return;
         }
@@ -90,6 +90,8 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
             AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
         IEnumerable<IPropertySymbol> destinationProperties =
             AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
+        InvocationExpressionSyntax mappingInvocation =
+            isReverseMap && reverseMapInvocation != null ? reverseMapInvocation : invocation;
 
         foreach (IPropertySymbol destProperty in destinationProperties)
         {
@@ -108,25 +110,11 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
 
             // 2. Check for flattening
             // If Dest is "CustomerName" and Source has "Customer" (complex), and "Customer" has "Name".
-            // Heuristic: Check if any source property is a prefix of Dest property
-            bool matchesFlattening = false;
-            foreach (var srcProp in sourceProperties)
-            {
-                if (!AutoMapperAnalysisHelpers.IsBuiltInType(srcProp.Type) &&
-                    destProperty.Name.StartsWith(srcProp.Name, StringComparison.OrdinalIgnoreCase) &&
-                    destProperty.Name.Length > srcProp.Name.Length)
-                {
-                    // Potential flattening. e.g. Src=Customer, Dest=CustomerName.
-                    // Ideally check if Customer has Name property.
-                    // For now, assume if prefix matches and it's complex, it might be flattening.
-                    matchesFlattening = true; 
-                    break;
-                }
-            }
+            bool matchesFlattening = sourceProperties.Any(srcProp => IsFlatteningMatch(srcProp, destProperty));
             if (matchesFlattening) continue;
 
             // 3. Check for explicit configuration (ForMember)
-            if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, destProperty.Name, context.SemanticModel))
+            if (IsPropertyConfiguredWithForMember(mappingInvocation, destProperty.Name, context.SemanticModel))
             {
                 continue;
             }
@@ -155,5 +143,117 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
 
             context.ReportDiagnostic(diagnostic);
         }
+    }
+
+    private static bool IsFlatteningMatch(IPropertySymbol sourceProperty, IPropertySymbol destinationProperty)
+    {
+        if (AutoMapperAnalysisHelpers.IsBuiltInType(sourceProperty.Type))
+        {
+            return false;
+        }
+
+        if (!destinationProperty.Name.StartsWith(sourceProperty.Name, StringComparison.OrdinalIgnoreCase) ||
+            destinationProperty.Name.Length <= sourceProperty.Name.Length)
+        {
+            return false;
+        }
+
+        string flattenedMemberName = destinationProperty.Name.Substring(sourceProperty.Name.Length);
+        if (string.IsNullOrWhiteSpace(flattenedMemberName))
+        {
+            return false;
+        }
+
+        IEnumerable<IPropertySymbol> nestedProperties =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceProperty.Type, requireSetter: false);
+        return nestedProperties.Any(p => string.Equals(p.Name, flattenedMemberName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsPropertyConfiguredWithForMember(
+        InvocationExpressionSyntax createMapInvocation,
+        string propertyName,
+        SemanticModel semanticModel)
+    {
+        IEnumerable<InvocationExpressionSyntax> forMemberCalls =
+            AutoMapperAnalysisHelpers.GetForMemberCalls(createMapInvocation);
+
+        foreach (InvocationExpressionSyntax forMemberCall in forMemberCalls)
+        {
+            if (!IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForMember"))
+            {
+                continue;
+            }
+
+            if (forMemberCall.ArgumentList.Arguments.Count == 0)
+            {
+                continue;
+            }
+
+            ArgumentSyntax destinationArgument = forMemberCall.ArgumentList.Arguments[0];
+            CSharpSyntaxNode? lambdaBody = GetLambdaBody(destinationArgument.Expression);
+            if (lambdaBody is not MemberAccessExpressionSyntax memberAccess)
+            {
+                continue;
+            }
+
+            if (string.Equals(memberAccess.Name.Identifier.Text, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static CSharpSyntaxNode? GetLambdaBody(ExpressionSyntax expression)
+    {
+        return expression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.Body,
+            _ => null
+        };
+    }
+
+    private static bool IsAutoMapperCreateMapInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        return IsAutoMapperMethodInvocation(invocation, semanticModel, "CreateMap");
+    }
+
+    private static bool IsAutoMapperMethodInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel,
+        string methodName)
+    {
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+
+        if (IsAutoMapperMethod(symbolInfo.Symbol as IMethodSymbol, methodName))
+        {
+            return true;
+        }
+
+        foreach (ISymbol candidateSymbol in symbolInfo.CandidateSymbols)
+        {
+            if (IsAutoMapperMethod(candidateSymbol as IMethodSymbol, methodName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsAutoMapperMethod(IMethodSymbol? methodSymbol, string methodName)
+    {
+        if (methodSymbol == null || methodSymbol.Name != methodName)
+        {
+            return false;
+        }
+
+        string? namespaceName = methodSymbol.ContainingNamespace?.ToDisplayString();
+        return namespaceName == "AutoMapper" ||
+               (namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false);
     }
 }
