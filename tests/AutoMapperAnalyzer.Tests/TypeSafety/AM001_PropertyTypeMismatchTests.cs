@@ -447,4 +447,88 @@ public class AM001_PropertyTypeMismatchTests
             CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Age", "Source",
                 "string?", "Destination", "int"));
     }
+
+    [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenMappingClassToInterface()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public interface IDestinationAddress
+                                    {
+                                        string Street { get; set; }
+                                    }
+
+                                    public class SourceAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceAddress Address { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public IDestinationAddress Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // AM001 should ignore class -> interface mappings since they are complex mappings (handled by AM020)
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenMappingStructToClass()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public struct SourceAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class DestinationAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceAddress Address { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestinationAddress Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // AM001 should ignore struct -> class mappings since they are complex mappings (handled by AM020)
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
 }

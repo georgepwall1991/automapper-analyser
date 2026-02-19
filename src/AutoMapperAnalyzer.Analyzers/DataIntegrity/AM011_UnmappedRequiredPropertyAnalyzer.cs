@@ -56,18 +56,35 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
 
         // Custom construction/conversion logic can satisfy required members in ways this analyzer
         // cannot reliably infer. Skip to avoid noisy false positives.
-        if (HasCustomConstructionOrConversion(invocationExpr, context.SemanticModel))
+        if (!HasCustomConstructionOrConversion(invocationExpr, context.SemanticModel))
         {
-            return;
+            // Analyze unmapped required properties in destination
+            AnalyzeUnmappedRequiredProperties(
+                context,
+                invocationExpr,
+                typeArguments.sourceType,
+                typeArguments.destinationType
+            );
         }
 
-        // Analyze unmapped required properties in destination
-        AnalyzeUnmappedRequiredProperties(
-            context,
-            invocationExpr,
-            typeArguments.sourceType,
-            typeArguments.destinationType
-        );
+        // Reverse direction: find ReverseMap and analyze Destination -> Source
+        foreach (InvocationExpressionSyntax chainedInvocation in MappingChainAnalysisHelper.GetScopedChainInvocations(
+                     invocationExpr, context.SemanticModel, stopAtReverseMapBoundary: false))
+        {
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedInvocation, context.SemanticModel, "ReverseMap"))
+            {
+                if (!HasCustomConstructionOrConversion(chainedInvocation, context.SemanticModel))
+                {
+                    AnalyzeUnmappedRequiredProperties(
+                        context,
+                        chainedInvocation,
+                        typeArguments.destinationType,
+                        typeArguments.sourceType
+                    );
+                }
+                break;
+            }
+        }
     }
 
 

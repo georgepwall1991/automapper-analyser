@@ -186,8 +186,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
         foreach (ArgumentSyntax argument in invocation.ArgumentList.Arguments)
         {
-            ITypeSymbol? argumentType = semanticModel.GetTypeInfo(argument.Expression).Type ??
-                                        semanticModel.GetTypeInfo(argument.Expression).ConvertedType;
+            TypeInfo typeInfo = semanticModel.GetTypeInfo(argument.Expression);
+            ITypeSymbol? argumentType = typeInfo.Type ?? typeInfo.ConvertedType;
 
             if (argumentType is INamedTypeSymbol namedArgumentType && ImplementsTypeConverter(namedArgumentType))
             {

@@ -596,9 +596,55 @@ public class AM020_NestedObjectMappingCodeFixTests
                                 }
                                 """;
 
-        // Interfaces cannot be automatically mapped; analyzer should not emit AM020
-        await AnalyzerVerifier<AM020_NestedObjectMappingAnalyzer>
-            .VerifyAnalyzerAsync(testCode);
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public interface IAddress
+                                             {
+                                                 string Street { get; set; }
+                                             }
+
+                                             public class Address : IAddress
+                                             {
+                                                 public string Street { get; set; }
+                                             }
+
+                                             public class AddressDto
+                                             {
+                                                 public string Street { get; set; }
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public IAddress HomeAddress { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public AddressDto HomeAddress { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                     CreateMap<IAddress, AddressDto>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        // Interfaces now emit AM020 to be handled properly
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(34, 13)
+                    .WithArguments("HomeAddress", "IAddress", "AddressDto"),
+                expectedFixedCode);
     }
 
     [Fact]

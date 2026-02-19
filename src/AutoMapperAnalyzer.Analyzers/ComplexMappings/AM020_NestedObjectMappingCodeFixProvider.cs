@@ -226,7 +226,8 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             return false;
         }
 
-        return sourceUnderlying.TypeKind == TypeKind.Class && destUnderlying.TypeKind == TypeKind.Class;
+        return (sourceUnderlying.TypeKind == TypeKind.Class || sourceUnderlying.TypeKind == TypeKind.Struct || sourceUnderlying.TypeKind == TypeKind.Interface) &&
+               (destUnderlying.TypeKind == TypeKind.Class || destUnderlying.TypeKind == TypeKind.Struct || destUnderlying.TypeKind == TypeKind.Interface);
     }
 
     private static ITypeSymbol GetUnderlyingType(ITypeSymbol type)

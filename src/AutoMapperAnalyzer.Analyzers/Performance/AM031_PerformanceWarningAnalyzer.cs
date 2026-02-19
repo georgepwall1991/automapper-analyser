@@ -283,10 +283,10 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         string propertyName)
     {
         // Check for method invocations
-        var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().ToList();
+        var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>();
 
         // Check for member access expressions (for properties like DateTime.Now)
-        var memberAccesses = lambda.DescendantNodes().OfType<MemberAccessExpressionSyntax>().ToList();
+        var memberAccesses = lambda.DescendantNodes().OfType<MemberAccessExpressionSyntax>();
 
         // Track collection accesses for multiple enumeration detection
         var collectionAccesses = new Dictionary<string, int>();
@@ -777,7 +777,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     private static bool IsExpensiveComputation(LambdaExpressionSyntax lambda)
     {
         // Look for Enumerable.Range with complex predicates (like prime checking)
-        var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().ToList();
+        var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>();
 
         foreach (InvocationExpressionSyntax? invocation in invocations)
         {

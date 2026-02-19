@@ -86,8 +86,9 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         bool isReverseMap,
         InvocationExpressionSyntax? reverseMapInvocation = null)
     {
-        IEnumerable<IPropertySymbol> sourceProperties =
-            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        List<IPropertySymbol> sourcePropertiesList =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToList();
+        HashSet<string> sourcePropertyNames = new HashSet<string>(sourcePropertiesList.Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
         IEnumerable<IPropertySymbol> destinationProperties =
             AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
         InvocationExpressionSyntax mappingInvocation =
@@ -103,15 +104,17 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
             }
 
             // 1. Check for direct mapping (same name)
-            if (sourceProperties.Any(p => string.Equals(p.Name, destProperty.Name, StringComparison.OrdinalIgnoreCase)))
+            if (sourcePropertyNames.Contains(destProperty.Name))
             {
                 continue;
             }
 
             // 2. Check for flattening
             // If Dest is "CustomerName" and Source has "Customer" (complex), and "Customer" has "Name".
-            bool matchesFlattening = sourceProperties.Any(srcProp => IsFlatteningMatch(srcProp, destProperty));
-            if (matchesFlattening) continue;
+            if (sourcePropertiesList.Any(srcProp => IsFlatteningMatch(srcProp, destProperty)))
+            {
+                continue;
+            }
 
             // 3. Check for explicit configuration (ForMember)
             if (IsPropertyConfiguredWithForMember(
