@@ -156,8 +156,8 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        // Both must be reference types (classes) that are different
-        return sourceUnderlyingType.TypeKind == TypeKind.Class &&
-               destUnderlyingType.TypeKind == TypeKind.Class;
+        // Both must be complex types (classes/structs/interfaces) that are different
+        return (sourceUnderlyingType.TypeKind == TypeKind.Class || sourceUnderlyingType.TypeKind == TypeKind.Struct || sourceUnderlyingType.TypeKind == TypeKind.Interface) &&
+               (destUnderlyingType.TypeKind == TypeKind.Class || destUnderlyingType.TypeKind == TypeKind.Struct || destUnderlyingType.TypeKind == TypeKind.Interface);
     }
 }

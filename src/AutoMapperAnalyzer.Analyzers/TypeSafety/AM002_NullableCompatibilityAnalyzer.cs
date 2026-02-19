@@ -137,8 +137,8 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         if (IsNullableType(sourceProperty.Type) && !IsNullableType(destinationProperty.Type))
         {
             // Check if the underlying types are compatible
-            ITypeSymbol sourceUnderlyingType = GetUnderlyingType(sourceProperty.Type);
-            ITypeSymbol destUnderlyingType = GetUnderlyingType(destinationProperty.Type);
+            ITypeSymbol sourceUnderlyingType = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceProperty.Type);
+            ITypeSymbol destUnderlyingType = AutoMapperAnalysisHelpers.GetUnderlyingType(destinationProperty.Type);
 
             if (AreUnderlyingTypesCompatible(sourceUnderlyingType, destUnderlyingType))
             {
@@ -163,8 +163,8 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         // Case 2: Non-nullable source -> Nullable destination (INFO)
         else if (!IsNullableType(sourceProperty.Type) && IsNullableType(destinationProperty.Type))
         {
-            ITypeSymbol sourceUnderlyingType = GetUnderlyingType(sourceProperty.Type);
-            ITypeSymbol destUnderlyingType = GetUnderlyingType(destinationProperty.Type);
+            ITypeSymbol sourceUnderlyingType = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceProperty.Type);
+            ITypeSymbol destUnderlyingType = AutoMapperAnalysisHelpers.GetUnderlyingType(destinationProperty.Type);
 
             if (AreUnderlyingTypesCompatible(sourceUnderlyingType, destUnderlyingType))
             {
@@ -205,19 +205,6 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         // Check by string representation for cases where annotation might not be detected
         string typeString = type.ToDisplayString();
         return typeString.EndsWith("?");
-    }
-
-    private static ITypeSymbol GetUnderlyingType(ITypeSymbol type)
-    {
-        // For nullable value types (int?, DateTime?), get the underlying type
-        if (type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T &&
-            type is INamedTypeSymbol namedType && namedType.TypeArguments.Length == 1)
-        {
-            return namedType.TypeArguments[0];
-        }
-
-        // For nullable reference types (string?, object?), the type itself is the underlying type
-        return type;
     }
 
     private static bool AreUnderlyingTypesCompatible(ITypeSymbol sourceType, ITypeSymbol destType)

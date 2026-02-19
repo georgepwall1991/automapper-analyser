@@ -228,7 +228,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 
     private static bool IsComplexTypeMappingRequired(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
-        // Both are named types (classes/structs) but not the same type
+        // Both are named types (classes/structs/interfaces) but not the same type
         if (sourceType is INamedTypeSymbol sourceNamed && destinationType is INamedTypeSymbol destNamed)
         {
             // Skip primitive types and common framework types
@@ -239,8 +239,8 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 
             // Different named types that aren't generic collections
             return !SymbolEqualityComparer.Default.Equals(sourceType, destinationType) &&
-                   sourceNamed.TypeKind == TypeKind.Class &&
-                   destNamed.TypeKind == TypeKind.Class;
+                   (sourceNamed.TypeKind == TypeKind.Class || sourceNamed.TypeKind == TypeKind.Struct || sourceNamed.TypeKind == TypeKind.Interface) &&
+                   (destNamed.TypeKind == TypeKind.Class || destNamed.TypeKind == TypeKind.Struct || destNamed.TypeKind == TypeKind.Interface);
         }
 
         return false;

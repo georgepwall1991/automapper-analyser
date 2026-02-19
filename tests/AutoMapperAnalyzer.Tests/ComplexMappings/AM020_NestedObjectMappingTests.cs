@@ -635,7 +635,7 @@ public class AM020_NestedObjectMappingTests
     }
 
     [Fact]
-    public async Task AM020_ShouldHandleStructTypes()
+    public async Task AM020_ShouldReportDiagnostic_ForStructTypes()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -674,11 +674,13 @@ public class AM020_NestedObjectMappingTests
                                 }
                                 """;
 
-        // Structs are value types, so they don't require nested object mapping
+        // Structs now require mapping per AM001/AM020 unification
         await DiagnosticTestFramework
             .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
             .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 31, 13, "Data",
+                "SourceStruct", "DestStruct")
+            .RunAsync();
     }
 
     [Fact]
@@ -895,7 +897,7 @@ public class AM020_NestedObjectMappingTests
     }
 
     [Fact]
-    public async Task AM020_ShouldIgnoreInterfaceProperties()
+    public async Task AM020_ShouldReportDiagnostic_ForInterfaceProperties()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -934,11 +936,13 @@ public class AM020_NestedObjectMappingTests
                                 }
                                 """;
 
-        // Interface properties don't require nested object mapping (not classes)
+        // Interface properties now require mapping per AM001/AM020 unification
         await DiagnosticTestFramework
             .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
             .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 31, 13, "Service",
+                "ISourceService", "IDestService")
+            .RunAsync();
     }
 
     [Fact]
@@ -1522,7 +1526,7 @@ public class AM020_NestedObjectMappingTests
     }
 
     [Fact]
-    public async Task AM020_ShouldHandleDefaultInterfaceImplementationProperties()
+    public async Task AM020_ShouldReportDiagnostic_ForDefaultInterfaceImplementationProperties()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -1561,11 +1565,13 @@ public class AM020_NestedObjectMappingTests
                                 }
                                 """;
 
-        // Interface properties are not classes, so no nested object mapping needed
+        // Interface properties now require mapping per AM001/AM020 unification
         await DiagnosticTestFramework
             .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
             .WithSource(testCode)
-            .RunWithNoDiagnosticsAsync();
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 31, 13, "Data",
+                "ISourceData", "IDestData")
+            .RunAsync();
     }
 
     [Fact]
