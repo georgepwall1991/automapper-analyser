@@ -26,6 +26,7 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | Project Audit | All | main | v2.23.0 | Consolidated ~42 duplicate helper methods into shared helpers (-538 LOC), added AM006 code fix provider with 6 tests, synced version/docs across project. |
 | Bug Fixes + Coverage | AM004, AM006, AM011 | main | v2.24.0 | Fixed AM011 chunked bulk fix placeholder bug, fixed AM004 FindCreateMapInvocation tree traversal for ReverseMap, added 32 new tests (FuzzyMatchHelper, AutoMapperAnalysisHelpers, ReverseMap code fix regression). |
 | Ownership + Fixer Hardening | AM003, AM005, AM011, AM020, AM021, AM022, AM030, AM031 | main | TBD | Enforced single-owner overlap policy (AM003 vs AM021, removed property-level AM030 overlap), added strict symbol-only AutoMapper gating, implemented AM030 unused-converter reporting, and hardened fixers to executable-first actions (AM005 rename/explicit map, AM011 placeholder removal + legacy parser fallback, AM031 safe fixes only). |
+| Case-aware Suppression + Fix Routing | AM006, AM020, AM021 | main | v2.28.1 | Fixed AM021 source/destination property-name routing for case-only matches, added top-level parsing for string-literal member paths in shared suppression helpers, and expanded regression coverage for explicit configuration suppression and conflict ownership. |
 
 ## In Progress
 

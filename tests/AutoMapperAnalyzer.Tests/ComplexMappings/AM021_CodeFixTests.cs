@@ -68,7 +68,7 @@ public class AM021_CodeFixTests
                 testCode,
                 new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
                     .WithLocation(20, 13)
-                    .WithArguments("Numbers", "Source", "string", "Destination", "int"),
+                    .WithArguments("Numbers", "Source", "string", "Destination", "Numbers", "int"),
                 expectedFixedCode);
     }
 
@@ -154,7 +154,7 @@ public class AM021_CodeFixTests
                 new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
                     .WithLocation(30, 13)
                     .WithArguments("People", "Source", "TestNamespace.SourcePerson", "Destination",
-                        "TestNamespace.DestPerson"),
+                        "People", "TestNamespace.DestPerson"),
                 expectedFixedCode);
     }
 
@@ -240,7 +240,7 @@ public class AM021_CodeFixTests
                 new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
                     .WithLocation(30, 13)
                     .WithArguments("Items", "Source", "TestNamespace.SourceStringWrapper", "Destination",
-                        "TestNamespace.DestStringWrapper"),
+                        "Items", "TestNamespace.DestStringWrapper"),
                 expectedFixedCode);
     }
 
@@ -306,7 +306,73 @@ public class AM021_CodeFixTests
                 testCode,
                 new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
                     .WithLocation(20, 13)
-                    .WithArguments("Tags", "Source", "string", "Destination", "int"),
+                    .WithArguments("Tags", "Source", "string", "Destination", "Tags", "int"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldFixCaseOnlyPropertyMismatch_UsingSourceAndDestinationNamesSeparately()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+                                         using System;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public List<string> numbers { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public List<int> Numbers { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Numbers, opt => opt.MapFrom(src => src.numbers.Select(x => Convert.ToInt32(x)).ToList()));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("numbers", "Source", "string", "Destination", "Numbers", "int"),
                 expectedFixedCode);
     }
 

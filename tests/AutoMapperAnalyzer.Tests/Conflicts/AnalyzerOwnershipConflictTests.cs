@@ -156,6 +156,7 @@ public class AnalyzerOwnershipConflictTests
                 "Source",
                 "TestNamespace.SourceItem",
                 "Destination",
+                "Items",
                 "TestNamespace.DestinationItem")
             .RunAsync();
     }

@@ -19,7 +19,7 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor CollectionElementIncompatibilityRule = new(
         "AM021",
         "Collection element type incompatibility in AutoMapper configuration",
-        "Property '{0}' has incompatible collection element types: {1}.{0} ({2}) elements cannot be mapped to {3}.{0} ({4}) elements without explicit conversion",
+        "Property '{0}' has incompatible collection element types: {1}.{0} ({2}) elements cannot be mapped to {3}.{4} ({5}) elements without explicit conversion",
         "AutoMapper.Collections",
         DiagnosticSeverity.Warning,
         true,
@@ -80,7 +80,7 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
         foreach (IPropertySymbol sourceProperty in sourceProperties)
         {
             IPropertySymbol? destinationProperty = destinationProperties
-                .FirstOrDefault(p => p.Name == sourceProperty.Name);
+                .FirstOrDefault(p => string.Equals(p.Name, sourceProperty.Name, StringComparison.OrdinalIgnoreCase));
 
             if (destinationProperty == null)
             {
@@ -141,7 +141,9 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
 
             ImmutableDictionary<string, string?>.Builder properties =
                 ImmutableDictionary.CreateBuilder<string, string?>();
-            properties.Add("PropertyName", sourceProperty.Name);
+            properties.Add("PropertyName", destinationProperty.Name);
+            properties.Add("SourcePropertyName", sourceProperty.Name);
+            properties.Add("DestinationPropertyName", destinationProperty.Name);
             properties.Add("SourceElementType", sourceElementType.ToDisplayString());
             properties.Add("DestElementType", destElementType.ToDisplayString());
 
@@ -153,6 +155,7 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
                 AutoMapperAnalysisHelpers.GetTypeName(sourceType),
                 sourceElementType.ToDisplayString(),
                 AutoMapperAnalysisHelpers.GetTypeName(destinationType),
+                destinationProperty.Name,
                 destElementType.ToDisplayString());
 
             context.ReportDiagnostic(diagnostic);

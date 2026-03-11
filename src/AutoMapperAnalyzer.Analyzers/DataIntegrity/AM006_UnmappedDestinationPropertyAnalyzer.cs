@@ -116,7 +116,7 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            // 3. Check for explicit configuration (ForMember)
+                // 3. Check for explicit configuration (ForMember/ForPath)
             if (IsPropertyConfiguredWithForMember(
                     mappingInvocation,
                     destProperty.Name,
@@ -180,29 +180,31 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         SemanticModel semanticModel,
         bool stopAtReverseMapBoundary)
     {
-        IEnumerable<InvocationExpressionSyntax> forMemberCalls =
-            GetScopedForMemberCalls(createMapInvocation, stopAtReverseMapBoundary);
+        IEnumerable<InvocationExpressionSyntax> mappingCalls =
+            GetScopedDestinationConfigurationCalls(createMapInvocation, stopAtReverseMapBoundary);
 
-        foreach (InvocationExpressionSyntax forMemberCall in forMemberCalls)
+        foreach (InvocationExpressionSyntax mappingCall in mappingCalls)
         {
-            if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForMember"))
+            if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingCall, semanticModel, "ForMember") &&
+                !MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingCall, semanticModel, "ForPath"))
             {
                 continue;
             }
 
-            if (forMemberCall.ArgumentList.Arguments.Count == 0)
+            if (mappingCall.ArgumentList.Arguments.Count == 0)
             {
                 continue;
             }
 
-            ArgumentSyntax destinationArgument = forMemberCall.ArgumentList.Arguments[0];
-            CSharpSyntaxNode? lambdaBody = AutoMapperAnalysisHelpers.GetLambdaBody(destinationArgument.Expression);
-            if (lambdaBody is not MemberAccessExpressionSyntax memberAccess)
+            ArgumentSyntax destinationArgument = mappingCall.ArgumentList.Arguments[0];
+            string? selectedMember =
+                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberName(destinationArgument.Expression);
+            if (selectedMember == null)
             {
                 continue;
             }
 
-            if (string.Equals(memberAccess.Name.Identifier.Text, propertyName, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(selectedMember, propertyName, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -211,11 +213,11 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static IEnumerable<InvocationExpressionSyntax> GetScopedForMemberCalls(
+    private static IEnumerable<InvocationExpressionSyntax> GetScopedDestinationConfigurationCalls(
         InvocationExpressionSyntax mappingInvocation,
         bool stopAtReverseMapBoundary)
     {
-        var forMemberCalls = new List<InvocationExpressionSyntax>();
+        var mappingCalls = new List<InvocationExpressionSyntax>();
         SyntaxNode? currentNode = mappingInvocation.Parent;
 
         while (currentNode is MemberAccessExpressionSyntax memberAccess &&
@@ -227,15 +229,15 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
                 break;
             }
 
-            if (methodName == "ForMember")
+            if (methodName is "ForMember" or "ForPath")
             {
-                forMemberCalls.Add(invocation);
+                mappingCalls.Add(invocation);
             }
 
             currentNode = invocation.Parent;
         }
 
-        return forMemberCalls;
+        return mappingCalls;
     }
 
     private static bool IsAutoMapperCreateMapInvocation(
