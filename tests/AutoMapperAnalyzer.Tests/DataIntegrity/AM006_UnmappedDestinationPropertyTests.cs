@@ -209,6 +209,51 @@ public class AM006_UnmappedDestinationPropertyTests
     }
 
     [Fact]
+    public async Task AM006_ShouldNotReportDiagnostic_WhenDestinationPropertyConfiguredWithForPath()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceCustomer
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class DestinationAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceCustomer Customer { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestinationAddress Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForPath(dest => dest.Address.Street, opt => opt.MapFrom(src => src.Customer.Street));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
     public async Task AM006_ShouldReportDiagnostic_WhenFlatteningPrefixMatchesButNestedMemberDoesNotExist()
     {
         const string testCode = """

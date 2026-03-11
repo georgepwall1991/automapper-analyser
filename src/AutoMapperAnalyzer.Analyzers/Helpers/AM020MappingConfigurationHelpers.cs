@@ -29,7 +29,7 @@ internal static class AM020MappingConfigurationHelpers
 
             string? selectedMember =
                 GetSelectedTopLevelMemberName(mappingConfigCall.ArgumentList.Arguments[0].Expression);
-            if (string.Equals(selectedMember, destinationPropertyName, StringComparison.Ordinal))
+            if (string.Equals(selectedMember, destinationPropertyName, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -79,7 +79,7 @@ internal static class AM020MappingConfigurationHelpers
         return mappingCalls;
     }
 
-    private static string? GetSelectedTopLevelMemberName(SyntaxNode expression)
+    public static string? GetSelectedTopLevelMemberName(SyntaxNode expression)
     {
         return expression switch
         {
@@ -88,9 +88,15 @@ internal static class AM020MappingConfigurationHelpers
                 GetSelectedTopLevelMemberName(parenthesizedLambda.Body),
             MemberAccessExpressionSyntax memberAccess => GetTopLevelMemberName(memberAccess),
             LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.StringLiteralExpression) =>
-                literal.Token.ValueText,
+                GetTopLevelMemberName(literal.Token.ValueText),
             _ => null
         };
+    }
+
+    private static string? GetTopLevelMemberName(string memberPath)
+    {
+        string topLevelMemberName = memberPath.Split('.')[0].Trim();
+        return string.IsNullOrWhiteSpace(topLevelMemberName) ? null : topLevelMemberName;
     }
 
     private static string? GetTopLevelMemberName(MemberAccessExpressionSyntax memberAccess)

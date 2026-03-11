@@ -48,16 +48,31 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
                 continue;
             }
 
-            // Extract diagnostic properties
-            if (!diagnostic.Properties.TryGetValue("PropertyName", out string? propertyName) ||
-                string.IsNullOrEmpty(propertyName))
+            if (!diagnostic.Properties.TryGetValue("DestinationPropertyName", out string? destinationPropertyName) ||
+                string.IsNullOrEmpty(destinationPropertyName))
             {
-                // Fall back to parsing from diagnostic message
-                propertyName = ExtractPropertyNameFromDiagnostic(diagnostic);
-                if (string.IsNullOrEmpty(propertyName))
+                diagnostic.Properties.TryGetValue("PropertyName", out destinationPropertyName);
+            }
+
+            if (string.IsNullOrEmpty(destinationPropertyName))
+            {
+                destinationPropertyName = ExtractPropertyNameFromDiagnostic(diagnostic);
+                if (string.IsNullOrEmpty(destinationPropertyName))
                 {
                     continue;
                 }
+            }
+
+            string destinationPropertyNameValue = destinationPropertyName!;
+            string sourcePropertyName;
+            if (diagnostic.Properties.TryGetValue("SourcePropertyName", out string? sourceProperty) &&
+                !string.IsNullOrEmpty(sourceProperty))
+            {
+                sourcePropertyName = sourceProperty!;
+            }
+            else
+            {
+                sourcePropertyName = destinationPropertyNameValue;
             }
 
             string? sourceElementType =
@@ -78,7 +93,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, reverseMapInvocation) ||
                 AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                     invocation,
-                    propertyName!,
+                    destinationPropertyNameValue,
                     reverseMapInvocation))
             {
                 continue;
@@ -89,24 +104,22 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
 
             if (isSimpleConversion)
             {
-                // Offer simple conversion with Parse/Convert
-                RegisterSimpleConversionFix(context, operationContext.Root, invocation, propertyName!, sourceElementType!, destElementType!,
+                RegisterSimpleConversionFix(context, operationContext.Root, invocation, sourcePropertyName, destinationPropertyNameValue,
+                    sourceElementType!, destElementType!,
                     diagnostic, operationContext.SemanticModel);
             }
             else
             {
-                // Offer complex mapping with mapper.Map<T>
-                RegisterComplexMappingFix(context, operationContext.Root, invocation, propertyName!, sourceElementType!, destElementType!,
-                    diagnostic, operationContext.SemanticModel);
+                RegisterComplexMappingFix(context, operationContext.Root, invocation, destinationPropertyNameValue, sourceElementType!,
+                    destElementType!, diagnostic, operationContext.SemanticModel);
             }
 
-            // Always offer ignore option
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    $"Ignore property '{propertyName}'",
+                    $"Ignore property '{destinationPropertyNameValue}'",
                     cancellationToken =>
-                        AddIgnoreAsync(context.Document, operationContext.Root, invocation, propertyName!),
-                    $"AM021_Ignore_{propertyName}"),
+                        AddIgnoreAsync(context.Document, operationContext.Root, invocation, destinationPropertyNameValue),
+                    $"AM021_Ignore_{destinationPropertyNameValue}"),
                 diagnostic);
         }
     }
@@ -115,23 +128,24 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
         CodeFixContext context,
         SyntaxNode root,
         InvocationExpressionSyntax invocation,
-        string propertyName,
+        string sourcePropertyName,
+        string destinationPropertyName,
         string sourceElementType,
         string destElementType,
         Diagnostic diagnostic,
         SemanticModel semanticModel)
     {
         string conversionMethod = GetConversionMethod(destElementType);
-        string collectionMethod = GetCollectionMaterializationMethod(invocation, propertyName, semanticModel);
+        string collectionMethod = GetCollectionMaterializationMethod(invocation, destinationPropertyName, semanticModel);
 
-        string mapFromExpression = $"src.{propertyName}.Select(x => {conversionMethod}(x)).{collectionMethod}()";
+        string mapFromExpression = $"src.{sourcePropertyName}.Select(x => {conversionMethod}(x)).{collectionMethod}()";
 
         context.RegisterCodeFix(
             CodeAction.Create(
-                $"Add Select with {conversionMethod} for '{propertyName}'",
+                $"Add Select with {conversionMethod} for '{destinationPropertyName}'",
                 cancellationToken =>
-                    AddMapFromWithLinqAsync(context.Document, root, invocation, propertyName, mapFromExpression),
-                $"AM021_SimpleConversion_{propertyName}"),
+                    AddMapFromWithLinqAsync(context.Document, root, invocation, destinationPropertyName, mapFromExpression),
+                $"AM021_SimpleConversion_{destinationPropertyName}"),
             diagnostic);
     }
 
@@ -278,7 +292,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
 
         IPropertySymbol? destProperty = createMapTypes.Item2.GetMembers()
             .OfType<IPropertySymbol>()
-            .FirstOrDefault(p => p.Name == propertyName);
+            .FirstOrDefault(p => string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
 
         if (destProperty == null)
         {

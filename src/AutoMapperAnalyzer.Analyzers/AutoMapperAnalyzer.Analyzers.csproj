@@ -16,8 +16,8 @@
         <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
-        <MinorVersion>25</MinorVersion>
-        <PatchVersion>0</PatchVersion>
+        <MinorVersion>28</MinorVersion>
+        <PatchVersion>1</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,27 +32,19 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.25.0 - Code Fix Consolidation and Sample Verification
-
-            Refactoring:
-            - Consolidated AddPropertiesToTypeAsync into shared CodeFixSyntaxHelper (~130 lines removed)
-            - Added FindFuzzyMatches to FuzzyMatchHelper, used by AM004/AM006/AM011
-            - Removed delegating wrapper methods from AM011 code fix provider
-            - Fixed duplicate destPropertySymbol lookup in AM006 RegisterPerPropertyFixes
+        <PackageReleaseNotes>Version 2.28.1 - Case-aware mapping suppression and AM021 fixer reliability
 
             Fixes:
-            - Fixed AM006 not firing on samples (missing .editorconfig severity)
-            - Fixed CS8602 nullable warnings in AM004 CodeFixProvider
-            - Suppressed spurious AM041 diagnostics on correct example sections
+            - Corrected AM021 diagnostics and fixes to keep source and destination property casing separate
+            - Fixed AM021 case-only collection mismatches so generated ForMember fixes target the destination member and source expression correctly
+            - Extended shared mapping configuration helper parsing so string literal member paths resolve to their top-level destination member
+            - Expanded AM006/AM020/AM021 regression coverage for explicit configuration suppression and conflict ownership
 
-            Samples:
-            - Added AM006 correct fix examples (Ignore, MapFrom)
-            - Added UnmappedDestination category to sample runner
-            - Updated stale AM041 documentation in ConfigurationExamples.cs
+            Validation:
+            - 648 tests passing, 9 skipped in Release configuration
+            - Focused AM006/AM020/AM021 helper and code-fix regression suites passing locally
 
-            Validation: 586 tests passing, 12 skipped, 0 warnings
-
-            Previous Release: v2.24.0 - Bug Fixes and Test Coverage
+            Previous Release: v2.28.0 - analyzer improvements
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
