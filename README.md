@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-631%20passing%2C%209%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-652%20passing%2C%209%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,104 +14,31 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.27.0
+## 🎉 Latest Release: v2.28.2
 
-**Critical Nullable Bug Fix + Comprehensive Test Coverage Expansion**
+**False-positive reduction + better fixer UX**
 
-🐛 **Critical Fix:**
+✅ **Highlights**
 
-- **AM050 Nullable Type Safety**: Fixed critical bug where nullable-to-non-nullable mappings (e.g., `int?` to `int`) were incorrectly flagged as redundant. This could have caused runtime null reference exceptions in production code.
-- Added type compatibility checking using semantic model to compare source and destination property types including nullability.
+- Reduced false positives when `ConstructUsing`, `ConvertUsing`, `ForMember`, or `ForPath` already handle the mapping.
+- Improved nested-path handling so explicit configuration suppresses the right diagnostics for AM005, AM020, and AM021.
+- Hardened AM031 fixes for overlapping diagnostics, multiple-enumeration caching, and redundant `ForMember` removal.
+- Cleaned up lightbulb presentation for AM011, AM020, AM041, and AM050 with clearer titles and stable equivalence keys.
+- Fixed release-note generation in the NuGet release workflow.
 
-📊 **Test Coverage Expansion** (+50 tests across 6 analyzers):
+🧪 **Validation**
 
-- **AM022** (Infinite Recursion): 4 → 16 tests (+300%) - Circular references, generic collections, ReverseMap scenarios
-- **AM030** (Type Converter): 3 → 10 tests (+233%) - Multiple converters, nullable value types, nested namespaces
-- **AM041** (Duplicate Mapping): 5 → 12 tests (+140%) - Bulk duplicates, cross-profile detection
-- **AM050** (Redundant MapFrom): 2 → 11 tests (+450%) - Multiple redundant mappings, record types, nullable edge cases
-- **Cross-cutting tests**: +14 tests across AM004/AM006/AM022/AM050 - Internal/protected properties, generic constraints, record inheritance
+- Full solution builds passed in `Debug` and `Release`.
+- Full test suite passed with `652` passing and `9` skipped.
+- Local package generation and GitHub release publishing were verified for `v2.28.2`.
 
-✅ **Validation:**
+### Recent Releases
 
-- All 631 tests passing (`631 passed`, `9 skipped`) - **100% pass rate**
-- Comprehensive edge case coverage following AM004 "best in class" patterns
-- Production-ready type safety improvements
-
-### Previous Release: v2.25.0
-
-**Code Fix Consolidation and Sample Verification** - Refactoring improvements and AM006 sample fixes.
-
-### Previous Release: v2.24.0
-
-**Bug Fixes and Test Coverage** - Fixed AM011 placeholder bug and AM004 tree traversal, added 32 tests.
-
-### Previous Release: v2.22.0
-
-**AM004 Second Pass** - Tightened symbol gating, direction-scoped analysis, reverse-map aware bulk fixer.
-
-### Previous Release: v2.11.0
-
-**AM041 Accuracy & Fix Safety**
-
-- Suppressed false positives for non-AutoMapper `CreateMap` symbols.
-- Improved AM041 duplicate symbol resolution using candidate-symbol fallback.
-- Updated duplicate reverse-map fixer behavior to preserve reverse-direction mapping.
-
-### Previous Release: v2.9.0
-
-**Analyzer Accuracy & Contradiction Fixes**
-
-- Improved AM004/AM005/AM006/AM011 detection and code-fix reliability.
-- Removed contradictory diagnostics around required member handling.
-- Added broad regression coverage for AM004/AM005/AM006/AM011.
-
-### Previous Release: v2.8.0
-
-**Architecture Refactoring & Enhanced Bulk Fixes**
-
-- Refactored all code fix providers to use `AutoMapperCodeFixProviderBase`.
-- Added enhanced bulk-fix UX for large mapping scenarios.
-- Improved maintainability and consistency across fixer implementations.
-
-### Previous Release: v2.7.0
-
-**New Icon & Visual Update**
-
-- **New Icon**: Updated NuGet package icon to a modern, high-quality design
-- **Visual Identity**: Improved branding for the analyzer package
-
-### Previous Release: v2.6.1
-
-**Build & Stability Fixes**
-
-🛠️ **Fixes:**
-
-- Fixed build errors in AM002 (Nullable Compatibility) and AM004 (Missing Destination Property) code fix providers
-- Resolved issues with SyntaxEditor usage in newer Roslyn versions
-- Improved stability of bulk code fixes
-
-### Previous Release: v2.6.0
-
-**Bulk Code Fixes & Improved UX**
-
-✨ **New Capabilities:**
-
-- 📦 **Bulk Code Fixes (AM011)**: Fix all unmapped required properties in one click!
-- 🗂️ **Action Grouping**: Reduced lightbulb menu clutter by grouping property-specific fixes.
-- 🧠 **Smart Property Creation (AM004)**: Automatically detects missing destination properties and creates them in the destination class (even in separate files).
-- 🔍 **Fuzzy Matching (AM011)**: Intelligent suggestions for unmapped required properties using Levenshtein distance matching (e.g., maps `UserName` to `Username`).
-- 🛠️ **Type Converter Generation (AM030)**: Instead of just a comment, generates a complete `IValueConverter` class implementation and wires it up.
-- ⚡ **Cross-File Performance Refactoring (AM031)**: Intelligently moves expensive computations from mapping profiles to source classes, handling cross-file modifications seamlessly.
-
-### Previous Release: v2.5.0
-
-- **Smart Code Fixers**: Advanced refactoring tools including fuzzy matching and property creation.
-- **Refactoring**: Major improvements to code fix providers.
-
-### Previous Release: v2.4.1
-
-- 🚀 **.NET 10 Ready**: Verified compatibility metadata for upcoming .NET 10.
-- 🧹 **Documentation Cleanup**: Removed outdated reports and guides.
+- **v2.28.1**: Case-aware AM021 suppression and fixer reliability improvements.
+- **v2.28.0**: Analyzer logic fixes and performance improvements.
+- **v2.27.0**: AM050 nullable safety fix and broad regression coverage expansion.
+- **v2.25.0**: Code-fix consolidation and sample verification.
+- **v2.24.0**: AM011 placeholder fix, AM004 tree traversal fix, and added coverage.
 
 ---
 
@@ -241,7 +168,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.27.0">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.28.2">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -296,7 +223,6 @@ cfg.CreateMap<UserEntity, UserDto>();
 //  🚨 AM001: Age expects int but gets DateTime (runtime exception)
 //  🚨 AM021: Tags List<string>→HashSet<int> incompatible (mapping failure)
 //  🚨 AM020: HomeAddress→AddressDto needs CreateMap (runtime exception)
-//  🚨 AM030: Custom converter missing ConvertUsing configuration
 ```
 
 ### ✅ **The Solutions** (Auto-Generated!)
@@ -425,7 +351,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 - **🏎️ Performance-First**: Incremental analysis with minimal IDE impact
 - **🔧 Extensible Design**: Clean plugin architecture for new rules
-- **🧪 Battle-Tested**: 640 unit tests with 631 passing, 9 skipped for known limitations (100% pass rate)
+- **🧪 Battle-Tested**: 661 tests with 652 passing and 9 intentionally skipped scenarios
 - **🌐 Cross-Platform**: Identical behavior on Windows, macOS, Linux
 - **⚡ CI/CD Ready**: Automated GitHub Actions with codecov integration
 - **📊 Code Coverage**: 55%+ coverage with comprehensive testing
@@ -436,11 +362,11 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ### Recently Completed ✅
 
-- **v2.5.0**: Smart Code Fixers & Advanced Refactoring
-- **v2.4.1**: .NET 10 Compatibility & Maintenance
-- **v2.4.0**: Configuration & Redundancy Analysis (AM041, AM050)
-- **v2.3.2**: ReverseMap support & Performance optimizations
-- **v2.2.0**: AM031 Performance warning analyzer
+- **v2.28.2**: False-positive reduction, fixer UX improvements, and release workflow hardening
+- **v2.28.1**: Case-aware AM021 suppression and fixer accuracy improvements
+- **v2.28.0**: Analyzer logic fixes and performance improvements
+- **v2.27.0**: AM050 nullable safety fix and expanded regression coverage
+- **v2.25.0**: Code-fix consolidation and sample verification
 
 ### Phase 5B: Enhanced Analysis (Upcoming)
 
