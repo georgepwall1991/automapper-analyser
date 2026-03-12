@@ -1,6 +1,4 @@
-using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -147,130 +145,24 @@ public abstract class AutoMapperCodeFixProviderBase : CodeFixProvider
     }
 
     /// <summary>
-    ///     Creates a grouped code action with nested fix options.
-    ///     This creates the expandable submenu in the lightbulb UI.
-    /// </summary>
-    /// <param name="title">The title of the grouped action (e.g., "Fix mapping for 'PropertyName'...").</param>
-    /// <param name="nestedActions">The collection of nested actions.</param>
-    /// <returns>The grouped code action.</returns>
-    protected CodeAction CreateGroupedAction(string title, ImmutableArray<CodeAction> nestedActions)
-    {
-        return CodeAction.Create(
-            title,
-            nestedActions,
-            isInlinable: true);
-    }
-
-    /// <summary>
-    ///     Creates a grouped code action with nested fix options using a builder.
-    /// </summary>
-    /// <param name="title">The title of the grouped action.</param>
-    /// <param name="nestedActions">The builder containing nested actions.</param>
-    /// <returns>The grouped code action.</returns>
-    protected CodeAction CreateGroupedAction(string title, ImmutableArray<CodeAction>.Builder nestedActions)
-    {
-        return CreateGroupedAction(title, nestedActions.ToImmutable());
-    }
-
-    /// <summary>
-    ///     Registers a grouped code action for a specific property.
-    ///     This is a common pattern across multiple fixers.
-    /// </summary>
-    /// <param name="context">The code fix context.</param>
-    /// <param name="diagnostic">The diagnostic being fixed.</param>
-    /// <param name="propertyName">The property name.</param>
-    /// <param name="nestedActions">The nested fix actions.</param>
-    protected void RegisterGroupedPropertyFix(
-        CodeFixContext context,
-        Diagnostic diagnostic,
-        string propertyName,
-        ImmutableArray<CodeAction> nestedActions)
-    {
-        var groupAction = CreateGroupedAction($"Fix mapping for '{propertyName}'...", nestedActions);
-        context.RegisterCodeFix(groupAction, diagnostic);
-    }
-
-    /// <summary>
-    ///     Registers a grouped code action for a specific property using a builder.
-    /// </summary>
-    /// <param name="context">The code fix context.</param>
-    /// <param name="diagnostic">The diagnostic being fixed.</param>
-    /// <param name="propertyName">The property name.</param>
-    /// <param name="nestedActionsBuilder">The builder containing nested actions.</param>
-    protected void RegisterGroupedPropertyFix(
-        CodeFixContext context,
-        Diagnostic diagnostic,
-        string propertyName,
-        ImmutableArray<CodeAction>.Builder nestedActionsBuilder)
-    {
-        RegisterGroupedPropertyFix(context, diagnostic, propertyName, nestedActionsBuilder.ToImmutable());
-    }
-
-    /// <summary>
-    ///     Registers bulk fix actions that apply to all diagnostics in the context.
-    ///     This is a common pattern for fixers that support bulk operations.
-    /// </summary>
-    /// <param name="context">The code fix context.</param>
-    /// <param name="bulkActions">The bulk fix actions to register.</param>
-    protected void RegisterBulkFixes(CodeFixContext context, params CodeAction[] bulkActions)
-    {
-        foreach (var action in bulkActions)
-        {
-            context.RegisterCodeFix(action, context.Diagnostics);
-        }
-    }
-
-    /// <summary>
-    ///     Information about a property that needs fixing.
-    /// </summary>
-    protected class PropertyFixInfo
-    {
-        /// <summary>
-        ///     Gets the property name.
-        /// </summary>
-        public string PropertyName { get; }
-
-        /// <summary>
-        ///     Gets the property type as a string.
-        /// </summary>
-        public string PropertyType { get; }
-
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="PropertyFixInfo"/> class.
-        /// </summary>
-        /// <param name="propertyName">The property name.</param>
-        /// <param name="propertyType">The property type.</param>
-        public PropertyFixInfo(string propertyName, string propertyType)
-        {
-            PropertyName = propertyName;
-            PropertyType = propertyType;
-        }
-    }
-
-    /// <summary>
     ///     Processes diagnostics with a common pattern:
     ///     1. Extracts operation context (root + semantic model)
-    ///     2. Deduplicates bulk fixes per invocation
-    ///     3. Iterates through diagnostics and extracts property info
-    ///     4. Calls callbacks for bulk and per-property fix registration
+    ///     2. Iterates through diagnostics and extracts property info
+    ///     3. Calls callback for per-property fix registration
     /// </summary>
     /// <param name="context">The code fix context.</param>
     /// <param name="propertyNames">Property names to extract from diagnostic (e.g., "PropertyName", "PropertyType").</param>
-    /// <param name="registerBulkFixes">Callback to register bulk fixes (called once per invocation).</param>
     /// <param name="registerPerPropertyFixes">Callback to register per-property fixes (called once per diagnostic).</param>
     protected async Task ProcessDiagnosticsAsync(
         CodeFixContext context,
         string[] propertyNames,
-        Action<CodeFixContext, InvocationExpressionSyntax, SemanticModel, SyntaxNode>? registerBulkFixes,
-        Action<CodeFixContext, Diagnostic, InvocationExpressionSyntax, Dictionary<string, string>, SemanticModel, SyntaxNode>? registerPerPropertyFixes)
+        Action<CodeFixContext, Diagnostic, InvocationExpressionSyntax, Dictionary<string, string>, SemanticModel, SyntaxNode> registerPerPropertyFixes)
     {
         var operationContext = await GetOperationContextAsync(context);
         if (operationContext == null)
         {
             return;
         }
-
-        var handledInvocations = new HashSet<InvocationExpressionSyntax>();
 
         foreach (Diagnostic diagnostic in context.Diagnostics)
         {
@@ -286,14 +178,7 @@ public abstract class AutoMapperCodeFixProviderBase : CodeFixProvider
                 continue;
             }
 
-            // Register bulk fixes (only once per invocation)
-            if (registerBulkFixes != null && handledInvocations.Add(invocation))
-            {
-                registerBulkFixes(context, invocation, operationContext.SemanticModel, operationContext.Root);
-            }
-
-            // Register per-property fixes
-            registerPerPropertyFixes?.Invoke(context, diagnostic, invocation, properties, operationContext.SemanticModel, operationContext.Root);
+            registerPerPropertyFixes(context, diagnostic, invocation, properties, operationContext.SemanticModel, operationContext.Root);
         }
     }
 }

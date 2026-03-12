@@ -184,7 +184,7 @@ public class AM006_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.DestOnly, opt => opt.Ignore()).ReverseMap();
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.DestOnly, opt => opt.Ignore()).ReverseMap().ForMember(dest => dest.SourceOnly, opt => opt.Ignore());
                                                  }
                                              }
                                          }
@@ -192,7 +192,7 @@ public class AM006_CodeFixTests
 
         // The forward-map diagnostic: DestOnly not mapped from Source
         // ReverseMap also generates: SourceOnly not mapped from Destination
-        // We fix the forward-map DestOnly diagnostic
+        // Both diagnostics are fixed in a single operation with the simplified fixer
         var forwardDiag = Diagnostic(
             AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
             22, 13, "DestOnly", "Source");
@@ -202,8 +202,7 @@ public class AM006_CodeFixTests
 
         await CodeFixVerifier<AM006_UnmappedDestinationPropertyAnalyzer,
                 AM006_UnmappedDestinationPropertyCodeFixProvider>
-            .VerifyFixAsync(testCode, [forwardDiag, reverseDiag], expectedFixedCode, 0,
-                remainingDiagnostics: [reverseDiag]);
+            .VerifyFixAsync(testCode, [forwardDiag, reverseDiag], expectedFixedCode, codeActionIndex: 0, remainingDiagnostics: null);
     }
 
     [Fact]
@@ -265,13 +264,13 @@ public class AM006_CodeFixTests
                                          }
                                          """;
 
-        // Code action index 2 = fuzzy match suggestion (after Ignore via .Ignore() and Create in source)
+        // Code action index 0 = fuzzy match suggestion (only fuzzy match and ignore are available)
         await VerifyFixAsync(
             testCode,
             AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
             22, 13,
             expectedFixedCode,
-            codeActionIndex: 2,
+            codeActionIndex: 0,
             messageArgs: ["Email", "Source"]);
     }
 
@@ -328,7 +327,7 @@ public class AM006_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Extra1, opt => opt.Ignore()).ForMember(dest => dest.Extra2, opt => opt.Ignore());
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Extra2, opt => opt.Ignore()).ForMember(dest => dest.Extra1, opt => opt.Ignore());
                                                  }
                                              }
                                          }
@@ -343,75 +342,7 @@ public class AM006_CodeFixTests
 
         await CodeFixVerifier<AM006_UnmappedDestinationPropertyAnalyzer,
                 AM006_UnmappedDestinationPropertyCodeFixProvider>
-            .VerifyFixWithIterationsAsync(testCode, [diag1, diag2], expectedFixedCode, 1);
-    }
-
-    [Fact]
-    public async Task AM006_ShouldCreateSourceProperty()
-    {
-        const string testCode = """
-
-                                using AutoMapper;
-
-                                namespace TestNamespace
-                                {
-                                    public class Source
-                                    {
-                                        public string Name { get; set; }
-                                    }
-
-                                    public class Destination
-                                    {
-                                        public string Name { get; set; }
-                                        public string Description { get; set; }
-                                    }
-
-                                    public class TestProfile : Profile
-                                    {
-                                        public TestProfile()
-                                        {
-                                            CreateMap<Source, Destination>();
-                                        }
-                                    }
-                                }
-                                """;
-
-        const string expectedFixedCode = """
-
-                                         using AutoMapper;
-
-                                         namespace TestNamespace
-                                         {
-                                             public class Source
-                                             {
-                                                 public string Name { get; set; }
-                                                 public string Description { get; set; }
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public string Name { get; set; }
-                                                 public string Description { get; set; }
-                                             }
-
-                                             public class TestProfile : Profile
-                                             {
-                                                 public TestProfile()
-                                                 {
-                                                     CreateMap<Source, Destination>();
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        // Code action index 1 = "Create 'X' in 'Source'" (after Ignore via .Ignore())
-        await VerifyFixAsync(
-            testCode,
-            AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
-            21, 13,
-            expectedFixedCode,
-            codeActionIndex: 1,
-            messageArgs: ["Description", "Source"]);
+            .VerifyFixWithIterationsAsync(testCode, [diag1, diag2], expectedFixedCode, 2);
     }
 
     [Fact]
@@ -467,7 +398,7 @@ public class AM006_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Extra1, opt => opt.Ignore()).ForMember(dest => dest.Extra2, opt => opt.Ignore()).ReverseMap();
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Extra2, opt => opt.Ignore()).ForMember(dest => dest.Extra1, opt => opt.Ignore()).ReverseMap();
                                                  }
                                              }
                                          }
@@ -482,7 +413,7 @@ public class AM006_CodeFixTests
 
         await CodeFixVerifier<AM006_UnmappedDestinationPropertyAnalyzer,
                 AM006_UnmappedDestinationPropertyCodeFixProvider>
-            .VerifyFixWithIterationsAsync(testCode, [forwardDiag1, forwardDiag2], expectedFixedCode, 1);
+            .VerifyFixWithIterationsAsync(testCode, [forwardDiag1, forwardDiag2], expectedFixedCode, 2);
     }
 
     [Fact]
@@ -625,74 +556,6 @@ public class AM006_CodeFixTests
         await CodeFixVerifier<AM006_UnmappedDestinationPropertyAnalyzer,
                 AM006_UnmappedDestinationPropertyCodeFixProvider>
             .VerifyFixAsync(testCode, [diag], expectedFixedCode, null, null, 1);
-    }
-
-    [Fact]
-    public async Task AM006_ShouldCreateSourcePropertyWithNonStringType()
-    {
-        const string testCode = """
-
-                                using AutoMapper;
-
-                                namespace TestNamespace
-                                {
-                                    public class Source
-                                    {
-                                        public string Name { get; set; }
-                                    }
-
-                                    public class Destination
-                                    {
-                                        public string Name { get; set; }
-                                        public int Count { get; set; }
-                                    }
-
-                                    public class TestProfile : Profile
-                                    {
-                                        public TestProfile()
-                                        {
-                                            CreateMap<Source, Destination>();
-                                        }
-                                    }
-                                }
-                                """;
-
-        const string expectedFixedCode = """
-
-                                         using AutoMapper;
-
-                                         namespace TestNamespace
-                                         {
-                                             public class Source
-                                             {
-                                                 public string Name { get; set; }
-                                                 public int Count { get; set; }
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public string Name { get; set; }
-                                                 public int Count { get; set; }
-                                             }
-
-                                             public class TestProfile : Profile
-                                             {
-                                                 public TestProfile()
-                                                 {
-                                                     CreateMap<Source, Destination>();
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        // Code action index 1 = "Create 'X' in 'Source'" (after Ignore via .Ignore())
-        await VerifyFixAsync(
-            testCode,
-            AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
-            21, 13,
-            expectedFixedCode,
-            codeActionIndex: 1,
-            messageArgs: ["Count", "Source"]);
     }
 
     [Fact]

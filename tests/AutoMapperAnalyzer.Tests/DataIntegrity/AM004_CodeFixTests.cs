@@ -276,7 +276,7 @@ public class AM004_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.Extra1, opt => opt.DoNotValidate()).ForSourceMember(src => src.Extra2, opt => opt.DoNotValidate());
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.Extra2, opt => opt.DoNotValidate()).ForSourceMember(src => src.Extra1, opt => opt.DoNotValidate());
                                                  }
                                              }
                                          }
@@ -295,13 +295,11 @@ public class AM004_CodeFixTests
             "Extra2");
 
         await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
-            .VerifyFixAsync(
+            .VerifyFixWithIterationsAsync(
                 testCode,
                 new[] { extra1Diagnostic, extra2Diagnostic },
                 expectedFixedCode,
-                null, 
-                null, 
-                1); // Index 0 = "Ignore N unmapped source properties"
+                2);
     }
 
     [Fact]
@@ -620,7 +618,7 @@ public class AM004_CodeFixTests
                                 }
                                 """;
 
-        // When no fuzzy match exists, first per-property fix is "Create property in destination type"
+        // When no fuzzy match exists, only ignore is available (index 0)
         const string expectedFixedCode = """
                                          using AutoMapper;
 
@@ -635,14 +633,13 @@ public class AM004_CodeFixTests
                                              public class Destination
                                              {
                                                  public string Name { get; set; }
-                                                 public string InternalTrackingCode { get; set; }
                                              }
 
                                              public class TestProfile : Profile
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>();
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.InternalTrackingCode, opt => opt.DoNotValidate());
                                                  }
                                              }
                                          }
@@ -658,7 +655,7 @@ public class AM004_CodeFixTests
                         .WithArguments("InternalTrackingCode")
                 },
                 expectedFixedCode,
-                2, // Index 2 = first per-property fix "'InternalTrackingCode' (string) — missing from 'Destination'" -> create
+                0,
                 null,
                 1);
     }
