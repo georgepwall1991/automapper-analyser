@@ -41,9 +41,9 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             if (node is InvocationExpressionSyntax invocation)
             {
                 var action = CodeAction.Create(
-                    "Add missing nested object mapping",
+                    "Add missing nested CreateMap registrations",
                     c => AddMissingNestedMappingAsync(context.Document, invocation, operationContext.SemanticModel, c),
-                    "AddMissingNestedMapping");
+                    "AM020_AddMissingNestedMappings");
 
                 context.RegisterCodeFix(action, diagnostic);
             }
@@ -69,15 +69,12 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             return document;
         }
 
-        InvocationExpressionSyntax? reverseMapInvocation =
-            AutoMapperAnalysisHelpers.GetReverseMapInvocation(createMapInvocation);
         List<(INamedTypeSymbol sourceType, INamedTypeSymbol destinationType)> missingMappings =
             GetMissingNestedMappings(
                 createMapInvocation,
                 typeArguments.sourceType,
                 typeArguments.destinationType,
-                semanticModel,
-                reverseMapInvocation);
+                semanticModel);
 
         if (!missingMappings.Any())
         {
@@ -127,13 +124,12 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         InvocationExpressionSyntax createMapInvocation,
         INamedTypeSymbol sourceType,
         INamedTypeSymbol destinationType,
-        SemanticModel semanticModel,
-        InvocationExpressionSyntax? reverseMapInvocation)
+        SemanticModel semanticModel)
     {
         var missingMappings = new List<(INamedTypeSymbol Source, INamedTypeSymbol Destination)>();
         var registry = CreateMapRegistry.FromCompilation(semanticModel.Compilation);
 
-        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(createMapInvocation, reverseMapInvocation))
+        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(createMapInvocation, semanticModel))
         {
             return missingMappings;
         }
@@ -154,7 +150,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                     createMapInvocation,
                     destProp.Name,
-                    reverseMapInvocation))
+                    semanticModel))
             {
                 continue;
             }

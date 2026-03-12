@@ -1,16 +1,71 @@
+using AutoMapper;
 using AutoMapperAnalyzer.Analyzers.DataIntegrity;
 using AutoMapperAnalyzer.Analyzers.Helpers;
 using AutoMapperAnalyzer.Tests.Infrastructure;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Text;
 using System.Reflection;
 
 namespace AutoMapperAnalyzer.Tests.DataIntegrity;
 
 public class AM011_CodeFixTests
 {
+    [Fact]
+    public async Task AM011_ShouldRegister_Clean_BulkActionTitles()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public required string RequiredField { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM011_UnmappedRequiredPropertyAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        string[] titles = actions.Select(action => action.Title).ToArray();
+
+        Assert.Contains("Configure bulk fix for required properties...", titles);
+        Assert.Contains("Map all unmapped required properties to default values", titles);
+        Assert.Contains("Map all unmapped required properties to sample constants", titles);
+        Assert.Contains("Ignore all unmapped required properties", titles);
+        Assert.Contains("Create all missing source properties", titles);
+        Assert.DoesNotContain(
+            titles,
+            title => title.EnumerateRunes().Any(rune => rune.Value is 0x2705 or 0x1F4DD or 0x26A1));
+    }
+
     [Fact]
     public async Task AM011_ShouldAddDefaultValueMapping()
     {
@@ -805,5 +860,47 @@ public class AM011_CodeFixTests
             [invocation, propertyAction, Enumerable.Empty<IPropertySymbol>()])!;
 
         Assert.Contains("MapFrom(", result.ToString(), StringComparison.Ordinal);
+    }
+
+    private static Document CreateDocument(string source)
+    {
+        var workspace = new AdhocWorkspace();
+        ProjectId projectId = ProjectId.CreateNewId();
+        DocumentId documentId = DocumentId.CreateNewId(projectId);
+
+        Solution solution = workspace.CurrentSolution
+            .AddProject(projectId, "AM011Tests", "AM011Tests", LanguageNames.CSharp)
+            .WithProjectCompilationOptions(projectId, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .WithProjectParseOptions(projectId, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview));
+
+        string trustedPlatformAssemblies = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? string.Empty;
+        foreach (string assemblyPath in trustedPlatformAssemblies.Split(Path.PathSeparator))
+        {
+            if (!string.IsNullOrWhiteSpace(assemblyPath))
+            {
+                solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(assemblyPath));
+            }
+        }
+
+        solution = solution
+            .AddMetadataReference(projectId, MetadataReference.CreateFromFile(typeof(Profile).Assembly.Location))
+            .AddDocument(documentId, "Test0.cs", SourceText.From(source));
+
+        return solution.GetDocument(documentId)!;
+    }
+
+    private static async Task<List<CodeAction>> RegisterActionsAsync(Document document, Diagnostic diagnostic)
+    {
+        var actions = new List<CodeAction>();
+        var provider = new AM011_UnmappedRequiredPropertyCodeFixProvider();
+
+        var context = new CodeFixContext(
+            document,
+            diagnostic,
+            (action, _) => actions.Add(action),
+            CancellationToken.None);
+
+        await provider.RegisterCodeFixesAsync(context);
+        return actions;
     }
 }

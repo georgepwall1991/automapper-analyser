@@ -769,6 +769,46 @@ public class AM004_MissingDestinationPropertyTests
     }
 
     [Fact]
+    public async Task AM004_ShouldReportDiagnostic_WhenNestedCustomMappingDoesNotConsumeSameNamedTopLevelProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Address
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Address Address { get; set; }
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string StreetLine { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.StreetLine, opt => opt.MapFrom(src => src.Address.Street));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 25, 13, "Street"));
+    }
+
+    [Fact]
     public async Task AM004_ShouldReportDiagnostic_WhenFlatteningPrefixMatchesButNestedMemberDoesNotExist()
     {
         const string testCode = """

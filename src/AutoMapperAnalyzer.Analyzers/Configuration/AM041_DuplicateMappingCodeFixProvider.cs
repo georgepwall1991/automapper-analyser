@@ -39,18 +39,77 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
 
             if (invocation != null)
             {
+                string mappingLabel = GetMappingLabel(invocation);
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        "Remove duplicate mapping",
+                        $"Remove duplicate mapping for '{mappingLabel}'",
                         c => RemoveDuplicateMapping(
                             context.Document,
                             operationContext.Root,
                             invocation,
                             c),
-                        "RemoveDuplicateMapping"),
+                        $"AM041_RemoveDuplicateMapping_{mappingLabel}"),
                     diagnostic);
             }
         }
+    }
+
+    private static string GetMappingLabel(InvocationExpressionSyntax invocation)
+    {
+        if (TryGetDuplicateMappingTypes(invocation, out string sourceTypeName, out string destinationTypeName))
+        {
+            return $"{sourceTypeName} -> {destinationTypeName}";
+        }
+
+        return "current mapping";
+    }
+
+    private static bool TryGetDuplicateMappingTypes(
+        InvocationExpressionSyntax invocation,
+        out string sourceTypeName,
+        out string destinationTypeName)
+    {
+        sourceTypeName = string.Empty;
+        destinationTypeName = string.Empty;
+
+        if (IsReverseMapInvocation(invocation))
+        {
+            if (invocation.Expression is not MemberAccessExpressionSyntax
+                {
+                    Expression: InvocationExpressionSyntax createMapInvocation
+                })
+            {
+                return false;
+            }
+
+            if (!TryGetCreateMapTypeNames(createMapInvocation, out destinationTypeName, out sourceTypeName))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        return TryGetCreateMapTypeNames(invocation, out sourceTypeName, out destinationTypeName);
+    }
+
+    private static bool TryGetCreateMapTypeNames(
+        InvocationExpressionSyntax invocation,
+        out string sourceTypeName,
+        out string destinationTypeName)
+    {
+        sourceTypeName = string.Empty;
+        destinationTypeName = string.Empty;
+
+        if (!TryGetCreateMapGenericName(invocation, out GenericNameSyntax genericName) ||
+            genericName.TypeArgumentList.Arguments.Count != 2)
+        {
+            return false;
+        }
+
+        sourceTypeName = genericName.TypeArgumentList.Arguments[0].ToString();
+        destinationTypeName = genericName.TypeArgumentList.Arguments[1].ToString();
+        return true;
     }
 
     private Task<Document> RemoveDuplicateMapping(
@@ -157,7 +216,7 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
         return genericName != null && genericName.Identifier.Text == "CreateMap";
     }
 
-    private bool IsReverseMapInvocation(InvocationExpressionSyntax invocation)
+    private static bool IsReverseMapInvocation(InvocationExpressionSyntax invocation)
     {
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
         {

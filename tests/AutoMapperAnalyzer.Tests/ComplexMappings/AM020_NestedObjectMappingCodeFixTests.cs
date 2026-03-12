@@ -1,6 +1,13 @@
+using AutoMapper;
 using AutoMapperAnalyzer.Analyzers.ComplexMappings;
 using AutoMapperAnalyzer.Tests.Infrastructure;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Tests.ComplexMappings;
 
@@ -91,6 +98,40 @@ public class AM020_NestedObjectMappingCodeFixTests
                     .WithLocation(31, 13)
                     .WithArguments("HomeAddress", "Address", "AddressDto"),
                 expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldUseDescriptiveActionTitleAndEquivalenceKey()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Address {}
+                                public class AddressDto {}
+                                public class Source { public Address HomeAddress { get; set; } }
+                                public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                public class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM020_NestedObjectMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        CodeAction action = Assert.Single(actions);
+
+        Assert.Equal("Add missing nested CreateMap registrations", action.Title);
+        Assert.Equal("AM020_AddMissingNestedMappings", action.EquivalenceKey);
     }
 
     [Fact]
@@ -1131,5 +1172,47 @@ public class AM020_NestedObjectMappingCodeFixTests
 
         await AnalyzerVerifier<AM020_NestedObjectMappingAnalyzer>
             .VerifyAnalyzerAsync(testCode);
+    }
+
+    private static Document CreateDocument(string source)
+    {
+        var workspace = new AdhocWorkspace();
+        ProjectId projectId = ProjectId.CreateNewId();
+        DocumentId documentId = DocumentId.CreateNewId(projectId);
+
+        Solution solution = workspace.CurrentSolution
+            .AddProject(projectId, "AM020Tests", "AM020Tests", LanguageNames.CSharp)
+            .WithProjectCompilationOptions(projectId, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .WithProjectParseOptions(projectId, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview));
+
+        string trustedPlatformAssemblies = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? string.Empty;
+        foreach (string assemblyPath in trustedPlatformAssemblies.Split(Path.PathSeparator))
+        {
+            if (!string.IsNullOrWhiteSpace(assemblyPath))
+            {
+                solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(assemblyPath));
+            }
+        }
+
+        solution = solution
+            .AddMetadataReference(projectId, MetadataReference.CreateFromFile(typeof(Profile).Assembly.Location))
+            .AddDocument(documentId, "Test0.cs", SourceText.From(source));
+
+        return solution.GetDocument(documentId)!;
+    }
+
+    private static async Task<List<CodeAction>> RegisterActionsAsync(Document document, Diagnostic diagnostic)
+    {
+        var actions = new List<CodeAction>();
+        var provider = new AM020_NestedObjectMappingCodeFixProvider();
+
+        var context = new CodeFixContext(
+            document,
+            diagnostic,
+            (action, _) => actions.Add(action),
+            CancellationToken.None);
+
+        await provider.RegisterCodeFixesAsync(context);
+        return actions;
     }
 }

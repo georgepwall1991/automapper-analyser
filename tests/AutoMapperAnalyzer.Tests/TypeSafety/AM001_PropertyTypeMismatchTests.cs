@@ -249,6 +249,85 @@ public class AM001_PropertyTypeMismatchTests
     }
 
     [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenConstructUsingHandlesMismatch()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing(src => new Destination { Age = int.Parse(src.Age) });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldReportDiagnostic_WhenNonAutoMapperForMemberLooksLikeSuppression()
+    {
+        const string testCode = """
+
+                                using System;
+                                using System.Linq.Expressions;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public static class MappingExtensions
+                                    {
+                                        public static IMappingExpression<TSource, TDestination> ForMember<TSource, TDestination, TMember>(
+                                            this IMappingExpression<TSource, TDestination> expression,
+                                            Expression<Func<TDestination, TMember>> destinationMember,
+                                            string marker) => expression;
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Age, "custom");
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 30, 13, "Age", "Source",
+                "string", "Destination", "int"));
+    }
+
+    [Fact]
     public async Task AM001_ShouldReportDiagnostic_WhenDateTimeMappedToString()
     {
         const string testCode = """

@@ -155,6 +155,41 @@ public class AM003_CollectionTypeIncompatibilityTests
     }
 
     [Fact]
+    public async Task AM003_ShouldNotReportDiagnostic_WhenConstructUsingHandlesCollectionConversion()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public HashSet<string> Tags { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<string> Tags { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing(src => new Destination { Tags = src.Tags.ToList() });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
     public async Task AM003_ShouldReportDiagnostic_WhenQueueToList()
     {
         const string testCode = """

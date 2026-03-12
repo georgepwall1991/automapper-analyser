@@ -88,13 +88,11 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
                 continue;
             }
 
-            InvocationExpressionSyntax? reverseMapInvocation =
-                AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
-            if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, reverseMapInvocation) ||
+            if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, operationContext.SemanticModel) ||
                 AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                     invocation,
                     destinationPropertyNameValue,
-                    reverseMapInvocation))
+                    operationContext.SemanticModel))
             {
                 continue;
             }

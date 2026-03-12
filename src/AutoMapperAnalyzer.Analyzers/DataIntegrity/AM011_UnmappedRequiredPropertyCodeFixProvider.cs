@@ -146,7 +146,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         {
             // Step 2: Apply configuration from existing comment
             var applyConfigAction = CodeAction.Create(
-                "✅ Apply bulk fix configuration",
+                "Apply configured bulk fix for required properties",
                 cancellationToken => ApplyConfigurationAsync(context.Document, root, invocation, semanticModel, existingConfig),
                 "AM011_Apply_Config"
             );
@@ -157,32 +157,32 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
 
         // Step 1: Generate configuration comment (no existing config)
         var configureAction = CodeAction.Create(
-            "📝 Configure bulk fix (interactive)...",
+            "Configure bulk fix for required properties...",
             cancellationToken => GenerateConfigurationCommentAsync(context.Document, root, invocation, semanticModel),
             "AM011_Bulk_Configure"
         );
 
         // Quick bulk fixes (no configuration needed)
         var bulkDefaultAction = CodeAction.Create(
-            "⚡ Map all unmapped properties to default value",
+            "Map all unmapped required properties to default values",
             cancellationToken => BulkFixAsync(context.Document, root, invocation, semanticModel, "Default"),
             "AM011_Bulk_Default"
         );
 
         var bulkConstantAction = CodeAction.Create(
-            "⚡ Map all unmapped properties to constant value",
+            "Map all unmapped required properties to sample constants",
             cancellationToken => BulkFixAsync(context.Document, root, invocation, semanticModel, "Constant"),
             "AM011_Bulk_Constant"
         );
 
         var bulkIgnoreAction = CodeAction.Create(
-            "⚡ Ignore all unmapped required properties",
+            "Ignore all unmapped required properties",
             cancellationToken => BulkIgnoreAsync(context.Document, root, invocation, semanticModel),
             "AM011_Bulk_Ignore"
         );
 
         var bulkCreateSourcePropertiesAction = CodeAction.Create(
-            "⚡ Create all missing properties in source type",
+            "Create all missing source properties",
             cancellationToken => BulkCreateSourcePropertiesAsync(context.Document, invocation, semanticModel),
             "AM011_Bulk_CreateSourceProperties"
         );

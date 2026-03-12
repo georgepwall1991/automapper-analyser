@@ -1,6 +1,13 @@
+using AutoMapper;
 using AutoMapperAnalyzer.Analyzers.Configuration;
 using AutoMapperAnalyzer.Tests.Infrastructure;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Tests.Configuration;
 
@@ -500,6 +507,72 @@ public class AM041_CodeFixTests
     }
 
     [Fact]
+    public async Task Should_Register_CreateMapSpecific_CodeAction_Title_And_EquivalenceKey()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                        CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        CodeAction action = Assert.Single(actions);
+
+        Assert.Equal("Remove duplicate mapping for 'Source -> Destination'", action.Title);
+        Assert.Equal("AM041_RemoveDuplicateMapping_Source -> Destination", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task Should_Register_ReverseMapSpecific_CodeAction_Title_And_EquivalenceKey()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Destination, Source>();
+                                        CreateMap<Source, Destination>().ReverseMap();
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        CodeAction action = Assert.Single(actions);
+
+        Assert.Equal("Remove duplicate mapping for 'Destination -> Source'", action.Title);
+        Assert.Equal("AM041_RemoveDuplicateMapping_Destination -> Source", action.EquivalenceKey);
+    }
+
+    [Fact]
     public async Task Should_NotDetectDuplicate_WhenUsingIncludeBase()
     {
         const string testCode = """
@@ -522,5 +595,47 @@ public class AM041_CodeFixTests
                                 """;
 
         await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    private static Document CreateDocument(string source)
+    {
+        var workspace = new AdhocWorkspace();
+        ProjectId projectId = ProjectId.CreateNewId();
+        DocumentId documentId = DocumentId.CreateNewId(projectId);
+
+        Solution solution = workspace.CurrentSolution
+            .AddProject(projectId, "AM041Tests", "AM041Tests", LanguageNames.CSharp)
+            .WithProjectCompilationOptions(projectId, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .WithProjectParseOptions(projectId, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview));
+
+        string trustedPlatformAssemblies = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? string.Empty;
+        foreach (string assemblyPath in trustedPlatformAssemblies.Split(Path.PathSeparator))
+        {
+            if (!string.IsNullOrWhiteSpace(assemblyPath))
+            {
+                solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(assemblyPath));
+            }
+        }
+
+        solution = solution
+            .AddMetadataReference(projectId, MetadataReference.CreateFromFile(typeof(Profile).Assembly.Location))
+            .AddDocument(documentId, "Test0.cs", SourceText.From(source));
+
+        return solution.GetDocument(documentId)!;
+    }
+
+    private static async Task<List<CodeAction>> RegisterActionsAsync(Document document, Diagnostic diagnostic)
+    {
+        var actions = new List<CodeAction>();
+        var provider = new AM041_DuplicateMappingCodeFixProvider();
+
+        var context = new CodeFixContext(
+            document,
+            diagnostic,
+            (action, _) => actions.Add(action),
+            CancellationToken.None);
+
+        await provider.RegisterCodeFixesAsync(context);
+        return actions;
     }
 }

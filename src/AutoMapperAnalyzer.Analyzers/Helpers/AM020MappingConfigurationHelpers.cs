@@ -13,15 +13,10 @@ internal static class AM020MappingConfigurationHelpers
     public static bool IsDestinationPropertyExplicitlyConfigured(
         InvocationExpressionSyntax createMapInvocation,
         string destinationPropertyName,
-        InvocationExpressionSyntax? reverseMapInvocation)
+        SemanticModel semanticModel)
     {
-        foreach (InvocationExpressionSyntax mappingConfigCall in GetMappingConfigurationCalls(createMapInvocation))
+        foreach (InvocationExpressionSyntax mappingConfigCall in GetMappingConfigurationCalls(createMapInvocation, semanticModel))
         {
-            if (!AppliesToForwardDirection(mappingConfigCall, reverseMapInvocation))
-            {
-                continue;
-            }
-
             if (mappingConfigCall.ArgumentList.Arguments.Count == 0)
             {
                 continue;
@@ -40,40 +35,30 @@ internal static class AM020MappingConfigurationHelpers
 
     public static bool HasCustomConstructionOrConversion(
         InvocationExpressionSyntax createMapInvocation,
-        InvocationExpressionSyntax? reverseMapInvocation)
+        SemanticModel semanticModel)
     {
-        SyntaxNode? parent = createMapInvocation.Parent;
-
-        while (parent is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
-        {
-            if ((memberAccess.Name.Identifier.ValueText is "ConstructUsing" or "ConvertUsing") &&
-                AppliesToForwardDirection(chainedInvocation, reverseMapInvocation))
-            {
-                return true;
-            }
-
-            parent = chainedInvocation.Parent;
-        }
-
-        return false;
+        return MappingChainAnalysisHelper.HasCustomConstructionOrConversion(
+            createMapInvocation,
+            semanticModel,
+            ShouldStopAtReverseMapBoundary(createMapInvocation, semanticModel));
     }
 
     private static IEnumerable<InvocationExpressionSyntax> GetMappingConfigurationCalls(
-        InvocationExpressionSyntax createMapInvocation)
+        InvocationExpressionSyntax createMapInvocation,
+        SemanticModel semanticModel)
     {
         var mappingCalls = new List<InvocationExpressionSyntax>();
-        SyntaxNode? currentNode = createMapInvocation.Parent;
 
-        while (currentNode is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax invocation)
+        foreach (InvocationExpressionSyntax invocation in MappingChainAnalysisHelper.GetScopedChainInvocations(
+                     createMapInvocation,
+                     semanticModel,
+                     ShouldStopAtReverseMapBoundary(createMapInvocation, semanticModel)))
         {
-            if (memberAccess.Name.Identifier.Text is "ForMember" or "ForPath")
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ForMember") ||
+                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ForPath"))
             {
                 mappingCalls.Add(invocation);
             }
-
-            currentNode = invocation.Parent;
         }
 
         return mappingCalls;
@@ -119,15 +104,10 @@ internal static class AM020MappingConfigurationHelpers
         return currentAccess.Expression is IdentifierNameSyntax ? currentAccess.Name.Identifier.ValueText : null;
     }
 
-    private static bool AppliesToForwardDirection(
-        InvocationExpressionSyntax mappingMethod,
-        InvocationExpressionSyntax? reverseMapInvocation)
+    private static bool ShouldStopAtReverseMapBoundary(
+        InvocationExpressionSyntax mappingInvocation,
+        SemanticModel semanticModel)
     {
-        if (reverseMapInvocation == null)
-        {
-            return true;
-        }
-
-        return !reverseMapInvocation.Ancestors().Contains(mappingMethod);
+        return !MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingInvocation, semanticModel, "ReverseMap");
     }
 }

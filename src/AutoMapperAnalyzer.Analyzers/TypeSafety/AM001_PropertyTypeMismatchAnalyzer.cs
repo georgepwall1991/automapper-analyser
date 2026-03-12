@@ -87,6 +87,11 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
+        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
+        {
+            return;
+        }
+
         IPropertySymbol[] sourceProperties =
             AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToArray();
         IPropertySymbol[] destinationProperties =
@@ -104,7 +109,10 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if explicit mapping is configured for this property
-            if (IsPropertyConfiguredWithForMember(invocation, sourceProp.Name, context.SemanticModel))
+            if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+                    invocation,
+                    destProp.Name,
+                    context.SemanticModel))
             {
                 continue;
             }
@@ -275,42 +283,6 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         ];
 
         return primitiveAndFrameworkTypes.Contains(typeName);
-    }
-
-
-    private static bool IsPropertyConfiguredWithForMember(
-        InvocationExpressionSyntax createMapInvocation,
-        string propertyName,
-        SemanticModel semanticModel)
-    {
-        IEnumerable<InvocationExpressionSyntax> forMemberCalls = AutoMapperAnalysisHelpers.GetForMemberCalls(createMapInvocation);
-
-        foreach (InvocationExpressionSyntax forMemberCall in forMemberCalls)
-        {
-            if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForMember"))
-            {
-                continue;
-            }
-
-            if (forMemberCall.ArgumentList.Arguments.Count == 0)
-            {
-                continue;
-            }
-
-            ArgumentSyntax destinationArgument = forMemberCall.ArgumentList.Arguments[0];
-            CSharpSyntaxNode? lambdaBody = AutoMapperAnalysisHelpers.GetLambdaBody(destinationArgument.Expression);
-            if (lambdaBody is not MemberAccessExpressionSyntax memberAccess)
-            {
-                continue;
-            }
-
-            if (string.Equals(memberAccess.Name.Identifier.Text, propertyName, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
 
