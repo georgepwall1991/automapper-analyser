@@ -31,185 +31,55 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
         await ProcessDiagnosticsAsync(
             context,
             propertyNames: ["PropertyName", "PropertyType", "DestinationTypeName", "SourceTypeName"],
-            registerBulkFixes: RegisterBulkFixes,
             registerPerPropertyFixes: (ctx, diagnostic, invocation, properties, semanticModel, root) =>
             {
-                RegisterPerPropertyFixes(ctx, diagnostic, invocation,
-                    properties["PropertyName"],
-                    properties["PropertyType"],
-                    properties["SourceTypeName"],
-                    properties["DestinationTypeName"],
-                    semanticModel, root);
-            });
-    }
+                var propertyName = properties["PropertyName"];
 
-    private void RegisterPerPropertyFixes(CodeFixContext context, Diagnostic diagnostic,
-        InvocationExpressionSyntax invocation, string propertyName, string propertyType,
-        string sourceTypeName, string destinationTypeName,
-        SemanticModel semanticModel, SyntaxNode root)
-    {
-        var nestedActions = ImmutableArray.CreateBuilder<CodeAction>();
-
-        // Phase 1: Fuzzy match suggestions — find similar source properties
-        (ITypeSymbol? sourceType, ITypeSymbol? destType) = MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
-        IPropertySymbol? destPropertySymbol = null;
-        if (sourceType != null && destType != null)
-        {
-            destPropertySymbol = AutoMapperAnalysisHelpers
-                .GetMappableProperties(destType, requireSetter: true)
-                .FirstOrDefault(p => p.Name == propertyName);
-
-            if (destPropertySymbol != null)
-            {
-                var sourceProperties = AutoMapperAnalysisHelpers
-                    .GetMappableProperties(sourceType, requireSetter: false);
-
-                foreach (var srcProp in FuzzyMatchHelper.FindFuzzyMatches(propertyName, sourceProperties, destPropertySymbol.Type))
+                // Try to find best fuzzy match
+                (ITypeSymbol? sourceType, ITypeSymbol? destType) = MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
+                if (sourceType != null && destType != null)
                 {
-                    string srcName = srcProp.Name;
-                    nestedActions.Add(CodeAction.Create(
-                        $"Map from similar source property '{srcName}'",
+                    IPropertySymbol? destPropertySymbol = AutoMapperAnalysisHelpers
+                        .GetMappableProperties(destType, requireSetter: true)
+                        .FirstOrDefault(p => p.Name == propertyName);
+
+                    if (destPropertySymbol != null)
+                    {
+                        var sourceProperties = AutoMapperAnalysisHelpers
+                            .GetMappableProperties(sourceType, requireSetter: false);
+
+                        var bestMatch = FuzzyMatchHelper.FindFuzzyMatches(propertyName, sourceProperties, destPropertySymbol.Type)
+                            .FirstOrDefault();
+
+                        if (bestMatch != null)
+                        {
+                            string srcName = bestMatch.Name;
+                            ctx.RegisterCodeFix(
+                                CodeAction.Create(
+                                    $"Map '{propertyName}' from similar source property '{srcName}'",
+                                    cancellationToken =>
+                                    {
+                                        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+                                            invocation, propertyName, $"src.{srcName}");
+                                        return ReplaceNodeAsync(ctx.Document, root, invocation, newInvocation);
+                                    },
+                                    $"AM006_FuzzyMatch_{propertyName}_{srcName}"),
+                                diagnostic);
+                        }
+                    }
+                }
+
+                // Always register ignore option
+                ctx.RegisterCodeFix(
+                    CodeAction.Create(
+                        $"Ignore '{propertyName}' via .Ignore()",
                         cancellationToken =>
                         {
-                            InvocationExpressionSyntax newInvocation =
-                                CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                                    invocation, propertyName, $"src.{srcName}");
-                            return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
+                            var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
+                            return ReplaceNodeAsync(ctx.Document, root, invocation, newInvocation);
                         },
-                        $"FuzzyMatch_{propertyName}_{srcName}"));
-                }
-            }
-        }
-
-        // Phase 2: Ignore destination property
-        nestedActions.Add(CodeAction.Create(
-            $"Ignore '{propertyName}' via .Ignore()",
-            cancellationToken =>
-            {
-                InvocationExpressionSyntax newInvocation =
-                    CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
-                return ReplaceNodeAsync(context.Document, root, invocation, newInvocation);
-            },
-            $"Ignore_{propertyName}"));
-
-        // Phase 3: Create source property
-        if (sourceType != null && destType != null)
-        {
-            nestedActions.Add(CodeAction.Create(
-                $"Create '{propertyName}' in '{sourceTypeName}'",
-                cancellationToken => CreateSourcePropertyAsync(context.Document, sourceType,
-                    propertyName, propertyType),
-                $"CreateProperty_{propertyName}"));
-        }
-
-        // Register grouped action
-        var groupAction = CreateGroupedAction($"'{propertyName}' ({propertyType}) \u2014 unmapped in '{destinationTypeName}'", nestedActions);
-        context.RegisterCodeFix(groupAction, diagnostic);
-    }
-
-    private void RegisterBulkFixes(CodeFixContext context, InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel, SyntaxNode root)
-    {
-        int count = context.Diagnostics.Length;
-        string propWord = count == 1 ? "property" : "properties";
-
-        string destTypeName = "destination";
-        string sourceTypeName = "source type";
-        (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
-        if (sourceType != null && destType != null)
-        {
-            destTypeName = $"'{destType.Name}'";
-            sourceTypeName = $"'{sourceType.Name}'";
-        }
-
-        // Bulk Fix 1: Ignore all unmapped destination properties
-        var ignoreAction = CodeAction.Create(
-            $"Ignore {count} unmapped {destTypeName} {propWord}",
-            cancellationToken => BulkIgnoreAsync(context.Document, root, invocation, semanticModel),
-            "AM006_Bulk_Ignore"
-        );
-
-        // Bulk Fix 2: Create all missing source properties
-        var createPropsAction = CodeAction.Create(
-            $"Add {count} missing {propWord} to {sourceTypeName}",
-            cancellationToken => BulkCreateSourcePropertiesAsync(context.Document, invocation, semanticModel),
-            "AM006_Bulk_CreateProperties"
-        );
-
-        RegisterBulkFixes(context, ignoreAction, createPropsAction);
-    }
-
-    private Task<Document> BulkIgnoreAsync(Document document, SyntaxNode root,
-        InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
-        if (sourceType == null || destType == null)
-        {
-            return Task.FromResult(document);
-        }
-
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
-        var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destType, requireSetter: true).ToList();
-
-        var unmappedDestProps = destProperties
-            .Where(dp => !dp.IsRequired)
-            .Where(dp => !sourceProperties.Any(sp =>
-                string.Equals(sp.Name, dp.Name, StringComparison.OrdinalIgnoreCase)))
-            .Where(dp => !AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, dp.Name, semanticModel))
-            .ToList();
-
-        if (!unmappedDestProps.Any())
-        {
-            return Task.FromResult(document);
-        }
-
-        InvocationExpressionSyntax currentInvocation = invocation;
-        foreach (var prop in unmappedDestProps)
-        {
-            currentInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(currentInvocation, prop.Name);
-        }
-
-        SyntaxNode newRoot = root.ReplaceNode(invocation, currentInvocation);
-        return Task.FromResult(document.WithSyntaxRoot(newRoot));
-    }
-
-    private async Task<Solution> BulkCreateSourcePropertiesAsync(Document document,
-        InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
-        if (sourceType == null || destType == null)
-        {
-            return document.Project.Solution;
-        }
-
-        var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
-        var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(destType, requireSetter: true).ToList();
-
-        List<(string Name, string Type)> propertiesToAdd = destProperties
-            .Where(dp => !dp.IsRequired)
-            .Where(dp => !sourceProperties.Any(sp =>
-                string.Equals(sp.Name, dp.Name, StringComparison.OrdinalIgnoreCase)))
-            .Where(dp => !AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(invocation, dp.Name, semanticModel))
-            .Select(dp => (dp.Name, dp.Type.ToDisplayString()))
-            .ToList();
-
-        if (!propertiesToAdd.Any())
-        {
-            return document.Project.Solution;
-        }
-
-        return await CodeFixSyntaxHelper.AddPropertiesToTypeAsync(document, sourceType, propertiesToAdd);
-    }
-
-    private async Task<Solution> CreateSourcePropertyAsync(
-        Document document,
-        ITypeSymbol sourceType,
-        string propertyName,
-        string propertyType)
-    {
-        return await CodeFixSyntaxHelper.AddPropertiesToTypeAsync(document, sourceType, [(propertyName, propertyType)]);
+                        $"AM006_Ignore_{propertyName}"),
+                    diagnostic);
+            });
     }
 }

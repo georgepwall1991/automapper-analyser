@@ -260,33 +260,33 @@ public class AM002_CodeFixTests
                                 }
                                 """;
 
-        // Fix the first property (Name)
-        const string expectedFixedCodeAfterFirstFix = """
-                                                      using AutoMapper;
+        // Both properties get fixed via per-property fixes
+        const string expectedFixedCode = """
+                                         using AutoMapper;
 
-                                                      namespace TestNamespace
-                                                      {
-                                                          public class Source
-                                                          {
-                                                              public string? Name { get; set; }
-                                                              public int? Age { get; set; }
-                                                          }
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string? Name { get; set; }
+                                                 public int? Age { get; set; }
+                                             }
 
-                                                          public class Destination
-                                                          {
-                                                              public string Name { get; set; }
-                                                              public int Age { get; set; }
-                                                          }
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public int Age { get; set; }
+                                             }
 
-                                                          public class TestProfile : Profile
-                                                          {
-                                                              public TestProfile()
-                                                              {
-                                                                  CreateMap<Source, Destination>().ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty)).ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age ?? 0));
-                                                              }
-                                                          }
-                                                      }
-                                                      """;
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty)).ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age ?? 0));
+                                                 }
+                                             }
+                                         }
+                                         """;
 
         DiagnosticResult ageDiagnostic = Diagnostic(
             AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
@@ -309,13 +309,11 @@ public class AM002_CodeFixTests
             "string");
 
         await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
-            .VerifyFixAsync(
+            .VerifyFixWithIterationsAsync(
                 testCode,
                 new[] { ageDiagnostic, nameDiagnostic },
-                expectedFixedCodeAfterFirstFix,
-                null,
-                null,
-                1); // Expect 1 iteration due to bulk fix
+                expectedFixedCode,
+                2);
     }
 
     [Fact]
@@ -451,7 +449,7 @@ public class AM002_CodeFixTests
     }
 
     [Fact]
-    public async Task AM002_ShouldBulkMakeNullable()
+    public async Task AM002_ShouldIgnoreSingleProperty()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -461,13 +459,11 @@ public class AM002_CodeFixTests
                                     public class Source
                                     {
                                         public string? Name { get; set; }
-                                        public int? Age { get; set; }
                                     }
 
                                     public class Destination
                                     {
                                         public string Name { get; set; }
-                                        public int Age { get; set; }
                                     }
 
                                     public class TestProfile : Profile
@@ -480,7 +476,7 @@ public class AM002_CodeFixTests
                                 }
                                 """;
 
-        // Expect destination properties to be nullable
+        // Expect property to be ignored
         const string expectedFixedCode = """
                                          using AutoMapper;
 
@@ -489,52 +485,29 @@ public class AM002_CodeFixTests
                                              public class Source
                                              {
                                                  public string? Name { get; set; }
-                                                 public int? Age { get; set; }
                                              }
 
                                              public class Destination
                                              {
-                                                 public string? Name { get; set; }
-                                                 public int? Age { get; set; }
+                                                 public string Name { get; set; }
                                              }
 
                                              public class TestProfile : Profile
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>();
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Name, opt => opt.Ignore());
                                                  }
                                              }
                                          }
                                          """;
 
-        DiagnosticResult ageDiagnostic = Diagnostic(
-            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
-            21,
-            13,
-            "Age",
-            "Source",
-            "int?",
-            "Destination",
-            "int");
-
-        DiagnosticResult nameDiagnostic = Diagnostic(
-            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
-            21,
-            13,
-            "Name",
-            "Source",
-            "string?",
-            "Destination",
-            "string");
-
         await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                new[] { ageDiagnostic, nameDiagnostic },
+                Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 19, 13,
+                    "Name", "Source", "string?", "Destination", "string"),
                 expectedFixedCode,
-                1, // Index 1 = "Make all mismatched destination properties nullable"
-                null,
-                1); // 1 Iteration
+                codeActionIndex: 1); // Use the second fix (Ignore property)
     }
 }

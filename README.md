@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-652%20passing%2C%209%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-627%20passing%2C%209%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,31 +14,32 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.28.2
+## 🎉 Latest Release: v2.29.0
 
-**False-positive reduction + better fixer UX**
+**Smart Primary Fix — reduced fixer noise to max 2 options per diagnostic**
 
 ✅ **Highlights**
 
-- Reduced false positives when `ConstructUsing`, `ConvertUsing`, `ForMember`, or `ForPath` already handle the mapping.
-- Improved nested-path handling so explicit configuration suppresses the right diagnostics for AM005, AM020, and AM021.
-- Hardened AM031 fixes for overlapping diagnostics, multiple-enumeration caching, and redundant `ForMember` removal.
-- Cleaned up lightbulb presentation for AM011, AM020, AM041, and AM050 with clearer titles and stable equivalence keys.
-- Fixed release-note generation in the NuGet release workflow.
+- Simplified code fixers AM002, AM004, AM006, and AM011 from 5-10 lightbulb options down to max 2 per diagnostic.
+- Each fixer now offers one contextually-chosen best fix plus one fallback (e.g. ignore/suppress).
+- Removed bulk fix infrastructure (`BulkFixConfigurationParser`, grouped actions, nested code action menus).
+- Uses `WellKnownFixAllProviders.BatchFixer` for multi-diagnostic scenarios instead of custom bulk logic.
+- Fuzzy matching selects the single best candidate; falls back to default value or ignore when no good match exists.
+- Deleted ~900 lines of code across fixers and base class while preserving all functional behavior.
 
 🧪 **Validation**
 
 - Full solution builds passed in `Debug` and `Release`.
-- Full test suite passed with `652` passing and `9` skipped.
-- Local package generation and GitHub release publishing were verified for `v2.28.2`.
+- Full test suite passed with `627` passing and `9` skipped.
+- Code review fixes applied: removed unused variables (AM004, AM006) and prevented false fuzzy matches (AM011).
 
 ### Recent Releases
 
+- **v2.28.2**: False-positive reduction, fixer UX improvements, and release workflow hardening.
 - **v2.28.1**: Case-aware AM021 suppression and fixer reliability improvements.
 - **v2.28.0**: Analyzer logic fixes and performance improvements.
 - **v2.27.0**: AM050 nullable safety fix and broad regression coverage expansion.
 - **v2.25.0**: Code-fix consolidation and sample verification.
-- **v2.24.0**: AM011 placeholder fix, AM004 tree traversal fix, and added coverage.
 
 ---
 
@@ -168,7 +169,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.28.2">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.29.0">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -351,7 +352,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 - **🏎️ Performance-First**: Incremental analysis with minimal IDE impact
 - **🔧 Extensible Design**: Clean plugin architecture for new rules
-- **🧪 Battle-Tested**: 661 tests with 652 passing and 9 intentionally skipped scenarios
+- **🧪 Battle-Tested**: 636 tests with 627 passing and 9 intentionally skipped scenarios
 - **🌐 Cross-Platform**: Identical behavior on Windows, macOS, Linux
 - **⚡ CI/CD Ready**: Automated GitHub Actions with codecov integration
 - **📊 Code Coverage**: 55%+ coverage with comprehensive testing
@@ -362,11 +363,11 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ### Recently Completed ✅
 
+- **v2.29.0**: Smart Primary Fix — reduced fixer noise to max 2 lightbulb options per diagnostic
 - **v2.28.2**: False-positive reduction, fixer UX improvements, and release workflow hardening
 - **v2.28.1**: Case-aware AM021 suppression and fixer accuracy improvements
 - **v2.28.0**: Analyzer logic fixes and performance improvements
 - **v2.27.0**: AM050 nullable safety fix and expanded regression coverage
-- **v2.25.0**: Code-fix consolidation and sample verification
 
 ### Phase 5B: Enhanced Analysis (Upcoming)
 
