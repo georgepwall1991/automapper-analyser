@@ -70,9 +70,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        InvocationExpressionSyntax? reverseMapInvocation =
-            AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
-        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, reverseMapInvocation))
+        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
         {
             return;
         }
@@ -112,7 +110,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
                 if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                         invocation,
                         destinationProperty.Name,
-                        reverseMapInvocation))
+                        context.SemanticModel))
                 {
                     continue; // Property is explicitly handled
                 }

@@ -64,8 +64,6 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
             invocationExpr,
             typeArguments.sourceType,
             typeArguments.destinationType,
-            false,
-            null,
             reportedMismatches
         );
 
@@ -75,11 +73,9 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         {
             AnalyzeCaseSensitivityMismatches(
                 context,
-                invocationExpr,
+                reverseMapInvocation,
                 typeArguments.destinationType,
                 typeArguments.sourceType,
-                true,
-                reverseMapInvocation,
                 reportedMismatches
             );
         }
@@ -88,14 +84,12 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeCaseSensitivityMismatches(
         SyntaxNodeAnalysisContext context,
-        InvocationExpressionSyntax invocation,
+        InvocationExpressionSyntax mappingInvocation,
         ITypeSymbol sourceType,
         ITypeSymbol destinationType,
-        bool isReverseMap,
-        InvocationExpressionSyntax? reverseMapInvocation,
         HashSet<string> reportedMismatches)
     {
-        if (HasCustomConstructionOrConversion(invocation, isReverseMap, reverseMapInvocation))
+        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(mappingInvocation, context.SemanticModel))
         {
             return;
         }
@@ -133,14 +127,20 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if explicit mapping is configured for this property
-            if (IsDestinationPropertyConfiguredWithForMember(invocation, caseInsensitiveMatch.Name, isReverseMap,
-                    reverseMapInvocation))
+            if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+                    mappingInvocation,
+                    caseInsensitiveMatch.Name,
+                    context.SemanticModel))
             {
                 continue; // Explicit mapping handles the case sensitivity issue
             }
 
             // Check if source property is explicitly ignored
-            if (IsSourcePropertyExplicitlyIgnored(invocation, sourceProperty.Name, isReverseMap, reverseMapInvocation))
+            if (MappingChainAnalysisHelper.IsSourcePropertyExplicitlyIgnored(
+                    mappingInvocation,
+                    sourceProperty.Name,
+                    context.SemanticModel,
+                    ShouldStopAtReverseMapBoundary(mappingInvocation, context.SemanticModel)))
             {
                 continue;
             }
@@ -161,12 +161,9 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
             properties.Add("SourceTypeName", AutoMapperAnalysisHelpers.GetTypeName(sourceType));
             properties.Add("DestinationTypeName", AutoMapperAnalysisHelpers.GetTypeName(destinationType));
 
-            InvocationExpressionSyntax locationNode =
-                isReverseMap && reverseMapInvocation != null ? reverseMapInvocation : invocation;
-
             var diagnostic = Diagnostic.Create(
                 CaseSensitivityMismatchRule,
-                locationNode.GetLocation(),
+                mappingInvocation.GetLocation(),
                 properties.ToImmutable(),
                 sourceProperty.Name,
                 caseInsensitiveMatch.Name);
@@ -190,141 +187,10 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         return $"{typeNames[0]}|{typeNames[1]}::{propertyNames[0]}|{propertyNames[1]}";
     }
 
-    private static bool IsDestinationPropertyConfiguredWithForMember(
-        InvocationExpressionSyntax createMapInvocation,
-        string destinationPropertyName,
-        bool isReverseMap,
-        InvocationExpressionSyntax? reverseMapInvocation)
+    private static bool ShouldStopAtReverseMapBoundary(
+        InvocationExpressionSyntax mappingInvocation,
+        SemanticModel semanticModel)
     {
-        IEnumerable<InvocationExpressionSyntax> forMemberCalls =
-            AutoMapperAnalysisHelpers.GetForMemberCalls(createMapInvocation);
-
-        foreach (InvocationExpressionSyntax forMember in forMemberCalls)
-        {
-            if (!AppliesToDirection(forMember, isReverseMap, reverseMapInvocation))
-            {
-                continue;
-            }
-
-            if (IsForMemberOfProperty(forMember, destinationPropertyName))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsForMemberOfProperty(InvocationExpressionSyntax forMemberInvocation, string propertyName)
-    {
-        if (forMemberInvocation.ArgumentList.Arguments.Count == 0)
-        {
-            return false;
-        }
-
-        string? selectedMember = GetSelectedMemberName(forMemberInvocation.ArgumentList.Arguments[0].Expression);
-        return string.Equals(selectedMember, propertyName, StringComparison.Ordinal);
-    }
-
-    private static bool IsSourcePropertyExplicitlyIgnored(
-        InvocationExpressionSyntax createMapInvocation,
-        string sourcePropertyName,
-        bool isReverseMap,
-        InvocationExpressionSyntax? reverseMapInvocation)
-    {
-        SyntaxNode? parent = createMapInvocation.Parent;
-
-        while (parent is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
-        {
-            if (memberAccess.Name.Identifier.ValueText == "ForSourceMember" &&
-                AppliesToDirection(chainedInvocation, isReverseMap, reverseMapInvocation) &&
-                IsForSourceMemberOfProperty(chainedInvocation, sourcePropertyName) &&
-                HasDoNotValidateCall(chainedInvocation))
-            {
-                return true;
-            }
-
-            parent = chainedInvocation.Parent;
-        }
-
-        return false;
-    }
-
-    private static bool IsForSourceMemberOfProperty(InvocationExpressionSyntax forSourceMemberInvocation,
-        string propertyName)
-    {
-        if (forSourceMemberInvocation.ArgumentList.Arguments.Count == 0)
-        {
-            return false;
-        }
-
-        string? selectedMember = GetSelectedMemberName(forSourceMemberInvocation.ArgumentList.Arguments[0].Expression);
-        return string.Equals(selectedMember, propertyName, StringComparison.Ordinal);
-    }
-
-    private static string? GetSelectedMemberName(ExpressionSyntax expression)
-    {
-        return expression switch
-        {
-            SimpleLambdaExpressionSyntax simpleLambda when simpleLambda.Body is MemberAccessExpressionSyntax memberAccess =>
-                memberAccess.Name.Identifier.ValueText,
-            ParenthesizedLambdaExpressionSyntax parenthesizedLambda
-                when parenthesizedLambda.Body is MemberAccessExpressionSyntax memberAccess =>
-                memberAccess.Name.Identifier.ValueText,
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            _ => null
-        };
-    }
-
-    private static bool HasDoNotValidateCall(InvocationExpressionSyntax forSourceMemberInvocation)
-    {
-        if (forSourceMemberInvocation.ArgumentList.Arguments.Count < 2)
-        {
-            return false;
-        }
-
-        ExpressionSyntax optionsArg = forSourceMemberInvocation.ArgumentList.Arguments[1].Expression;
-        return optionsArg.DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .Any(invocation =>
-                invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-                memberAccess.Name.Identifier.ValueText == "DoNotValidate");
-    }
-
-    private static bool HasCustomConstructionOrConversion(
-        InvocationExpressionSyntax createMapInvocation,
-        bool isReverseMap,
-        InvocationExpressionSyntax? reverseMapInvocation)
-    {
-        SyntaxNode? parent = createMapInvocation.Parent;
-
-        while (parent is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
-        {
-            if ((memberAccess.Name.Identifier.ValueText is "ConstructUsing" or "ConvertUsing") &&
-                AppliesToDirection(chainedInvocation, isReverseMap, reverseMapInvocation))
-            {
-                return true;
-            }
-
-            parent = chainedInvocation.Parent;
-        }
-
-        return false;
-    }
-
-    private static bool AppliesToDirection(
-        InvocationExpressionSyntax mappingMethod,
-        bool isReverseMap,
-        InvocationExpressionSyntax? reverseMapInvocation)
-    {
-        if (reverseMapInvocation == null)
-        {
-            return !isReverseMap;
-        }
-
-        bool isAncestor = reverseMapInvocation.Ancestors().Contains(mappingMethod);
-        return isReverseMap ? isAncestor : !isAncestor;
+        return !MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingInvocation, semanticModel, "ReverseMap");
     }
 }

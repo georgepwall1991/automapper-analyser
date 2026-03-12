@@ -21,6 +21,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
 {
     private const string IssueTypePropertyName = "IssueType";
     private const string PropertyNamePropertyName = "PropertyName";
+    private const string CollectionNamePropertyName = "CollectionName";
 
     private const string MultipleEnumerationIssueType = "MultipleEnumeration";
     private const string TaskResultIssueType = "TaskResult";
@@ -46,17 +47,20 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         }
 
         SyntaxTree documentTree = operationContext.Root.SyntaxTree;
-        Diagnostic? diagnostic = context.Diagnostics.FirstOrDefault(diag =>
+        ImmutableArray<Diagnostic> relatedDiagnostics = context.Diagnostics
+            .Where(diag =>
             diag.Id == "AM031" &&
             diag.Location.IsInSource &&
             diag.Location.SourceTree == documentTree &&
-            diag.Location.SourceSpan.IntersectsWith(context.Span));
+            diag.Location.SourceSpan.IntersectsWith(context.Span))
+            .ToImmutableArray();
 
-        if (diagnostic == null)
+        if (relatedDiagnostics.IsDefaultOrEmpty)
         {
             return;
         }
 
+        Diagnostic diagnostic = relatedDiagnostics[0];
         TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
 
         LambdaExpressionSyntax? lambda = operationContext.Root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf()
@@ -84,26 +88,30 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
             return;
         }
 
-        string issueType = diagnostic.Properties.TryGetValue(IssueTypePropertyName, out string? storedIssueType)
-            ? storedIssueType ?? string.Empty
-            : string.Empty;
-
-        if (string.IsNullOrEmpty(issueType))
-        {
-            issueType = InferIssueTypeFromDescriptor(diagnostic.Descriptor);
-        }
+        ImmutableHashSet<string> issueTypes = relatedDiagnostics
+            .Select(GetIssueType)
+            .Where(issueType => !string.IsNullOrEmpty(issueType))
+            .ToImmutableHashSet(StringComparer.Ordinal);
 
         // Keep targeted caching fix for multiple-enumeration diagnostics.
-        if (issueType == MultipleEnumerationIssueType)
+        if (issueTypes.Contains(MultipleEnumerationIssueType))
         {
-            RegisterMultipleEnumerationFix(context, operationContext.Root, lambda, diagnostic);
+            string? collectionName = relatedDiagnostics
+                .Select(GetCollectionName)
+                .FirstOrDefault(name => !string.IsNullOrEmpty(name));
+
+            if (!string.IsNullOrEmpty(collectionName))
+            {
+                RegisterMultipleEnumerationFix(context, operationContext.Root, lambda, propertyName!, collectionName!,
+                    relatedDiagnostics);
+            }
         }
 
-        RegisterIgnoreMappingFix(context, operationContext.Root, forMemberInvocation, propertyName!, diagnostic);
+        RegisterIgnoreMappingFix(context, operationContext.Root, forMemberInvocation, propertyName!, relatedDiagnostics);
 
         if (await CanUseConventionMappingAsync(context.Document, forMemberInvocation, propertyName!, context.CancellationToken))
         {
-            RegisterRemoveForMemberFix(context, operationContext.Root, forMemberInvocation, propertyName!, diagnostic);
+            RegisterRemoveForMemberFix(context, operationContext.Root, forMemberInvocation, propertyName!, relatedDiagnostics);
         }
     }
 
@@ -111,14 +119,16 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         CodeFixContext context,
         SyntaxNode root,
         LambdaExpressionSyntax lambda,
-        Diagnostic diagnostic)
+        string propertyName,
+        string collectionName,
+        ImmutableArray<Diagnostic> diagnostics)
     {
         context.RegisterCodeFix(
             CodeAction.Create(
-                "Cache collection with ToList() to avoid multiple enumerations",
-                cancellationToken => AddCollectionCaching(context.Document, root, lambda, cancellationToken),
-                "AM031_CacheCollection"),
-            diagnostic);
+                $"Cache '{collectionName}' with ToList() for '{propertyName}'",
+                cancellationToken => AddCollectionCaching(context.Document, root, lambda, collectionName, cancellationToken),
+                $"AM031_CacheCollection_{propertyName}_{collectionName}"),
+            diagnostics);
     }
 
     private void RegisterIgnoreMappingFix(
@@ -126,7 +136,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         SyntaxNode root,
         InvocationExpressionSyntax forMemberInvocation,
         string propertyName,
-        Diagnostic diagnostic)
+        ImmutableArray<Diagnostic> diagnostics)
     {
         context.RegisterCodeFix(
             CodeAction.Create(
@@ -138,7 +148,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
                     propertyName,
                     cancellationToken),
                 $"AM031_Ignore_{propertyName}"),
-            diagnostic);
+            diagnostics);
     }
 
     private void RegisterRemoveForMemberFix(
@@ -146,14 +156,14 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         SyntaxNode root,
         InvocationExpressionSyntax forMemberInvocation,
         string propertyName,
-        Diagnostic diagnostic)
+        ImmutableArray<Diagnostic> diagnostics)
     {
         context.RegisterCodeFix(
             CodeAction.Create(
                 $"Remove redundant ForMember for '{propertyName}'",
                 cancellationToken => RemoveForMemberAsync(context.Document, root, forMemberInvocation, cancellationToken),
                 $"AM031_RemoveForMember_{propertyName}"),
-            diagnostic);
+            diagnostics);
     }
 
     private async Task<bool> CanUseConventionMappingAsync(
@@ -241,45 +251,51 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         Document document,
         SyntaxNode root,
         LambdaExpressionSyntax lambda,
+        string collectionName,
         CancellationToken cancellationToken)
     {
-        string? collectionName = ExtractCollectionNameFromLambda(lambda);
-        if (string.IsNullOrEmpty(collectionName))
+        if (lambda.Body is not ExpressionSyntax lambdaExpression)
         {
             return Task.FromResult(document);
         }
 
-        string safeCollectionName = collectionName!;
-        string cachedVariableName = $"{safeCollectionName.ToLowerInvariant()}Cache";
+        string? parameterName = GetLambdaParameterName(lambda);
+        if (string.IsNullOrEmpty(parameterName))
+        {
+            return Task.FromResult(document);
+        }
+
+        string cachedVariableName = CreateUniqueCacheVariableName(lambda, collectionName);
+        ExpressionSyntax cachedCollectionExpression = CreateCachedCollectionExpression(parameterName!, collectionName);
+        ExpressionSyntax updatedLambdaExpression =
+            ReplaceCollectionReferences(lambdaExpression, parameterName!, collectionName, cachedVariableName);
 
         BlockSyntax newLambdaBody = SyntaxFactory.Block(
             SyntaxFactory.LocalDeclarationStatement(
                 SyntaxFactory.VariableDeclaration(
-                        SyntaxFactory.IdentifierName("var"))
+                    SyntaxFactory.IdentifierName("var"))
                     .WithVariables(
                         SyntaxFactory.SingletonSeparatedList(
                             SyntaxFactory.VariableDeclarator(
-                                    SyntaxFactory.Identifier(cachedVariableName))
+                                SyntaxFactory.Identifier(cachedVariableName))
                                 .WithInitializer(
-                                    SyntaxFactory.EqualsValueClause(
-                                        SyntaxFactory.ParseExpression($"src.{safeCollectionName}.ToList()")))))),
-            SyntaxFactory.ReturnStatement(
-                ReplaceCollectionReferencesWithCache(lambda.Body as ExpressionSyntax, safeCollectionName,
-                    cachedVariableName)));
+                                    SyntaxFactory.EqualsValueClause(cachedCollectionExpression))))),
+            SyntaxFactory.ReturnStatement(updatedLambdaExpression));
 
-        SimpleLambdaExpressionSyntax newLambda;
-        if (lambda is SimpleLambdaExpressionSyntax simpleLambda)
+        LambdaExpressionSyntax newLambda = lambda switch
         {
-            newLambda = simpleLambda.WithBody(newLambdaBody);
-        }
-        else
-        {
-            newLambda = SyntaxFactory.SimpleLambdaExpression(
-                SyntaxFactory.Parameter(SyntaxFactory.Identifier("src")),
-                newLambdaBody);
-        }
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.WithBody(newLambdaBody),
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.WithBody(newLambdaBody),
+            _ => lambda
+        };
 
         SyntaxNode newRoot = root.ReplaceNode(lambda, newLambda);
+
+        if (newRoot is CompilationUnitSyntax compilationUnit)
+        {
+            newRoot = AddUsingIfMissing(compilationUnit, "System.Linq");
+        }
+
         return Task.FromResult(document.WithSyntaxRoot(newRoot));
     }
 
@@ -293,33 +309,68 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
             : null;
     }
 
-    private string? ExtractCollectionNameFromLambda(LambdaExpressionSyntax lambda)
+    private static string? GetLambdaParameterName(LambdaExpressionSyntax lambda)
     {
-        var memberAccesses = lambda.DescendantNodes()
-            .OfType<MemberAccessExpressionSyntax>()
-            .Where(ma => ma.Expression.ToString().StartsWith("src."))
-            .ToList();
-
-        if (memberAccesses.Any())
+        return lambda switch
         {
-            return memberAccesses.First().Name.Identifier.Text;
-        }
-
-        return null;
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Parameter.Identifier.ValueText,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda when parenthesizedLambda.ParameterList.Parameters.Count == 1
+                => parenthesizedLambda.ParameterList.Parameters[0].Identifier.ValueText,
+            _ => null
+        };
     }
 
-    private ExpressionSyntax ReplaceCollectionReferencesWithCache(
-        ExpressionSyntax? expression,
+    private static string CreateUniqueCacheVariableName(LambdaExpressionSyntax lambda, string collectionName)
+    {
+        string baseName = string.IsNullOrEmpty(collectionName)
+            ? "cachedCollection"
+            : char.ToLowerInvariant(collectionName[0]) + collectionName.Substring(1) + "Cache";
+        var usedNames = lambda.DescendantTokens()
+            .Where(token => token.IsKind(SyntaxKind.IdentifierToken))
+            .Select(token => token.ValueText)
+            .ToImmutableHashSet(StringComparer.Ordinal);
+
+        if (!usedNames.Contains(baseName))
+        {
+            return baseName;
+        }
+
+        int suffix = 2;
+        string candidate = $"{baseName}{suffix}";
+        while (usedNames.Contains(candidate))
+        {
+            suffix++;
+            candidate = $"{baseName}{suffix}";
+        }
+
+        return candidate;
+    }
+
+    private static ExpressionSyntax CreateCachedCollectionExpression(string parameterName, string collectionName)
+    {
+        MemberAccessExpressionSyntax sourceCollection = SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            SyntaxFactory.IdentifierName(parameterName),
+            SyntaxFactory.IdentifierName(collectionName));
+
+        return SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                sourceCollection,
+                SyntaxFactory.IdentifierName("ToList")),
+            SyntaxFactory.ArgumentList());
+    }
+
+    private static ExpressionSyntax ReplaceCollectionReferences(
+        ExpressionSyntax expression,
+        string parameterName,
         string collectionName,
         string cachedVariableName)
     {
-        if (expression == null)
-        {
-            return SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0));
-        }
-
-        string expressionString = expression.ToString().Replace($"src.{collectionName}", cachedVariableName);
-        return SyntaxFactory.ParseExpression(expressionString);
+        return expression.ReplaceNodes(
+            expression.DescendantNodesAndSelf().OfType<MemberAccessExpressionSyntax>()
+                .Where(memberAccess => IsTargetCollectionAccess(memberAccess, parameterName, collectionName)),
+            (originalNode, _) => SyntaxFactory.IdentifierName(cachedVariableName).WithTriviaFrom(originalNode));
     }
 
     private string? GetPropertyName(Diagnostic diagnostic)
@@ -331,6 +382,53 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         }
 
         return null;
+    }
+
+    private static string GetIssueType(Diagnostic diagnostic)
+    {
+        if (diagnostic.Properties.TryGetValue(IssueTypePropertyName, out string? storedIssueType) &&
+            !string.IsNullOrEmpty(storedIssueType))
+        {
+            return storedIssueType!;
+        }
+
+        return InferIssueTypeFromDescriptor(diagnostic.Descriptor);
+    }
+
+    private static string? GetCollectionName(Diagnostic diagnostic)
+    {
+        if (diagnostic.Properties.TryGetValue(CollectionNamePropertyName, out string? collectionName) &&
+            !string.IsNullOrEmpty(collectionName))
+        {
+            return collectionName;
+        }
+
+        return null;
+    }
+
+    private static bool IsTargetCollectionAccess(
+        MemberAccessExpressionSyntax memberAccess,
+        string parameterName,
+        string collectionName)
+    {
+        return memberAccess.Expression is IdentifierNameSyntax identifier &&
+               string.Equals(identifier.Identifier.ValueText, parameterName, StringComparison.Ordinal) &&
+               string.Equals(memberAccess.Name.Identifier.ValueText, collectionName, StringComparison.Ordinal);
+    }
+
+    private static CompilationUnitSyntax AddUsingIfMissing(CompilationUnitSyntax root, string namespaceName)
+    {
+        if (root.Usings.Any(u =>
+                u.Name != null &&
+                string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
+        {
+            return root;
+        }
+
+        UsingDirectiveSyntax usingDirective = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(namespaceName))
+            .WithTrailingTrivia(SyntaxFactory.ElasticLineFeed);
+
+        return root.AddUsings(usingDirective);
     }
 
     private static string InferIssueTypeFromDescriptor(DiagnosticDescriptor descriptor)

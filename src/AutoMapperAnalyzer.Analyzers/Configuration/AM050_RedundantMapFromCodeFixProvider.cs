@@ -41,11 +41,12 @@ public class AM050_RedundantMapFromCodeFixProvider : AutoMapperCodeFixProviderBa
 
             if (forMemberInvocation != null)
             {
+                string propertyName = GetDestinationPropertyName(forMemberInvocation) ?? "property";
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        "Remove redundant mapping",
+                        $"Remove redundant ForMember for '{propertyName}'",
                         c => RemoveRedundantMapping(context.Document, operationContext.Root, forMemberInvocation),
-                        "RemoveRedundantMapping"),
+                        $"AM050_RemoveRedundantMapping_{propertyName}"),
                     diagnostic);
             }
         }
@@ -63,5 +64,18 @@ public class AM050_RedundantMapFromCodeFixProvider : AutoMapperCodeFixProviderBa
         }
 
         return Task.FromResult(document);
+    }
+
+    private static string? GetDestinationPropertyName(InvocationExpressionSyntax forMemberInvocation)
+    {
+        if (forMemberInvocation.ArgumentList.Arguments.Count == 0)
+        {
+            return null;
+        }
+
+        SyntaxNode? lambdaBody = AutoMapperAnalysisHelpers.GetLambdaBody(forMemberInvocation.ArgumentList.Arguments[0].Expression);
+        return lambdaBody is MemberAccessExpressionSyntax memberAccess
+            ? memberAccess.Name.Identifier.ValueText
+            : null;
     }
 }

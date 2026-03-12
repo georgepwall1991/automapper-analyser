@@ -52,6 +52,7 @@ public class AM031_CodeFixTests
             AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule,
             "MultipleEnumeration",
             "Total",
+            "Numbers",
             "Total",
             "Numbers");
 
@@ -59,10 +60,13 @@ public class AM031_CodeFixTests
 
         CodeAction cacheAction = Assert.Single(
             actions,
-            action => action.Title.Contains("Cache collection with ToList()", StringComparison.Ordinal));
+            action => action.Title.Contains("Cache 'Numbers' with ToList() for 'Total'", StringComparison.Ordinal));
 
         string updatedCode = await ApplyActionAsync(cacheAction, document);
-        Assert.Contains("ToList()", updatedCode, StringComparison.Ordinal);
+        Assert.Contains("numbersCache", updatedCode, StringComparison.Ordinal);
+        Assert.Contains("src.Numbers.ToList()", updatedCode, StringComparison.Ordinal);
+        Assert.Contains("numbersCache.Sum()", updatedCode, StringComparison.Ordinal);
+        Assert.Contains("numbersCache.Average()", updatedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -178,7 +182,7 @@ public class AM031_CodeFixTests
             "RegisterRemoveForMemberFix",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         var provider = new AM031_PerformanceWarningCodeFixProvider();
-        registerRemoveFixMethod.Invoke(provider, [context, root, forMemberInvocation, "Score", diagnostic]);
+        registerRemoveFixMethod.Invoke(provider, [context, root, forMemberInvocation, "Score", ImmutableArray.Create(diagnostic)]);
 
         CodeAction removeAction = Assert.Single(actions);
         Assert.Contains("Remove redundant ForMember for 'Score'", removeAction.Title, StringComparison.Ordinal);
@@ -186,6 +190,117 @@ public class AM031_CodeFixTests
         string updatedCode = await ApplyActionAsync(removeAction, document);
         Assert.Contains("CreateMap<Source, Destination>();", updatedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("ForMember(dest => dest.Score", updatedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AM031_ShouldRegisterCacheFix_WhenMultipleDiagnosticsShareSameLambda()
+    {
+        const string source = """
+                              using AutoMapper;
+                              using System;
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              namespace TestNamespace
+                              {
+                                  public class Source
+                                  {
+                                      public int Total { get; set; }
+                                      public List<int> Numbers { get; set; } = new();
+                                  }
+
+                                  public class Destination
+                                  {
+                                      public int Total { get; set; }
+                                  }
+
+                                  public class TestProfile : Profile
+                                  {
+                                      public TestProfile()
+                                      {
+                                          CreateMap<Source, Destination>()
+                                              .ForMember(dest => dest.Total, opt => opt.MapFrom(src => src.Numbers.Sum() + src.Numbers.Average() + DateTime.Now.Year));
+                                      }
+                                  }
+                              }
+                              """;
+
+        Document document = CreateDocument(source);
+        Diagnostic nonDeterministicDiagnostic = await CreateDiagnosticAtSourceLambdaAsync(
+            document,
+            AM031_PerformanceWarningAnalyzer.NonDeterministicOperationRule,
+            "NonDeterministic",
+            "Total",
+            null,
+            "Total",
+            "DateTime.Now");
+        Diagnostic multipleEnumerationDiagnostic = await CreateDiagnosticAtSourceLambdaAsync(
+            document,
+            AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule,
+            "MultipleEnumeration",
+            "Total",
+            "Numbers",
+            "Total",
+            "Numbers");
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, nonDeterministicDiagnostic, multipleEnumerationDiagnostic);
+
+        Assert.Contains(actions, action => action.Title.Contains("Cache 'Numbers' with ToList() for 'Total'", StringComparison.Ordinal));
+        Assert.Contains(actions, action => action.Title.Contains("Ignore mapping for 'Total'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AM031_ShouldPreserveParenthesizedLambdaParameter_WhenApplyingCachingFix()
+    {
+        const string source = """
+                              using AutoMapper;
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              namespace TestNamespace
+                              {
+                                  public class Source
+                                  {
+                                      public List<int> Numbers { get; set; } = new();
+                                  }
+
+                                  public class Destination
+                                  {
+                                      public int Total { get; set; }
+                                  }
+
+                                  public class TestProfile : Profile
+                                  {
+                                      public TestProfile()
+                                      {
+                                          CreateMap<Source, Destination>()
+                                              .ForMember(dest => dest.Total, opt => opt.MapFrom((sourceValue) => sourceValue.Numbers.Sum() + sourceValue.Numbers.Average()));
+                                      }
+                                  }
+                              }
+                              """;
+
+        Document document = CreateDocument(source);
+        Diagnostic diagnostic = await CreateDiagnosticAtSourceLambdaAsync(
+            document,
+            AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule,
+            "MultipleEnumeration",
+            "Total",
+            "Numbers",
+            "Total",
+            "Numbers");
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        CodeAction cacheAction = Assert.Single(
+            actions,
+            action => action.Title.Contains("Cache 'Numbers' with ToList() for 'Total'", StringComparison.Ordinal));
+
+        string updatedCode = await ApplyActionAsync(cacheAction, document);
+        Assert.Contains("numbersCache", updatedCode, StringComparison.Ordinal);
+        Assert.Contains("sourceValue.Numbers.ToList()", updatedCode, StringComparison.Ordinal);
+        Assert.Contains("numbersCache.Sum()", updatedCode, StringComparison.Ordinal);
+        Assert.Contains("numbersCache.Average()", updatedCode, StringComparison.Ordinal);
+        Assert.Contains("opt.MapFrom((sourceValue) =>", updatedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -267,28 +382,35 @@ public class AM031_CodeFixTests
         DiagnosticDescriptor descriptor,
         string issueType,
         string propertyName,
+        string? collectionName = null,
         params object[] messageArgs)
     {
         SyntaxNode root = (await document.GetSyntaxRootAsync())!;
         LambdaExpressionSyntax sourceLambda = root.DescendantNodes()
             .OfType<LambdaExpressionSyntax>()
-            .First(lambda => lambda.ToString().Contains("src =>", StringComparison.Ordinal));
+            .Last();
 
         ImmutableDictionary<string, string?> properties = ImmutableDictionary<string, string?>.Empty
             .Add("IssueType", issueType)
             .Add("PropertyName", propertyName);
 
+        if (!string.IsNullOrEmpty(collectionName))
+        {
+            properties = properties.Add("CollectionName", collectionName);
+        }
+
         return Diagnostic.Create(descriptor, sourceLambda.GetLocation(), properties, messageArgs);
     }
 
-    private static async Task<List<CodeAction>> RegisterActionsAsync(Document document, Diagnostic diagnostic)
+    private static async Task<List<CodeAction>> RegisterActionsAsync(Document document, params Diagnostic[] diagnostics)
     {
         var actions = new List<CodeAction>();
         var provider = new AM031_PerformanceWarningCodeFixProvider();
 
         var context = new CodeFixContext(
             document,
-            diagnostic,
+            diagnostics[0].Location.SourceSpan,
+            diagnostics.ToImmutableArray(),
             (action, _) => actions.Add(action),
             CancellationToken.None);
 

@@ -87,19 +87,15 @@ jobs:
           fi
 
           # Save to file to preserve multi-line content
-          cat > release_notes.txt << 'EOF'
-          $NOTES
-
-          ## Installation
-
-          ```bash
-          dotnet add package AutoMapperAnalyzer.Analyzers --version ${{ steps.get_version.outputs.VERSION }}
-          ```
-
-          ## NuGet Package
-
-          📦 [AutoMapperAnalyzer.Analyzers on NuGet](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/${{ steps.get_version.outputs.VERSION }})
-          EOF
+          {
+            printf '%s\n\n' "$NOTES"
+            printf '## Installation\n\n'
+            printf '```bash\n'
+            printf 'dotnet add package AutoMapperAnalyzer.Analyzers --version %s\n' "${{ steps.get_version.outputs.VERSION }}"
+            printf '```\n\n'
+            printf '## NuGet Package\n\n'
+            printf '📦 [AutoMapperAnalyzer.Analyzers on NuGet](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/%s)\n' "${{ steps.get_version.outputs.VERSION }}"
+          } > release_notes.txt
 
           echo "NOTES_FILE=release_notes.txt" >> $GITHUB_OUTPUT
 

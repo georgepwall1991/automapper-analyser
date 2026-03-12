@@ -232,6 +232,40 @@ public class AM002_NullableCompatibilityTests
     }
 
     [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenConstructUsingHandlesNullability()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ConstructUsing(src => new Destination { Name = src.Name ?? string.Empty });
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
     public async Task AM002_ShouldReportDiagnostic_WhenNullableDateTimeToNonNullable()
     {
         string testCode = """

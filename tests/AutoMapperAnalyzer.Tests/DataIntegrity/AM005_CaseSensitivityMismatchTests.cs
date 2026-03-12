@@ -164,6 +164,43 @@ public class AM005_CaseSensitivityMismatchTests
     }
 
     [Fact]
+    public async Task AM005_ShouldNotReportDiagnostic_WhenForPathConfiguresTopLevelProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Address
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Address homeAddress { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Address HomeAddress { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForPath(dest => dest.HomeAddress.Street, opt => opt.MapFrom(src => src.homeAddress.Street));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
     public async Task AM005_ShouldHandleMixedCasingScenarios()
     {
         const string testCode = """

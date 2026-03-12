@@ -312,14 +312,10 @@ public static class MappingChainAnalysisHelper
     /// </summary>
     public static bool ContainsPropertyReference(SyntaxNode node, string propertyName)
     {
-        if (node is MemberAccessExpressionSyntax rootMemberAccess &&
-            rootMemberAccess.Name.Identifier.ValueText == propertyName)
-        {
-            return true;
-        }
-
-        return node.DescendantNodes().OfType<MemberAccessExpressionSyntax>()
-            .Any(memberAccess => memberAccess.Name.Identifier.ValueText == propertyName);
+        return node.DescendantNodesAndSelf()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Select(GetTopLevelSourceMemberName)
+            .Any(memberName => string.Equals(memberName, propertyName, StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -337,6 +333,28 @@ public static class MappingChainAnalysisHelper
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
             _ => null
         };
+    }
+
+    private static string? GetTopLevelSourceMemberName(MemberAccessExpressionSyntax memberAccess)
+    {
+        if (memberAccess.Expression is IdentifierNameSyntax)
+        {
+            return memberAccess.Name.Identifier.ValueText;
+        }
+
+        if (memberAccess.Expression is not MemberAccessExpressionSyntax currentAccess)
+        {
+            return null;
+        }
+
+        while (currentAccess.Expression is MemberAccessExpressionSyntax nestedAccess)
+        {
+            currentAccess = nestedAccess;
+        }
+
+        return currentAccess.Expression is IdentifierNameSyntax
+            ? currentAccess.Name.Identifier.ValueText
+            : null;
     }
 
     /// <summary>
