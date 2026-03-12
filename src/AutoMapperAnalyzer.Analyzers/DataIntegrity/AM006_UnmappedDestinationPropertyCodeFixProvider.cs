@@ -34,7 +34,6 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
             registerPerPropertyFixes: (ctx, diagnostic, invocation, properties, semanticModel, root) =>
             {
                 var propertyName = properties["PropertyName"];
-                var propertyType = properties["PropertyType"];
 
                 // Try to find best fuzzy match
                 (ITypeSymbol? sourceType, ITypeSymbol? destType) = MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);

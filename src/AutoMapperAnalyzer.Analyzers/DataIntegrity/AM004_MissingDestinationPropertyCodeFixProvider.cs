@@ -56,9 +56,6 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
             registerPerPropertyFixes: (ctx, diagnostic, invocation, properties, semanticModel, root) =>
             {
                 var propertyName = properties["PropertyName"];
-                var propertyType = properties["PropertyType"];
-                var isReverseMap = properties["IsReverseMap"] == "true";
-                string reverseHint = isReverseMap ? " (reverse)" : "";
 
                 // Try to find best fuzzy match
                 if (TryResolveMappingContext(invocation, semanticModel, out var mappingContext))

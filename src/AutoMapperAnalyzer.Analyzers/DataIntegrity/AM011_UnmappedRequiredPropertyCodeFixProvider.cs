@@ -40,11 +40,11 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
                         : AutoMapperAnalysisHelpers.GetMappableProperties(destType, false)
                             .FirstOrDefault(p => string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
 
-                    var candidates = destinationProperty != null
-                        ? FuzzyMatchHelper.FindFuzzyMatches(propertyName, sourceProperties, destinationProperty.Type)
-                        : sourceProperties;
-
-                    bestFuzzyMatch = candidates.FirstOrDefault();
+                    if (destinationProperty != null)
+                    {
+                        bestFuzzyMatch = FuzzyMatchHelper.FindFuzzyMatches(propertyName, sourceProperties, destinationProperty.Type)
+                            .FirstOrDefault();
+                    }
                 }
 
                 // Option 1 (primary): fuzzy match if found, else default value
