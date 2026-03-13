@@ -300,6 +300,75 @@ public class AM001_CodeFixTests
     }
 
     [Fact]
+    public async Task AM001_ShouldApplyIterativeFixes_ForMultiplePropertyTypeMismatches()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public int Age { get; set; }
+                                        public double Score { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Age { get; set; }
+                                        public string Score { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public int Age { get; set; }
+                                                 public double Score { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Age { get; set; }
+                                                 public string Score { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score.ToString())).ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString()));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        DiagnosticResult[] diagnostics =
+        [
+            Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 21, 13,
+                "Age", "Source", "int", "Destination", "string"),
+            Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 21, 13,
+                "Score", "Source", "double", "Destination", "string")
+        ];
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixWithIterationsAsync(testCode, diagnostics, expectedFixedCode, iterations: 2);
+    }
+
+    [Fact]
     public async Task AM001_ShouldFixNullableStringToIntWithParsePattern()
     {
         const string testCode = """

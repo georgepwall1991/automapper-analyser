@@ -81,13 +81,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
                     CodeAction.Create(
                         $"Map '{propertyNameValue}' with conversion",
                         cancellationToken =>
-                        {
-                            InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                                invocation,
-                                propertyNameValue,
-                                conversionExpression);
-                            return ReplaceNodeAsync(context.Document, operationContext.Root, invocation, newInvocation);
-                        },
+                            AddMapFromAsync(context.Document, diagnostic, propertyNameValue, conversionExpression, cancellationToken),
                         $"AM001_MapWithConversion_{propertyNameValue}"),
                     diagnostic);
             }
@@ -96,11 +90,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
                 CodeAction.Create(
                     $"Ignore property '{propertyNameValue}'",
                     cancellationToken =>
-                    {
-                        InvocationExpressionSyntax newInvocation =
-                            CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyNameValue);
-                        return ReplaceNodeAsync(context.Document, operationContext.Root, invocation, newInvocation);
-                    },
+                        AddIgnoreAsync(context.Document, diagnostic, propertyNameValue, cancellationToken),
                     $"AM001_Ignore_{propertyNameValue}"),
                 diagnostic);
         }
@@ -120,6 +110,53 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
                     out string? propertyName)
                 ? propertyName
                 : diag.GetMessage(), StringComparer.Ordinal);
+    }
+
+    private async Task<Document> AddMapFromAsync(
+        Document document,
+        Diagnostic diagnostic,
+        string propertyName,
+        string conversionExpression,
+        CancellationToken cancellationToken)
+    {
+        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root == null)
+        {
+            return document;
+        }
+
+        InvocationExpressionSyntax? invocation = GetCreateMapInvocation(root, diagnostic);
+        if (invocation == null)
+        {
+            return document;
+        }
+
+        InvocationExpressionSyntax newInvocation =
+            CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName, conversionExpression);
+        return await ReplaceNodeAsync(document, root, invocation, newInvocation);
+    }
+
+    private async Task<Document> AddIgnoreAsync(
+        Document document,
+        Diagnostic diagnostic,
+        string propertyName,
+        CancellationToken cancellationToken)
+    {
+        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root == null)
+        {
+            return document;
+        }
+
+        InvocationExpressionSyntax? invocation = GetCreateMapInvocation(root, diagnostic);
+        if (invocation == null)
+        {
+            return document;
+        }
+
+        InvocationExpressionSyntax newInvocation =
+            CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
+        return await ReplaceNodeAsync(document, root, invocation, newInvocation);
     }
 
     private static IPropertySymbol? FindProperty(ITypeSymbol typeSymbol, string name, bool expectSetter)

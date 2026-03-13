@@ -321,6 +321,15 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             return $"{selectExpression}.ToList()";
         }
 
+        if (IsConstructedFromType(destProperty.Type, "System.Collections.Generic.IEnumerable<T>") ||
+            IsConstructedFromType(destProperty.Type, "System.Collections.Generic.ICollection<T>") ||
+            IsConstructedFromType(destProperty.Type, "System.Collections.Generic.IList<T>") ||
+            IsConstructedFromType(destProperty.Type, "System.Collections.Generic.IReadOnlyCollection<T>") ||
+            IsConstructedFromType(destProperty.Type, "System.Collections.Generic.IReadOnlyList<T>"))
+        {
+            return $"{selectExpression}.ToList()";
+        }
+
         if (IsConstructedFromType(destProperty.Type, "System.Collections.Generic.HashSet<T>"))
         {
             return $"{selectExpression}.ToHashSet()";
