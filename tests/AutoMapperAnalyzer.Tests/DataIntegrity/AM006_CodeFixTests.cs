@@ -275,6 +275,72 @@ public class AM006_CodeFixTests
     }
 
     [Fact]
+    public async Task AM006_ShouldSuppressFuzzyMatch_WhenBestCandidateIsAmbiguous()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Eamil { get; set; }
+                                        public string Emial { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Eamil { get; set; }
+                                                 public string Emial { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Email { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Email, opt => opt.Ignore());
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
+            21, 13,
+            expectedFixedCode,
+            codeActionIndex: 0,
+            messageArgs: ["Email", "Source"]);
+    }
+
+    [Fact]
     public async Task AM006_ShouldBulkIgnoreAllUnmappedDestinationProperties()
     {
         const string testCode = """

@@ -306,7 +306,205 @@ public class AM021_CodeFixTests
                 testCode,
                 new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
                     .WithLocation(20, 13)
-                    .WithArguments("Tags", "Source", "string", "Destination", "Tags", "int"),
+                .WithArguments("Tags", "Source", "string", "Destination", "Tags", "int"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldFixQueueToQueue_WithSelectWrappedInQueueConstructor()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Queue<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Queue<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+                                         using System;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public Queue<string> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public Queue<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new Queue<int>(src.Values.Select(x => Convert.ToInt32(x)))));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("Values", "Source", "string", "Destination", "Values", "int"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldFixStackToStack_WithSelectWrappedInStackConstructor()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Stack<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Stack<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+                                         using System;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public Stack<string> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public Stack<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new Stack<int>(src.Values.Select(x => Convert.ToInt32(x)))));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("Values", "Source", "string", "Destination", "Values", "int"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldFixIEnumerableToIEnumerable_WithSelectToListFallback()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public IEnumerable<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public IEnumerable<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+                                         using System;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public IEnumerable<string> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public IEnumerable<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => src.Values.Select(x => Convert.ToInt32(x)).ToList()));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("Values", "Source", "string", "Destination", "Values", "int"),
                 expectedFixedCode);
     }
 

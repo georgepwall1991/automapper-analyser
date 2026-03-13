@@ -33,87 +33,130 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
             return;
         }
 
-        Diagnostic? diagnostic = context.Diagnostics.FirstOrDefault(diag =>
-            diag.Id == "AM001" &&
-            diag.Location.IsInSource &&
-            diag.Location.SourceTree == operationContext.Root.SyntaxTree &&
-            diag.Location.SourceSpan.IntersectsWith(context.Span));
-
-        if (diagnostic == null)
+        foreach (Diagnostic diagnostic in GetRelevantDiagnostics(context, operationContext.Root))
         {
-            return;
-        }
+            InvocationExpressionSyntax? invocation = GetCreateMapInvocation(operationContext.Root, diagnostic);
+            if (invocation == null)
+            {
+                continue;
+            }
 
-        // Find the CreateMap invocation that triggered the diagnostic
-        InvocationExpressionSyntax? invocation = GetCreateMapInvocation(operationContext.Root, diagnostic);
-        if (invocation == null)
-        {
-            return;
-        }
+            string? propertyName = ExtractPropertyNameFromDiagnostic(diagnostic);
+            if (string.IsNullOrEmpty(propertyName))
+            {
+                continue;
+            }
 
-        // Extract property name from diagnostic message
-        string? propertyName = ExtractPropertyNameFromDiagnostic(diagnostic);
-        if (string.IsNullOrEmpty(propertyName))
-        {
-            return;
-        }
+            string propertyNameValue = propertyName!;
 
-        SymbolInfo semanticInfo = operationContext.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken);
-        if (semanticInfo.Symbol is not IMethodSymbol methodSymbol || methodSymbol.TypeArguments.Length != 2)
-        {
-            return;
-        }
+            SymbolInfo semanticInfo = operationContext.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken);
+            if (semanticInfo.Symbol is not IMethodSymbol methodSymbol || methodSymbol.TypeArguments.Length != 2)
+            {
+                continue;
+            }
 
-        ITypeSymbol sourceType = methodSymbol.TypeArguments[0];
-        ITypeSymbol destinationType = methodSymbol.TypeArguments[1];
+            ITypeSymbol sourceType = methodSymbol.TypeArguments[0];
+            ITypeSymbol destinationType = methodSymbol.TypeArguments[1];
 
-        IPropertySymbol? sourceProperty = FindProperty(sourceType, propertyName!, false);
-        IPropertySymbol? destinationProperty = FindProperty(destinationType, propertyName!, true);
-        if (sourceProperty == null || destinationProperty == null)
-        {
-            return;
-        }
+            IPropertySymbol? sourceProperty = FindProperty(sourceType, propertyNameValue, false);
+            IPropertySymbol? destinationProperty = FindProperty(destinationType, propertyNameValue, true);
+            if (sourceProperty == null || destinationProperty == null)
+            {
+                continue;
+            }
 
-        ITypeSymbol sourcePropertyType = sourceProperty.Type;
-        ITypeSymbol destinationPropertyType = destinationProperty.Type;
+            ITypeSymbol sourcePropertyType = sourceProperty.Type;
+            ITypeSymbol destinationPropertyType = destinationProperty.Type;
 
-        if (SymbolEqualityComparer.Default.Equals(sourcePropertyType, destinationPropertyType))
-        {
-            return;
-        }
+            if (SymbolEqualityComparer.Default.Equals(sourcePropertyType, destinationPropertyType))
+            {
+                continue;
+            }
 
-        // Prepare map-from expression that either converts or casts.
-        string? conversionExpression =
-            CreateConversionExpression(sourcePropertyType, destinationPropertyType, propertyName!);
-        if (conversionExpression != null)
-        {
+            string? conversionExpression =
+                CreateConversionExpression(sourcePropertyType, destinationPropertyType, propertyNameValue);
+            if (conversionExpression != null)
+            {
+                context.RegisterCodeFix(
+                    CodeAction.Create(
+                        $"Map '{propertyNameValue}' with conversion",
+                        cancellationToken =>
+                            AddMapFromAsync(context.Document, diagnostic, propertyNameValue, conversionExpression, cancellationToken),
+                        $"AM001_MapWithConversion_{propertyNameValue}"),
+                    diagnostic);
+            }
+
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    $"Map '{propertyName}' with conversion",
+                    $"Ignore property '{propertyNameValue}'",
                     cancellationToken =>
-                    {
-                        InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                            invocation,
-                            propertyName!,
-                            conversionExpression);
-                        return ReplaceNodeAsync(context.Document, operationContext.Root, invocation, newInvocation);
-                    },
-                    $"AM001_MapWithConversion_{propertyName}"),
+                        AddIgnoreAsync(context.Document, diagnostic, propertyNameValue, cancellationToken),
+                    $"AM001_Ignore_{propertyNameValue}"),
                 diagnostic);
         }
+    }
 
-        // Always provide ignore option as a safe fallback.
-        context.RegisterCodeFix(
-            CodeAction.Create(
-                $"Ignore property '{propertyName}'",
-                cancellationToken =>
-                {
-                    InvocationExpressionSyntax newInvocation =
-                        CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName!);
-                    return ReplaceNodeAsync(context.Document, operationContext.Root, invocation, newInvocation);
-                },
-                $"AM001_Ignore_{propertyName}"),
-            diagnostic);
+    private static IEnumerable<Diagnostic> GetRelevantDiagnostics(CodeFixContext context, SyntaxNode root)
+    {
+        return context.Diagnostics
+            .Where(diag =>
+                diag.Id == "AM001" &&
+                diag.Location.IsInSource &&
+                diag.Location.SourceTree == root.SyntaxTree &&
+                diag.Location.SourceSpan.IntersectsWith(context.Span))
+            .OrderBy(diag => diag.Location.SourceSpan.Start)
+            .ThenBy(diag => diag.Properties.TryGetValue(
+                    AM001_PropertyTypeMismatchAnalyzer.PropertyNamePropertyName,
+                    out string? propertyName)
+                ? propertyName
+                : diag.GetMessage(), StringComparer.Ordinal);
+    }
+
+    private async Task<Document> AddMapFromAsync(
+        Document document,
+        Diagnostic diagnostic,
+        string propertyName,
+        string conversionExpression,
+        CancellationToken cancellationToken)
+    {
+        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root == null)
+        {
+            return document;
+        }
+
+        InvocationExpressionSyntax? invocation = GetCreateMapInvocation(root, diagnostic);
+        if (invocation == null)
+        {
+            return document;
+        }
+
+        InvocationExpressionSyntax newInvocation =
+            CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName, conversionExpression);
+        return await ReplaceNodeAsync(document, root, invocation, newInvocation);
+    }
+
+    private async Task<Document> AddIgnoreAsync(
+        Document document,
+        Diagnostic diagnostic,
+        string propertyName,
+        CancellationToken cancellationToken)
+    {
+        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root == null)
+        {
+            return document;
+        }
+
+        InvocationExpressionSyntax? invocation = GetCreateMapInvocation(root, diagnostic);
+        if (invocation == null)
+        {
+            return document;
+        }
+
+        InvocationExpressionSyntax newInvocation =
+            CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
+        return await ReplaceNodeAsync(document, root, invocation, newInvocation);
     }
 
     private static IPropertySymbol? FindProperty(ITypeSymbol typeSymbol, string name, bool expectSetter)

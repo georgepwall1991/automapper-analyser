@@ -483,4 +483,71 @@ public class AM011_CodeFixTests
                 0); // Primary fix: default value (0m for decimal)
     }
 
+    [Fact]
+    public async Task AM011_ShouldSuppressFuzzyMatch_WhenBestCandidateIsAmbiguous()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Eamil { get; set; }
+                                        public string Emial { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public required string Email { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Eamil { get; set; }
+                                                 public string Emial { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public required string Email { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Email, opt => opt.MapFrom(src => string.Empty));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM011_UnmappedRequiredPropertyAnalyzer, AM011_UnmappedRequiredPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
+                    .WithLocation(21, 13)
+                    .WithArguments("Email"),
+                expectedFixedCode,
+                0);
+    }
+
 }

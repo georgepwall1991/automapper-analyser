@@ -16,8 +16,8 @@
         <!-- Semantic Versioning: Version is set by release workflow via /p:PackageVersion=X.Y.Z -->
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
-        <MinorVersion>28</MinorVersion>
-        <PatchVersion>2</PatchVersion>
+        <MinorVersion>30</MinorVersion>
+        <PatchVersion>0</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,19 +32,19 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.28.2 - False-positive reduction and code-fix UX improvements
+        <PackageReleaseNotes>Version 2.30.0 - Fixer hardening and safer action selection
 
             Fixes:
-            - Reduced false positives when ConstructUsing or ConvertUsing fully handles AM001, AM002, AM003, AM005, AM020, and AM021 scenarios
-            - Improved ForPath and string-literal member handling so explicit nested configuration suppresses the right diagnostics
-            - Hardened AM031 fixes for overlapping diagnostics, multiple-enumeration caching, and convention-removal suggestions
-            - Improved code-fix presentation with clearer AM011, AM020, AM041, and AM050 action titles and stable equivalence keys
+            - Fixed AM021 queue and stack collection-element conversions to generate compilable constructor-based mappings
+            - Fixed AM001 so multi-diagnostic CreateMap sites register stable per-property actions instead of only the first mismatch
+            - Hardened AM006 and AM011 fuzzy matching to require a unique best candidate before offering speculative mapping actions
+            - Removed AM005 source-property rename suggestions and kept the executable explicit-mapping action only
 
             Validation:
-            - Full solution builds in Debug and Release
-            - Full test suite passing in Release configuration with targeted fixer UI regression coverage
+            - Full solution builds in Release
+            - Full analyzer test suite passing in Release with targeted fixer regression coverage
 
-            Previous Release: v2.28.1 - case-aware mapping suppression and AM021 fixer reliability
+            Previous Release: v2.29.0 - smart primary fix and reduced fixer noise
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

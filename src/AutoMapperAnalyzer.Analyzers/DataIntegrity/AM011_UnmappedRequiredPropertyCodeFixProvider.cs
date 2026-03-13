@@ -42,8 +42,8 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
 
                     if (destinationProperty != null)
                     {
-                        bestFuzzyMatch = FuzzyMatchHelper.FindFuzzyMatches(propertyName, sourceProperties, destinationProperty.Type)
-                            .FirstOrDefault();
+                        bestFuzzyMatch =
+                            FuzzyMatchHelper.FindUniqueBestFuzzyMatch(propertyName, sourceProperties, destinationProperty.Type);
                     }
                 }
 
