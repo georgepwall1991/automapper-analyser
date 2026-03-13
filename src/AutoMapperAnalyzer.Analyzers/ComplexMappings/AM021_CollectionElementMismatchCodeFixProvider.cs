@@ -134,9 +134,16 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
         SemanticModel semanticModel)
     {
         string conversionMethod = GetConversionMethod(destElementType);
-        string collectionMethod = GetCollectionMaterializationMethod(invocation, destinationPropertyName, semanticModel);
-
-        string mapFromExpression = $"src.{sourcePropertyName}.Select(x => {conversionMethod}(x)).{collectionMethod}()";
+        string? mapFromExpression = CreateSimpleConversionExpression(
+            invocation,
+            sourcePropertyName,
+            destinationPropertyName,
+            conversionMethod,
+            semanticModel);
+        if (mapFromExpression == null)
+        {
+            return;
+        }
 
         context.RegisterCodeFix(
             CodeAction.Create(
@@ -190,8 +197,9 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
         {
             newRoot = AddUsingIfMissing(compilationUnit, "System.Linq");
 
-            // Add using System if Convert is used
-            if (mapFromExpression.Contains("Convert."))
+            if (mapFromExpression.Contains("Convert.", StringComparison.Ordinal) ||
+                mapFromExpression.Contains("DateTime.", StringComparison.Ordinal) ||
+                mapFromExpression.Contains("Guid.", StringComparison.Ordinal))
             {
                 newRoot = AddUsingIfMissing((CompilationUnitSyntax)newRoot, "System");
             }
@@ -277,49 +285,58 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
         );
     }
 
-    private static string GetCollectionMaterializationMethod(InvocationExpressionSyntax invocation, string propertyName,
+    private static string? CreateSimpleConversionExpression(
+        InvocationExpressionSyntax invocation,
+        string sourcePropertyName,
+        string destinationPropertyName,
+        string conversionMethod,
         SemanticModel semanticModel)
     {
-        // Get the destination property type to determine the appropriate collection method
         (ITypeSymbol? sourceType, ITypeSymbol? destType) createMapTypes =
             AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
         if (createMapTypes.Item2 == null)
         {
-            return "ToList"; // Default
+            return null;
         }
 
         IPropertySymbol? destProperty = createMapTypes.Item2.GetMembers()
             .OfType<IPropertySymbol>()
-            .FirstOrDefault(p => string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(p => string.Equals(p.Name, destinationPropertyName, StringComparison.OrdinalIgnoreCase));
 
         if (destProperty == null)
         {
-            return "ToList";
+            return null;
         }
 
-        string destTypeName = destProperty.Type.ToDisplayString();
+        string selectExpression = $"src.{sourcePropertyName}.Select(x => {conversionMethod}(x))";
+        string destinationTypeName = destProperty.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
-        if (destTypeName.Contains("HashSet"))
+        if (destProperty.Type.TypeKind == TypeKind.Array)
         {
-            return "ToHashSet";
+            return $"{selectExpression}.ToArray()";
         }
 
-        if (destTypeName.Contains("[]"))
+        if (IsConstructedFromType(destProperty.Type, "System.Collections.Generic.List<T>"))
         {
-            return "ToArray";
+            return $"{selectExpression}.ToList()";
         }
 
-        if (destTypeName.Contains("Stack"))
+        if (IsConstructedFromType(destProperty.Type, "System.Collections.Generic.HashSet<T>"))
         {
-            return "ToList"; // Stack doesn't have ToStack, use ToList + new Stack<T>
+            return $"{selectExpression}.ToHashSet()";
         }
 
-        if (destTypeName.Contains("Queue"))
+        if (IsConstructedFromType(destProperty.Type, "System.Collections.Generic.Queue<T>"))
         {
-            return "ToList"; // Queue doesn't have ToQueue, use ToList + new Queue<T>
+            return $"new {destinationTypeName}({selectExpression})";
         }
 
-        return "ToList";
+        if (IsConstructedFromType(destProperty.Type, "System.Collections.Generic.Stack<T>"))
+        {
+            return $"new {destinationTypeName}({selectExpression})";
+        }
+
+        return null;
     }
 
     private static bool IsSimpleTypeConversion(string sourceElementType, string destElementType)
@@ -433,6 +450,12 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             "Char" => "System.Char",
             _ => normalized
         };
+    }
+
+    private static bool IsConstructedFromType(ITypeSymbol type, string genericDefinitionName)
+    {
+        return type is INamedTypeSymbol namedType &&
+               namedType.OriginalDefinition.ToDisplayString() == genericDefinitionName;
     }
 
     private static string? ExtractPropertyNameFromDiagnostic(Diagnostic diagnostic)

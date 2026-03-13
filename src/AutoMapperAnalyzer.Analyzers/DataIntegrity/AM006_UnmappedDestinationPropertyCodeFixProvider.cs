@@ -48,8 +48,8 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
                         var sourceProperties = AutoMapperAnalysisHelpers
                             .GetMappableProperties(sourceType, requireSetter: false);
 
-                        var bestMatch = FuzzyMatchHelper.FindFuzzyMatches(propertyName, sourceProperties, destPropertySymbol.Type)
-                            .FirstOrDefault();
+                        IPropertySymbol? bestMatch =
+                            FuzzyMatchHelper.FindUniqueBestFuzzyMatch(propertyName, sourceProperties, destPropertySymbol.Type);
 
                         if (bestMatch != null)
                         {

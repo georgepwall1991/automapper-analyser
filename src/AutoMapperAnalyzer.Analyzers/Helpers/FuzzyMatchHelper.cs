@@ -101,4 +101,42 @@ public static class FuzzyMatchHelper
     {
         return candidateProperties.Where(p => IsFuzzyMatchCandidate(targetPropertyName, p, targetPropertyType));
     }
+
+    /// <summary>
+    ///     Finds a single best fuzzy match candidate when there is a unique lowest-distance match.
+    ///     Returns null when there are no compatible candidates or when multiple candidates tie for best score.
+    /// </summary>
+    /// <param name="targetPropertyName">The property name to find a fuzzy match for.</param>
+    /// <param name="candidateProperties">The properties to search for matches.</param>
+    /// <param name="targetPropertyType">The type of the target property, used for compatibility checking.</param>
+    /// <returns>The unique best fuzzy match candidate, or null if the best score is ambiguous.</returns>
+    public static IPropertySymbol? FindUniqueBestFuzzyMatch(
+        string targetPropertyName,
+        IEnumerable<IPropertySymbol> candidateProperties,
+        ITypeSymbol targetPropertyType)
+    {
+        var rankedMatches = candidateProperties
+            .Where(candidate => IsFuzzyMatchCandidate(targetPropertyName, candidate, targetPropertyType))
+            .Select(candidate => new
+            {
+                Candidate = candidate,
+                Distance = ComputeLevenshteinDistance(targetPropertyName, candidate.Name)
+            })
+            .OrderBy(match => match.Distance)
+            .ThenBy(match => match.Candidate.Name, StringComparer.Ordinal)
+            .ToList();
+
+        if (rankedMatches.Count == 0)
+        {
+            return null;
+        }
+
+        int bestDistance = rankedMatches[0].Distance;
+        if (rankedMatches.Count(match => match.Distance == bestDistance) != 1)
+        {
+            return null;
+        }
+
+        return rankedMatches[0].Candidate;
+    }
 }

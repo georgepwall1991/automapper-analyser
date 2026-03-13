@@ -5,7 +5,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Rename;
 
 namespace AutoMapperAnalyzer.Analyzers.DataIntegrity;
 
@@ -66,44 +65,6 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : AutoMapperCodeFixPro
                 $"ExplicitMapping_{sourcePropertyName}_{destinationPropertyName}");
 
             context.RegisterCodeFix(explicitMappingAction, diagnostic);
-
-            // Fix 2: Rename source property when it is editable in source.
-            var sourcePropertySymbol = FindSourcePropertySymbol(
-                invocation,
-                operationContext.SemanticModel,
-                sourcePropertyName);
-            if (sourcePropertySymbol?.Locations.Any(location => location.IsInSource) == true)
-            {
-                var renameAction = CodeAction.Create(
-                    $"Rename source property '{sourcePropertyName}' to '{destinationPropertyName}'",
-                    cancellationToken =>
-                        Renamer.RenameSymbolAsync(
-                            context.Document.Project.Solution,
-                            sourcePropertySymbol,
-                            new SymbolRenameOptions(),
-                            destinationPropertyName,
-                            cancellationToken),
-                    $"Rename_{sourcePropertyName}_{destinationPropertyName}");
-
-                context.RegisterCodeFix(renameAction, diagnostic);
-            }
         }
-    }
-
-    private static IPropertySymbol? FindSourcePropertySymbol(
-        InvocationExpressionSyntax createMapInvocation,
-        SemanticModel semanticModel,
-        string sourcePropertyName)
-    {
-        (ITypeSymbol? sourceType, ITypeSymbol? _) =
-            MappingChainAnalysisHelper.GetCreateMapTypeArguments(createMapInvocation, semanticModel);
-        if (sourceType == null)
-        {
-            return null;
-        }
-
-        return AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false)
-            .FirstOrDefault(property =>
-                string.Equals(property.Name, sourcePropertyName, StringComparison.OrdinalIgnoreCase));
     }
 }
