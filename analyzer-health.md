@@ -60,16 +60,16 @@ The next improvement batch should focus on rules where user impact and health ga
 
 - Public docs are useful but drift from implementation in several places. `AM004` and `AM005` remain obvious severity/wording mismatches between descriptors, README tables, and rule docs, while `AM002` has been realigned with its shipped Error/Info descriptors.
 - Analyzer ownership is a real strength. The conflict tests and shared helpers make `AM001`/`AM002`/`AM003`/`AM020`/`AM021` boundaries much healthier than a file-count audit would suggest.
-- The project has no generated rule catalog health contract like LinqContraband's catalog tooling. Rule metadata is distributed across descriptors, README, docs, samples, and the manual `AnalyzerVerifier`.
+- The project now has a checked-in `RuleCatalog` health contract that ties rule IDs to descriptors, fixers, docs anchors, sample paths, and fixer trust levels.
 - Diagnostic placement is generally at the mapping invocation or mapping lambda, not always the precise property/member token. That is acceptable for many AutoMapper configuration rules, but high-volume rules benefit from tighter placement when practical.
-- Several fixers intentionally produce advisory/default mapping scaffolds. That is fine, but docs should distinguish "safe executable rewrite" from "starter mapping the developer must review."
+- Several fixers intentionally produce advisory/default mapping scaffolds. That is fine, and docs/code-action titles now distinguish "safe executable rewrite" from "starter mapping the developer must review."
 
 ## Verification Baseline
 
-Architecture-style coverage currently comes from analyzer/fixer tests, conflict ownership tests, helper tests, sample projects, documentation, and the manual `tools/AnalyzerVerifier` project. There is no checked-in rule-catalog generator or sample diagnostics verifier equivalent to the LinqContraband baseline.
+Architecture-style coverage currently comes from analyzer/fixer tests, conflict ownership tests, helper tests, sample projects, documentation, the checked-in `RuleCatalog`, and the manual `tools/AnalyzerVerifier` project.
 
 Current local verification:
 
-- `/opt/homebrew/bin/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 644 passed, 8 skipped, 0 failed.
-- The restore/test run reported existing warnings worth tracking: AutoMapper 14.0.0 has advisory `GHSA-rvv3-g6hj-g44x`, several analyzer packaging/test-infrastructure warnings are present, and skipped-test warnings cover AM001, AM031, and AM050 scenarios.
+- `/opt/homebrew/bin/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 656 passed, 0 skipped, 0 failed.
+- The trust-first pass removed active skipped tests, added drift validation, and moved intentional analyzer-test warnings into an explicit test-project warning baseline.
 - `/opt/homebrew/bin/dotnet --list-runtimes` shows only .NET 10 runtimes in this local environment, so broader runtime verification remains blocked by missing .NET 8 and .NET 9 runtimes.

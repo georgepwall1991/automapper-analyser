@@ -1,15 +1,15 @@
 # Test Limitations
 
-This document tracks known test limitations referenced by `[Fact(Skip = ...)]` messages.
+This project should not carry silent skipped tests. Historical `[Fact(Skip = ...)]` cases have been converted into one of:
 
-1. **Field/dependency type resolution in analyzer tests**
-   Some scenarios that rely on injected service fields (for example `_db`, `_service`) are difficult to model reliably in current analyzer test harness setups and can produce unstable symbol resolution.
+- normal regression tests when the harness can now model the scenario;
+- negative tests when the old skipped case described invalid analyzer behavior;
+- documented warning-baseline entries in `docs/WARNING_BASELINE.md` when the limitation belongs to analyzer-test scaffolding rather than production analyzer behavior.
 
-2. **Code-fix context span/registration constraints**
-   Some Roslyn testing combinations reject otherwise valid code-fix registrations when diagnostics are reported on larger spans or chain expressions. These scenarios are avoided in current integration tests until harness behavior is standardized.
+Known harness caveats remain documented in the test project warning baseline:
 
-3. **AM001 advanced expression-tree conversion patterns**
-   Certain string-to-numeric conversion patterns and multi-diagnostic coordination paths are not consistently fixable in a deterministic single-pass code-fix test; those cases remain skipped until analyzer/fixer coordination is refactored.
+- analyzer-test helper types intentionally trigger Roslyn analyzer-authoring warnings;
+- trust validation tests intentionally read repository files;
+- AutoMapper 14 remains pinned for compatibility coverage while AutoMapper 15 introduces licensing/API changes.
 
-4. **Invalid-converter and compiler-error co-reporting**
-   Tests that intentionally create invalid converter implementations may emit both analyzer diagnostics and compiler errors, requiring explicit dual-diagnostic expectations and careful harness setup.
+The full suite is expected to run with `0` skipped tests.

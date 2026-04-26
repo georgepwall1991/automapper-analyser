@@ -16,8 +16,10 @@ namespace AutoMapperAnalyzer.Analyzers.DataIntegrity;
 [Shared]
 public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixProviderBase
 {
+    /// <inheritdoc />
     public override ImmutableArray<string> FixableDiagnosticIds => ["AM011"];
 
+    /// <inheritdoc />
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         await ProcessDiagnosticsAsync(
@@ -67,7 +69,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
                     string defaultValue = TypeConversionHelper.GetDefaultValueForType(propertyType);
                     ctx.RegisterCodeFix(
                         CodeAction.Create(
-                            $"Map '{propertyName}' to default value ({defaultValue})",
+                            $"Scaffold default mapping for '{propertyName}' ({defaultValue})",
                             cancellationToken =>
                             {
                                 var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
@@ -81,7 +83,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
                 // Option 2 (fallback): Ignore
                 ctx.RegisterCodeFix(
                     CodeAction.Create(
-                        $"Ignore required property '{propertyName}'",
+                        $"Ignore required property '{propertyName}' (manual review)",
                         cancellationToken =>
                         {
                             var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);

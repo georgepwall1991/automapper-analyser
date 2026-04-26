@@ -5,7 +5,7 @@ namespace AutoMapperAnalyzer.Tests.Performance;
 
 public class AM031_PerformanceWarningTests
 {
-    [Fact(Skip = "Test framework limitation: field type resolution - see docs/TEST_LIMITATIONS.md #1")]
+    [Fact]
     public async Task AM031_ShouldReportDiagnostic_WhenDatabaseCallInMapFrom()
     {
         const string testCode = """
@@ -52,7 +52,7 @@ public class AM031_PerformanceWarningTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule, 35, 102,
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule, 35, 72,
                 "OrderCount", "database query")
             .RunAsync();
     }
@@ -411,7 +411,7 @@ public class AM031_PerformanceWarningTests
             .RunAsync();
     }
 
-    [Fact(Skip = "Test framework limitation: field type resolution - see docs/TEST_LIMITATIONS.md #1")]
+    [Fact]
     public async Task AM031_ShouldReportDiagnostic_WhenTaskResultUsedInMapFrom()
     {
         const string testCode = """

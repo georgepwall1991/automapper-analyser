@@ -38,12 +38,12 @@ jobs:
       - name: Build analyzer (with CodeFixes)
         run: |
           echo "Building unified analyzer package (includes CodeFixes)..."
-          dotnet build src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-restore --configuration Release
+          dotnet build src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-restore --configuration Release -warnaserror
 
       - name: Build test project
         run: |
           echo "Building test project..."
-          dotnet build tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --configuration Release
+          dotnet build tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --configuration Release -warnaserror
 
       - name: Run unit tests with code coverage
         run: |
@@ -85,10 +85,16 @@ jobs:
       - name: Build unified analyzer package
         run: |
           # Build unified analyzer (includes CodeFixes)
-          dotnet build src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-restore --configuration Release
+          dotnet build src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-restore --configuration Release -warnaserror
 
       - name: Pack unified analyzer
         run: dotnet pack src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-build --configuration Release --output ./packages
+
+      - name: Verify package contents
+        run: |
+          unzip -l ./packages/*.nupkg | grep -E "analyzers/dotnet/cs/AutoMapperAnalyzer.Analyzers.dll"
+          unzip -l ./packages/*.nupkg | grep -E "README.md"
+          unzip -l ./packages/*.nupkg | grep -E "icon.png"
 
       - name: Upload packages as artifacts
         uses: actions/upload-artifact@v4

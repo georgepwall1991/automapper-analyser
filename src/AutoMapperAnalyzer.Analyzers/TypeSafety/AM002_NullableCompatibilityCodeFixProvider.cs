@@ -73,7 +73,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
             // Option 1: Map with default value
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    $"Map '{propertyName}' with default value ({defaultValue})",
+                    $"Scaffold default mapping for '{propertyName}' ({defaultValue})",
                     cancellationToken => AddMapFromAsync(context.Document, invocation, propertyName!,
                         $"src.{propertyName} ?? {defaultValue}", cancellationToken),
                     $"AM002_DefaultValue_{propertyName}"),
@@ -82,7 +82,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
             // Option 2: Ignore property
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    $"Ignore property '{propertyName}'",
+                    $"Ignore property '{propertyName}' (manual review)",
                     cancellationToken => AddIgnoreAsync(context.Document, invocation, propertyName!, cancellationToken),
                     $"AM002_Ignore_{propertyName}"),
                 diagnostic);

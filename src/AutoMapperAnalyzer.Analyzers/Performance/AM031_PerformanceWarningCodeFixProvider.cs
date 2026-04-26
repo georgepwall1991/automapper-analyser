@@ -140,7 +140,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
     {
         context.RegisterCodeFix(
             CodeAction.Create(
-                $"Ignore mapping for '{propertyName}'",
+                $"Ignore mapping for '{propertyName}' (manual review)",
                 cancellationToken => ReplaceWithIgnoreAsync(
                     context.Document,
                     root,

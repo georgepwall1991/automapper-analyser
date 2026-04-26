@@ -8,6 +8,8 @@
         <IsTestProject>true</IsTestProject>
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+        <!-- Managed warning baseline for analyzer-test harness scaffolding and pinned AutoMapper 14 compatibility. -->
+        <NoWarn>$(NoWarn);NU1903;RS1035;RS1038;RS1041;RS2008;CA1305;CA1861</NoWarn>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="coverlet.collector" Version="6.0.4">

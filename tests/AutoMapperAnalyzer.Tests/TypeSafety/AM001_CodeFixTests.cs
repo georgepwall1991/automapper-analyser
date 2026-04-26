@@ -147,7 +147,7 @@ public class AM001_CodeFixTests
                 expectedFixedCode);
     }
 
-    [Fact(Skip = "Analyzer limitation: expression tree patterns - see docs/TEST_LIMITATIONS.md #3")]
+    [Fact]
     public async Task AM001_ShouldFixStringToIntConversionWithParse()
     {
         const string testCode = """
@@ -245,9 +245,9 @@ public class AM001_CodeFixTests
         Assert.Collection(
             actions.Select(action => action.Title),
             title => Assert.Equal("Map 'Age' with conversion", title),
-            title => Assert.Equal("Ignore property 'Age'", title),
+            title => Assert.Equal("Ignore property 'Age' (manual review)", title),
             title => Assert.Equal("Map 'Score' with conversion", title),
-            title => Assert.Equal("Ignore property 'Score'", title));
+            title => Assert.Equal("Ignore property 'Score' (manual review)", title));
 
         string updatedCode = await ApplyActionAsync(actions[0], document);
         Assert.Contains(".ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString()))", updatedCode,
