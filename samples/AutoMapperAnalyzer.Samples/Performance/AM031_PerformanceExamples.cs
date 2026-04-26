@@ -110,6 +110,28 @@ public class AM031_PerformanceExamples
     }
 
     /// <summary>
+    ///     AM031: Expensive Computation in MapFrom
+    ///     This should trigger the expensive-computation AM031 descriptor
+    /// </summary>
+    public void ExpensiveComputationExample()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.CreateMap<PrimeCandidate, PrimeCandidateDto>()
+                // ❌ AM031: Prime checking does too much work inside mapping
+                .ForMember(dest => dest.IsPrime,
+                    opt => opt.MapFrom(src =>
+                        src.Number > 1 && !Enumerable.Range(2, (int)Math.Sqrt(src.Number) - 1)
+                            .Any(i => src.Number % i == 0)));
+        });
+
+        var mapper = config.CreateMapper();
+        var candidate = new PrimeCandidate { Id = 1, Number = 97 };
+
+        Console.WriteLine("❌ Expensive computation detected - calculate before mapping!");
+    }
+
+    /// <summary>
     ///     AM031: Task.Result Synchronous Access
     ///     This should trigger AM031 diagnostic
     /// </summary>
@@ -310,6 +332,18 @@ public class SalesReportDto
 {
     public int Id { get; set; }
     public double TotalWithAverage { get; set; }
+}
+
+public class PrimeCandidate
+{
+    public int Id { get; set; }
+    public int Number { get; set; }
+}
+
+public class PrimeCandidateDto
+{
+    public int Id { get; set; }
+    public bool IsPrime { get; set; }
 }
 
 public class AsyncDataService

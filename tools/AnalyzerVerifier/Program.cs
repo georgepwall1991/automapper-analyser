@@ -8,6 +8,7 @@ using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.MSBuild;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AnalyzerVerifier;
 
@@ -152,6 +153,8 @@ internal static class Program
 
         using var workspace = MSBuildWorkspace.Create();
         Project project = await workspace.OpenProjectAsync(projectPath);
+        project = await AddAnalyzerOnlySampleDocumentsAsync(project, repoRoot);
+
         Compilation? compilation = await project.GetCompilationAsync();
         if (compilation == null)
         {
@@ -183,6 +186,40 @@ internal static class Program
             .ThenBy(snapshot => snapshot.Column)
             .ThenBy(snapshot => snapshot.Message, StringComparer.Ordinal)
             .ToArray();
+    }
+
+    private static async Task<Project> AddAnalyzerOnlySampleDocumentsAsync(Project project, string repoRoot)
+    {
+        string analyzerOnlyDirectory = Path.Combine(
+            repoRoot,
+            "samples",
+            "AutoMapperAnalyzer.Samples",
+            "AnalyzerOnly");
+
+        if (!Directory.Exists(analyzerOnlyDirectory))
+        {
+            return project;
+        }
+
+        foreach (string filePath in Directory
+                     .EnumerateFiles(analyzerOnlyDirectory, "*.cs", SearchOption.AllDirectories)
+                     .OrderBy(filePath => Path.GetRelativePath(repoRoot, filePath), StringComparer.Ordinal))
+        {
+            string source = await File.ReadAllTextAsync(filePath, Utf8NoBom);
+            string relativeDirectory = Path.GetRelativePath(analyzerOnlyDirectory, Path.GetDirectoryName(filePath)!);
+            string[] folders = relativeDirectory == "."
+                ? ["AnalyzerOnly"]
+                : ["AnalyzerOnly", .. relativeDirectory.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)];
+
+            project = project.AddDocument(
+                    Path.GetFileName(filePath),
+                    SourceText.From(source, Encoding.UTF8),
+                    folders,
+                    filePath)
+                .Project;
+        }
+
+        return project;
     }
 
     private static DiagnosticSnapshot ToSnapshot(

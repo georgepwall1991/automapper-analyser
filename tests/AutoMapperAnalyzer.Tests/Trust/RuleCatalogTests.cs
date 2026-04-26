@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -78,6 +79,47 @@ public partial class RuleCatalogTests
                 File.Exists(Path.Combine(repoRoot, rule.SamplePath)),
                 $"{rule.RuleId} sample path does not exist: {rule.SamplePath}");
         }
+    }
+
+    [Fact]
+    public void SampleDiagnosticsSnapshot_ShouldCoverEveryCatalogDescriptor()
+    {
+        string repoRoot = GetRepositoryRoot();
+        string snapshotPath = Path.Combine(
+            repoRoot,
+            "tests",
+            "AutoMapperAnalyzer.Tests",
+            "Snapshots",
+            "sample-diagnostics.json");
+
+        using JsonDocument snapshot = JsonDocument.Parse(File.ReadAllText(snapshotPath));
+        HashSet<DescriptorCoverageSnapshot> coveredDescriptors = snapshot.RootElement
+            .EnumerateArray()
+            .Select(element => new DescriptorCoverageSnapshot(
+                element.GetProperty("ruleId").GetString()!,
+                element.GetProperty("title").GetString()!,
+                element.GetProperty("category").GetString()!))
+            .ToHashSet();
+
+        DescriptorCoverageSnapshot[] missingDescriptors = RuleCatalog.Rules
+            .SelectMany(rule => rule.Descriptors.Select(descriptor => new DescriptorCoverageSnapshot(
+                rule.RuleId,
+                descriptor.Title.ToString(CultureInfo.InvariantCulture),
+                descriptor.Category)))
+            .Distinct()
+            .Where(descriptor => !coveredDescriptors.Contains(descriptor))
+            .OrderBy(descriptor => descriptor.RuleId, StringComparer.Ordinal)
+            .ThenBy(descriptor => descriptor.Title, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.True(
+            missingDescriptors.Length == 0,
+            "Sample diagnostics snapshot must cover every shipped catalog descriptor. Missing:"
+            + Environment.NewLine
+            + string.Join(
+                Environment.NewLine,
+                missingDescriptors.Select(descriptor =>
+                    $"{descriptor.RuleId} | {descriptor.Category} | {descriptor.Title}")));
     }
 
     [Fact]
@@ -231,4 +273,9 @@ public partial class RuleCatalogTests
         string Description,
         string HelpLinkUri,
         string CustomTags);
+
+    private sealed record DescriptorCoverageSnapshot(
+        string RuleId,
+        string Title,
+        string Category);
 }
