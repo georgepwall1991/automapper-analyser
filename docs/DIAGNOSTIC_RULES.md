@@ -753,7 +753,8 @@ dotnet_diagnostic.AM021.severity = warning
 
 #### Description
 
-Detects circular reference patterns in object graphs that can cause stack overflow without `MaxDepth` configuration.
+Detects circular reference patterns in convention-mapped object graphs that can cause stack overflow without `MaxDepth`
+configuration.
 
 #### Problem
 
@@ -820,7 +821,8 @@ CreateMap<SourcePerson, DestinationPerson>()
 
 #### Indirect Cycles
 
-Also detects indirect circular references:
+Also detects indirect circular references when the cycle is reachable through matching source and destination member
+names:
 
 ```csharp
 public class SourceA { public SourceB RelatedB { get; set; } }
@@ -838,6 +840,10 @@ public class MappingProfile : Profile
     }
 }
 ```
+
+AM022 is intentionally conservative: unrelated cycles on the source and destination types do not report unless the
+recursive member path is actually convention-mapped. Ignoring the top-level recursive destination member with
+`ForMember(..., opt => opt.Ignore())` or `ForPath(..., opt => opt.Ignore())` also suppresses the diagnostic.
 
 #### Configuration
 
