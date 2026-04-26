@@ -258,13 +258,6 @@ public class NullUnsafeStringToGuidConverter : ITypeConverter<string?, Guid>
 }
 
 /// <summary>
-///     Example of an invalid converter implementation (for AM030 descriptor coverage)
-/// </summary>
-public abstract class MissingConvertStringToDateTimeConverter : ITypeConverter<string, DateTime>
-{
-}
-
-/// <summary>
 ///     Example of a proper scalar ITypeConverter implementation
 /// </summary>
 public class SafeStringToDateTimeScalarConverter : ITypeConverter<string?, DateTime>

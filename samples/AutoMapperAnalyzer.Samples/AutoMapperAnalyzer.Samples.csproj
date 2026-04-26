@@ -15,6 +15,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Compile Remove="AnalyzerOnly/**/*.cs"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="../../src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
     </ItemGroup>
 

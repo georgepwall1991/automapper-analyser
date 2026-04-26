@@ -871,23 +871,34 @@
   {
     "ruleId": "AM030",
     "severity": "Warning",
+    "title": "Invalid type converter implementation",
+    "category": "AutoMapper.Converters",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/AnalyzerOnly/AM030_InvalidConverterImplementation.cs",
+    "line": 8,
+    "column": 14,
+    "message": "Type converter 'MissingConvertStringToDateTimeConverter' does not properly implement ITypeConverter<String, DateTime> or has invalid Convert method signature",
+    "fixTrustLevel": "LikelyRewrite"
+  },
+  {
+    "ruleId": "AM030",
+    "severity": "Warning",
+    "title": "Type converter is defined but not used in mapping configuration",
+    "category": "AutoMapper.Converters",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/AnalyzerOnly/AM030_InvalidConverterImplementation.cs",
+    "line": 8,
+    "column": 14,
+    "message": "Type converter 'MissingConvertStringToDateTimeConverter' is defined but not used in any CreateMap configuration",
+    "fixTrustLevel": "LikelyRewrite"
+  },
+  {
+    "ruleId": "AM030",
+    "severity": "Warning",
     "title": "Type converter may not handle null values properly",
     "category": "AutoMapper.Converters",
     "filePath": "samples/AutoMapperAnalyzer.Samples/Conversions/TypeConverterExamples.cs",
     "line": 253,
     "column": 17,
     "message": "Converter for 'NullUnsafeStringToGuidConverter' may not handle null values. Source type 'String' is nullable but converter doesn't check for null.",
-    "fixTrustLevel": "LikelyRewrite"
-  },
-  {
-    "ruleId": "AM030",
-    "severity": "Warning",
-    "title": "Invalid type converter implementation",
-    "category": "AutoMapper.Converters",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/Conversions/TypeConverterExamples.cs",
-    "line": 263,
-    "column": 23,
-    "message": "Type converter 'MissingConvertStringToDateTimeConverter' does not properly implement ITypeConverter<String, DateTime> or has invalid Convert method signature",
     "fixTrustLevel": "LikelyRewrite"
   },
   {
