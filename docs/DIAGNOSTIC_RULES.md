@@ -808,14 +808,21 @@ CreateMap<SourcePerson, DestinationPerson>()
     .MaxDepth(3);  // ✅ Limits recursion depth
 ```
 
-**Option 2: Ignore Circular Property**
+**Option 2: Preserve References**
+
+```csharp
+CreateMap<SourcePerson, DestinationPerson>()
+    .PreserveReferences();  // ✅ Reuses already-mapped references
+```
+
+**Option 3: Ignore Circular Property**
 
 ```csharp
 CreateMap<SourcePerson, DestinationPerson>()
     .ForMember(dest => dest.Friend, opt => opt.Ignore());
 ```
 
-**Option 3: Implement Custom Resolution**
+**Option 4: Implement Custom Resolution**
 
 ```csharp
 CreateMap<SourcePerson, DestinationPerson>()
@@ -858,8 +865,11 @@ public class MappingProfile : Profile
 ```
 
 AM022 is intentionally conservative: unrelated cycles on the source and destination types do not report unless the
-recursive member path is actually convention-mapped. Ignoring the top-level recursive destination member with
-`ForMember(..., opt => opt.Ignore())` or `ForPath(..., opt => opt.Ignore())` also suppresses the diagnostic.
+recursive member path is actually convention-mapped and each indirect nested type pair has a configured `CreateMap`
+that AutoMapper can use for recursion. Ignoring the top-level recursive destination member with
+`ForMember(..., opt => opt.Ignore())` or `ForPath(..., opt => opt.Ignore())` suppresses the diagnostic. Forward
+`MaxDepth`, `PreserveReferences`, `ConstructUsing`, and `ConvertUsing` configuration also suppress AM022 because those
+mapping shapes own recursion behavior explicitly.
 
 #### Configuration
 
@@ -1272,7 +1282,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.6">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.7">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>

@@ -73,15 +73,22 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
 
         InvocationExpressionSyntax? reverseMapInvocation =
             AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocationExpr);
+        CreateMapRegistry createMapRegistry = CreateMapRegistry.FromCompilation(context.Compilation);
 
-        // Check if MaxDepth is configured or circular properties are ignored
+        // Check if recursion is constrained or the mapping body is custom-owned.
         if (
             HasMaxDepthConfiguration(invocationExpr, reverseMapInvocation)
+            || HasPreserveReferencesConfiguration(invocationExpr, reverseMapInvocation)
+            || MappingChainAnalysisHelper.HasCustomConstructionOrConversion(
+                invocationExpr,
+                context.SemanticModel,
+                stopAtReverseMapBoundary: true)
             || HasCircularPropertyIgnored(
                 invocationExpr,
                 typeArguments.sourceType as INamedTypeSymbol,
                 typeArguments.destinationType as INamedTypeSymbol,
-                reverseMapInvocation
+                reverseMapInvocation,
+                createMapRegistry
             )
         )
         {
@@ -93,7 +100,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             context,
             invocationExpr,
             typeArguments.sourceType,
-            typeArguments.destinationType
+            typeArguments.destinationType,
+            createMapRegistry
         );
     }
 
@@ -123,11 +131,36 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
+    private static bool HasPreserveReferencesConfiguration(
+        InvocationExpressionSyntax invocation,
+        InvocationExpressionSyntax? reverseMapInvocation
+    )
+    {
+        SyntaxNode? parent = invocation.Parent;
+        while (parent != null)
+        {
+            if (
+                parent is InvocationExpressionSyntax chainedCall
+                && chainedCall.Expression is MemberAccessExpressionSyntax memberAccess
+                && memberAccess.Name.Identifier.ValueText == "PreserveReferences"
+                && AppliesToForwardDirection(chainedCall, reverseMapInvocation)
+            )
+            {
+                return true;
+            }
+
+            parent = parent.Parent;
+        }
+
+        return false;
+    }
+
     private static bool HasCircularPropertyIgnored(
         InvocationExpressionSyntax invocation,
         INamedTypeSymbol? sourceType,
         INamedTypeSymbol? destinationType,
-        InvocationExpressionSyntax? reverseMapInvocation
+        InvocationExpressionSyntax? reverseMapInvocation,
+        CreateMapRegistry createMapRegistry
     )
     {
         if (sourceType == null || destinationType == null)
@@ -136,7 +169,10 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         }
 
         HashSet<string> ignoredProperties = GetIgnoredProperties(invocation, reverseMapInvocation);
-        HashSet<string> selfReferencingDestProperties = FindRecursiveDestinationProperties(sourceType, destinationType);
+        HashSet<string> selfReferencingDestProperties = FindRecursiveDestinationProperties(
+            sourceType,
+            destinationType,
+            createMapRegistry);
         if (
             selfReferencingDestProperties.Count > 0
             && selfReferencingDestProperties.All(prop => ignoredProperties.Contains(prop))
@@ -235,7 +271,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         ITypeSymbol? sourceType,
-        ITypeSymbol? destinationType
+        ITypeSymbol? destinationType,
+        CreateMapRegistry createMapRegistry
     )
     {
         if (sourceType == null || destinationType == null)
@@ -258,7 +295,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         }
 
         // Check for circular references reachable through convention-mapped member paths.
-        if (HasMappedCircularReference(sourceType, destinationType))
+        if (HasMappedCircularReference(sourceType, destinationType, createMapRegistry))
         {
             var diagnostic = Diagnostic.Create(
                 InfiniteRecursionRiskRule,
@@ -295,7 +332,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
 
     private static HashSet<string> FindRecursiveDestinationProperties(
         INamedTypeSymbol sourceType,
-        INamedTypeSymbol destinationType
+        INamedTypeSymbol destinationType,
+        CreateMapRegistry createMapRegistry
     )
     {
         var recursiveProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -318,6 +356,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                     sourcePropertyType,
                     destinationPropertyType,
                     new HashSet<string>(visited, StringComparer.Ordinal),
+                    createMapRegistry,
                     1,
                     10
                 )
@@ -332,7 +371,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
 
     private static bool HasMappedCircularReference(
         ITypeSymbol? sourceType,
-        ITypeSymbol? destinationType
+        ITypeSymbol? destinationType,
+        CreateMapRegistry createMapRegistry
     )
     {
         if (sourceType == null || destinationType == null)
@@ -341,13 +381,14 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         }
 
         var visited = new HashSet<string>(StringComparer.Ordinal);
-        return HasMappedCircularReferenceRecursive(sourceType, destinationType, visited, 0, 10);
+        return HasMappedCircularReferenceRecursive(sourceType, destinationType, visited, createMapRegistry, 0, 10);
     }
 
     private static bool HasMappedCircularReferenceRecursive(
         ITypeSymbol? currentSourceType,
         ITypeSymbol? currentDestinationType,
         HashSet<string> visited,
+        CreateMapRegistry createMapRegistry,
         int depth,
         int maxDepth
     )
@@ -379,10 +420,19 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             }
 
             if (
+                !IsSameTypePair(sourcePropertyType, destinationPropertyType, currentSourceType, currentDestinationType)
+                && !createMapRegistry.Contains(sourcePropertyType, destinationPropertyType)
+            )
+            {
+                continue;
+            }
+
+            if (
                 HasMappedCircularReferenceRecursive(
                     sourcePropertyType,
                     destinationPropertyType,
                     new HashSet<string>(visited, StringComparer.Ordinal),
+                    createMapRegistry,
                     depth + 1,
                     maxDepth
                 )
@@ -428,6 +478,16 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
     private static ITypeSymbol UnwrapCollectionElementType(ITypeSymbol type)
     {
         return AutoMapperAnalysisHelpers.GetCollectionElementType(type) ?? type;
+    }
+
+    private static bool IsSameTypePair(
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType,
+        ITypeSymbol currentSourceType,
+        ITypeSymbol currentDestinationType)
+    {
+        return SymbolEqualityComparer.Default.Equals(sourceType, currentSourceType)
+               && SymbolEqualityComparer.Default.Equals(destinationType, currentDestinationType);
     }
 
     private static string GetTypePairKey(ITypeSymbol sourceType, ITypeSymbol destinationType)
