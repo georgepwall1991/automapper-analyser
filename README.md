@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-637%20passing%2C%208%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-638%20passing%2C%208%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,25 +14,26 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.1
+## 🎉 Latest Release: v2.30.2
 
-**AM002 Nullability Contract Alignment — descriptor-accurate docs and edge-case coverage**
+**AM003 Assignable Collection Boundary — quieter container diagnostics for safe collection contracts**
 
 ✅ **Highlights**
 
-- Aligned AM002 documentation with its real descriptor split: nullable source to non-nullable destination is `Error`, and non-nullable source to nullable destination is `Info`.
-- Added AM002 boundary coverage for oblivious reference nullability so disabled nullable annotations do not create noisy reference-type diagnostics.
-- Added AM002 regression coverage proving nullable value types remain protected even when nullable reference annotations are disabled.
-- Updated the analyzer health audit and rule coverage table so release docs match shipped behavior.
+- Hardened AM003 so source collections that already satisfy the destination contract no longer require explicit mapping.
+- Added AM003 coverage for array-to-interface and set-to-read-only-interface shapes.
+- Kept AM003 ownership focused on real container conversions while preserving AM021 ownership of element mismatches.
+- Updated rule docs and analyzer health status to document the safe assignable boundary.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `637` passing and `8` skipped.
-- Release validation covered targeted AM002 regressions plus full solution verification before tagging.
+- Full test suite passed with `638` passing and `8` skipped.
+- Release validation covered targeted AM003 regressions plus full solution verification before tagging.
 
 ### Recent Releases
 
+- **v2.30.1**: AM002 nullability contract alignment with descriptor-accurate docs and nullable-context regression coverage.
 - **v2.30.0**: Fixer hardening for AM001, AM005, AM006, AM011, and AM021 with safer action selection.
 - **v2.29.0**: Smart primary fix and reduced fixer noise across the main data-integrity fixers.
 - **v2.28.2**: False-positive reduction, fixer UX improvements, and release workflow hardening.
@@ -169,7 +170,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.1">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.2">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -363,6 +364,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ### Recently Completed ✅
 
+- **v2.30.2**: AM003 assignable collection boundary suppression with targeted regression coverage
 - **v2.30.1**: AM002 nullability contract alignment with descriptor-accurate docs and nullable-context regression coverage
 - **v2.30.0**: Fixer hardening for AM001, AM005, AM006, AM011, and AM021 with safer action selection
 - **v2.29.0**: Smart Primary Fix — reduced fixer noise to max 2 lightbulb options per diagnostic

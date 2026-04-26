@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>1</PatchVersion>
+        <PatchVersion>2</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.1 - AM002 nullability contract alignment
+        <PackageReleaseNotes>Version 2.30.2 - AM003 assignable collection boundary
 
             Changed:
-            - Aligned AM002 docs with its descriptor split: nullable source to non-nullable destination is Error, non-nullable source to nullable destination is Info
-            - Added AM002 nullable-context regression coverage for oblivious reference types and nullable value types
-            - Updated analyzer health and README coverage metadata for the shipped rule severities
+            - Hardened AM003 collection-container diagnostics so implicitly assignable source collections do not require unnecessary explicit mapping
+            - Added AM003 regression coverage for array-to-interface and set-to-read-only-interface collection shapes
+            - Updated AM003 rule docs and analyzer health status to document the safe assignable boundary
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM002 regression coverage
+            - Full solution test suite passing on net10.0 with targeted AM003 regression coverage
             - git diff --check clean
 
-            Previous Release: v2.30.0 - fixer hardening and safer action selection
+            Previous Release: v2.30.1 - AM002 nullability contract alignment
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

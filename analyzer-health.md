@@ -33,7 +33,7 @@ Priority is a planning signal: `High` means the analyzer is important and has me
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
 | AM001 | Property type mismatch | Type Safety | Error | 4 | 4 | 4 | 4 | 4 | 5 | Low | Strong semantic AutoMapper gating, ownership handoff to AM002/AM020/AM021, and solid fixer coverage; remaining gaps are mostly advanced conversion semantics and richer compile-time conversion modeling. |
 | AM002 | Nullable compatibility issue | Type Safety | Error/Info | 4 | 4 | 4 | 5 | 4 | 5 | Low | Descriptor-accurate docs now call out the Error/Info split, and regression tests cover oblivious reference nullability plus nullable value types in disabled nullable contexts. Remaining opportunities are advanced generic/nullability-flow semantics. |
-| AM003 | Collection type incompatibility | Type Safety | Error | 3 | 4 | 4 | 4 | 4 | 4 | Medium | The ownership split with AM021 is well tested, but collection-container knowledge is still a curated heuristic around common containers rather than a broad AutoMapper collection-conversion model. |
+| AM003 | Collection type incompatibility | Type Safety | Error | 4 | 4 | 4 | 5 | 4 | 4 | Low | Now suppresses container diagnostics when the source collection is implicitly assignable to the destination contract, with regression coverage for array/interface and set/read-only interface shapes. Remaining opportunities are broader custom/immutable collection semantics. |
 | AM004 | Source property has no corresponding destination property | Data Integrity | Warning | 4 | 4 | 4 | 5 | 4 | 5 | Low | One of the strongest rules: reverse maps, records, inheritance, flattening, ctor params, custom construction, and fixer behavior have extensive coverage. Keep docs aligned because README/rule docs still imply older severity language in spots. |
 | AM005 | Property names differ only in casing | Data Integrity | Warning | 4 | 4 | 4 | 4 | 3 | 3 | Low | Focused and reasonably conservative with explicit mapping, source ignore, reverse-map, and executable fixer tests; docs/samples understate current Warning severity and should better explain intentional naming policies. |
 | AM006 | Destination property is not mapped | Data Integrity | Info | 4 | 4 | 4 | 4 | 4 | 4 | Low | Solid non-required counterpart to AM011 with flattening, reverse-map, ForPath, lookalike API, fuzzy-match, and bulk-ignore coverage; analyzer test count is lighter than AM004 but the risk is lower. |
@@ -53,8 +53,8 @@ The next improvement batch should focus on rules where user impact and health ga
 | Priority | Rules | Work |
 | --- | --- | --- |
 | High | None | No implemented rule currently looks both high-impact and unhealthy enough to demand urgent intervention before normal release work. |
-| Medium | AM003, AM011, AM022, AM030, AM031 | Expand collection/converter/performance boundary tests, and make manual-vs-executable fixer expectations explicit in docs. |
-| Low | AM001, AM002, AM004, AM005, AM006, AM020, AM021, AM041, AM050 | Treat as currently acceptable, reference examples, or low-impact cleanup rules. Improve opportunistically when touching nearby code. |
+| Medium | AM011, AM022, AM030, AM031 | Expand required-member/converter/performance boundary tests, and make manual-vs-executable fixer expectations explicit in docs. |
+| Low | AM001, AM002, AM003, AM004, AM005, AM006, AM020, AM021, AM041, AM050 | Treat as currently acceptable, reference examples, or low-impact cleanup rules. Improve opportunistically when touching nearby code. |
 
 ## Cross-Cutting Findings
 
@@ -70,6 +70,6 @@ Architecture-style coverage currently comes from analyzer/fixer tests, conflict 
 
 Current local verification:
 
-- `/opt/homebrew/bin/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 637 passed, 8 skipped, 0 failed.
+- `/opt/homebrew/bin/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 638 passed, 8 skipped, 0 failed.
 - The restore/test run reported existing warnings worth tracking: AutoMapper 14.0.0 has advisory `GHSA-rvv3-g6hj-g44x`, several analyzer packaging/test-infrastructure warnings are present, and skipped-test warnings cover AM001, AM031, and AM050 scenarios.
 - `/opt/homebrew/bin/dotnet --list-runtimes` shows only .NET 10 runtimes in this local environment, so broader runtime verification remains blocked by missing .NET 8 and .NET 9 runtimes.
