@@ -4,6 +4,7 @@ using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace AutoMapperAnalyzer.Analyzers.Configuration;
@@ -74,8 +75,15 @@ public class AM050_RedundantMapFromCodeFixProvider : AutoMapperCodeFixProviderBa
         }
 
         SyntaxNode? lambdaBody = AutoMapperAnalysisHelpers.GetLambdaBody(forMemberInvocation.ArgumentList.Arguments[0].Expression);
-        return lambdaBody is MemberAccessExpressionSyntax memberAccess
-            ? memberAccess.Name.Identifier.ValueText
+        if (lambdaBody is MemberAccessExpressionSyntax memberAccess)
+        {
+            return memberAccess.Name.Identifier.ValueText;
+        }
+
+        ExpressionSyntax expression = forMemberInvocation.ArgumentList.Arguments[0].Expression;
+        return expression is LiteralExpressionSyntax literal &&
+               literal.IsKind(SyntaxKind.StringLiteralExpression)
+            ? literal.Token.ValueText
             : null;
     }
 }
