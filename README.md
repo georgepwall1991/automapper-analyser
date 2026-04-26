@@ -14,24 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.10
+## 🎉 Latest Release: v2.30.11
 
-**AM050 Proven Redundant MapFrom Cleanup — safe rewrite only when types match**
+**AM001 Enum Conversion Fixes — direct enum/string mapping actions**
 
 ✅ **Highlights**
 
-- Requires AM050 cleanup diagnostics to prove same-name source and destination member types are compatible.
-- Supports string-based `ForMember("Name", ...)` when the destination property resolves through `CreateMap`.
-- Suppresses same-name string-member cleanup when source and destination types differ.
+- Adds AM001 enum-to-string fixes using `ToString()`.
+- Adds AM001 string-to-enum fixes using null-guarded, fully qualified `Enum.Parse<TEnum>()`.
+- Keeps manual-review ignore actions available for domain-specific conversion policies.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `675` passing and `0` skipped.
-- Release validation covered targeted AM050 analyzer/code fix tests plus full solution verification before tagging.
+- Full test suite passed with `679` passing and `0` skipped.
+- Release validation covered targeted AM001 code fix tests plus full solution verification before tagging.
 
 ### Recent Releases
 
+- **v2.30.11**: AM001 enum/string conversion fixes for direct property mismatch remediation.
 - **v2.30.10**: AM050 proven redundant `MapFrom` cleanup for string-based members and type-safe suppressions.
 - **v2.30.9**: AM004/AM005 severity documentation trust with descriptor-aligned rule docs.
 - **v2.30.8**: AM030 null-guard fixer precision without invasive `using System` edits.
@@ -178,7 +179,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.10">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.11">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -372,6 +373,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ### Recently Completed ✅
 
+- **v2.30.11**: AM001 enum/string conversion fixes for direct property mismatch remediation
 - **v2.30.10**: AM050 proven redundant `MapFrom` cleanup for string-based members and type-safe suppressions
 - **v2.30.9**: AM004/AM005 severity documentation trust with descriptor-aligned rule docs
 - **v2.30.8**: AM030 null-guard fixer precision without invasive `using System` edits

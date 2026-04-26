@@ -431,6 +431,269 @@ public class AM001_CodeFixTests
                 expectedFixedCode);
     }
 
+    [Fact]
+    public async Task AM001_ShouldFixEnumToStringWithToString()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public enum OrderStatus
+                                    {
+                                        Draft,
+                                        Submitted
+                                    }
+
+                                    public class Source
+                                    {
+                                        public OrderStatus Status { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Status { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public enum OrderStatus
+                                             {
+                                                 Draft,
+                                                 Submitted
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public OrderStatus Status { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Status { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 25, 13,
+                    "Status", "Source", "TestNamespace.OrderStatus", "Destination", "string"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldFixStringToEnumWithParse()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public enum OrderStatus
+                                    {
+                                        Draft,
+                                        Submitted
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Status { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public OrderStatus Status { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public enum OrderStatus
+                                             {
+                                                 Draft,
+                                                 Submitted
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public string Status { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public OrderStatus Status { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status != null ? global::System.Enum.Parse<global::TestNamespace.OrderStatus>(src.Status) : default));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 25, 13,
+                    "Status", "Source", "string", "Destination", "TestNamespace.OrderStatus"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldFixNullableStringToEnumWithParseFallback()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public enum OrderStatus
+                                    {
+                                        Draft,
+                                        Submitted
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string? Status { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public OrderStatus Status { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public enum OrderStatus
+                                             {
+                                                 Draft,
+                                                 Submitted
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public string? Status { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public OrderStatus Status { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status != null ? global::System.Enum.Parse<global::TestNamespace.OrderStatus>(src.Status) : default));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 26, 13,
+                    "Status", "Source", "string?", "Destination", "TestNamespace.OrderStatus"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldOfferOnlyIgnore_WhenEnumMapsToNumericType()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public enum OrderStatus
+                                    {
+                                        Draft,
+                                        Submitted
+                                    }
+
+                                    public class Source
+                                    {
+                                        public OrderStatus Status { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Status { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        ImmutableArray<Diagnostic> diagnostics = await GetDiagnosticsAsync(document);
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostics);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("Ignore property 'Status' (manual review)", action.Title);
+    }
+
     private static Document CreateDocument(string source)
     {
         var workspace = new AdhocWorkspace();

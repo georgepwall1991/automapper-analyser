@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.11] - 2026-04-27
+
+### Changed
+
+- Added AM001 code fixes for enum-to-string property mappings using `ToString()`.
+- Added AM001 code fixes for string-to-enum property mappings using null-guarded, fully qualified `Enum.Parse<TEnum>()`.
+- Updated analyzer health status to record the AM001 enum conversion fixer hardening pass.
+
+### Validation
+
+- Targeted AM001 code fix tests.
+- Full `net10.0` solution test suite.
+- `git diff --check`.
+
 ## [2.30.10] - 2026-04-26
 
 ### Changed

@@ -200,6 +200,19 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
             return $"src.{propertyName}.ToString()";
         }
 
+        if (sourceType.TypeKind == TypeKind.Enum && IsString(destinationType))
+        {
+            return $"src.{propertyName}.ToString()";
+        }
+
+        if (IsString(sourceType) && destinationType.TypeKind == TypeKind.Enum)
+        {
+            string fullyQualifiedDestinationTypeName =
+                destinationType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            return
+                $"src.{propertyName} != null ? global::System.Enum.Parse<{fullyQualifiedDestinationTypeName}>(src.{propertyName}) : default";
+        }
+
         // Nullable source to non-nullable destination where underlying types are compatible.
         ITypeSymbol sourceUnderlyingType = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceType);
         if (IsNullableType(sourceType) &&
