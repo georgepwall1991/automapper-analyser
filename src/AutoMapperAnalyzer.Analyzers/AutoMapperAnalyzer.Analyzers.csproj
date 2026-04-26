@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>10</PatchVersion>
+        <PatchVersion>11</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.10 - AM050 proven redundant MapFrom cleanup
+        <PackageReleaseNotes>Version 2.30.11 - AM001 enum conversion fixer
 
             Changed:
-            - Hardened AM050 so redundant MapFrom cleanup is reported only when source and destination property types are proven compatible
-            - Added AM050 coverage for string-based ForMember property names with matching and mismatched destination types
-            - Preserved property-specific code action titles for string-based destination members
+            - Added AM001 code fixes for enum-to-string mappings using ToString()
+            - Added AM001 code fixes for string-to-enum mappings using null-guarded, fully qualified Enum.Parse&lt;TEnum&gt;()
+            - Added focused AM001 fixer coverage for both enum conversion directions
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM050 coverage
+            - Full solution test suite passing on net10.0 with targeted AM001 coverage
             - git diff --check clean
 
-            Previous Release: v2.30.9 - AM004/AM005 severity documentation trust
+            Previous Release: v2.30.10 - AM050 proven redundant MapFrom cleanup
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

@@ -110,10 +110,14 @@ CreateMap<Source, Destination>()
         int.TryParse(src.Age, out var age) ? age : 0));
 ```
 
+For enum/string mismatches, AM001 offers direct conversion fixes such as `src.Status.ToString()` and
+`src.Status != null ? global::System.Enum.Parse<global::MyApp.OrderStatus>(src.Status) : default`.
+
 #### When to Use
 
 - ✅ String → numeric conversions
 - ✅ Enum → string conversions
+- ✅ String → enum conversions
 - ✅ Custom type conversions
 - ❌ Compatible types (no warning needed)
 
@@ -1286,7 +1290,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.10">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.11">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>

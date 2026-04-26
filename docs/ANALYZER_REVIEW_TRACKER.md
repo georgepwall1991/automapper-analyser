@@ -36,6 +36,7 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | AM030 (3rd pass) | Complex Mappings | main | v2.30.8 | Generated fully qualified null guards without adding `using System`, preserving existing/global usings, file-scoped namespaces, expression-bodied converters, and multi-diagnostic fixer behavior. |
 | AM004/AM005 docs trust | Data Integrity | main | v2.30.9 | Aligned rule docs with shipped Warning severity/category metadata and added catalog trust coverage that keeps documented severity lines descriptor-accurate. |
 | AM050 (2nd pass) | Configuration | main | v2.30.10 | Required proven source/destination type compatibility before reporting redundant `MapFrom`, including string-based `ForMember` destination members resolved from `CreateMap`. |
+| AM001 (2nd pass) | Type Safety | main | v2.30.11 | Added direct enum-to-string and string-to-enum conversion fixes for documented AM001 enum mismatch scenarios. |
 
 ## In Progress
 

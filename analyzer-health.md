@@ -1,6 +1,6 @@
 # Analyzer Health
 
-Reviewed: 2026-04-26
+Reviewed: 2026-04-27
 
 This is a deliberately harsh health audit for the 14 implemented AutoMapper analyzer rule IDs in this repository. Several rule IDs expose multiple diagnostic descriptors, especially `AM002`, `AM022`, `AM030`, and `AM031`; the scorecard rates the public rule ID as the user experiences it.
 
@@ -31,7 +31,7 @@ Priority is a planning signal: `High` means the analyzer is important and has me
 
 | Rule | Title | Domain | Severity | Analyzer | False Positives | Fix Strategy | Tests | Docs/Samples | Importance | Priority | Notes |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| AM001 | Property type mismatch | Type Safety | Error | 4 | 4 | 4 | 4 | 4 | 5 | Low | Strong semantic AutoMapper gating, ownership handoff to AM002/AM020/AM021, and solid fixer coverage; remaining gaps are mostly advanced conversion semantics and richer compile-time conversion modeling. |
+| AM001 | Property type mismatch | Type Safety | Error | 4 | 4 | 4 | 4 | 4 | 5 | Low | Strong semantic AutoMapper gating, ownership handoff to AM002/AM020/AM021, and solid fixer coverage; enum/string mismatches now get direct conversion fixes. Remaining gaps are mostly advanced conversion semantics and richer compile-time conversion modeling. |
 | AM002 | Nullable compatibility issue | Type Safety | Error/Info | 4 | 4 | 4 | 5 | 4 | 5 | Low | Descriptor-accurate docs now call out the Error/Info split, and regression tests cover oblivious reference nullability plus nullable value types in disabled nullable contexts. Remaining opportunities are advanced generic/nullability-flow semantics. |
 | AM003 | Collection type incompatibility | Type Safety | Error | 4 | 4 | 4 | 5 | 4 | 4 | Low | Now suppresses container diagnostics when the source collection is implicitly assignable to the destination contract, with regression coverage for array/interface and set/read-only interface shapes. Remaining opportunities are broader custom/immutable collection semantics. |
 | AM004 | Source property has no corresponding destination property | Data Integrity | Warning | 4 | 4 | 4 | 5 | 5 | 5 | Low | One of the strongest rules: reverse maps, records, inheritance, flattening, ctor params, custom construction, and fixer behavior have extensive coverage. Rule docs now match shipped Warning severity/category metadata and are protected by catalog severity drift tests. |
@@ -59,6 +59,7 @@ The next improvement batch should focus on rules where user impact and health ga
 ## Cross-Cutting Findings
 
 - Public docs are useful and now have a severity drift guard for rule documentation. `AM004`, `AM005`, and `AM031` rule-doc severity text matches shipped descriptor metadata, while README/package version references remain covered by existing trust tests.
+- AM001 fixer coverage now includes enum-to-string and null-guarded string-to-enum property mismatches, so the documented enum conversion scenario has an executable code action instead of only an ignore fallback.
 - AM050 now treats redundant cleanup as a proven safe rewrite: string-based destination members are resolved through `CreateMap<TSource, TDestination>()`, mismatched same-name types are suppressed, and fixer titles retain the destination member name.
 - Analyzer ownership is a real strength. The conflict tests and shared helpers make `AM001`/`AM002`/`AM003`/`AM020`/`AM021` boundaries much healthier than a file-count audit would suggest.
 - The project now has a checked-in `RuleCatalog` health contract plus generated `docs/RULE_CATALOG.md` and sample diagnostic snapshots that tie rule IDs to descriptors, fixers, docs anchors, sample paths, and fixer trust levels.
@@ -71,6 +72,7 @@ Architecture-style coverage currently comes from analyzer/fixer tests, conflict 
 
 Current local verification:
 
+- `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM001_CodeFixTests` passed: 11 passed, 0 skipped, 0 failed.
 - `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM050` passed: 20 passed, 0 skipped, 0 failed.
 - `/usr/local/share/dotnet/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 675 passed, 0 skipped, 0 failed.
 - The trust-first pass removed active skipped tests, added drift validation, and moved intentional analyzer-test warnings into an explicit test-project warning baseline.
