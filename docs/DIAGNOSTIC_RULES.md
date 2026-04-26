@@ -900,6 +900,8 @@ Validates custom type converter implementations and detects converter-quality is
 `AM030` no longer reports missing property-level conversion setup. Those mismatches are owned by `AM001`, `AM020`, and `AM021`.
 Unused-converter analysis treats generic, instance, and type-based converter configuration as usage, including
 `ConvertUsing<MyConverter>()`, `ConvertUsing(new MyConverter())`, and `ConvertUsing(typeof(MyConverter))`.
+It also recognizes simple local, field, or property initializers where an `ITypeConverter<TSource, TDestination>`
+variable is initialized with a concrete converter and then passed to `ConvertUsing(converter)`.
 
 #### Problem 1: Invalid Converter Signature
 
@@ -953,6 +955,10 @@ No diagnostic is reported when the converter is referenced through a supported A
 ```csharp
 CreateMap<string, DateTime>()
     .ConvertUsing(typeof(LegacyConverter)); // ✅ counted as usage
+
+ITypeConverter<string, DateTime> converter = new LegacyConverter();
+CreateMap<string, DateTime>()
+    .ConvertUsing(converter); // ✅ counted as usage
 ```
 
 #### Solutions

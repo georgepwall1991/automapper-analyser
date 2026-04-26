@@ -302,4 +302,113 @@ public class AM030_CustomTypeConverterTests
             .ExpectNoDiagnostics()
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenInterfaceTypedLocalConverterIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class InterfaceTypedLocalConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            ITypeConverter<string, DateTime> converter = new InterfaceTypedLocalConverter();
+                                            CreateMap<string, DateTime>().ConvertUsing(converter);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenInterfaceTypedFieldConverterIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class InterfaceTypedFieldConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private readonly ITypeConverter<string, DateTime> converter =
+                                            new InterfaceTypedFieldConverter();
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string, DateTime>().ConvertUsing(converter);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenInterfaceTypedPropertyConverterIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class InterfaceTypedPropertyConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private ITypeConverter<string, DateTime> Converter { get; } =
+                                            new InterfaceTypedPropertyConverter();
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string, DateTime>().ConvertUsing(Converter);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
 }
