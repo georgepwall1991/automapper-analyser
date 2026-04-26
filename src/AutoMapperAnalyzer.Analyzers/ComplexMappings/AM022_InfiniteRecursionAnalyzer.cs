@@ -136,16 +136,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         }
 
         HashSet<string> ignoredProperties = GetIgnoredProperties(invocation, reverseMapInvocation);
-
-        // Check circular properties between types
-        HashSet<string> circularProperties = FindCircularProperties(sourceType, destinationType);
-        if (circularProperties.Count > 0 && circularProperties.All(prop => ignoredProperties.Contains(prop)))
-        {
-            return true;
-        }
-
-        // Check self-referencing properties in destination type
-        HashSet<string> selfReferencingDestProperties = FindSelfReferencingProperties(destinationType);
+        HashSet<string> selfReferencingDestProperties = FindRecursiveDestinationProperties(sourceType, destinationType);
         if (
             selfReferencingDestProperties.Count > 0
             && selfReferencingDestProperties.All(prop => ignoredProperties.Contains(prop))
@@ -252,8 +243,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Check for self-referencing types on both sides to reduce false positives.
-        if (IsSelfReferencing(sourceType) && IsSelfReferencing(destinationType))
+        // Check for self-referencing mapped properties on both sides to reduce false positives.
+        if (HasMappedSelfReference(sourceType, destinationType))
         {
             var diagnostic = Diagnostic.Create(
                 SelfReferencingTypeRule,
@@ -266,8 +257,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Check for circular references on both source and destination graphs.
-        if (HasCircularReference(sourceType, sourceType) && HasCircularReference(destinationType, destinationType))
+        // Check for circular references reachable through convention-mapped member paths.
+        if (HasMappedCircularReference(sourceType, destinationType))
         {
             var diagnostic = Diagnostic.Create(
                 InfiniteRecursionRiskRule,
@@ -280,27 +271,20 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool IsSelfReferencing(ITypeSymbol? type)
+    private static bool HasMappedSelfReference(ITypeSymbol? sourceType, ITypeSymbol? destinationType)
     {
-        if (type == null)
+        if (sourceType == null || destinationType == null)
         {
             return false;
         }
 
-        IEnumerable<IPropertySymbol> properties =
-            AutoMapperAnalysisHelpers.GetMappableProperties(type, requireSetter: false);
-
-        foreach (IPropertySymbol? property in properties)
+        foreach ((IPropertySymbol sourceProperty, IPropertySymbol destinationProperty) in
+                 GetConventionMappedPropertyPairs(sourceType, destinationType))
         {
-            // Check direct self-reference
-            if (SymbolEqualityComparer.Default.Equals(property.Type, type))
-            {
-                return true;
-            }
-
-            // Check collection of self-type
-            ITypeSymbol? elementType = AutoMapperAnalysisHelpers.GetCollectionElementType(property.Type);
-            if (elementType != null && SymbolEqualityComparer.Default.Equals(elementType, type))
+            if (
+                IsSelfReference(sourceProperty.Type, sourceType)
+                && IsSelfReference(destinationProperty.Type, destinationType)
+            )
             {
                 return true;
             }
@@ -309,7 +293,44 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool HasCircularReference(
+    private static HashSet<string> FindRecursiveDestinationProperties(
+        INamedTypeSymbol sourceType,
+        INamedTypeSymbol destinationType
+    )
+    {
+        var recursiveProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        visited.Add(GetTypePairKey(sourceType, destinationType));
+
+        foreach ((IPropertySymbol sourceProperty, IPropertySymbol destinationProperty) in
+                 GetConventionMappedPropertyPairs(sourceType, destinationType))
+        {
+            ITypeSymbol sourcePropertyType = UnwrapCollectionElementType(sourceProperty.Type);
+            ITypeSymbol destinationPropertyType = UnwrapCollectionElementType(destinationProperty.Type);
+
+            if (IsSimpleType(sourcePropertyType) || IsSimpleType(destinationPropertyType))
+            {
+                continue;
+            }
+
+            if (
+                HasMappedCircularReferenceRecursive(
+                    sourcePropertyType,
+                    destinationPropertyType,
+                    new HashSet<string>(visited, StringComparer.Ordinal),
+                    1,
+                    10
+                )
+            )
+            {
+                recursiveProperties.Add(destinationProperty.Name);
+            }
+        }
+
+        return recursiveProperties;
+    }
+
+    private static bool HasMappedCircularReference(
         ITypeSymbol? sourceType,
         ITypeSymbol? destinationType
     )
@@ -319,112 +340,104 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var visited = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
-        return HasCircularReferenceRecursive(sourceType, destinationType, visited, 0, 10);
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        return HasMappedCircularReferenceRecursive(sourceType, destinationType, visited, 0, 10);
     }
 
-    private static bool HasCircularReferenceRecursive(
+    private static bool HasMappedCircularReferenceRecursive(
         ITypeSymbol? currentSourceType,
-        ITypeSymbol? targetDestType,
-        HashSet<ITypeSymbol> visited,
+        ITypeSymbol? currentDestinationType,
+        HashSet<string> visited,
         int depth,
         int maxDepth
     )
     {
         // Prevent stack overflow by limiting recursion depth
-        if (depth > maxDepth || currentSourceType == null || targetDestType == null)
+        if (depth > maxDepth || currentSourceType == null || currentDestinationType == null)
         {
             return false;
         }
 
-        // If we've already visited this type, we have a cycle
-        if (visited.Contains(currentSourceType))
+        string typePairKey = GetTypePairKey(currentSourceType, currentDestinationType);
+        if (visited.Contains(typePairKey))
         {
             return true;
         }
 
-        visited.Add(currentSourceType);
+        visited.Add(typePairKey);
 
-        IEnumerable<IPropertySymbol> properties =
-            AutoMapperAnalysisHelpers.GetMappableProperties(currentSourceType, requireSetter: false);
-
-        foreach (IPropertySymbol? property in properties)
+        foreach ((IPropertySymbol sourceProperty, IPropertySymbol destinationProperty) in
+                 GetConventionMappedPropertyPairs(currentSourceType, currentDestinationType))
         {
-            ITypeSymbol propertyType = property.Type;
+            ITypeSymbol sourcePropertyType = UnwrapCollectionElementType(sourceProperty.Type);
+            ITypeSymbol destinationPropertyType = UnwrapCollectionElementType(destinationProperty.Type);
 
             // Skip value types and system types
-            if (IsSimpleType(propertyType))
+            if (IsSimpleType(sourcePropertyType) || IsSimpleType(destinationPropertyType))
             {
                 continue;
             }
 
-            // Check collection element types
-            ITypeSymbol? elementType = AutoMapperAnalysisHelpers.GetCollectionElementType(propertyType);
-            if (elementType != null)
-            {
-                propertyType = elementType;
-            }
-
-            if (propertyType is ITypeSymbol namedPropertyType)
-            {
-                // If this property references back to our target destination type
-                if (SymbolEqualityComparer.Default.Equals(namedPropertyType, targetDestType))
-                {
-                    return true;
-                }
-
-                // Recursively check this property's type
-                if (
-                    HasCircularReferenceRecursive(
-                        namedPropertyType,
-                        targetDestType,
-                        new HashSet<ITypeSymbol>(visited, SymbolEqualityComparer.Default),
-                        depth + 1,
-                        maxDepth
-                    )
+            if (
+                HasMappedCircularReferenceRecursive(
+                    sourcePropertyType,
+                    destinationPropertyType,
+                    new HashSet<string>(visited, StringComparer.Ordinal),
+                    depth + 1,
+                    maxDepth
                 )
-                {
-                    return true;
-                }
+            )
+            {
+                return true;
             }
         }
 
-        visited.Remove(currentSourceType);
         return false;
     }
 
-    private static HashSet<string> FindCircularProperties(
-        INamedTypeSymbol sourceType,
-        INamedTypeSymbol destinationType
+    private static IEnumerable<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)>
+        GetConventionMappedPropertyPairs(
+            ITypeSymbol sourceType,
+            ITypeSymbol destinationType
     )
     {
-        var circularProperties = new HashSet<string>();
-        IEnumerable<IPropertySymbol> sourceProperties =
-            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);
+        Dictionary<string, IPropertySymbol> sourceProperties = AutoMapperAnalysisHelpers
+            .GetMappableProperties(sourceType, requireSetter: false)
+            .GroupBy(property => property.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
-        foreach (IPropertySymbol? property in sourceProperties)
+        foreach (IPropertySymbol destinationProperty in
+                 AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireSetter: false))
         {
-            // Check if property type references back to destination type
-            if (SymbolEqualityComparer.Default.Equals(property.Type, destinationType))
+            if (sourceProperties.TryGetValue(destinationProperty.Name, out IPropertySymbol? sourceProperty))
             {
-                circularProperties.Add(property.Name);
-                continue;
-            }
-
-            // Check collection element types
-            ITypeSymbol? elementType = AutoMapperAnalysisHelpers.GetCollectionElementType(property.Type);
-            if (
-                elementType != null
-                && SymbolEqualityComparer.Default.Equals(elementType, destinationType)
-            )
-            {
-                circularProperties.Add(property.Name);
+                yield return (sourceProperty, destinationProperty);
             }
         }
-
-        return circularProperties;
     }
 
+    private static bool IsSelfReference(ITypeSymbol propertyType, ITypeSymbol containingType)
+    {
+        return SymbolEqualityComparer.Default.Equals(propertyType, containingType)
+               || SymbolEqualityComparer.Default.Equals(
+                   AutoMapperAnalysisHelpers.GetCollectionElementType(propertyType),
+                   containingType
+               );
+    }
+
+    private static ITypeSymbol UnwrapCollectionElementType(ITypeSymbol type)
+    {
+        return AutoMapperAnalysisHelpers.GetCollectionElementType(type) ?? type;
+    }
+
+    private static string GetTypePairKey(ITypeSymbol sourceType, ITypeSymbol destinationType)
+    {
+        return string.Concat(
+            sourceType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+            "->",
+            destinationType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+        );
+    }
 
     private static bool IsSimpleType(ITypeSymbol type)
     {

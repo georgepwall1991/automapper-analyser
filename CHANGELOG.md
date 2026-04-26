@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.30.4] - 2026-04-26
+
+### Changed
+
+- Hardened AM022 recursion diagnostics so unrelated self-referencing or circular graphs no longer report unless the recursive path is convention-mapped.
+- Added AM022 regression coverage for mismatched recursive member names, independent circular graphs, and ignored indirect recursive members.
+- Updated AM022 rule docs and analyzer health status to describe the mapped-member precision boundary.
+
+### Validation
+
+- Targeted AM022 analyzer and code fix tests.
+- Full `net10.0` solution test suite.
+- `git diff --check`.
+
 ## [2.30.3] - 2026-04-26
 
 ### Changed

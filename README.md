@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-640%20passing%2C%208%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-643%20passing%2C%208%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,25 +14,26 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.3
+## 🎉 Latest Release: v2.30.4
 
-**AM011 ForPath Required-Member Boundary — quieter diagnostics for explicit required-member configuration**
+**AM022 Mapped Recursion Precision — quieter diagnostics for unrelated circular graphs**
 
 ✅ **Highlights**
 
-- Hardened AM011 so required members configured with `ForPath` no longer report as unmapped.
-- Added AM011 coverage for direct and nested `ForPath` destination-member configuration.
-- Documented the explicit configuration boundary across `ForMember`, `ForPath`, `ForCtorParam`, and custom construction.
-- Clarified that default-value and ignore code fixes are manual-review scaffolds for required members.
+- Hardened AM022 so recursion diagnostics follow convention-mapped member paths instead of unrelated graph cycles.
+- Added AM022 coverage for mismatched recursive member names and independent circular graphs.
+- Suppressed ignored indirect recursive members when the top-level recursive destination path is configured with `Ignore`.
+- Documented the safe boundary for mapped recursion detection and explicit ignore suppression.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `640` passing and `8` skipped.
-- Release validation covered targeted AM011 regressions plus full solution verification before tagging.
+- Full test suite passed with `643` passing and `8` skipped.
+- Release validation covered targeted AM022 regressions plus full solution verification before tagging.
 
 ### Recent Releases
 
+- **v2.30.3**: AM011 ForPath required-member boundary with explicit configuration coverage.
 - **v2.30.2**: AM003 assignable collection boundary suppression with targeted regression coverage.
 - **v2.30.1**: AM002 nullability contract alignment with descriptor-accurate docs and nullable-context regression coverage.
 - **v2.30.0**: Fixer hardening for AM001, AM005, AM006, AM011, and AM021 with safer action selection.
@@ -171,7 +172,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.3">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.4">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -365,6 +366,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ### Recently Completed ✅
 
+- **v2.30.4**: AM022 mapped recursion precision with unrelated-cycle false-positive reductions
 - **v2.30.3**: AM011 ForPath required-member boundary with explicit-configuration regression coverage
 - **v2.30.2**: AM003 assignable collection boundary suppression with targeted regression coverage
 - **v2.30.1**: AM002 nullability contract alignment with descriptor-accurate docs and nullable-context regression coverage

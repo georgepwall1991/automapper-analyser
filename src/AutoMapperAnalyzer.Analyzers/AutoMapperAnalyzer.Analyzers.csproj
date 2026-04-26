@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>3</PatchVersion>
+        <PatchVersion>4</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.3 - AM011 ForPath required-member boundary
+        <PackageReleaseNotes>Version 2.30.4 - AM022 mapped recursion precision
 
             Changed:
-            - Hardened AM011 required-member diagnostics so explicit ForPath configuration does not report as unmapped
-            - Added AM011 regression coverage for direct and nested ForPath destination-member configuration
-            - Updated AM011 rule docs and analyzer health status to document explicit configuration and manual-review fixer boundaries
+            - Hardened AM022 recursion diagnostics so unrelated self-referencing or circular graphs no longer report unless the recursive path is convention-mapped
+            - Added AM022 regression coverage for mismatched recursive member names, independent circular graphs, and ignored indirect recursive members
+            - Updated AM022 rule docs and analyzer health status to describe the mapped-member precision boundary
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM011 regression coverage
+            - Full solution test suite passing on net10.0 with targeted AM022 regression coverage
             - git diff --check clean
 
-            Previous Release: v2.30.2 - AM003 assignable collection boundary
+            Previous Release: v2.30.3 - AM011 ForPath required-member boundary
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

@@ -219,28 +219,38 @@ public class AM022_CodeFixTests
     }
 
     [Fact]
-    public async Task AM022_ShouldAddMaxDepth_ForCrossTypeCircularReferenceRisk()
+    public async Task AM022_ShouldAddMaxDepth_ForTwoTypeCircularReferenceRisk()
     {
         const string testCode = """
                                 using AutoMapper;
 
                                 namespace TestNamespace
                                 {
-                                    public class SourceEntity
+                                    public class SourceParent
                                     {
-                                        public DestEntity RelatedDest { get; set; }
+                                        public SourceChild Child { get; set; }
                                     }
 
-                                    public class DestEntity
+                                    public class SourceChild
                                     {
-                                        public SourceEntity RelatedSource { get; set; }
+                                        public SourceParent Parent { get; set; }
+                                    }
+
+                                    public class DestParent
+                                    {
+                                        public DestChild Child { get; set; }
+                                    }
+
+                                    public class DestChild
+                                    {
+                                        public DestParent Parent { get; set; }
                                     }
 
                                     public class TestProfile : Profile
                                     {
                                         public TestProfile()
                                         {
-                                            CreateMap<SourceEntity, DestEntity>();
+                                            CreateMap<SourceParent, DestParent>();
                                         }
                                     }
                                 }
@@ -251,21 +261,31 @@ public class AM022_CodeFixTests
 
                                          namespace TestNamespace
                                          {
-                                             public class SourceEntity
+                                             public class SourceParent
                                              {
-                                                 public DestEntity RelatedDest { get; set; }
+                                                 public SourceChild Child { get; set; }
                                              }
 
-                                             public class DestEntity
+                                             public class SourceChild
                                              {
-                                                 public SourceEntity RelatedSource { get; set; }
+                                                 public SourceParent Parent { get; set; }
+                                             }
+
+                                             public class DestParent
+                                             {
+                                                 public DestChild Child { get; set; }
+                                             }
+
+                                             public class DestChild
+                                             {
+                                                 public DestParent Parent { get; set; }
                                              }
 
                                              public class TestProfile : Profile
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<SourceEntity, DestEntity>().MaxDepth(2);
+                                                     CreateMap<SourceParent, DestParent>().MaxDepth(2);
                                                  }
                                              }
                                          }
@@ -275,8 +295,8 @@ public class AM022_CodeFixTests
             .VerifyFixAsync(
                 testCode,
                 new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
-                    .WithLocation(19, 13)
-                    .WithArguments("SourceEntity", "DestEntity"),
+                    .WithLocation(29, 13)
+                    .WithArguments("SourceParent", "DestParent"),
                 expectedFixedCode);
     }
 
