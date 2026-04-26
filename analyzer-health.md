@@ -42,7 +42,7 @@ Priority is a planning signal: `High` means the analyzer is important and has me
 | AM021 | Collection element type incompatibility | Complex Mappings | Warning | 4 | 4 | 4 | 4 | 4 | 4 | Low | Good AM003 boundary discipline and recent fixer hardening for case-only names plus queue/stack output shape; keep expanding dictionary/custom-collection and reverse-map edge cases. |
 | AM022 | Infinite recursion risk | Complex Mappings | Warning | 3 | 3 | 4 | 4 | 4 | 4 | Medium | Useful and well tested for common cycles, MaxDepth, Ignore, collections, and reverse-map boundaries, but recursion analysis remains heuristic and may miss or over-report nuanced graph/DTO ownership patterns. |
 | AM030 | Custom type converter issues | Custom Conversions | Error/Warning/Info | 3 | 4 | 3 | 4 | 4 | 3 | Low | The rule now recognizes generic, instance, and type-based `ConvertUsing` converter references, reducing unused-converter false positives. Remaining opportunities are mostly external DI/service-provider wiring and the mixed-concept shape of the single AM030 ID. |
-| AM031 | Performance warnings in mapping expressions | Performance | Warning/Info | 3 | 3 | 3 | 4 | 3 | 4 | Medium | Broad, valuable smell detector with many targeted tests, but expensive-operation heuristics are inherently fuzzy and fixer safety varies by issue type; docs should make the supported boundaries more explicit. |
+| AM031 | Performance warnings in mapping expressions | Performance | Warning/Info | 4 | 4 | 4 | 5 | 4 | 4 | Low | Multiple-enumeration diagnostics now normalize source-rooted collection paths, cache rewrites support nested source collections, unsafe captured-collection cache actions are suppressed, and Task-valued source-property `.Result` is covered. Remaining risk is mainly the intentionally heuristic nature of broad performance smells. |
 | AM041 | Duplicate mapping registration | Configuration | Warning | 4 | 4 | 4 | 4 | 4 | 4 | Low | Strong compilation-wide registry, reverse-map awareness, cross-profile duplicate detection, and removal fixer coverage. Remaining risk is mainly nuanced intentional override/configuration ordering cases. |
 | AM050 | Redundant MapFrom configuration | Configuration | Info | 3 | 3 | 4 | 3 | 3 | 2 | Low | Safe cleanup rule with idempotent fixer tests, but product importance is low and analyzer semantics are intentionally narrow around direct same-name property lambdas. |
 
@@ -53,12 +53,12 @@ The next improvement batch should focus on rules where user impact and health ga
 | Priority | Rules | Work |
 | --- | --- | --- |
 | High | None | No implemented rule currently looks both high-impact and unhealthy enough to demand urgent intervention before normal release work. |
-| Medium | AM022, AM031 | Expand recursion/performance boundary tests, and make manual-vs-executable fixer expectations explicit in docs. |
-| Low | AM001, AM002, AM003, AM004, AM005, AM006, AM011, AM020, AM021, AM030, AM041, AM050 | Treat as currently acceptable, reference examples, or low-impact cleanup rules. Improve opportunistically when touching nearby code. |
+| Medium | AM022 | Expand recursion boundary tests around nuanced graph and DTO ownership patterns. |
+| Low | AM001, AM002, AM003, AM004, AM005, AM006, AM011, AM020, AM021, AM030, AM031, AM041, AM050 | Treat as currently acceptable, reference examples, or low-impact cleanup rules. Improve opportunistically when touching nearby code. |
 
 ## Cross-Cutting Findings
 
-- Public docs are useful but drift from implementation in several places. `AM004` and `AM005` remain obvious severity/wording mismatches between descriptors, README tables, and rule docs, while `AM002` has been realigned with its shipped Error/Info descriptors.
+- Public docs are useful but drift from implementation in several places. `AM004` and `AM005` remain obvious severity/wording mismatches between descriptors, README tables, and rule docs, while `AM002` and the AM031 performance-fixer boundaries have been realigned with shipped behavior.
 - Analyzer ownership is a real strength. The conflict tests and shared helpers make `AM001`/`AM002`/`AM003`/`AM020`/`AM021` boundaries much healthier than a file-count audit would suggest.
 - The project now has a checked-in `RuleCatalog` health contract plus generated `docs/RULE_CATALOG.md` and sample diagnostic snapshots that tie rule IDs to descriptors, fixers, docs anchors, sample paths, and fixer trust levels.
 - Diagnostic placement is generally at the mapping invocation or mapping lambda, not always the precise property/member token. That is acceptable for many AutoMapper configuration rules, but high-volume rules benefit from tighter placement when practical.
@@ -70,6 +70,6 @@ Architecture-style coverage currently comes from analyzer/fixer tests, conflict 
 
 Current local verification:
 
-- `/opt/homebrew/bin/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 656 passed, 0 skipped, 0 failed.
+- `/opt/homebrew/bin/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 662 passed, 0 skipped, 0 failed.
 - The trust-first pass removed active skipped tests, added drift validation, and moved intentional analyzer-test warnings into an explicit test-project warning baseline.
 - `/opt/homebrew/bin/dotnet --list-runtimes` shows only .NET 10 runtimes in this local environment, so broader runtime verification remains blocked by missing .NET 8 and .NET 9 runtimes.

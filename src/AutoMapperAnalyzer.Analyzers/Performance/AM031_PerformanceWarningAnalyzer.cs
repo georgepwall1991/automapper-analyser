@@ -291,6 +291,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         // Track collection accesses for multiple enumeration detection
         var collectionAccesses = new Dictionary<string, int>();
         var reportedIssueTypes = new HashSet<string>(StringComparer.Ordinal);
+        string? sourceParameterName = GetSourceParameterName(lambda);
 
         foreach (InvocationExpressionSyntax? invocation in invocations)
         {
@@ -382,7 +383,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             // Track LINQ operations for multiple enumeration detection
             if (IsLinqEnumerationMethod(methodName))
             {
-                TrackCollectionAccess(invocation, collectionAccesses);
+                TrackCollectionAccess(invocation, collectionAccesses, sourceParameterName);
             }
 
             // Check for complex LINQ operations
@@ -414,6 +415,22 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             {
                 string containingType = propertySymbol.ContainingType?.ToDisplayString() ?? "";
                 string propertyName_member = propertySymbol.Name;
+
+                if (IsTaskResultMemberAccess(memberAccess, propertySymbol))
+                {
+                    if (memberAccess.Expression is InvocationExpressionSyntax &&
+                        reportedIssueTypes.Contains(ExpensiveOperationIssueType))
+                    {
+                        continue;
+                    }
+
+                    if (reportedIssueTypes.Add(TaskResultIssueType))
+                    {
+                        ReportTaskResultDiagnostic(context, lambda, propertyName);
+                    }
+
+                    continue;
+                }
 
                 // Check for DateTime.Now, DateTime.UtcNow
                 if (containingType == "System.DateTime" &&
@@ -637,12 +654,26 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             if (symbolInfo.Symbol is IPropertySymbol propertySymbol &&
                 propertySymbol.Name == "Result")
             {
-                string containingType = propertySymbol.ContainingType?.ToDisplayString() ?? "";
-                return containingType.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal);
+                return IsTaskType(propertySymbol.ContainingType);
             }
         }
 
         return false;
+    }
+
+    private static bool IsTaskResultMemberAccess(
+        MemberAccessExpressionSyntax memberAccess,
+        IPropertySymbol propertySymbol)
+    {
+        return memberAccess.Name.Identifier.Text == "Result" &&
+               propertySymbol.Name == "Result" &&
+               IsTaskType(propertySymbol.ContainingType);
+    }
+
+    private static bool IsTaskType(ITypeSymbol? typeSymbol)
+    {
+        string containingType = typeSymbol?.ToDisplayString() ?? "";
+        return containingType.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal);
     }
 
     private static bool IsTaskWaitAccess(string containingType, string methodName)
@@ -683,18 +714,19 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             "First" or "FirstOrDefault" or "Last" or "LastOrDefault" or "Any" or "All";
     }
 
-    private static void TrackCollectionAccess(InvocationExpressionSyntax invocation,
-        Dictionary<string, int> collectionAccesses)
+    private static void TrackCollectionAccess(
+        InvocationExpressionSyntax invocation,
+        Dictionary<string, int> collectionAccesses,
+        string? sourceParameterName)
     {
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
         {
-            string collectionName = memberAccess.Expression.ToString();
-
-            // Normalize collection name (remove src. prefix if present)
-            if (collectionName.StartsWith("src."))
-            {
-                collectionName = collectionName.Substring(4);
-            }
+            string collectionName = TryGetSourceCollectionPath(
+                memberAccess.Expression,
+                sourceParameterName,
+                out string sourceCollectionPath)
+                ? sourceCollectionPath
+                : memberAccess.Expression.ToString();
 
             if (!collectionAccesses.ContainsKey(collectionName))
             {
@@ -703,6 +735,47 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
             collectionAccesses[collectionName]++;
         }
+    }
+
+    private static string? GetSourceParameterName(LambdaExpressionSyntax lambda)
+    {
+        return lambda switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Parameter.Identifier.ValueText,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda when parenthesizedLambda.ParameterList.Parameters.Count > 0
+                => parenthesizedLambda.ParameterList.Parameters[0].Identifier.ValueText,
+            _ => null
+        };
+    }
+
+    private static bool TryGetSourceCollectionPath(
+        ExpressionSyntax expression,
+        string? sourceParameterName,
+        out string collectionPath)
+    {
+        collectionPath = string.Empty;
+        if (string.IsNullOrEmpty(sourceParameterName))
+        {
+            return false;
+        }
+
+        var pathSegments = new Stack<string>();
+        ExpressionSyntax currentExpression = expression;
+        while (currentExpression is MemberAccessExpressionSyntax memberAccess)
+        {
+            pathSegments.Push(memberAccess.Name.Identifier.ValueText);
+            currentExpression = memberAccess.Expression;
+        }
+
+        if (currentExpression is not IdentifierNameSyntax identifier ||
+            !string.Equals(identifier.Identifier.ValueText, sourceParameterName, StringComparison.Ordinal) ||
+            pathSegments.Count == 0)
+        {
+            return false;
+        }
+
+        collectionPath = string.Join(".", pathSegments);
+        return true;
     }
 
     private static bool IsComplexLinqOperation(string methodName, InvocationExpressionSyntax invocation)

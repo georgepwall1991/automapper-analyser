@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>5</PatchVersion>
+        <PatchVersion>6</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,20 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.5 - AM030 type-based converter usage precision
+        <PackageReleaseNotes>Version 2.30.6 - AM031 source collection cache precision
 
             Changed:
-            - Hardened AM030 unused-converter analysis so ConvertUsing(typeof(MyConverter)) counts as real converter usage
-            - Added AM030 regression coverage for type-based ConvertUsing configuration
-            - Updated AM030 rule docs and analyzer health status to document supported converter usage forms
+            - Hardened AM031 multiple-enumeration diagnostics so source collection paths are normalized independently of lambda parameter names
+            - Hardened AM031 cache fixes so nested source collections rewrite safely and captured collections do not offer invalid cache actions
+            - Added AM031 Task-valued source-property Result detection
+            - Added generated trust artifacts, package smoke tests, and consolidated PR validation from the unreleased mainline
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM030 regression coverage
+            - Full solution test suite passing on net10.0 with targeted AM031 regression coverage
+            - Rule catalog and sample diagnostics snapshot checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.4 - AM022 mapped recursion precision
+            Previous Release: v2.30.5 - AM030 type-based converter usage precision
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

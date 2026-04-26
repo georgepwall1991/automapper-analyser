@@ -1036,9 +1036,19 @@ CreateMap<Source, Destination>()
 // ⚠️ AM031: Task.Result can cause deadlocks
 ```
 
+Task-valued source members are also detected:
+
+```csharp
+CreateMap<Source, Destination>()
+    .ForMember(dest => dest.Data, opt => opt.MapFrom(src =>
+        src.DataTask.Result));  // ❌ Synchronous access
+```
+
 #### Solutions
 
 **Code Fix 1: Cache Collection Enumeration**
+
+AM031 offers this executable rewrite only when the repeated enumeration is rooted in the source mapping parameter, including nested source paths such as `src.Customer.Orders`. Captured fields, injected services, and other closure values keep manual-review actions because the analyzer cannot safely decide where those values should be cached.
 
 ```csharp
 CreateMap<Source, Destination>()
@@ -1068,7 +1078,7 @@ If source/destination have compatible same-name members, AM031 can remove the re
 - ✅ Reflection operations
 - ✅ Multiple collection enumerations
 - ✅ `DateTime.Now`, `Random`, `Guid.NewGuid()`
-- ✅ `Task.Result`, `Task.Wait()`
+- ✅ `Task.Result`, `Task.Wait()`, including Task-valued source properties
 - ✅ Complex LINQ (SelectMany chains)
 
 #### Configuration
@@ -1262,7 +1272,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.5">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.6">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>

@@ -304,6 +304,115 @@ public class AM031_CodeFixTests
     }
 
     [Fact]
+    public async Task AM031_ShouldRegisterAndApplyCachingFix_ForNestedSourceCollectionPath()
+    {
+        const string source = """
+                              using AutoMapper;
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              namespace TestNamespace
+                              {
+                                  public class Customer
+                                  {
+                                      public List<int> Orders { get; set; } = new();
+                                  }
+
+                                  public class Source
+                                  {
+                                      public Customer Customer { get; set; } = new();
+                                  }
+
+                                  public class Destination
+                                  {
+                                      public int Total { get; set; }
+                                  }
+
+                                  public class TestProfile : Profile
+                                  {
+                                      public TestProfile()
+                                      {
+                                          CreateMap<Source, Destination>()
+                                              .ForMember(dest => dest.Total, opt => opt.MapFrom(src => src.Customer.Orders.Sum() + src.Customer.Orders.Average()));
+                                      }
+                                  }
+                              }
+                              """;
+
+        Document document = CreateDocument(source);
+        Diagnostic diagnostic = await CreateDiagnosticAtSourceLambdaAsync(
+            document,
+            AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule,
+            "MultipleEnumeration",
+            "Total",
+            "Customer.Orders",
+            "Total",
+            "Customer.Orders");
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        CodeAction cacheAction = Assert.Single(
+            actions,
+            action => action.Title.Contains("Cache 'Customer.Orders' with ToList() for 'Total'",
+                StringComparison.Ordinal));
+
+        string updatedCode = await ApplyActionAsync(cacheAction, document);
+        Assert.Contains("ordersCache", updatedCode, StringComparison.Ordinal);
+        Assert.Contains("src.Customer.Orders.ToList()", updatedCode, StringComparison.Ordinal);
+        Assert.Contains("ordersCache.Sum()", updatedCode, StringComparison.Ordinal);
+        Assert.Contains("ordersCache.Average()", updatedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AM031_ShouldNotRegisterCachingFix_ForCapturedCollection()
+    {
+        const string source = """
+                              using AutoMapper;
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              namespace TestNamespace
+                              {
+                                  public class Source
+                                  {
+                                      public int Id { get; set; }
+                                  }
+
+                                  public class Destination
+                                  {
+                                      public int Total { get; set; }
+                                  }
+
+                                  public class TestProfile : Profile
+                                  {
+                                      private readonly List<int> _numbers = new();
+
+                                      public TestProfile()
+                                      {
+                                          CreateMap<Source, Destination>()
+                                              .ForMember(dest => dest.Total, opt => opt.MapFrom(src => _numbers.Sum() + _numbers.Average()));
+                                      }
+                                  }
+                              }
+                              """;
+
+        Document document = CreateDocument(source);
+        Diagnostic diagnostic = await CreateDiagnosticAtSourceLambdaAsync(
+            document,
+            AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule,
+            "MultipleEnumeration",
+            "Total",
+            "_numbers",
+            "Total",
+            "_numbers");
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.DoesNotContain(actions,
+            action => action.Title.Contains("Cache '_numbers' with ToList()", StringComparison.Ordinal));
+        Assert.Contains(actions, action => action.Title.Contains("Ignore mapping for 'Total'", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task AM031_ShouldNotRegisterFixes_ForNonAm031DiagnosticId()
     {
         const string source = """

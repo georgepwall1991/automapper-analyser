@@ -57,7 +57,7 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 
 **Triggers:**
 
-- Semantic version tags such as `v2.30.5`
+- Semantic version tags such as `v2.30.6`
 
 **Features:**
 
@@ -112,8 +112,8 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 ### Package Versioning
 
 - **Format**: Major.Minor.Patch (SemVer)
-- **Current**: 2.30.5
-- **Pre-release**: 2.30.5-preview, 2.30.5-beta
+- **Current**: 2.30.6
+- **Pre-release**: 2.30.6-preview, 2.30.6-beta
 
 ## 🔧 Configuration
 
