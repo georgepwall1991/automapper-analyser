@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using AutoMapperAnalyzer.Analyzers;
@@ -89,23 +90,20 @@ public partial class RuleCatalogTests
     {
         string repoRoot = GetRepositoryRoot();
 
-        var globalJson = XDocument.Load(Path.Combine(repoRoot, "src", "AutoMapperAnalyzer.Analyzers", "AutoMapperAnalyzer.Analyzers.csproj"));
+        var analyzerProject = XDocument.Load(Path.Combine(repoRoot, "src", "AutoMapperAnalyzer.Analyzers", "AutoMapperAnalyzer.Analyzers.csproj"));
         Assert.Equal(
             "README.md",
-            globalJson.Root?.Element("PropertyGroup")?.Element("PackageReadmeFile")?.Value);
+            analyzerProject.Root?.Element("PropertyGroup")?.Element("PackageReadmeFile")?.Value);
         Assert.Equal(
             "icon.png",
-            globalJson.Root?.Element("PropertyGroup")?.Element("PackageIcon")?.Value);
+            analyzerProject.Root?.Element("PropertyGroup")?.Element("PackageIcon")?.Value);
 
         string projectXml = File.ReadAllText(Path.Combine(repoRoot, "src", "AutoMapperAnalyzer.Analyzers", "AutoMapperAnalyzer.Analyzers.csproj"));
         Assert.Contains(@"PackagePath=""analyzers\dotnet\cs\", projectXml, StringComparison.Ordinal);
         Assert.Contains(@"PackagePath=""analyzers\dotnet\", projectXml, StringComparison.Ordinal);
 
-        string sdkVersion = XDocument.Parse(ConvertJsonToXml(File.ReadAllText(Path.Combine(repoRoot, "global.json"))))
-            .Root!
-            .Element("sdk")!
-            .Element("version")!
-            .Value;
+        using JsonDocument globalJson = JsonDocument.Parse(File.ReadAllText(Path.Combine(repoRoot, "global.json")));
+        string sdkVersion = globalJson.RootElement.GetProperty("sdk").GetProperty("version").GetString()!;
         Assert.Matches(@"^\d+\.\d+\.[1-9]\d{2}$", sdkVersion);
 
         string ci = File.ReadAllText(Path.Combine(repoRoot, ".github", "workflows", "ci.yml"));
@@ -143,15 +141,6 @@ public partial class RuleCatalogTests
         Assert.NotNull(directory);
         return directory!.FullName;
     }
-
-    private static string ConvertJsonToXml(string json)
-    {
-        string sdkVersion = GlobalJsonVersionRegex().Match(json).Groups["version"].Value;
-        return $"<root><sdk><version>{sdkVersion}</version></sdk></root>";
-    }
-
-    [GeneratedRegex(@"""version""\s*:\s*""(?<version>[^""]+)""")]
-    private static partial Regex GlobalJsonVersionRegex();
 
     [GeneratedRegex(@"AutoMapperAnalyzer\.Analyzers""\s+Version=""(?<version>\d+\.\d+\.\d+)""")]
     private static partial Regex AnalyzerPackageVersionRegex();
