@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [2.30.6] - 2026-04-26
+
 ### Added
 
 - Added generated rule catalog and sample diagnostics snapshot checks to prevent descriptor, fixer, docs, and sample-output drift.
@@ -10,7 +12,18 @@
 
 ### Changed
 
+- Hardened AM031 multiple-enumeration analysis so diagnostics normalize source-rooted collection paths regardless of lambda parameter name.
+- Hardened AM031 cache fixes so nested source collections are rewritten safely and captured collections no longer offer invalid source-parameter cache actions.
+- Added AM031 Task-valued source-property `.Result` detection.
+- Updated AM031 rule docs and analyzer health status to document cache-fixer safety boundaries.
 - Consolidated PR validation into the main CI workflow and removed the duplicate simple-build workflow.
+
+### Validation
+
+- Targeted AM031 analyzer and code fix tests.
+- Full `net10.0` solution test suite.
+- Rule catalog and sample diagnostics snapshot checks.
+- `git diff --check`.
 
 ## [2.30.5] - 2026-04-26
 

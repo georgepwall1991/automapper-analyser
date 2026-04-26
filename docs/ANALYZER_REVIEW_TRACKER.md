@@ -30,7 +30,8 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | Fixer Hardening Follow-up | AM001, AM005, AM006, AM011, AM021 | main | v2.30.0 | Fixed AM021 queue/stack conversion codegen, restored stable per-diagnostic AM001 action registration, required unique-best fuzzy matches for AM006/AM011, removed AM005 rename actions, and added targeted regression coverage for action ordering and ambiguous suggestions. |
 | AM022 (2nd pass) | Complex Mappings | main | v2.30.4 | Restricted recursion diagnostics to convention-mapped recursive member paths, suppressed ignored indirect recursive members, and added regression coverage for unrelated self-referencing/circular graphs. |
 | AM030 (2nd pass) | Complex Mappings | main | v2.30.5 | Counted type-based `ConvertUsing(typeof(MyConverter))` converter configuration as usage, reducing unused-converter false positives with targeted regression coverage. |
-| Trust-first hardening | All | main | TBD | Added `RuleCatalog` drift checks, aligned package/docs/SDK workflow metadata, clarified fixer trust levels in code action titles/docs, and converted skipped AM001/AM031/AM050 tests into active coverage. |
+| AM031 (2nd pass) | Performance | main | v2.30.6 | Normalized multiple-enumeration source collection paths, made nested source cache rewrites executable, suppressed unsafe captured-collection cache actions, and detected Task-valued source-property `.Result`. |
+| Trust-first hardening | All | main | v2.30.6 | Added `RuleCatalog` drift checks, aligned package/docs/SDK workflow metadata, clarified fixer trust levels in code action titles/docs, and converted skipped AM001/AM031/AM050 tests into active coverage. |
 
 ## In Progress
 

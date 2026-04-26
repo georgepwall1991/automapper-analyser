@@ -100,7 +100,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
                 .Select(GetCollectionName)
                 .FirstOrDefault(name => !string.IsNullOrEmpty(name));
 
-            if (!string.IsNullOrEmpty(collectionName))
+            if (!string.IsNullOrEmpty(collectionName) && CanCacheCollectionPath(lambda, collectionName!))
             {
                 RegisterMultipleEnumerationFix(context, operationContext.Root, lambda, propertyName!, collectionName!,
                     relatedDiagnostics);
@@ -265,6 +265,11 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
             return Task.FromResult(document);
         }
 
+        if (!IsValidMemberPath(collectionName))
+        {
+            return Task.FromResult(document);
+        }
+
         string cachedVariableName = CreateUniqueCacheVariableName(lambda, collectionName);
         ExpressionSyntax cachedCollectionExpression = CreateCachedCollectionExpression(parameterName!, collectionName);
         ExpressionSyntax updatedLambdaExpression =
@@ -314,7 +319,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         return lambda switch
         {
             SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Parameter.Identifier.ValueText,
-            ParenthesizedLambdaExpressionSyntax parenthesizedLambda when parenthesizedLambda.ParameterList.Parameters.Count == 1
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda when parenthesizedLambda.ParameterList.Parameters.Count > 0
                 => parenthesizedLambda.ParameterList.Parameters[0].Identifier.ValueText,
             _ => null
         };
@@ -322,9 +327,12 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
 
     private static string CreateUniqueCacheVariableName(LambdaExpressionSyntax lambda, string collectionName)
     {
-        string baseName = string.IsNullOrEmpty(collectionName)
+        string collectionSegment = collectionName
+            .Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries)
+            .LastOrDefault() ?? string.Empty;
+        string baseName = string.IsNullOrEmpty(collectionSegment) || !SyntaxFacts.IsValidIdentifier(collectionSegment)
             ? "cachedCollection"
-            : char.ToLowerInvariant(collectionName[0]) + collectionName.Substring(1) + "Cache";
+            : char.ToLowerInvariant(collectionSegment[0]) + collectionSegment.Substring(1) + "Cache";
         var usedNames = lambda.DescendantTokens()
             .Where(token => token.IsKind(SyntaxKind.IdentifierToken))
             .Select(token => token.ValueText)
@@ -348,10 +356,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
 
     private static ExpressionSyntax CreateCachedCollectionExpression(string parameterName, string collectionName)
     {
-        MemberAccessExpressionSyntax sourceCollection = SyntaxFactory.MemberAccessExpression(
-            SyntaxKind.SimpleMemberAccessExpression,
-            SyntaxFactory.IdentifierName(parameterName),
-            SyntaxFactory.IdentifierName(collectionName));
+        ExpressionSyntax sourceCollection = CreateSourceCollectionExpression(parameterName, collectionName);
 
         return SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
@@ -359,6 +364,21 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
                 sourceCollection,
                 SyntaxFactory.IdentifierName("ToList")),
             SyntaxFactory.ArgumentList());
+    }
+
+    private static ExpressionSyntax CreateSourceCollectionExpression(string parameterName, string collectionName)
+    {
+        ExpressionSyntax sourceCollection = SyntaxFactory.IdentifierName(parameterName);
+
+        foreach (string segment in collectionName.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            sourceCollection = SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                sourceCollection,
+                SyntaxFactory.IdentifierName(segment));
+        }
+
+        return sourceCollection;
     }
 
     private static ExpressionSyntax ReplaceCollectionReferences(
@@ -371,6 +391,30 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
             expression.DescendantNodesAndSelf().OfType<MemberAccessExpressionSyntax>()
                 .Where(memberAccess => IsTargetCollectionAccess(memberAccess, parameterName, collectionName)),
             (originalNode, _) => SyntaxFactory.IdentifierName(cachedVariableName).WithTriviaFrom(originalNode));
+    }
+
+    private static bool CanCacheCollectionPath(LambdaExpressionSyntax lambda, string collectionName)
+    {
+        if (lambda.Body is not ExpressionSyntax lambdaExpression || !IsValidMemberPath(collectionName))
+        {
+            return false;
+        }
+
+        string? parameterName = GetLambdaParameterName(lambda);
+        if (string.IsNullOrEmpty(parameterName))
+        {
+            return false;
+        }
+
+        return lambdaExpression.DescendantNodesAndSelf()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Any(memberAccess => IsTargetCollectionAccess(memberAccess, parameterName!, collectionName));
+    }
+
+    private static bool IsValidMemberPath(string collectionName)
+    {
+        string[] segments = collectionName.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length > 0 && segments.All(SyntaxFacts.IsValidIdentifier);
     }
 
     private string? GetPropertyName(Diagnostic diagnostic)
@@ -411,9 +455,34 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         string parameterName,
         string collectionName)
     {
-        return memberAccess.Expression is IdentifierNameSyntax identifier &&
-               string.Equals(identifier.Identifier.ValueText, parameterName, StringComparison.Ordinal) &&
-               string.Equals(memberAccess.Name.Identifier.ValueText, collectionName, StringComparison.Ordinal);
+        return TryGetSourceCollectionPath(memberAccess, parameterName, out string collectionPath) &&
+               string.Equals(collectionPath, collectionName, StringComparison.Ordinal);
+    }
+
+    private static bool TryGetSourceCollectionPath(
+        ExpressionSyntax expression,
+        string parameterName,
+        out string collectionPath)
+    {
+        collectionPath = string.Empty;
+
+        var pathSegments = new Stack<string>();
+        ExpressionSyntax currentExpression = expression;
+        while (currentExpression is MemberAccessExpressionSyntax memberAccess)
+        {
+            pathSegments.Push(memberAccess.Name.Identifier.ValueText);
+            currentExpression = memberAccess.Expression;
+        }
+
+        if (currentExpression is not IdentifierNameSyntax identifier ||
+            !string.Equals(identifier.Identifier.ValueText, parameterName, StringComparison.Ordinal) ||
+            pathSegments.Count == 0)
+        {
+            return false;
+        }
+
+        collectionPath = string.Join(".", pathSegments);
+        return true;
     }
 
     private static CompilationUnitSyntax AddUsingIfMissing(CompilationUnitSyntax root, string namespaceName)

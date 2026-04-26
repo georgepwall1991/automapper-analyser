@@ -1,4 +1,4 @@
-## Release 2.30.5
+## Release 2.30.6
 
 ### New Rules
 

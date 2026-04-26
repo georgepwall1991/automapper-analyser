@@ -181,6 +181,45 @@ public class AM031_PerformanceWarningTests
     }
 
     [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenMultipleEnumerationUsesNonSrcParameterName()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Total { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Total, opt => opt.MapFrom(source => source.Numbers.Sum() + source.Numbers.Average()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule, 22, 67,
+                "Total", "Numbers")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM031_ShouldReportDiagnostic_WhenReflectionInMapFrom()
     {
         const string testCode = """
@@ -453,6 +492,44 @@ public class AM031_PerformanceWarningTests
             .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
             .WithSource(testCode)
             .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule, 29, 66,
+                "Data")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenTaskResultUsedOnTaskPropertyInMapFrom()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Threading.Tasks;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Task<string> DataTask { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Data, opt => opt.MapFrom(src => src.DataTask.Result));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule, 21, 66,
                 "Data")
             .RunAsync();
     }
