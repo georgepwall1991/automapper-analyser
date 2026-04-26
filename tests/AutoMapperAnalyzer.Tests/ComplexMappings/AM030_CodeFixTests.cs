@@ -34,7 +34,6 @@ public class AM030_CodeFixTests
 
         const string expectedFixedCode = """
                                          using AutoMapper;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -42,7 +41,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     if (source == null) throw new ArgumentNullException(nameof(source));
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return int.Parse(source);
                                                  }
                                              }
@@ -91,7 +90,6 @@ public class AM030_CodeFixTests
 
         const string expectedFixedCode = """
                                          using AutoMapper;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -99,7 +97,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     if (source == null) throw new ArgumentNullException(nameof(source));
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return int.Parse(source);
                                                  }
                                              }
@@ -124,7 +122,7 @@ public class AM030_CodeFixTests
     }
 
     [Fact]
-    public async Task AM030_ShouldNotDuplicateSystemUsing_WhenAddingNullGuard()
+    public async Task AM030_ShouldPreserveExistingSystemUsing_WhenAddingNullGuard()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -160,7 +158,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     if (source == null) throw new ArgumentNullException(nameof(source));
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return int.Parse(source);
                                                  }
                                              }
@@ -289,7 +287,6 @@ public class AM030_CodeFixTests
 
         const string expectedFixedCode = """
                                          using AutoMapper;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -297,7 +294,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public string Convert(int? source, string destination, ResolutionContext context)
                                                  {
-                                                     if (source == null) throw new ArgumentNullException(nameof(source));
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return source.ToString();
                                                  }
                                              }
@@ -349,7 +346,6 @@ public class AM030_CodeFixTests
 
         const string expectedFixedCode = """
                                          using AutoMapper;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -357,7 +353,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     if (source == null) throw new ArgumentNullException(nameof(source));
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return int.Parse(source);
                                                  }
                                              }
@@ -415,7 +411,6 @@ public class AM030_CodeFixTests
 
         const string expectedFixedCode = """
                                          using AutoMapper;
-                                         using System;
 
                                          namespace Company.Project.Converters
                                          {
@@ -423,7 +418,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     if (source == null) throw new ArgumentNullException(nameof(source));
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return int.Parse(source);
                                                  }
                                              }
@@ -479,7 +474,6 @@ public class AM030_CodeFixTests
 
         const string expectedFixedCode = """
                                          using AutoMapper;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -487,7 +481,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     if (source == null) throw new ArgumentNullException(nameof(source));
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return source.Contains("test") ? int.Parse(source.Split('-')[0]) : 0;
                                                  }
                                              }
@@ -541,7 +535,6 @@ public class AM030_CodeFixTests
         const string expectedFixedCode = """
                                          using AutoMapper;
                                          using System.Collections.Generic;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -549,7 +542,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public string Convert(List<string>? source, string destination, ResolutionContext context)
                                                  {
-                                                     if (source == null) throw new ArgumentNullException(nameof(source));
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return string.Join(",", source);
                                                  }
                                              }
@@ -571,5 +564,210 @@ public class AM030_CodeFixTests
                     .WithLocation(8, 23)
                     .WithArguments("ListConverter", "List"),
                 expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM030_ShouldPreserveGlobalUsing_WhenAddingNullGuard()
+    {
+        const string testCode = """
+                                global using System;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class NullUnsafeConverter : ITypeConverter<string?, int>
+                                    {
+                                        public int Convert(string? source, int destination, ResolutionContext context)
+                                        {
+                                            return int.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         global using System;
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class NullUnsafeConverter : ITypeConverter<string?, int>
+                                             {
+                                                 public int Convert(string? source, int destination, ResolutionContext context)
+                                                 {
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
+                                                     return int.Parse(source);
+                                                 }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM030_CustomTypeConverterAnalyzer, AM030_CustomTypeConverterCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule)
+                    .WithLocation(8, 20)
+                    .WithArguments("NullUnsafeConverter", "String"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM030_ShouldPreserveFileScopedNamespace_WhenAddingNullGuard()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace;
+
+                                public class NullUnsafeConverter : ITypeConverter<string?, int>
+                                {
+                                    public int Convert(string? source, int destination, ResolutionContext context)
+                                    {
+                                        return int.Parse(source);
+                                    }
+                                }
+
+                                public class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace;
+
+                                         public class NullUnsafeConverter : ITypeConverter<string?, int>
+                                         {
+                                             public int Convert(string? source, int destination, ResolutionContext context)
+                                             {
+                                                 if (source == null) throw new global::System.ArgumentNullException(nameof(source));
+                                                 return int.Parse(source);
+                                             }
+                                         }
+
+                                         public class TestProfile : Profile
+                                         {
+                                             public TestProfile()
+                                             {
+                                                 CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM030_CustomTypeConverterAnalyzer, AM030_CustomTypeConverterCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule)
+                    .WithLocation(7, 16)
+                    .WithArguments("NullUnsafeConverter", "String"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM030_ShouldFixMultipleNullableConverters()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class StringToIntConverter : ITypeConverter<string?, int>
+                                    {
+                                        public int Convert(string? source, int destination, ResolutionContext context)
+                                        {
+                                            return int.Parse(source);
+                                        }
+                                    }
+
+                                    public class StringToDecimalConverter : ITypeConverter<string?, decimal>
+                                    {
+                                        public decimal Convert(string? source, decimal destination, ResolutionContext context)
+                                        {
+                                            return decimal.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, int>().ConvertUsing<StringToIntConverter>();
+                                            CreateMap<string?, decimal>().ConvertUsing<StringToDecimalConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class StringToIntConverter : ITypeConverter<string?, int>
+                                             {
+                                                 public int Convert(string? source, int destination, ResolutionContext context)
+                                                 {
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
+                                                     return int.Parse(source);
+                                                 }
+                                             }
+
+                                             public class StringToDecimalConverter : ITypeConverter<string?, decimal>
+                                             {
+                                                 public decimal Convert(string? source, decimal destination, ResolutionContext context)
+                                                 {
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
+                                                     return decimal.Parse(source);
+                                                 }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<string?, int>().ConvertUsing<StringToIntConverter>();
+                                                     CreateMap<string?, decimal>().ConvertUsing<StringToDecimalConverter>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        DiagnosticResult diag1 = new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule)
+            .WithLocation(7, 20)
+            .WithArguments("StringToIntConverter", "String");
+
+        DiagnosticResult diag2 = new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule)
+            .WithLocation(15, 24)
+            .WithArguments("StringToDecimalConverter", "String");
+
+        await CodeFixVerifier<AM030_CustomTypeConverterAnalyzer, AM030_CustomTypeConverterCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                [diag1, diag2],
+                expectedFixedCode,
+                0,
+                2,
+                1);
     }
 }

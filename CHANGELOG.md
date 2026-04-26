@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.8] - 2026-04-26
+
+### Changed
+
+- Hardened AM030 nullable-source converter fixes so generated null guards use `global::System.ArgumentNullException` without adding or reordering `using System`.
+- Added AM030 code fix regression coverage for absent, existing, and global `System` usings, file-scoped namespaces, expression-bodied converters, and multi-diagnostic fixer behavior.
+- Updated AM030 rule docs and analyzer health status to document the less invasive null-guard fixer.
+
+### Validation
+
+- Targeted AM030 code fix tests.
+- Full `net10.0` solution test suite.
+- `git diff --check`.
+
 ## [2.30.7] - 2026-04-26
 
 ### Changed

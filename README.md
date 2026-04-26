@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-668%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-671%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,25 +14,26 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.7
+## 🎉 Latest Release: v2.30.8
 
-**AM022 Recursion Boundary Precision — safer circular-reference diagnostics**
+**AM030 Null-Guard Fixer Precision — less invasive converter fixes**
 
 ✅ **Highlights**
 
-- Requires configured nested `CreateMap` chains before reporting indirect recursion cycles.
-- Suppresses AM022 when `PreserveReferences` or `ConvertUsing` owns recursion behavior.
-- Keeps reverse-map direction boundaries intact for recursion controls after `ReverseMap()`.
-- Adds regression coverage for missing nested maps, preserve-references configuration, and `ConstructUsing` boundaries.
+- Generates fully qualified `global::System.ArgumentNullException` guards for nullable-source converters.
+- Avoids adding, reordering, or duplicating `using System` when applying AM030 fixes.
+- Preserves global usings, file-scoped namespaces, expression-bodied converters, and multi-diagnostic fix flows.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `668` passing and `0` skipped.
-- Release validation covered targeted AM022 regressions plus full solution verification before tagging.
+- Full test suite passed with `671` passing and `0` skipped.
+- Release validation covered targeted AM030 code fix regressions plus full solution verification before tagging.
 
 ### Recent Releases
 
+- **v2.30.8**: AM030 null-guard fixer precision without invasive `using System` edits.
+- **v2.30.7**: AM022 recursion boundary precision for nested-map chains and explicit recursion controls.
 - **v2.30.6**: AM031 source collection cache precision with nested source paths and Task-property `.Result` coverage.
 - **v2.30.5**: AM030 type-based converter usage precision for `ConvertUsing(typeof(...))`.
 - **v2.30.4**: AM022 mapped recursion precision with unrelated-cycle false-positive reductions.
@@ -175,7 +176,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.7">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.8">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -369,6 +370,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ### Recently Completed ✅
 
+- **v2.30.8**: AM030 null-guard fixer precision without invasive `using System` edits
 - **v2.30.7**: AM022 recursion boundary precision for nested-map chains and explicit recursion controls
 - **v2.30.6**: AM031 source collection cache precision with nested source paths and Task-property `.Result` coverage
 - **v2.30.5**: AM030 type-based converter usage precision for `ConvertUsing(typeof(...))`

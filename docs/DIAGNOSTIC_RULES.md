@@ -974,8 +974,10 @@ public class StringToIntConverter : ITypeConverter<string, int>
 For nullable-source converters, AM030 offers an executable fix that inserts:
 
 ```csharp
-if (source == null) throw new ArgumentNullException(nameof(source));
+if (source == null) throw new global::System.ArgumentNullException(nameof(source));
 ```
+
+The generated guard is fully qualified so the fixer does not add, reorder, or duplicate `using System` directives.
 
 #### Configuration
 
@@ -1282,7 +1284,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.7">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.8">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>

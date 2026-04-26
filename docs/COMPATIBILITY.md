@@ -43,7 +43,7 @@ The AutoMapper Analyzer targets **.NET Standard 2.0**, which provides compatibil
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="10.1.1" />
-    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.7">
+    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.8">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
@@ -67,7 +67,7 @@ The AutoMapper Analyzer targets **.NET Standard 2.0**, which provides compatibil
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="12.0.1" />
-    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.7">
+    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.8">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
@@ -86,7 +86,7 @@ The AutoMapper Analyzer targets **.NET Standard 2.0**, which provides compatibil
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="14.0.0" />
-    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.7">
+    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.8">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
@@ -218,7 +218,7 @@ public class Destination
 
 2. **Verify Package Installation**
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.7">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.8">
      <PrivateAssets>all</PrivateAssets>
      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -280,4 +280,4 @@ This guide ensures smooth installation and usage across all supported .NET frame
 ---
 
 **Last Updated**: November 19, 2025
-**Version**: 2.30.7
+**Version**: 2.30.8

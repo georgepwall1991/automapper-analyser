@@ -75,7 +75,7 @@ public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProvide
         CancellationToken cancellationToken)
     {
         StatementSyntax guardStatement = SyntaxFactory.ParseStatement(
-            $"if ({sourceParameterName} == null) throw new ArgumentNullException(nameof({sourceParameterName}));")
+            $"if ({sourceParameterName} == null) throw new global::System.ArgumentNullException(nameof({sourceParameterName}));")
             .WithTrailingTrivia(SyntaxFactory.ElasticLineFeed);
 
         MethodDeclarationSyntax updatedMethod;
@@ -108,26 +108,6 @@ public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProvide
         }
 
         SyntaxNode newRoot = root.ReplaceNode(convertMethod, updatedMethod);
-        if (newRoot is CompilationUnitSyntax compilationUnit)
-        {
-            newRoot = AddUsingIfMissing(compilationUnit, "System");
-        }
-
         return document.WithSyntaxRoot(newRoot);
-    }
-
-    private static CompilationUnitSyntax AddUsingIfMissing(CompilationUnitSyntax root, string namespaceName)
-    {
-        if (root.Usings.Any(u =>
-                u.Name != null &&
-                string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
-        {
-            return root;
-        }
-
-        UsingDirectiveSyntax usingDirective = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(namespaceName))
-            .WithTrailingTrivia(SyntaxFactory.ElasticLineFeed);
-
-        return root.AddUsings(usingDirective);
     }
 }
