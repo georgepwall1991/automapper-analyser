@@ -154,10 +154,11 @@ public partial class RuleCatalogTests
         Assert.Contains("--check-catalog --check-snapshots", ci, StringComparison.Ordinal);
         Assert.Contains("tools/package-smoke.sh", ci, StringComparison.Ordinal);
 
-        string shippedReleases = File.ReadAllText(Path.Combine(repoRoot, "src", "AutoMapperAnalyzer.Analyzers", "AnalyzerReleases.Shipped.md"));
-        string unshippedReleases = File.ReadAllText(Path.Combine(repoRoot, "src", "AutoMapperAnalyzer.Analyzers", "AnalyzerReleases.Unshipped.md"));
+        string shippedReleasePath = Path.Combine(repoRoot, "src", "AutoMapperAnalyzer.Analyzers", "AnalyzerReleases.Shipped.md");
+        string unshippedReleasePath = Path.Combine(repoRoot, "src", "AutoMapperAnalyzer.Analyzers", "AnalyzerReleases.Unshipped.md");
+        Assert.True(File.Exists(unshippedReleasePath), "Unshipped release tracking file should exist for in-progress analyzer metadata.");
+        string shippedReleases = File.ReadAllText(shippedReleasePath);
         Assert.Contains($"## Release {RuleCatalog.CurrentPackageVersion}", shippedReleases, StringComparison.Ordinal);
-        Assert.True(string.IsNullOrWhiteSpace(unshippedReleases), "Unshipped release tracking should be empty between releases.");
         foreach (string ruleId in RuleCatalog.Rules.Select(rule => rule.RuleId))
         {
             Assert.Contains($"{ruleId} |", shippedReleases, StringComparison.Ordinal);

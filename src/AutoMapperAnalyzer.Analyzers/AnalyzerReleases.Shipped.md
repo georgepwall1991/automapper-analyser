@@ -12,7 +12,7 @@ AM005 | AutoMapper.PropertyMapping | Warning | Property names differ only in cas
 AM006 | AutoMapper.DataIntegrity | Info | Destination property is not mapped
 AM011 | AutoMapper.RequiredProperties | Error | Required destination property is not mapped from source
 AM020 | AutoMapper.NestedObjects | Warning | Nested object mapping configuration missing
-AM021 | AutoMapper.ComplexMappings | Warning | Collection element type incompatibility
+AM021 | AutoMapper.Collections | Warning | Collection element type incompatibility
 AM022 | AutoMapper.Recursion | Warning | Infinite recursion risk in AutoMapper configuration
 AM030 | AutoMapper.Converters | Error | Invalid type converter implementation
 AM031 | AutoMapper.Performance | Warning | Expensive operation in mapping expression
