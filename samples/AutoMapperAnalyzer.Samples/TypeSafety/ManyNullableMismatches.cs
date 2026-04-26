@@ -32,13 +32,25 @@ public class ManyNullableMismatches
         public string Notes { get; set; }
     }
 
+    public class NonNullableSource
+    {
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class NullableDest
+    {
+        public string? Name { get; set; }
+    }
+
     public class Profile : AutoMapper.Profile
     {
         public Profile()
         {
             // This should generate 10 AM002 diagnostics
             CreateMap<Source, Dest>();
+
+            // This should generate the AM002 non-nullable-to-nullable descriptor variant.
+            CreateMap<NonNullableSource, NullableDest>();
         }
     }
 }
-

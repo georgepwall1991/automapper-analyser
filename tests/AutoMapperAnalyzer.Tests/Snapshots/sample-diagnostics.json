@@ -126,7 +126,7 @@
     "title": "Nullable to non-nullable mapping issue in AutoMapper configuration",
     "category": "AutoMapper.NullSafety",
     "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/ManyNullableMismatches.cs",
-    "line": 40,
+    "line": 50,
     "column": 13,
     "message": "Property 'Age' has nullable compatibility issue: Source.Age (int?) can be null but Dest.Age (int) is non-nullable",
     "fixTrustLevel": "Scaffold"
@@ -137,7 +137,7 @@
     "title": "Nullable to non-nullable mapping issue in AutoMapper configuration",
     "category": "AutoMapper.NullSafety",
     "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/ManyNullableMismatches.cs",
-    "line": 40,
+    "line": 50,
     "column": 13,
     "message": "Property 'Category' has nullable compatibility issue: Source.Category (string?) can be null but Dest.Category (string) is non-nullable",
     "fixTrustLevel": "Scaffold"
@@ -148,7 +148,7 @@
     "title": "Nullable to non-nullable mapping issue in AutoMapper configuration",
     "category": "AutoMapper.NullSafety",
     "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/ManyNullableMismatches.cs",
-    "line": 40,
+    "line": 50,
     "column": 13,
     "message": "Property 'Created' has nullable compatibility issue: Source.Created (System.DateTime?) can be null but Dest.Created (System.DateTime) is non-nullable",
     "fixTrustLevel": "Scaffold"
@@ -159,7 +159,7 @@
     "title": "Nullable to non-nullable mapping issue in AutoMapper configuration",
     "category": "AutoMapper.NullSafety",
     "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/ManyNullableMismatches.cs",
-    "line": 40,
+    "line": 50,
     "column": 13,
     "message": "Property 'Description' has nullable compatibility issue: Source.Description (string?) can be null but Dest.Description (string) is non-nullable",
     "fixTrustLevel": "Scaffold"
@@ -170,7 +170,7 @@
     "title": "Nullable to non-nullable mapping issue in AutoMapper configuration",
     "category": "AutoMapper.NullSafety",
     "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/ManyNullableMismatches.cs",
-    "line": 40,
+    "line": 50,
     "column": 13,
     "message": "Property 'Id' has nullable compatibility issue: Source.Id (System.Guid?) can be null but Dest.Id (System.Guid) is non-nullable",
     "fixTrustLevel": "Scaffold"
@@ -181,7 +181,7 @@
     "title": "Nullable to non-nullable mapping issue in AutoMapper configuration",
     "category": "AutoMapper.NullSafety",
     "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/ManyNullableMismatches.cs",
-    "line": 40,
+    "line": 50,
     "column": 13,
     "message": "Property 'IsActive' has nullable compatibility issue: Source.IsActive (bool?) can be null but Dest.IsActive (bool) is non-nullable",
     "fixTrustLevel": "Scaffold"
@@ -192,7 +192,7 @@
     "title": "Nullable to non-nullable mapping issue in AutoMapper configuration",
     "category": "AutoMapper.NullSafety",
     "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/ManyNullableMismatches.cs",
-    "line": 40,
+    "line": 50,
     "column": 13,
     "message": "Property 'Name' has nullable compatibility issue: Source.Name (string?) can be null but Dest.Name (string) is non-nullable",
     "fixTrustLevel": "Scaffold"
@@ -203,7 +203,7 @@
     "title": "Nullable to non-nullable mapping issue in AutoMapper configuration",
     "category": "AutoMapper.NullSafety",
     "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/ManyNullableMismatches.cs",
-    "line": 40,
+    "line": 50,
     "column": 13,
     "message": "Property 'Notes' has nullable compatibility issue: Source.Notes (string?) can be null but Dest.Notes (string) is non-nullable",
     "fixTrustLevel": "Scaffold"
@@ -214,7 +214,7 @@
     "title": "Nullable to non-nullable mapping issue in AutoMapper configuration",
     "category": "AutoMapper.NullSafety",
     "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/ManyNullableMismatches.cs",
-    "line": 40,
+    "line": 50,
     "column": 13,
     "message": "Property 'Tags' has nullable compatibility issue: Source.Tags (string?) can be null but Dest.Tags (string) is non-nullable",
     "fixTrustLevel": "Scaffold"
@@ -225,9 +225,20 @@
     "title": "Nullable to non-nullable mapping issue in AutoMapper configuration",
     "category": "AutoMapper.NullSafety",
     "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/ManyNullableMismatches.cs",
-    "line": 40,
+    "line": 50,
     "column": 13,
     "message": "Property 'Title' has nullable compatibility issue: Source.Title (string?) can be null but Dest.Title (string) is non-nullable",
+    "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM002",
+    "severity": "Warning",
+    "title": "Non-nullable to nullable mapping in AutoMapper configuration",
+    "category": "AutoMapper.NullSafety",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/ManyNullableMismatches.cs",
+    "line": 53,
+    "column": 13,
+    "message": "Property 'Name' mapping: NonNullableSource.Name (string) is non-nullable but NullableDest.Name (string?) is nullable",
     "fixTrustLevel": "Scaffold"
   },
   {
@@ -871,6 +882,17 @@
   {
     "ruleId": "AM030",
     "severity": "Warning",
+    "title": "Invalid type converter implementation",
+    "category": "AutoMapper.Converters",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Conversions/TypeConverterExamples.cs",
+    "line": 263,
+    "column": 23,
+    "message": "Type converter 'MissingConvertStringToDateTimeConverter' does not properly implement ITypeConverter<String, DateTime> or has invalid Convert method signature",
+    "fixTrustLevel": "LikelyRewrite"
+  },
+  {
+    "ruleId": "AM030",
+    "severity": "Warning",
     "title": "Type converter is defined but not used in mapping configuration",
     "category": "AutoMapper.Converters",
     "filePath": "samples/AutoMapperAnalyzer.Samples/SampleUsage.cs",
@@ -926,10 +948,21 @@
   {
     "ruleId": "AM031",
     "severity": "Warning",
+    "title": "Expensive computation in mapping expression",
+    "category": "AutoMapper.Performance",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
+    "line": 123,
+    "column": 40,
+    "message": "Property 'IsPrime' mapping contains expensive computation that may impact performance. Consider computing before mapping.",
+    "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM031",
+    "severity": "Warning",
     "title": "Synchronous access of async operation in mapping",
     "category": "AutoMapper.Performance",
     "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
-    "line": 125,
+    "line": 147,
     "column": 40,
     "message": "Property 'ExternalData' mapping uses Task.Result which can cause deadlocks. Perform async operations before mapping.",
     "fixTrustLevel": "Scaffold"
@@ -940,7 +973,7 @@
     "title": "Non-deterministic operation in mapping",
     "category": "AutoMapper.Performance",
     "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
-    "line": 150,
+    "line": 172,
     "column": 40,
     "message": "Property 'DaysOld' mapping uses DateTime.Now which produces non-deterministic results. Consider computing before mapping for testability.",
     "fixTrustLevel": "Scaffold"
@@ -951,7 +984,7 @@
     "title": "Expensive operation in mapping expression",
     "category": "AutoMapper.Performance",
     "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
-    "line": 175,
+    "line": 197,
     "column": 40,
     "message": "Property 'TypeName' mapping contains reflection operation that should be performed before mapping to avoid performance issues",
     "fixTrustLevel": "Scaffold"
@@ -962,7 +995,7 @@
     "title": "Expensive operation in mapping expression",
     "category": "AutoMapper.Performance",
     "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
-    "line": 197,
+    "line": 219,
     "column": 40,
     "message": "Property 'ApiResponse' mapping contains HTTP request that should be performed before mapping to avoid performance issues",
     "fixTrustLevel": "Scaffold"
@@ -973,7 +1006,7 @@
     "title": "Complex LINQ operation in mapping",
     "category": "AutoMapper.Performance",
     "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
-    "line": 217,
+    "line": 239,
     "column": 40,
     "message": "Property 'FilteredCount' mapping contains complex LINQ operation that may impact performance. Consider simplifying or computing before mapping.",
     "fixTrustLevel": "Scaffold"
