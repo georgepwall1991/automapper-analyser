@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.9] - 2026-04-26
+
+### Changed
+
+- Aligned AM004 and AM005 rule docs with shipped Warning severity and descriptor categories.
+- Documented AM031's mixed Warning/Info descriptor severity in the rule docs.
+- Added a rule-catalog trust test that prevents documented severity lines from drifting away from shipped descriptors.
+- Updated analyzer health status to record the AM004/AM005 documentation hardening pass.
+
+### Validation
+
+- Targeted rule catalog trust tests.
+- Full `net10.0` solution test suite.
+- `git diff --check`.
+
 ## [2.30.8] - 2026-04-26
 
 ### Changed

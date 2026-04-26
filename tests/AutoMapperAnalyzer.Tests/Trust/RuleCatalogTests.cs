@@ -82,6 +82,37 @@ public partial class RuleCatalogTests
     }
 
     [Fact]
+    public void RuleDocs_ShouldDocumentDescriptorSeverities()
+    {
+        string repoRoot = GetRepositoryRoot();
+        string ruleDocs = File.ReadAllText(Path.Combine(repoRoot, "docs", "DIAGNOSTIC_RULES.md"));
+
+        foreach (RuleCatalogEntry rule in RuleCatalog.Rules)
+        {
+            string section = GetRuleDocumentationSection(ruleDocs, rule);
+            string severityLine = section
+                .Split('\n')
+                .Select(line => line.TrimEnd('\r'))
+                .FirstOrDefault(line => line.StartsWith("**Severity**:", StringComparison.Ordinal))
+                ?? string.Empty;
+
+            Assert.False(
+                string.IsNullOrWhiteSpace(severityLine),
+                $"{rule.RuleId} documentation must include a severity line.");
+
+            foreach (DiagnosticSeverity severity in rule.Descriptors
+                         .Select(descriptor => descriptor.DefaultSeverity)
+                         .Distinct())
+            {
+                Assert.Contains(
+                    severity.ToString(),
+                    severityLine,
+                    StringComparison.Ordinal);
+            }
+        }
+    }
+
+    [Fact]
     public void SampleDiagnosticsSnapshot_ShouldCoverEveryCatalogDescriptor()
     {
         string repoRoot = GetRepositoryRoot();
@@ -255,6 +286,23 @@ public partial class RuleCatalogTests
 
         Assert.NotNull(directory);
         return directory!.FullName;
+    }
+
+    private static string GetRuleDocumentationSection(
+        string ruleDocs,
+        RuleCatalogEntry rule)
+    {
+        int sectionStart = ruleDocs.IndexOf(rule.DocumentationAnchor, StringComparison.Ordinal);
+        Assert.True(sectionStart >= 0, $"{rule.RuleId} documentation anchor was not found.");
+
+        int nextSectionStart = ruleDocs.IndexOf(
+            "\n### AM",
+            sectionStart + rule.DocumentationAnchor.Length,
+            StringComparison.Ordinal);
+
+        return nextSectionStart < 0
+            ? ruleDocs[sectionStart..]
+            : ruleDocs[sectionStart..nextSectionStart];
     }
 
     [GeneratedRegex(@"AutoMapperAnalyzer\.Analyzers""\s+Version=""(?<version>\d+\.\d+\.\d+)""")]
