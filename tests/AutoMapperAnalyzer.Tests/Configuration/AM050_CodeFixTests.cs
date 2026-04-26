@@ -118,7 +118,7 @@ public class AM050_CodeFixTests
             .VerifyFixAsync(testCode, expected, fixedCode);
     }
 
-    [Fact(Skip = "Test framework iteration count mismatch - fixer works correctly in practice")]
+    [Fact]
     public async Task Should_Remove_MultipleRedundantMappings()
     {
         const string testCode = """
@@ -186,7 +186,7 @@ public class AM050_CodeFixTests
         ];
 
         await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
-            .VerifyFixWithIterationsAsync(testCode, diagnostics, fixedCode, iterations: 2);
+            .VerifyFixWithIterationsAsync(testCode, diagnostics, fixedCode, iterations: 3);
     }
 
     [Fact]
@@ -233,7 +233,7 @@ public class AM050_CodeFixTests
             .VerifyFixAsync(testCode, expected, fixedCode);
     }
 
-    [Fact(Skip = "Test framework iteration count mismatch - fixer works correctly in practice")]
+    [Fact]
     public async Task Should_Remove_RedundantMapping_NumericTypes()
     {
         const string testCode = """
@@ -294,11 +294,11 @@ public class AM050_CodeFixTests
         ];
 
         await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
-            .VerifyFixWithIterationsAsync(testCode, diagnostics, fixedCode, iterations: 1);
+            .VerifyFixWithIterationsAsync(testCode, diagnostics, fixedCode, iterations: 2);
     }
 
-    [Fact(Skip = "Test invalid: Address to AddressDto are different types - mapping IS needed")]
-    public async Task Should_Remove_RedundantMapping_ComplexTypes()
+    [Fact]
+    public async Task Should_NotRemove_NonRedundantMapping_ComplexTypes()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -320,31 +320,8 @@ public class AM050_CodeFixTests
                                 }
                                 """;
 
-        const string fixedCode = """
-                                 using AutoMapper;
-
-                                 public class Address { public string Street { get; set; } }
-                                 public class AddressDto { public string Street { get; set; } }
-
-                                 public class Source { public Address Address { get; set; } }
-                                 public class Destination { public AddressDto Address { get; set; } }
-
-                                 public class MyProfile : Profile
-                                 {
-                                     public MyProfile()
-                                     {
-                                         CreateMap<Address, AddressDto>();
-                                         CreateMap<Source, Destination>();
-                                     }
-                                 }
-                                 """;
-
-        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
-            .WithLocation(15, 45)
-            .WithArguments("Address");
-
-        await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
-            .VerifyFixAsync(testCode, expected, fixedCode);
+        await AnalyzerVerifier<AM050_RedundantMapFromAnalyzer>
+            .VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -371,7 +348,7 @@ public class AM050_CodeFixTests
             .VerifyAnalyzerAsync(testCode);
     }
 
-    [Fact(Skip = "Test framework iteration count mismatch - fixer works correctly in practice")]
+    [Fact]
     public async Task Should_Remove_RedundantMapping_RecordTypes()
     {
         const string testCode = """
@@ -414,7 +391,7 @@ public class AM050_CodeFixTests
         ];
 
         await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
-            .VerifyFixWithIterationsAsync(testCode, diagnostics, fixedCode, iterations: 1);
+            .VerifyFixWithIterationsAsync(testCode, diagnostics, fixedCode, iterations: 2);
     }
 
     [Fact]
@@ -483,7 +460,7 @@ public class AM050_CodeFixTests
             .VerifyAnalyzerAsync(testCode);
     }
 
-    [Fact(Skip = "Test framework iteration count mismatch - fixer works correctly in practice")]
+    [Fact]
     public async Task Should_Preserve_NonRedundantMappings_InChain()
     {
         const string testCode = """
@@ -550,7 +527,7 @@ public class AM050_CodeFixTests
         ];
 
         await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
-            .VerifyFixWithIterationsAsync(testCode, diagnostics, fixedCode, iterations: 1);
+            .VerifyFixWithIterationsAsync(testCode, diagnostics, fixedCode, iterations: 2);
     }
 
     [Fact]

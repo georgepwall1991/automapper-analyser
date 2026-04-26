@@ -17,43 +17,26 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 
 #### Build and Test
 
-- Sets up .NET 9.0 environment
+- Sets up .NET 10.0 environment
 - Restores NuGet packages with caching
-- Builds solution in Release configuration
+- Builds analyzer and test projects in Release configuration with `-warnaserror`
 - Runs unit tests with code coverage collection
 - Uploads coverage reports to Codecov
+- Builds samples, where analyzer warnings are expected demonstration output
 
 #### Package Analyzer
 
 - Runs only on pushes to `main` branch
 - Creates NuGet packages for analyzer and code fixes
+- Verifies package contents include the analyzer DLL, README, and icon
 - Uploads packages as build artifacts
 
-#### Validate Samples
+### 2. Simple Build (`.github/workflows/simple-build.yml`)
 
-- Builds and runs sample scenarios
-- Ensures examples work correctly
-- Validates analyzer behavior with real code
+- Mirrors the main build/test path on .NET 10.0.
+- Treats unexpected build warnings as errors.
 
-#### Security Scan
-
-- Runs Trivy vulnerability scanner
-- Uploads results to GitHub Security tab
-- Scans for security vulnerabilities in dependencies
-
-#### Code Quality Analysis
-
-- Integrates with SonarCloud for code quality metrics
-- Analyzes code for bugs, vulnerabilities, and code smells
-- Tracks technical debt and maintainability
-
-#### Release
-
-- Triggers only with `[release]` in commit message
-- Publishes packages to NuGet.org
-- Creates GitHub releases with artifacts
-
-### 2. CodeQL Security Analysis (`.github/workflows/codeql.yml`)
+### 3. CodeQL Security Analysis (`.github/workflows/codeql.yml`)
 
 **Triggers:**
 
@@ -67,7 +50,19 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 - Detects potential security vulnerabilities
 - Integrates with GitHub Security tab
 
-### 3. Dependency Updates (`.github/dependabot.yml`)
+### 4. Release to NuGet (`.github/workflows/release.yml`)
+
+**Triggers:**
+
+- Semantic version tags such as `v2.30.5`
+
+**Features:**
+
+- Builds and tests with .NET 10.0.
+- Packs with the version extracted from the tag.
+- Publishes to NuGet and creates a GitHub release.
+
+### 5. Dependency Updates (`.github/dependabot.yml`)
 
 **Automated Updates:**
 
@@ -80,32 +75,31 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 
 ### Code Coverage
 
-- Target: >90% code coverage
+- Target: 80% project coverage and 75% patch coverage
 - Tool: Coverlet with XPlat Code Coverage
 - Reporting: Codecov integration
 - Configuration: `coverlet.runsettings`
 
 ### Security Scanning
 
-- **Trivy**: Vulnerability scanning for dependencies
 - **CodeQL**: Static analysis for C# security issues
 - **Dependabot**: Automated dependency updates
 
 ### Code Quality
 
-- **SonarCloud**: Code quality and maintainability
 - **Roslyn Analyzers**: Static code analysis
-- **EditorConfig**: Consistent code formatting
+- **Rule catalog tests**: Descriptor, docs, sample, package, and workflow drift detection
+- **Warnings as errors**: CI builds fail on unexpected warnings outside the managed test warning baseline in `docs/WARNING_BASELINE.md`
 
 ## 🚀 Release Process
 
 ### Manual Release
 
 1. Ensure all tests pass
-2. Update version numbers in project files
-3. Commit with `[release]` in message
-4. Push to `main` branch
-5. Pipeline automatically:
+2. Update version numbers and release notes
+3. Tag the release with `vMajor.Minor.Patch`
+4. Push the tag
+5. The release pipeline automatically:
    - Creates NuGet packages
    - Publishes to NuGet.org
    - Creates GitHub release
@@ -113,8 +107,8 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 ### Package Versioning
 
 - **Format**: Major.Minor.Patch (SemVer)
-- **Current**: 2.4.1
-- **Pre-release**: 2.4.1-preview, 2.4.1-beta
+- **Current**: 2.30.5
+- **Pre-release**: 2.30.5-preview, 2.30.5-beta
 
 ## 🔧 Configuration
 
@@ -125,15 +119,17 @@ Configure these in GitHub repository settings:
 | Secret | Description | Required For |
 |--------|-------------|--------------|
 | `NUGET_API_KEY` | NuGet.org API key for publishing | Release pipeline |
-| `SONAR_TOKEN` | SonarCloud authentication token | Code quality analysis |
 | `CODECOV_TOKEN` | Codecov upload token | Coverage reporting |
 
 ### Environment Variables
 
 | Variable | Value | Description |
 |----------|-------|-------------|
-| `DOTNET_VERSION` | '9.0.x' | .NET SDK version |
+| `DOTNET_VERSION` | '10.0.x' | .NET SDK version |
 | `SOLUTION_FILE` | 'automapper-analyser.sln' | Solution file path |
+
+`global.json` pins the local SDK feature band to `10.0.200` with `latestFeature` roll-forward so developer machines can
+use patched 10.0 SDKs such as `10.0.203` without invalid SDK-version warnings.
 
 ## 📝 Pipeline Files
 
@@ -141,13 +137,15 @@ Configure these in GitHub repository settings:
 .github/
 ├── workflows/
 │   ├── ci.yml              # Main CI/CD pipeline
+│   ├── simple-build.yml    # Secondary build validation
+│   ├── release.yml         # NuGet release pipeline
 │   └── codeql.yml          # Security analysis
 ├── dependabot.yml          # Dependency updates
 └── CODEOWNERS              # Code review assignments
 
 docs/
 ├── CI-CD.md               # This documentation
-└── CONTRIBUTING.md        # Contribution guidelines
+└── WARNING_BASELINE.md    # Managed warning suppressions
 
 coverlet.runsettings       # Code coverage configuration
 ```
@@ -162,7 +160,6 @@ coverlet.runsettings       # Code coverage configuration
 
 ### Quality Metrics
 
-- **SonarCloud**: Code quality dashboard
 - **Codecov**: Coverage trends and reports
 - **GitHub Security**: Vulnerability alerts
 
@@ -203,7 +200,6 @@ dotnet run --project samples/AutoMapperAnalyzer.Samples
 
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [.NET Build Tasks](https://docs.microsoft.com/en-us/dotnet/core/tools/)
-- [SonarCloud Integration](https://sonarcloud.io/documentation/)
 - [Codecov Documentation](https://docs.codecov.io/)
 - [Dependabot Configuration](https://docs.github.com/en/code-security/supply-chain-security/keeping-your-dependencies-updated-automatically)
 

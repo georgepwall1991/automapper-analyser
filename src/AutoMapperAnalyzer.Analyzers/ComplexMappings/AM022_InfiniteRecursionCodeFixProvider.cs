@@ -63,7 +63,7 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
                 string propertyName = selfReferencingProperties[0];
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        $"Ignore self-referencing property '{propertyName}'",
+                        $"Ignore self-referencing property '{propertyName}' (manual review)",
                         cancellationToken =>
                             AddIgnoreAsync(context.Document, operationContext.Root, invocation, propertyName),
                         $"AM022_Ignore_{propertyName}"),
@@ -94,7 +94,7 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
                     // Offer to ignore all self-referencing properties as alternative
                     context.RegisterCodeFix(
                         CodeAction.Create(
-                            $"Ignore all {selfReferencingProperties.Count} self-referencing properties",
+                            $"Ignore all {selfReferencingProperties.Count} self-referencing properties (manual review)",
                             cancellationToken =>
                                 AddIgnoreMultipleAsync(context.Document, operationContext.Root, invocation,
                                     selfReferencingProperties),

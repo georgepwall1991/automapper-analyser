@@ -114,7 +114,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
 
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    $"Ignore property '{destinationPropertyNameValue}'",
+                    $"Ignore property '{destinationPropertyNameValue}' (manual review)",
                     cancellationToken =>
                         AddIgnoreAsync(context.Document, operationContext.Root, invocation, destinationPropertyNameValue),
                     $"AM021_Ignore_{destinationPropertyNameValue}"),

@@ -88,7 +88,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
 
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    $"Ignore property '{propertyNameValue}'",
+                    $"Ignore property '{propertyNameValue}' (manual review)",
                     cancellationToken =>
                         AddIgnoreAsync(context.Document, diagnostic, propertyNameValue, cancellationToken),
                     $"AM001_Ignore_{propertyNameValue}"),

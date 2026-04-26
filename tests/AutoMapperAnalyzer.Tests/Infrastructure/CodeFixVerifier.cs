@@ -50,7 +50,7 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
         AddAutoMapperReferences(test.FixedState);
 
         int remainingCount = remainingDiagnostics?.Length ?? 0;
-        int expectedCount = expectedDiagnostics?.Length ?? 1;
+        int expectedCount = expectedDiagnostics.Length;
         int defaultIterations = Math.Max(1, Math.Max(remainingCount + 1, expectedCount));
 
         int finalIterations = iterations ?? defaultIterations;

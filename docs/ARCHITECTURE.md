@@ -436,6 +436,15 @@ context.RegisterCodeFix(
 
 The analyzer uses several helper classes to share common functionality:
 
+### RuleCatalog
+
+`RuleCatalog` is the checked-in trust contract for implemented rules. It groups descriptors by public rule ID and records
+the analyzer type, code fix provider type, diagnostic docs anchor, sample path, and fixer trust level.
+
+Trust tests compare this catalog against analyzer `SupportedDiagnostics`, fixable IDs, rule docs, package metadata, and
+sample files. When a descriptor, fixer, docs section, or package version changes, the catalog validation tests should fail
+until all public-facing metadata is aligned.
+
 ### AutoMapperAnalysisHelpers
 
 Located in `Helpers/AutoMapperAnalysisHelpers.cs`, this is the **core utility class**:
@@ -711,7 +720,7 @@ dotnet pack --configuration Release
 
 # Test package locally
 cd test-install/NetCoreTest
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.4.1-local
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.5-local
 ```
 
 ---
@@ -895,4 +904,4 @@ dotnet build
 
 **Last Updated**: 2025-11-19
 **Maintainer**: George Wall
-**Version**: 2.4.1
+**Version**: 2.30.5

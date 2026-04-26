@@ -130,7 +130,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
 
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        $"Ignore property '{propertyName}'",
+                        $"Ignore property '{propertyName}' (manual review)",
                         ct => AddIgnoreAsync(context.Document, operationContext.Root, invocation, propertyName),
                         $"Ignore_{propertyName}"),
                     diagnostic);

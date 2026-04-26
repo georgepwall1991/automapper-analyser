@@ -46,6 +46,19 @@ To avoid duplicate/conflicting diagnostics, each issue pattern has a single prim
 | Nested complex property requires map (`Address` -> `AddressDto`) | `AM020` | `AM030` |
 | Converter implementation quality problems | `AM030` | none |
 
+### Code Fix Trust Levels
+
+The checked-in `RuleCatalog` class classifies fixers so users can tell whether an action is a direct rewrite or starter
+configuration:
+
+| Trust Level | Meaning | Examples |
+|----------|-------|---------|
+| **Safe rewrite** | Behavior-preserving or convention-equivalent cleanup. | Removing redundant `MapFrom`, adding a missing nested `CreateMap`. |
+| **Likely rewrite** | Reasonable generated mapping that should still be reviewed for domain policy. | Numeric/string conversions, collection conversion helpers, `MaxDepth`. |
+| **Scaffold** | Compile-safe starter code or explicit suppression that requires manual review. | Default-value mappings and `Ignore()` actions for required/unmapped/performance diagnostics. |
+
+Code action titles mark manual-review suppressions explicitly.
+
 ---
 
 ## Type Safety Rules
@@ -1246,7 +1259,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.24.0">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.5">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
