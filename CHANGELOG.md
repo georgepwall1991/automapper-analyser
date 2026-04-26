@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.30.3] - 2026-04-26
+
+### Changed
+
+- Hardened AM011 required-member diagnostics so explicit `ForPath` configuration no longer reports as unmapped.
+- Added AM011 regression coverage for direct and nested `ForPath` destination-member configuration.
+- Updated AM011 rule docs and analyzer health status to document explicit configuration and manual-review fixer boundaries.
+
+### Validation
+
+- Targeted AM011 analyzer tests.
+- Full `net10.0` solution test suite.
+- `git diff --check`.
+
 ## [2.30.2] - 2026-04-26
 
 ### Changed
