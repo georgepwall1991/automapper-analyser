@@ -445,6 +445,10 @@ Trust tests compare this catalog against analyzer `SupportedDiagnostics`, fixabl
 sample files. When a descriptor, fixer, docs section, or package version changes, the catalog validation tests should fail
 until all public-facing metadata is aligned.
 
+`tools/AnalyzerVerifier` generates `docs/RULE_CATALOG.md` from this contract and produces a golden sample-diagnostics
+snapshot from `samples/AutoMapperAnalyzer.Samples`. CI runs the verifier in check mode so catalog/docs/sample behavior
+cannot drift silently.
+
 ### AutoMapperAnalysisHelpers
 
 Located in `Helpers/AutoMapperAnalysisHelpers.cs`, this is the **core utility class**:

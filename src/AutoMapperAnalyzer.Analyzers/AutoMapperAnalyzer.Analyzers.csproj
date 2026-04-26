@@ -49,7 +49,7 @@
         <PackageIcon>icon.png</PackageIcon>
         <!-- Remove strict PackageType for broader compatibility -->
         <NoPackageAnalysis>true</NoPackageAnalysis>
-        <NoWarn>$(NoWarn);RS1038;RS2008</NoWarn>
+        <NoWarn>$(NoWarn);RS1038;RS2001</NoWarn>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference

@@ -12,3 +12,10 @@ The test project intentionally suppresses a small baseline:
 | `CA1305`, `CA1861` | Test source builders and assertion helpers prefer readability over production globalization/performance guidance. |
 
 Production analyzer builds are expected to pass with `0` warnings under `-warnaserror`.
+
+The production analyzer project intentionally suppresses a narrow authoring baseline:
+
+| Warning | Reason |
+| --- | --- |
+| `RS1038` | The analyzer intentionally references compiler API shapes required for broad Roslyn compatibility. |
+| `RS2001` | Several stable public rule IDs intentionally group multiple descriptors or legacy descriptors with different default severities. Release tracking is enabled through `AnalyzerReleases.Shipped.md`, but Roslyn's release-tracking metadata is one shape per rule ID. |

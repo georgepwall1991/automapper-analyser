@@ -423,6 +423,7 @@ See our [Contributing Guide](docs/CONTRIBUTING.md) for detailed guidelines.
 
 - 📖 [**Architecture Guide**](docs/ARCHITECTURE.md) - How it all works under the hood
 - 🔍 [**Diagnostic Rules**](docs/DIAGNOSTIC_RULES.md) - Complete rule reference
+- 🧭 [**Generated Rule Catalog**](docs/RULE_CATALOG.md) - Descriptor, fixer, sample, and trust-level source of truth
 - 🧪 [**Sample Gallery**](samples/AutoMapperAnalyzer.Samples/README.md) - Real-world scenarios
 - 🚀 [**CI/CD Pipeline**](docs/CI-CD.md) - Our build and deployment process
 - 📊 [**Compatibility Matrix**](docs/COMPATIBILITY.md) - Framework support details

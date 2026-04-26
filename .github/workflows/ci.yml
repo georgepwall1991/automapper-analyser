@@ -50,6 +50,9 @@ jobs:
           echo "Running unit tests with code coverage collection..."
           dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 
+      - name: Verify generated trust artifacts
+        run: dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj --configuration Release -- --check-catalog --check-snapshots
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -68,7 +71,6 @@ jobs:
     name: Package Analyzer
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
@@ -97,7 +99,38 @@ jobs:
           unzip -l ./packages/*.nupkg | grep -E "icon.png"
 
       - name: Upload packages as artifacts
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: nuget-packages
           path: ./packages/*.nupkg
+
+  package-smoke:
+    name: Package Smoke (${{ matrix.target-framework }})
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target-framework: [ net8.0, net9.0, net10.0 ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ matrix.target-framework }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-${{ matrix.target-framework }}-
+            ${{ runner.os }}-nuget-
+
+      - name: Run package smoke test
+        run: tools/package-smoke.sh ${{ matrix.target-framework }}
