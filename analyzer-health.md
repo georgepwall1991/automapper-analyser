@@ -60,13 +60,13 @@ The next improvement batch should focus on rules where user impact and health ga
 
 - Public docs are useful but drift from implementation in several places. `AM004` and `AM005` remain obvious severity/wording mismatches between descriptors, README tables, and rule docs, while `AM002` has been realigned with its shipped Error/Info descriptors.
 - Analyzer ownership is a real strength. The conflict tests and shared helpers make `AM001`/`AM002`/`AM003`/`AM020`/`AM021` boundaries much healthier than a file-count audit would suggest.
-- The project now has a checked-in `RuleCatalog` health contract that ties rule IDs to descriptors, fixers, docs anchors, sample paths, and fixer trust levels.
+- The project now has a checked-in `RuleCatalog` health contract plus generated `docs/RULE_CATALOG.md` and sample diagnostic snapshots that tie rule IDs to descriptors, fixers, docs anchors, sample paths, and fixer trust levels.
 - Diagnostic placement is generally at the mapping invocation or mapping lambda, not always the precise property/member token. That is acceptable for many AutoMapper configuration rules, but high-volume rules benefit from tighter placement when practical.
 - Several fixers intentionally produce advisory/default mapping scaffolds. That is fine, and docs/code-action titles now distinguish "safe executable rewrite" from "starter mapping the developer must review."
 
 ## Verification Baseline
 
-Architecture-style coverage currently comes from analyzer/fixer tests, conflict ownership tests, helper tests, sample projects, documentation, the checked-in `RuleCatalog`, and the manual `tools/AnalyzerVerifier` project.
+Architecture-style coverage currently comes from analyzer/fixer tests, conflict ownership tests, helper tests, sample projects, documentation, the checked-in `RuleCatalog`, generated trust artifacts, package smoke tests, and the deterministic `tools/AnalyzerVerifier` checks.
 
 Current local verification:
 

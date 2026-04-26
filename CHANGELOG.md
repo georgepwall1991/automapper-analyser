@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Added generated rule catalog and sample diagnostics snapshot checks to prevent descriptor, fixer, docs, and sample-output drift.
+- Added package smoke tests that install the packed analyzer into temporary `net8.0`, `net9.0`, and `net10.0` consumer projects and assert `AM001` fires from the NuGet package.
+- Added analyzer release tracking files for shipped diagnostic IDs.
+
+### Changed
+
+- Consolidated PR validation into the main CI workflow and removed the duplicate simple-build workflow.
+
 ## [2.30.5] - 2026-04-26
 
 ### Changed

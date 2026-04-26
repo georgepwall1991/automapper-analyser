@@ -51,6 +51,9 @@ To avoid duplicate/conflicting diagnostics, each issue pattern has a single prim
 The checked-in `RuleCatalog` class classifies fixers so users can tell whether an action is a direct rewrite or starter
 configuration:
 
+The generated [rule catalog](RULE_CATALOG.md) is the compact source-of-truth view for descriptor metadata, sample links,
+fixer providers, and trust levels.
+
 | Trust Level | Meaning | Examples |
 |----------|-------|---------|
 | **Safe rewrite** | Behavior-preserving or convention-equivalent cleanup. | Removing redundant `MapFrom`, adding a missing nested `CreateMap`. |

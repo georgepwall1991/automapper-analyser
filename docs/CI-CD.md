@@ -21,22 +21,25 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 - Restores NuGet packages with caching
 - Builds analyzer and test projects in Release configuration with `-warnaserror`
 - Runs unit tests with code coverage collection
+- Runs generated trust artifact checks for `docs/RULE_CATALOG.md` and the sample diagnostics snapshot
 - Uploads coverage reports to Codecov
 - Builds samples, where analyzer warnings are expected demonstration output
 
 #### Package Analyzer
 
-- Runs only on pushes to `main` branch
+- Runs on pull requests and pushes
 - Creates NuGet packages for analyzer and code fixes
 - Verifies package contents include the analyzer DLL, README, and icon
-- Uploads packages as build artifacts
+- Uploads packages as build artifacts on pushes to `main`
 
-### 2. Simple Build (`.github/workflows/simple-build.yml`)
+#### Package Smoke
 
-- Mirrors the main build/test path on .NET 10.0.
-- Treats unexpected build warnings as errors.
+- Packs the analyzer with a smoke-only version
+- Creates temporary consumer projects for `net8.0`, `net9.0`, and `net10.0`
+- Installs the local `.nupkg` into each consumer project
+- Asserts the installed analyzer emits `AM001` and fails the intentionally broken mapping build
 
-### 3. CodeQL Security Analysis (`.github/workflows/codeql.yml`)
+### 2. CodeQL Security Analysis (`.github/workflows/codeql.yml`)
 
 **Triggers:**
 
@@ -50,7 +53,7 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 - Detects potential security vulnerabilities
 - Integrates with GitHub Security tab
 
-### 4. Release to NuGet (`.github/workflows/release.yml`)
+### 3. Release to NuGet (`.github/workflows/release.yml`)
 
 **Triggers:**
 
@@ -62,7 +65,7 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 - Packs with the version extracted from the tag.
 - Publishes to NuGet and creates a GitHub release.
 
-### 5. Dependency Updates (`.github/dependabot.yml`)
+### 4. Dependency Updates (`.github/dependabot.yml`)
 
 **Automated Updates:**
 
@@ -89,6 +92,8 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 
 - **Roslyn Analyzers**: Static code analysis
 - **Rule catalog tests**: Descriptor, docs, sample, package, and workflow drift detection
+- **Generated trust artifacts**: CI fails if `docs/RULE_CATALOG.md` or `tests/AutoMapperAnalyzer.Tests/Snapshots/sample-diagnostics.json` drift from implementation
+- **Package smoke matrix**: CI proves the packed analyzer loads in `net8.0`, `net9.0`, and `net10.0` consumer projects
 - **Warnings as errors**: CI builds fail on unexpected warnings outside the managed test warning baseline in `docs/WARNING_BASELINE.md`
 
 ## 🚀 Release Process
@@ -137,7 +142,6 @@ use patched 10.0 SDKs such as `10.0.203` without invalid SDK-version warnings.
 .github/
 ├── workflows/
 │   ├── ci.yml              # Main CI/CD pipeline
-│   ├── simple-build.yml    # Secondary build validation
 │   ├── release.yml         # NuGet release pipeline
 │   └── codeql.yml          # Security analysis
 ├── dependabot.yml          # Dependency updates
@@ -145,6 +149,7 @@ use patched 10.0 SDKs such as `10.0.203` without invalid SDK-version warnings.
 
 docs/
 ├── CI-CD.md               # This documentation
+├── RULE_CATALOG.md        # Generated rule/fixer trust catalog
 └── WARNING_BASELINE.md    # Managed warning suppressions
 
 coverlet.runsettings       # Code coverage configuration
@@ -181,8 +186,17 @@ dotnet build --configuration Release
 # Run tests with coverage
 dotnet test --configuration Release --collect:"XPlat Code Coverage"
 
+# Verify generated trust artifacts
+dotnet run --project tools/AnalyzerVerifier -- --check-catalog --check-snapshots
+
+# Update generated trust artifacts after intentional rule/sample changes
+dotnet run --project tools/AnalyzerVerifier -- --update-catalog --update-snapshots
+
 # Pack for release
 dotnet pack --configuration Release --output ./packages
+
+# Smoke test the packed analyzer in a real consumer project
+tools/package-smoke.sh net10.0
 
 # Run samples
 dotnet run --project samples/AutoMapperAnalyzer.Samples
@@ -205,5 +219,5 @@ dotnet run --project samples/AutoMapperAnalyzer.Samples
 
 ---
 
-*Last Updated: November 19, 2025*  
-*Pipeline Version: 1.0*
+*Last Updated: April 26, 2026*
+*Pipeline Version: 1.1*
