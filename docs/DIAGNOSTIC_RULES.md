@@ -264,8 +264,8 @@ dotnet_diagnostic.AM003.severity = error
 
 ### AM004: Missing Destination Property
 
-**Severity**: Info 🔵
-**Category**: AutoMapper.DataIntegrity
+**Severity**: Warning 🟡
+**Category**: AutoMapper.MissingProperty
 
 #### Description
 
@@ -293,7 +293,7 @@ public class MappingProfile : Profile
     public MappingProfile()
     {
         CreateMap<Source, Destination>();
-        // ℹ️ AM004: Property 'Email' will not be mapped
+        // ⚠️ AM004: Property 'Email' will not be mapped
     }
 }
 ```
@@ -344,8 +344,8 @@ dotnet_diagnostic.AM004.severity = suggestion
 
 ### AM005: Case Sensitivity Mismatch
 
-**Severity**: Info 🔵
-**Category**: AutoMapper.DataIntegrity
+**Severity**: Warning 🟡
+**Category**: AutoMapper.PropertyMapping
 
 #### Description
 
@@ -369,7 +369,7 @@ public class MappingProfile : Profile
     public MappingProfile()
     {
         CreateMap<Source, Destination>();
-        // ℹ️ AM005: Property 'UserName' case mismatch
+        // ⚠️ AM005: Property 'UserName' case mismatch
     }
 }
 ```
@@ -400,7 +400,7 @@ CreateMap<Source, Destination>()
 #### Configuration
 
 ```ini
-dotnet_diagnostic.AM005.severity = suggestion
+dotnet_diagnostic.AM005.severity = warning
 ```
 
 ---
@@ -991,7 +991,7 @@ dotnet_diagnostic.AM030.severity = warning
 
 ### AM031: Performance Warning
 
-**Severity**: Warning 🟡
+**Severity**: Warning 🟡 / Info 🔵
 **Category**: AutoMapper.Performance
 
 #### Description
@@ -1203,7 +1203,7 @@ dotnet_diagnostic.AM003.severity = error
 
 # Data Integrity - Treat as warnings
 dotnet_diagnostic.AM004.severity = warning
-dotnet_diagnostic.AM005.severity = suggestion
+dotnet_diagnostic.AM005.severity = warning
 dotnet_diagnostic.AM011.severity = error
 
 # Complex Mappings - Treat as warnings
@@ -1284,7 +1284,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.8">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.9">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>

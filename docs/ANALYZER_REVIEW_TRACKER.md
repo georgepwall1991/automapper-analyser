@@ -34,6 +34,7 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | Trust-first hardening | All | main | v2.30.6 | Added `RuleCatalog` drift checks, aligned package/docs/SDK workflow metadata, clarified fixer trust levels in code action titles/docs, and converted skipped AM001/AM031/AM050 tests into active coverage. |
 | AM022 (3rd pass) | Complex Mappings | main | v2.30.7 | Required configured nested `CreateMap` chains before indirect recursion diagnostics, suppressed semantic `PreserveReferences` and `ConvertUsing`, and expanded boundary regression coverage. |
 | AM030 (3rd pass) | Complex Mappings | main | v2.30.8 | Generated fully qualified null guards without adding `using System`, preserving existing/global usings, file-scoped namespaces, expression-bodied converters, and multi-diagnostic fixer behavior. |
+| AM004/AM005 docs trust | Data Integrity | main | v2.30.9 | Aligned rule docs with shipped Warning severity/category metadata and added catalog trust coverage that keeps documented severity lines descriptor-accurate. |
 
 ## In Progress
 

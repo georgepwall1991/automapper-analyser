@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>8</PatchVersion>
+        <PatchVersion>9</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.8 - AM030 null-guard fixer precision
+        <PackageReleaseNotes>Version 2.30.9 - AM004/AM005 severity documentation trust
 
             Changed:
-            - Hardened AM030 nullable-source converter fixes to generate fully qualified null guards without adding System usings
-            - Preserved existing using directives, global usings, file-scoped namespaces, and multi-diagnostic fixer behavior
-            - Added AM030 code fix regression coverage for less invasive null-guard rewrites
+            - Aligned AM004 and AM005 rule docs with shipped Warning severity and descriptor categories
+            - Documented AM031's mixed Warning/Info descriptor severity in the rule docs
+            - Added rule-catalog trust coverage for documented severity drift
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM030 code fix coverage
+            - Full solution test suite passing on net10.0 with targeted rule catalog trust coverage
             - git diff --check clean
 
-            Previous Release: v2.30.7 - AM022 recursion boundary precision
+            Previous Release: v2.30.8 - AM030 null-guard fixer precision
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
