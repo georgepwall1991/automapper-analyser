@@ -118,8 +118,8 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
                 continue; // Property is mapped from source, no issue
             }
 
-            // Check if this destination property is explicitly mapped via ForMember
-            if (IsPropertyConfiguredWithForMember(invocation, destinationProperty.Name, context.SemanticModel))
+            // Check if this destination property is explicitly mapped via ForMember/ForPath
+            if (IsPropertyConfiguredWithDestinationConfiguration(invocation, destinationProperty.Name, context.SemanticModel))
             {
                 continue; // Property is explicitly mapped, no issue
             }
@@ -220,30 +220,32 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsPropertyConfiguredWithForMember(
+    private static bool IsPropertyConfiguredWithDestinationConfiguration(
         InvocationExpressionSyntax createMapInvocation,
         string propertyName,
         SemanticModel semanticModel)
     {
-        foreach (InvocationExpressionSyntax forMemberCall in GetScopedForMemberCalls(createMapInvocation))
+        foreach (InvocationExpressionSyntax mappingCall in GetScopedDestinationConfigurationCalls(createMapInvocation))
         {
-            if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForMember"))
+            if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingCall, semanticModel, "ForMember") &&
+                !MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingCall, semanticModel, "ForPath"))
             {
                 continue;
             }
 
-            if (forMemberCall.ArgumentList.Arguments.Count == 0)
+            if (mappingCall.ArgumentList.Arguments.Count == 0)
             {
                 continue;
             }
 
-            CSharpSyntaxNode? lambdaBody = AutoMapperAnalysisHelpers.GetLambdaBody(forMemberCall.ArgumentList.Arguments[0].Expression);
-            if (lambdaBody is not MemberAccessExpressionSyntax memberAccess)
+            string? selectedMember =
+                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberName(mappingCall.ArgumentList.Arguments[0].Expression);
+            if (selectedMember == null)
             {
                 continue;
             }
 
-            if (string.Equals(memberAccess.Name.Identifier.Text, propertyName, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(selectedMember, propertyName, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -252,10 +254,10 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static IEnumerable<InvocationExpressionSyntax> GetScopedForMemberCalls(
+    private static IEnumerable<InvocationExpressionSyntax> GetScopedDestinationConfigurationCalls(
         InvocationExpressionSyntax createMapInvocation)
     {
-        var forMemberCalls = new List<InvocationExpressionSyntax>();
+        var mappingCalls = new List<InvocationExpressionSyntax>();
         SyntaxNode? currentNode = createMapInvocation.Parent;
 
         while (currentNode is MemberAccessExpressionSyntax memberAccess &&
@@ -267,15 +269,15 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
                 break;
             }
 
-            if (methodName == "ForMember")
+            if (methodName is "ForMember" or "ForPath")
             {
-                forMemberCalls.Add(invocation);
+                mappingCalls.Add(invocation);
             }
 
             currentNode = invocation.Parent;
         }
 
-        return forMemberCalls;
+        return mappingCalls;
     }
 
     private static bool IsAutoMapperCreateMapInvocation(

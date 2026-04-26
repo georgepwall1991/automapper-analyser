@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>2</PatchVersion>
+        <PatchVersion>3</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.2 - AM003 assignable collection boundary
+        <PackageReleaseNotes>Version 2.30.3 - AM011 ForPath required-member boundary
 
             Changed:
-            - Hardened AM003 collection-container diagnostics so implicitly assignable source collections do not require unnecessary explicit mapping
-            - Added AM003 regression coverage for array-to-interface and set-to-read-only-interface collection shapes
-            - Updated AM003 rule docs and analyzer health status to document the safe assignable boundary
+            - Hardened AM011 required-member diagnostics so explicit ForPath configuration does not report as unmapped
+            - Added AM011 regression coverage for direct and nested ForPath destination-member configuration
+            - Updated AM011 rule docs and analyzer health status to document explicit configuration and manual-review fixer boundaries
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM003 regression coverage
+            - Full solution test suite passing on net10.0 with targeted AM011 regression coverage
             - git diff --check clean
 
-            Previous Release: v2.30.1 - AM002 nullability contract alignment
+            Previous Release: v2.30.2 - AM003 assignable collection boundary
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

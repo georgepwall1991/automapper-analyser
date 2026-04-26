@@ -476,7 +476,7 @@ dotnet_diagnostic.AM006.severity = suggestion
 
 #### Description
 
-Detects destination properties marked as `required` (C# 11+) that have no corresponding source property.
+Detects destination properties marked as `required` (C# 11+) that have no corresponding source property or explicit destination configuration.
 
 #### Problem
 
@@ -524,7 +524,18 @@ CreateMap<Source, Destination>()
     .ForMember(dest => dest.Email, opt => opt.MapFrom(src => "noreply@example.com"));
 ```
 
-**Option 3: Make Property Optional**
+Use this only when the default value is valid domain data. The code fix may generate a compilable starter value such as `string.Empty`, `0`, or `false`, but required members usually deserve an intentional source mapping.
+
+**Option 3: Configure With ForPath**
+
+```csharp
+CreateMap<Source, Destination>()
+    .ForPath(dest => dest.Email, opt => opt.MapFrom(src => src.ContactEmail));
+```
+
+`AM011` treats `ForMember`, `ForPath`, and `ForCtorParam` as explicit required-member configuration. It also stays quiet when custom construction or conversion is present because those paths can initialize required members outside ordinary member mapping.
+
+**Option 4: Make Property Optional**
 
 ```csharp
 public class Destination
@@ -534,6 +545,8 @@ public class Destination
     public string? Email { get; set; }  // ✅ Now optional
 }
 ```
+
+**Manual Review Boundary**: The fixer can suggest a unique fuzzy source-property match or add a default-value mapping. If you choose to ignore a required member, verify that another construction path initializes it or that leaving it unset is intentional.
 
 #### Configuration
 

@@ -37,7 +37,7 @@ Priority is a planning signal: `High` means the analyzer is important and has me
 | AM004 | Source property has no corresponding destination property | Data Integrity | Warning | 4 | 4 | 4 | 5 | 4 | 5 | Low | One of the strongest rules: reverse maps, records, inheritance, flattening, ctor params, custom construction, and fixer behavior have extensive coverage. Keep docs aligned because README/rule docs still imply older severity language in spots. |
 | AM005 | Property names differ only in casing | Data Integrity | Warning | 4 | 4 | 4 | 4 | 3 | 3 | Low | Focused and reasonably conservative with explicit mapping, source ignore, reverse-map, and executable fixer tests; docs/samples understate current Warning severity and should better explain intentional naming policies. |
 | AM006 | Destination property is not mapped | Data Integrity | Info | 4 | 4 | 4 | 4 | 4 | 4 | Low | Solid non-required counterpart to AM011 with flattening, reverse-map, ForPath, lookalike API, fuzzy-match, and bulk-ignore coverage; analyzer test count is lighter than AM004 but the risk is lower. |
-| AM011 | Required destination property is not mapped | Data Integrity | Error | 4 | 4 | 3 | 4 | 4 | 5 | Medium | Important runtime-failure guardrail with good required-member and reverse-map coverage; fixer still leans on default/constant/custom mapping scaffolds, so domain-safe mapping remains partly manual. |
+| AM011 | Required destination property is not mapped | Data Integrity | Error | 4 | 5 | 3 | 5 | 5 | 5 | Low | Important runtime-failure guardrail with required-member, reverse-map, constructor, custom-construction, and direct/nested ForPath coverage; fixer default/ignore actions are now documented as manual-review scaffolds. |
 | AM020 | Nested object mapping configuration missing | Complex Mappings | Warning | 4 | 4 | 4 | 5 | 5 | 5 | Low | The reference example in this repo: broad tests cover separate profiles, reverse maps, inheritance, records, interfaces, internal members, ForPath/string paths, and construction/conversion suppression. |
 | AM021 | Collection element type incompatibility | Complex Mappings | Warning | 4 | 4 | 4 | 4 | 4 | 4 | Low | Good AM003 boundary discipline and recent fixer hardening for case-only names plus queue/stack output shape; keep expanding dictionary/custom-collection and reverse-map edge cases. |
 | AM022 | Infinite recursion risk | Complex Mappings | Warning | 3 | 3 | 4 | 4 | 4 | 4 | Medium | Useful and well tested for common cycles, MaxDepth, Ignore, collections, and reverse-map boundaries, but recursion analysis remains heuristic and may miss or over-report nuanced graph/DTO ownership patterns. |
@@ -53,8 +53,8 @@ The next improvement batch should focus on rules where user impact and health ga
 | Priority | Rules | Work |
 | --- | --- | --- |
 | High | None | No implemented rule currently looks both high-impact and unhealthy enough to demand urgent intervention before normal release work. |
-| Medium | AM011, AM022, AM030, AM031 | Expand required-member/converter/performance boundary tests, and make manual-vs-executable fixer expectations explicit in docs. |
-| Low | AM001, AM002, AM003, AM004, AM005, AM006, AM020, AM021, AM041, AM050 | Treat as currently acceptable, reference examples, or low-impact cleanup rules. Improve opportunistically when touching nearby code. |
+| Medium | AM022, AM030, AM031 | Expand recursion/converter/performance boundary tests, and make manual-vs-executable fixer expectations explicit in docs. |
+| Low | AM001, AM002, AM003, AM004, AM005, AM006, AM011, AM020, AM021, AM041, AM050 | Treat as currently acceptable, reference examples, or low-impact cleanup rules. Improve opportunistically when touching nearby code. |
 
 ## Cross-Cutting Findings
 
@@ -70,6 +70,6 @@ Architecture-style coverage currently comes from analyzer/fixer tests, conflict 
 
 Current local verification:
 
-- `/opt/homebrew/bin/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 638 passed, 8 skipped, 0 failed.
+- `/opt/homebrew/bin/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 640 passed, 8 skipped, 0 failed.
 - The restore/test run reported existing warnings worth tracking: AutoMapper 14.0.0 has advisory `GHSA-rvv3-g6hj-g44x`, several analyzer packaging/test-infrastructure warnings are present, and skipped-test warnings cover AM001, AM031, and AM050 scenarios.
 - `/opt/homebrew/bin/dotnet --list-runtimes` shows only .NET 10 runtimes in this local environment, so broader runtime verification remains blocked by missing .NET 8 and .NET 9 runtimes.
