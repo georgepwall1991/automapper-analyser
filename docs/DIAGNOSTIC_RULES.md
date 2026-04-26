@@ -868,8 +868,8 @@ AM022 is intentionally conservative: unrelated cycles on the source and destinat
 recursive member path is actually convention-mapped and each indirect nested type pair has a configured `CreateMap`
 that AutoMapper can use for recursion. Ignoring the top-level recursive destination member with
 `ForMember(..., opt => opt.Ignore())` or `ForPath(..., opt => opt.Ignore())` suppresses the diagnostic. Forward
-`MaxDepth`, `PreserveReferences`, `ConstructUsing`, and `ConvertUsing` configuration also suppress AM022 because those
-mapping shapes own recursion behavior explicitly.
+`MaxDepth`, `PreserveReferences`, and `ConvertUsing` configuration also suppress AM022 because those mapping shapes
+own recursion behavior explicitly.
 
 #### Configuration
 

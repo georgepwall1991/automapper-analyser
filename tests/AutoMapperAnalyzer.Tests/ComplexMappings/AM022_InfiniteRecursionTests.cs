@@ -1102,7 +1102,7 @@ public class AM022_InfiniteRecursionTests
     }
 
     [Fact]
-    public async Task AM022_ShouldNotReportDiagnostic_WhenCustomConstructionConfigured()
+    public async Task AM022_ShouldReportDiagnostic_WhenOnlyCustomConstructionConfigured()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -1135,7 +1135,98 @@ public class AM022_InfiniteRecursionTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
             .WithSource(testCode)
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule, 21, 13, "SourcePerson",
+                "DestPerson")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenConvertUsingConfigured()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson
+                                    {
+                                        public string Name { get; set; }
+                                        public SourcePerson Friend { get; set; }
+                                    }
+
+                                    public class DestPerson
+                                    {
+                                        public string Name { get; set; }
+                                        public DestPerson Friend { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourcePerson, DestPerson>()
+                                                .ConvertUsing(src => new DestPerson { Name = src.Name });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
             .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenPreserveReferencesIsNotAutoMapperMethod()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson
+                                    {
+                                        public string Name { get; set; }
+                                        public SourcePerson Friend { get; set; }
+                                    }
+
+                                    public class DestPerson
+                                    {
+                                        public string Name { get; set; }
+                                        public DestPerson Friend { get; set; }
+                                    }
+
+                                    public sealed class CustomMappingExpression
+                                    {
+                                        public CustomMappingExpression PreserveReferences() => this;
+                                    }
+
+                                    public static class CustomMappingExtensions
+                                    {
+                                        public static CustomMappingExpression Custom<TSource, TDestination>(
+                                            this IMappingExpression<TSource, TDestination> mapping) =>
+                                            new();
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourcePerson, DestPerson>()
+                                                .Custom()
+                                                .PreserveReferences();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule, 33, 13, "SourcePerson",
+                "DestPerson")
             .RunAsync();
     }
 }

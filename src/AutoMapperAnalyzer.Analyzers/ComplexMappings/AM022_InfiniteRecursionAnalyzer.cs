@@ -77,12 +77,17 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
 
         // Check if recursion is constrained or the mapping body is custom-owned.
         if (
-            HasMaxDepthConfiguration(invocationExpr, reverseMapInvocation)
-            || HasPreserveReferencesConfiguration(invocationExpr, reverseMapInvocation)
-            || MappingChainAnalysisHelper.HasCustomConstructionOrConversion(
+            HasForwardAutoMapperConfiguration(invocationExpr, reverseMapInvocation, context.SemanticModel, "MaxDepth")
+            || HasForwardAutoMapperConfiguration(
                 invocationExpr,
+                reverseMapInvocation,
                 context.SemanticModel,
-                stopAtReverseMapBoundary: true)
+                "PreserveReferences")
+            || HasForwardAutoMapperConfiguration(
+                invocationExpr,
+                reverseMapInvocation,
+                context.SemanticModel,
+                "ConvertUsing")
             || HasCircularPropertyIgnored(
                 invocationExpr,
                 typeArguments.sourceType as INamedTypeSymbol,
@@ -106,34 +111,11 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
     }
 
 
-    private static bool HasMaxDepthConfiguration(
+    private static bool HasForwardAutoMapperConfiguration(
         InvocationExpressionSyntax invocation,
-        InvocationExpressionSyntax? reverseMapInvocation
-    )
-    {
-        // Look for chained MaxDepth calls
-        SyntaxNode? parent = invocation.Parent;
-        while (parent != null)
-        {
-            if (
-                parent is InvocationExpressionSyntax chainedCall
-                && chainedCall.Expression is MemberAccessExpressionSyntax memberAccess
-                && memberAccess.Name.Identifier.ValueText == "MaxDepth"
-                && AppliesToForwardDirection(chainedCall, reverseMapInvocation)
-            )
-            {
-                return true;
-            }
-
-            parent = parent.Parent;
-        }
-
-        return false;
-    }
-
-    private static bool HasPreserveReferencesConfiguration(
-        InvocationExpressionSyntax invocation,
-        InvocationExpressionSyntax? reverseMapInvocation
+        InvocationExpressionSyntax? reverseMapInvocation,
+        SemanticModel semanticModel,
+        string methodName
     )
     {
         SyntaxNode? parent = invocation.Parent;
@@ -141,8 +123,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         {
             if (
                 parent is InvocationExpressionSyntax chainedCall
-                && chainedCall.Expression is MemberAccessExpressionSyntax memberAccess
-                && memberAccess.Name.Identifier.ValueText == "PreserveReferences"
+                && MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedCall, semanticModel, methodName)
                 && AppliesToForwardDirection(chainedCall, reverseMapInvocation)
             )
             {

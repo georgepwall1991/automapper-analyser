@@ -7,8 +7,8 @@
 ### Changed
 
 - Hardened AM022 recursion diagnostics so indirect cycles require the nested `CreateMap` chain AutoMapper would use.
-- Suppressed AM022 when forward mappings use `PreserveReferences`, `ConstructUsing`, or `ConvertUsing` to own recursion behavior.
-- Added AM022 regression coverage for missing nested maps, `PreserveReferences`, custom construction, and updated indirect-cycle fixer fixtures.
+- Suppressed AM022 when forward mappings use `PreserveReferences` or `ConvertUsing` to own recursion behavior.
+- Added AM022 regression coverage for missing nested maps, semantic `PreserveReferences`, `ConvertUsing`, `ConstructUsing` boundaries, and updated indirect-cycle fixer fixtures.
 - Updated AM022 rule docs and analyzer health status to document supported recursion controls and nested-map boundaries.
 
 ### Validation
