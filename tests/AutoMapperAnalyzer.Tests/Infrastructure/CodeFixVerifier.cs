@@ -38,6 +38,19 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
     public static async Task VerifyFixAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource,
         int? codeActionIndex, int? iterations, DiagnosticResult[]? remainingDiagnostics = null)
     {
+        await VerifyFixAsync(
+            source,
+            expectedDiagnostics,
+            fixedSource,
+            codeActionIndex,
+            iterations,
+            iterations,
+            remainingDiagnostics);
+    }
+
+    public static async Task VerifyFixAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource,
+        int? codeActionIndex, int? incrementalIterations, int? fixAllIterations, DiagnosticResult[]? remainingDiagnostics = null)
+    {
         var test = new CSharpCodeFixTest<TAnalyzer, TCodeFix, DefaultVerifier>
         {
             TestCode = source,
@@ -53,10 +66,11 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
         int expectedCount = expectedDiagnostics.Length;
         int defaultIterations = Math.Max(1, Math.Max(remainingCount + 1, expectedCount));
 
-        int finalIterations = iterations ?? defaultIterations;
+        int finalIncrementalIterations = incrementalIterations ?? defaultIterations;
+        int finalFixAllIterations = fixAllIterations ?? defaultIterations;
 
-        test.NumberOfFixAllIterations = finalIterations;
-        test.NumberOfIncrementalIterations = finalIterations;
+        test.NumberOfFixAllIterations = finalFixAllIterations;
+        test.NumberOfIncrementalIterations = finalIncrementalIterations;
         test.ExpectedDiagnostics.AddRange(expectedDiagnostics);
 
         if (remainingDiagnostics != null)
