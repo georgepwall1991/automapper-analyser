@@ -55,6 +55,54 @@ public class AM050_RedundantMapFromTests
     }
 
     [Fact]
+    public async Task Should_ReportDiagnostic_When_StringDestinationMemberTypeMatches()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember("Name", o => o.MapFrom(s => s.Name));
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+            .WithLocation(11, 37)
+            .WithArguments("Name");
+
+        await AnalyzerVerifier<AM050_RedundantMapFromAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_When_StringDestinationMemberTypeDiffers()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public int Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember("Name", o => o.MapFrom(s => s.Name));
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM050_RedundantMapFromAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
     public async Task Should_NotReportDiagnostic_When_MappingExpression()
     {
         const string testCode = """

@@ -1163,6 +1163,8 @@ dotnet_diagnostic.AM041.severity = warning
 
 Detects explicit `MapFrom` calls where the source and destination properties have the same name. AutoMapper maps these automatically by default.
 
+AM050 only reports when it can prove the source and destination members have the same type, including string-based destination member names such as `ForMember("Name", ...)`. It stays quiet when the destination member cannot be resolved or the same-name members have different types.
+
 #### Problem
 
 ```csharp
@@ -1284,7 +1286,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.9">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.10">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>

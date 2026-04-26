@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.10] - 2026-04-26
+
+### Changed
+
+- Hardened AM050 redundant `MapFrom` detection so cleanup diagnostics require proven source/destination property type compatibility.
+- Added AM050 regression coverage for string-based `ForMember` destination members with compatible and incompatible same-name properties.
+- Preserved property-specific AM050 code action titles for string-based destination members.
+- Updated analyzer health status to record the AM050 false-positive hardening pass.
+
+### Validation
+
+- Targeted AM050 analyzer and code fix tests.
+- Full `net10.0` solution test suite.
+- `git diff --check`.
+
 ## [2.30.9] - 2026-04-26
 
 ### Changed

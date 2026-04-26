@@ -44,7 +44,7 @@ Priority is a planning signal: `High` means the analyzer is important and has me
 | AM030 | Custom type converter issues | Custom Conversions | Error/Warning/Info | 3 | 4 | 4 | 4 | 4 | 3 | Low | Nullable-source converter fixes now insert fully qualified null guards without adding or reordering `using System`, with coverage for existing/global usings, file-scoped namespaces, expression-bodied converters, and multi-diagnostic fixes. Remaining opportunities are mostly external DI/service-provider wiring and the mixed-concept shape of the single AM030 ID. |
 | AM031 | Performance warnings in mapping expressions | Performance | Warning/Info | 4 | 4 | 4 | 5 | 4 | 4 | Low | Multiple-enumeration diagnostics now normalize source-rooted collection paths, cache rewrites support nested source collections, unsafe captured-collection cache actions are suppressed, and Task-valued source-property `.Result` is covered. Remaining risk is mainly the intentionally heuristic nature of broad performance smells. |
 | AM041 | Duplicate mapping registration | Configuration | Warning | 4 | 4 | 4 | 4 | 4 | 4 | Low | Strong compilation-wide registry, reverse-map awareness, cross-profile duplicate detection, and removal fixer coverage. Remaining risk is mainly nuanced intentional override/configuration ordering cases. |
-| AM050 | Redundant MapFrom configuration | Configuration | Info | 3 | 3 | 4 | 3 | 3 | 2 | Low | Safe cleanup rule with idempotent fixer tests, but product importance is low and analyzer semantics are intentionally narrow around direct same-name property lambdas. |
+| AM050 | Redundant MapFrom configuration | Configuration | Info | 4 | 4 | 4 | 4 | 4 | 2 | Low | Safe cleanup rule now requires proven source/destination type compatibility, including string-based `ForMember` members resolved through the `CreateMap` destination type; product importance remains low. |
 
 ## Planning Shortlist
 
@@ -59,6 +59,7 @@ The next improvement batch should focus on rules where user impact and health ga
 ## Cross-Cutting Findings
 
 - Public docs are useful and now have a severity drift guard for rule documentation. `AM004`, `AM005`, and `AM031` rule-doc severity text matches shipped descriptor metadata, while README/package version references remain covered by existing trust tests.
+- AM050 now treats redundant cleanup as a proven safe rewrite: string-based destination members are resolved through `CreateMap<TSource, TDestination>()`, mismatched same-name types are suppressed, and fixer titles retain the destination member name.
 - Analyzer ownership is a real strength. The conflict tests and shared helpers make `AM001`/`AM002`/`AM003`/`AM020`/`AM021` boundaries much healthier than a file-count audit would suggest.
 - The project now has a checked-in `RuleCatalog` health contract plus generated `docs/RULE_CATALOG.md` and sample diagnostic snapshots that tie rule IDs to descriptors, fixers, docs anchors, sample paths, and fixer trust levels.
 - Diagnostic placement is generally at the mapping invocation or mapping lambda, not always the precise property/member token. That is acceptable for many AutoMapper configuration rules, but high-volume rules benefit from tighter placement when practical.
@@ -70,6 +71,7 @@ Architecture-style coverage currently comes from analyzer/fixer tests, conflict 
 
 Current local verification:
 
-- `/opt/homebrew/bin/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 672 passed, 0 skipped, 0 failed.
+- `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM050` passed: 20 passed, 0 skipped, 0 failed.
+- `/usr/local/share/dotnet/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 675 passed, 0 skipped, 0 failed.
 - The trust-first pass removed active skipped tests, added drift validation, and moved intentional analyzer-test warnings into an explicit test-project warning baseline.
 - `/opt/homebrew/bin/dotnet --list-runtimes` shows only .NET 10 runtimes in this local environment, so broader runtime verification remains blocked by missing .NET 8 and .NET 9 runtimes.

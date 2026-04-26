@@ -107,7 +107,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
 
         if (sourceType == null || destType == null)
         {
-            return true; // Can't determine, assume compatible
+            return false;
         }
 
         // Check if types are exactly the same (including nullability)
@@ -139,6 +139,29 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
+    private InvocationExpressionSyntax? FindCreateMapInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        ExpressionSyntax? currentExpression = invocation.Expression is MemberAccessExpressionSyntax memberAccess
+            ? memberAccess.Expression
+            : null;
+
+        while (currentExpression is InvocationExpressionSyntax currentInvocation)
+        {
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(currentInvocation, semanticModel, "CreateMap"))
+            {
+                return currentInvocation;
+            }
+
+            currentExpression = currentInvocation.Expression is MemberAccessExpressionSyntax currentMemberAccess
+                ? currentMemberAccess.Expression
+                : null;
+        }
+
+        return null;
+    }
+
     private ITypeSymbol? GetDestinationPropertyType(
         InvocationExpressionSyntax forMemberInvocation,
         SyntaxNodeAnalysisContext context)
@@ -161,7 +184,26 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        return null;
+        string? destinationPropertyName = GetStringLiteralValue(arg);
+        if (destinationPropertyName == null)
+        {
+            return null;
+        }
+
+        InvocationExpressionSyntax? createMapInvocation = FindCreateMapInvocation(forMemberInvocation, context.SemanticModel);
+        if (createMapInvocation == null)
+        {
+            return null;
+        }
+
+        (_, ITypeSymbol? destinationType) =
+            MappingChainAnalysisHelper.GetCreateMapTypeArguments(createMapInvocation, context.SemanticModel);
+
+        return destinationType == null
+            ? null
+            : AutoMapperAnalysisHelpers.GetMappableProperties(destinationType)
+                .FirstOrDefault(property => property.Name == destinationPropertyName)
+                ?.Type;
     }
 
     private string? GetDestinationPropertyName(InvocationExpressionSyntax forMemberInvocation)
@@ -183,10 +225,10 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         }
 
         // Handle quoted string "Name"
-        if (arg is LiteralExpressionSyntax literal &&
-            literal.IsKind(SyntaxKind.StringLiteralExpression))
+        string? literalValue = GetStringLiteralValue(arg);
+        if (literalValue != null)
         {
-            return literal.Token.ValueText;
+            return literalValue;
         }
 
         return null;
@@ -211,6 +253,14 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         }
 
         return null;
+    }
+
+    private static string? GetStringLiteralValue(ExpressionSyntax expression)
+    {
+        return expression is LiteralExpressionSyntax literal &&
+               literal.IsKind(SyntaxKind.StringLiteralExpression)
+            ? literal.Token.ValueText
+            : null;
     }
 
 }
