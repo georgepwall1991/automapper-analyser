@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>0</PatchVersion>
+        <PatchVersion>1</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,19 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.0 - Fixer hardening and safer action selection
+        <PackageReleaseNotes>Version 2.30.1 - AM002 nullability contract alignment
 
-            Fixes:
-            - Fixed AM021 queue and stack collection-element conversions to generate compilable constructor-based mappings
-            - Fixed AM001 so multi-diagnostic CreateMap sites register stable per-property actions instead of only the first mismatch
-            - Hardened AM006 and AM011 fuzzy matching to require a unique best candidate before offering speculative mapping actions
-            - Removed AM005 source-property rename suggestions and kept the executable explicit-mapping action only
+            Changed:
+            - Aligned AM002 docs with its descriptor split: nullable source to non-nullable destination is Error, non-nullable source to nullable destination is Info
+            - Added AM002 nullable-context regression coverage for oblivious reference types and nullable value types
+            - Updated analyzer health and README coverage metadata for the shipped rule severities
 
             Validation:
-            - Full solution builds in Release
-            - Full analyzer test suite passing in Release with targeted fixer regression coverage
+            - Full solution test suite passing on net10.0 with targeted AM002 regression coverage
+            - git diff --check clean
 
-            Previous Release: v2.29.0 - smart primary fix and reduced fixer noise
+            Previous Release: v2.30.0 - fixer hardening and safer action selection
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

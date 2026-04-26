@@ -112,12 +112,12 @@ dotnet_diagnostic.AM001.severity = error
 
 ### AM002: Nullable Compatibility Issue
 
-**Severity**: Warning 🟡
+**Severity**: Error 🔴 for nullable source to non-nullable destination; Info 🔵 for non-nullable source to nullable destination
 **Category**: AutoMapper.TypeSafety
 
 #### Description
 
-Detects nullable source properties mapped to non-nullable destination properties, which can cause `NullReferenceException` at runtime.
+Detects nullable source properties mapped to non-nullable destination properties, which can violate the destination nullable contract at runtime. It also reports an informational diagnostic when a non-nullable source maps to a nullable destination so teams can simplify or document intentionally widened nullability.
 
 #### Problem
 
@@ -137,12 +137,12 @@ public class MappingProfile : Profile
     public MappingProfile()
     {
         CreateMap<Source, Destination>();
-        // ⚠️ AM002: FirstName nullable compatibility issue
+        // ❌ AM002: FirstName nullable compatibility issue
     }
 }
 ```
 
-**Runtime Behavior**: If `source.FirstName == null`, destination property receives null, violating nullable contract.
+**Runtime Behavior**: If `source.FirstName == null`, the destination property receives null, violating its nullable contract.
 
 #### Solutions
 
@@ -171,10 +171,14 @@ public class Destination
 }
 ```
 
+#### Safe Cases
+
+AM002 does not report when the destination member is explicitly configured with `ForMember` or `ForPath`, when the map uses custom construction/conversion, when nullable reference annotations are disabled or oblivious, or when the nullable source and destination member have incompatible underlying types owned by `AM001`.
+
 #### Configuration
 
 ```ini
-dotnet_diagnostic.AM002.severity = warning
+dotnet_diagnostic.AM002.severity = error
 ```
 
 ---

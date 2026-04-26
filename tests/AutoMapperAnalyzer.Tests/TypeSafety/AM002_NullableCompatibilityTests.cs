@@ -552,4 +552,73 @@ public class AM002_NullableCompatibilityTests
 
         await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_ForObliviousReferenceTypes()
+    {
+        string testCode = """
+
+                          #nullable disable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>();
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_ForNullableValueTypeInObliviousContext()
+    {
+        string testCode = """
+
+                          #nullable disable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public int? Age { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public int Age { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>();
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Age", "Source", "int?",
+                "Destination", "int"));
+    }
 }
