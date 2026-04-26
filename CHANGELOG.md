@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.30.5] - 2026-04-26
+
+### Changed
+
+- Hardened AM030 unused-converter analysis so `ConvertUsing(typeof(MyConverter))` counts as real converter usage.
+- Added AM030 regression coverage for type-based `ConvertUsing` configuration.
+- Updated AM030 rule docs and analyzer health status to document supported converter usage forms.
+
+### Validation
+
+- Targeted AM030 analyzer tests.
+- Full `net10.0` solution test suite.
+- `git diff --check`.
+
 ## [2.30.4] - 2026-04-26
 
 ### Changed

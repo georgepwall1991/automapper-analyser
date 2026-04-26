@@ -29,6 +29,7 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | Case-aware Suppression + Fix Routing | AM006, AM020, AM021 | main | v2.28.1 | Fixed AM021 source/destination property-name routing for case-only matches, added top-level parsing for string-literal member paths in shared suppression helpers, and expanded regression coverage for explicit configuration suppression and conflict ownership. |
 | Fixer Hardening Follow-up | AM001, AM005, AM006, AM011, AM021 | main | v2.30.0 | Fixed AM021 queue/stack conversion codegen, restored stable per-diagnostic AM001 action registration, required unique-best fuzzy matches for AM006/AM011, removed AM005 rename actions, and added targeted regression coverage for action ordering and ambiguous suggestions. |
 | AM022 (2nd pass) | Complex Mappings | main | v2.30.4 | Restricted recursion diagnostics to convention-mapped recursive member paths, suppressed ignored indirect recursive members, and added regression coverage for unrelated self-referencing/circular graphs. |
+| AM030 (2nd pass) | Complex Mappings | main | v2.30.5 | Counted type-based `ConvertUsing(typeof(MyConverter))` converter configuration as usage, reducing unused-converter false positives with targeted regression coverage. |
 
 ## In Progress
 

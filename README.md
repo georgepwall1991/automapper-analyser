@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-643%20passing%2C%208%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-644%20passing%2C%208%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,25 +14,26 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.4
+## 🎉 Latest Release: v2.30.5
 
-**AM022 Mapped Recursion Precision — quieter diagnostics for unrelated circular graphs**
+**AM030 Type-Based Converter Usage Precision — quieter unused-converter diagnostics**
 
 ✅ **Highlights**
 
-- Hardened AM022 so recursion diagnostics follow convention-mapped member paths instead of unrelated graph cycles.
-- Added AM022 coverage for mismatched recursive member names and independent circular graphs.
-- Suppressed ignored indirect recursive members when the top-level recursive destination path is configured with `Ignore`.
-- Documented the safe boundary for mapped recursion detection and explicit ignore suppression.
+- Hardened AM030 so `ConvertUsing(typeof(MyConverter))` counts as real converter usage.
+- Added AM030 coverage for type-based AutoMapper converter configuration.
+- Preserved existing generic and instance `ConvertUsing` handling.
+- Documented the supported AM030 converter usage forms.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `643` passing and `8` skipped.
-- Release validation covered targeted AM022 regressions plus full solution verification before tagging.
+- Full test suite passed with `644` passing and `8` skipped.
+- Release validation covered targeted AM030 regressions plus full solution verification before tagging.
 
 ### Recent Releases
 
+- **v2.30.4**: AM022 mapped recursion precision with unrelated-cycle false-positive reductions.
 - **v2.30.3**: AM011 ForPath required-member boundary with explicit configuration coverage.
 - **v2.30.2**: AM003 assignable collection boundary suppression with targeted regression coverage.
 - **v2.30.1**: AM002 nullability contract alignment with descriptor-accurate docs and nullable-context regression coverage.
@@ -366,6 +367,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ### Recently Completed ✅
 
+- **v2.30.5**: AM030 type-based converter usage precision for `ConvertUsing(typeof(...))`
 - **v2.30.4**: AM022 mapped recursion precision with unrelated-cycle false-positive reductions
 - **v2.30.3**: AM011 ForPath required-member boundary with explicit-configuration regression coverage
 - **v2.30.2**: AM003 assignable collection boundary suppression with targeted regression coverage
