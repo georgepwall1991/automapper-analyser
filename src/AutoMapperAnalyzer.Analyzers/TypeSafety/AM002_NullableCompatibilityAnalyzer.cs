@@ -141,7 +141,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         string sourceTypeName = sourceProperty.Type.ToDisplayString();
         string destTypeName = destinationProperty.Type.ToDisplayString();
 
-        // Case 1: Nullable source -> Non-nullable destination (WARNING)
+        // Case 1: Nullable source -> Non-nullable destination (ERROR)
         if (IsNullableType(sourceProperty.Type) && !IsNullableType(destinationProperty.Type))
         {
             // Check if the underlying types are compatible

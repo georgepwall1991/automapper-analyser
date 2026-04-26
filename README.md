@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-635%20passing%2C%208%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-637%20passing%2C%208%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,26 +14,26 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.0
+## 🎉 Latest Release: v2.30.1
 
-**Fixer Hardening — safer actions for collections, fuzzy matches, and multi-diagnostic maps**
+**AM002 Nullability Contract Alignment — descriptor-accurate docs and edge-case coverage**
 
 ✅ **Highlights**
 
-- Fixed AM021 simple collection conversions for `Queue<T>` and `Stack<T>` so the suggested code now matches the destination collection shape.
-- Fixed AM001 so multiple type mismatches on the same `CreateMap` expose stable, per-property actions instead of only handling the first diagnostic.
-- Tightened AM006 and AM011 fuzzy matching to offer a mapping action only when there is a unique best candidate.
-- Removed AM005 rename-based lightbulbs and kept the explicit executable mapping action only.
-- Added targeted regression coverage for action ordering, ambiguous fuzzy matches, and queue/stack conversion fixes.
+- Aligned AM002 documentation with its real descriptor split: nullable source to non-nullable destination is `Error`, and non-nullable source to nullable destination is `Info`.
+- Added AM002 boundary coverage for oblivious reference nullability so disabled nullable annotations do not create noisy reference-type diagnostics.
+- Added AM002 regression coverage proving nullable value types remain protected even when nullable reference annotations are disabled.
+- Updated the analyzer health audit and rule coverage table so release docs match shipped behavior.
 
 🧪 **Validation**
 
-- Full solution builds passed in `Release`.
-- Full test suite passed with `635` passing and `8` skipped.
-- Release validation covered targeted fixer regressions plus full Release build/test passes before tagging.
+- Full solution test validation passed on `net10.0`.
+- Full test suite passed with `637` passing and `8` skipped.
+- Release validation covered targeted AM002 regressions plus full solution verification before tagging.
 
 ### Recent Releases
 
+- **v2.30.0**: Fixer hardening for AM001, AM005, AM006, AM011, and AM021 with safer action selection.
 - **v2.29.0**: Smart primary fix and reduced fixer noise across the main data-integrity fixers.
 - **v2.28.2**: False-positive reduction, fixer UX improvements, and release workflow hardening.
 - **v2.28.1**: Case-aware AM021 suppression and fixer reliability improvements.
@@ -169,7 +169,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.0">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.1">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -284,21 +284,21 @@ public void ConfigureSafeUserMapping() { }
 | Rule                    | Description                    | Analyzer | Code Fix | Severity |
 |-------------------------|--------------------------------|----------|----------|----------|
 | **🔒 Type Safety**      |                                |          |          |
-| AM001                   | Property Type Mismatch         | ✅        | ✅        | Warning  |  
-| AM002                   | Nullable→Non-nullable          | ✅        | ✅        | Warning  |
-| AM003                   | Collection Incompatibility     | ✅        | ✅        | Warning  |
+| AM001                   | Property Type Mismatch         | ✅        | ✅        | Error    |
+| AM002                   | Nullable→Non-nullable          | ✅        | ✅        | Error / Info |
+| AM003                   | Collection Incompatibility     | ✅        | ✅        | Error    |
 | **📊 Data Integrity**   |                                |          |          |
-| AM004                   | Missing Destination Property   | ✅        | ✅        | Info     |
-| AM005                   | Case Sensitivity Issues        | ✅        | ✅        | Info     |
+| AM004                   | Missing Destination Property   | ✅        | ✅        | Warning  |
+| AM005                   | Case Sensitivity Issues        | ✅        | ✅        | Warning  |
 | AM006                   | Unmapped Destination Property  | ✅        | ✅        | Info     |
 | AM011                   | Required Property Missing      | ✅        | ✅        | Error    |
 | **🧩 Complex Mappings** |                                |          |          |
 | AM020                   | Nested Object Issues           | ✅        | ✅        | Warning  |
-| AM021                   | Collection Element Mismatch    | ✅        | ✅        | Warning  |  
+| AM021                   | Collection Element Mismatch    | ✅        | ✅        | Warning  |
 | AM022                   | Circular Reference Risk        | ✅        | ✅        | Warning  |
-| AM030                   | Custom Type Converter Issues   | ✅        | ✅        | Warning  |
+| AM030                   | Custom Type Converter Issues   | ✅        | ✅        | Error / Warning / Info |
 | **⚡ Performance**       |                                |          |          |
-| AM031                   | Performance Warnings           | ✅        | ✅        | Warning  |
+| AM031                   | Performance Warnings           | ✅        | ✅        | Warning / Info |
 | **⚙️ Configuration**    |                                |          |          |
 | AM041                   | Duplicate Mapping Registration | ✅        | ✅        | Warning  |
 | AM050                   | Redundant MapFrom              | ✅        | ✅        | Info     |
@@ -363,6 +363,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ### Recently Completed ✅
 
+- **v2.30.1**: AM002 nullability contract alignment with descriptor-accurate docs and nullable-context regression coverage
 - **v2.30.0**: Fixer hardening for AM001, AM005, AM006, AM011, and AM021 with safer action selection
 - **v2.29.0**: Smart Primary Fix — reduced fixer noise to max 2 lightbulb options per diagnostic
 - **v2.28.2**: False-positive reduction, fixer UX improvements, and release workflow hardening
