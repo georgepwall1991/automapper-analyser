@@ -186,20 +186,86 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
         foreach (ArgumentSyntax argument in invocation.ArgumentList.Arguments)
         {
-            if (argument.Expression is TypeOfExpressionSyntax typeOfExpression &&
-                semanticModel.GetTypeInfo(typeOfExpression.Type).Type is INamedTypeSymbol typeOfArgument &&
-                ImplementsTypeConverter(typeOfArgument))
+            foreach (INamedTypeSymbol converterSymbol in GetConverterSymbolsFromExpression(argument.Expression, semanticModel))
             {
-                yield return typeOfArgument;
-                continue;
+                yield return converterSymbol;
             }
+        }
+    }
 
-            TypeInfo typeInfo = semanticModel.GetTypeInfo(argument.Expression);
-            ITypeSymbol? argumentType = typeInfo.Type ?? typeInfo.ConvertedType;
+    private static IEnumerable<INamedTypeSymbol> GetConverterSymbolsFromExpression(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        return GetConverterSymbolsFromExpression(expression, semanticModel, new HashSet<ISymbol>(SymbolEqualityComparer.Default));
+    }
 
-            if (argumentType is INamedTypeSymbol namedArgumentType && ImplementsTypeConverter(namedArgumentType))
+    private static IEnumerable<INamedTypeSymbol> GetConverterSymbolsFromExpression(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel,
+        HashSet<ISymbol> visitedSymbols)
+    {
+        if (expression is TypeOfExpressionSyntax typeOfExpression &&
+            semanticModel.GetTypeInfo(typeOfExpression.Type).Type is INamedTypeSymbol typeOfArgument &&
+            ImplementsTypeConverter(typeOfArgument))
+        {
+            yield return typeOfArgument;
+            yield break;
+        }
+
+        if (expression is ObjectCreationExpressionSyntax objectCreation &&
+            semanticModel.GetTypeInfo(objectCreation.Type).Type is INamedTypeSymbol objectCreationType &&
+            ImplementsTypeConverter(objectCreationType))
+        {
+            yield return objectCreationType;
+            yield break;
+        }
+
+        TypeInfo typeInfo = semanticModel.GetTypeInfo(expression);
+        ITypeSymbol? argumentType = typeInfo.Type ?? typeInfo.ConvertedType;
+
+        if (argumentType is INamedTypeSymbol namedArgumentType &&
+            ImplementsTypeConverter(namedArgumentType) &&
+            !IsTypeConverterInterface(namedArgumentType))
+        {
+            yield return namedArgumentType;
+            yield break;
+        }
+
+        foreach (ExpressionSyntax initializer in GetReferencedInitializers(expression, semanticModel, visitedSymbols))
+        {
+            foreach (INamedTypeSymbol converterSymbol in GetConverterSymbolsFromExpression(
+                         initializer,
+                         semanticModel,
+                         visitedSymbols))
             {
-                yield return namedArgumentType;
+                yield return converterSymbol;
+            }
+        }
+    }
+
+    private static IEnumerable<ExpressionSyntax> GetReferencedInitializers(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel,
+        HashSet<ISymbol> visitedSymbols)
+    {
+        if (semanticModel.GetSymbolInfo(expression).Symbol is not { } symbol ||
+            !visitedSymbols.Add(symbol))
+        {
+            yield break;
+        }
+
+        foreach (SyntaxReference declarationReference in symbol.DeclaringSyntaxReferences)
+        {
+            SyntaxNode declaration = declarationReference.GetSyntax();
+
+            if (declaration is VariableDeclaratorSyntax { Initializer.Value: { } variableInitializer })
+            {
+                yield return variableInitializer;
+            }
+            else if (declaration is PropertyDeclarationSyntax { Initializer.Value: { } propertyInitializer })
+            {
+                yield return propertyInitializer;
             }
         }
     }
@@ -222,7 +288,14 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
     private static bool ImplementsTypeConverter(INamedTypeSymbol typeSymbol)
     {
-        return GetTypeConverterInterface(typeSymbol) != null;
+        return IsTypeConverterInterface(typeSymbol) || GetTypeConverterInterface(typeSymbol) != null;
+    }
+
+    private static bool IsTypeConverterInterface(INamedTypeSymbol typeSymbol)
+    {
+        return typeSymbol.Name == "ITypeConverter" &&
+               typeSymbol.ContainingNamespace?.ToDisplayString() == "AutoMapper" &&
+               typeSymbol.TypeArguments.Length == 2;
     }
 
     private static string GetConverterKey(INamedTypeSymbol symbol)

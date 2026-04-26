@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Changed
+
+- Hardened AM030 unused-converter analysis so simple `ITypeConverter<TSource, TDestination>` locals, fields, and properties initialized with concrete converters count as `ConvertUsing` usage.
+- Added AM030 regression coverage for interface-typed local, field, and property converter usage.
+- Updated AM030 docs and analyzer health status to describe the supported interface-typed converter usage boundary.
+
+### Validation
+
+- Targeted AM030 analyzer tests.
+- Full `net10.0` solution test suite.
+- Rule catalog and sample diagnostics snapshot checks.
+- `git diff --check`.
+
 ## [2.30.11] - 2026-04-27
 
 ### Changed
