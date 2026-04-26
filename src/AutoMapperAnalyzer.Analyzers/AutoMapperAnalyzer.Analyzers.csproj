@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>4</PatchVersion>
+        <PatchVersion>5</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.4 - AM022 mapped recursion precision
+        <PackageReleaseNotes>Version 2.30.5 - AM030 type-based converter usage precision
 
             Changed:
-            - Hardened AM022 recursion diagnostics so unrelated self-referencing or circular graphs no longer report unless the recursive path is convention-mapped
-            - Added AM022 regression coverage for mismatched recursive member names, independent circular graphs, and ignored indirect recursive members
-            - Updated AM022 rule docs and analyzer health status to describe the mapped-member precision boundary
+            - Hardened AM030 unused-converter analysis so ConvertUsing(typeof(MyConverter)) counts as real converter usage
+            - Added AM030 regression coverage for type-based ConvertUsing configuration
+            - Updated AM030 rule docs and analyzer health status to document supported converter usage forms
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM022 regression coverage
+            - Full solution test suite passing on net10.0 with targeted AM030 regression coverage
             - git diff --check clean
 
-            Previous Release: v2.30.3 - AM011 ForPath required-member boundary
+            Previous Release: v2.30.4 - AM022 mapped recursion precision
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
