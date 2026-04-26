@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.30.2] - 2026-04-26
+
+### Changed
+
+- Hardened AM003 collection-container diagnostics so implicitly assignable source collections no longer require unnecessary explicit mapping.
+- Added AM003 regression coverage for array-to-interface and set-to-read-only-interface collection shapes.
+- Updated AM003 rule docs and analyzer health status to document the safe assignable boundary.
+
+### Validation
+
+- Targeted AM003 analyzer and code fix tests.
+- Full `net10.0` solution test suite.
+- `git diff --check`.
+
 ## [2.30.1] - 2026-04-26
 
 ### Changed

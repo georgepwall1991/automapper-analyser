@@ -147,8 +147,10 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // AM003 owns collection container incompatibilities.
-        if (AreCollectionTypesIncompatible(sourceProperty.Type, destinationProperty.Type))
+        // AM003 owns collection container incompatibilities, but should stay quiet
+        // when the source collection can already satisfy the destination contract.
+        if (!IsImplicitlyAssignable(sourceProperty.Type, destinationProperty.Type, context.SemanticModel.Compilation) &&
+            AreCollectionTypesIncompatible(sourceProperty.Type, destinationProperty.Type))
         {
             ImmutableDictionary<string, string?>.Builder properties =
                 ImmutableDictionary.CreateBuilder<string, string?>();
@@ -237,6 +239,12 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    private static bool IsImplicitlyAssignable(ITypeSymbol sourceType, ITypeSymbol destinationType, Compilation compilation)
+    {
+        Conversion conversion = compilation.ClassifyConversion(sourceType, destinationType);
+        return conversion.Exists && conversion.IsImplicit;
     }
 
     private static bool IsGenericCollection(ITypeSymbol type)

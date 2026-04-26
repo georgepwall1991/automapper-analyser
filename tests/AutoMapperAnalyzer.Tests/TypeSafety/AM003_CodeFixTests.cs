@@ -203,7 +203,7 @@ public class AM003_CodeFixTests
     }
 
     [Fact]
-    public async Task AM003_ShouldFixArrayToIEnumerableConversion()
+    public async Task AM003_ShouldNotOfferFix_WhenSourceCollectionAssignableToDestinationInterface()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -214,11 +214,13 @@ public class AM003_CodeFixTests
                                     public class Source
                                     {
                                         public string[] Tags { get; set; }
+                                        public HashSet<int> Values { get; set; }
                                     }
 
                                     public class Destination
                                     {
                                         public IEnumerable<string> Tags { get; set; }
+                                        public IReadOnlyCollection<int> Values { get; set; }
                                     }
 
                                     public class TestProfile : Profile
@@ -231,44 +233,7 @@ public class AM003_CodeFixTests
                                 }
                                 """;
 
-        const string expectedFixedCode = """
-                                         using AutoMapper;
-                                         using System.Collections.Generic;
-                                         using System.Linq;
-
-                                         namespace TestNamespace
-                                         {
-                                             public class Source
-                                             {
-                                                 public string[] Tags { get; set; }
-                                             }
-
-                                             public class Destination
-                                             {
-                                                 public IEnumerable<string> Tags { get; set; }
-                                             }
-
-                                             public class TestProfile : Profile
-                                             {
-                                                 public TestProfile()
-                                                 {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.Tags.AsEnumerable()));
-                                                 }
-                                             }
-                                         }
-                                         """;
-
-        await VerifyFixAsync(
-            testCode,
-            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
-            20,
-            13,
-            expectedFixedCode,
-            "Tags",
-            "Source",
-            "string[]",
-            "Destination",
-            "System.Collections.Generic.IEnumerable<string>");
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]

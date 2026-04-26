@@ -259,6 +259,41 @@ public class AM003_CollectionTypeIncompatibilityTests
     }
 
     [Fact]
+    public async Task AM003_ShouldNotReportDiagnostic_WhenSourceCollectionAssignableToDestinationInterface()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string[] Tags { get; set; }
+                                        public HashSet<int> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public IEnumerable<string> Tags { get; set; }
+                                        public IReadOnlyCollection<int> Numbers { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
     public async Task AM003_ShouldNotReportDiagnostic_WhenNumericElementTypesIncompatible()
     {
         const string testCode = """

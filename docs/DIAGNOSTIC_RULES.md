@@ -234,6 +234,7 @@ CreateMap<Source, Destination>()
 - ✅ `Stack` ↔ other collections
 - ❌ Element type mismatches (owned by `AM021`)
 - ❌ `List` → `Array` (AutoMapper handles this)
+- ❌ Source collections already assignable to the destination contract, such as `T[]` → `IEnumerable<T>` or `HashSet<T>` → `IReadOnlyCollection<T>`
 
 #### Configuration
 
@@ -706,7 +707,7 @@ public class MappingProfile : Profile
 
 `AM021` checks for an existing `CreateMap<SourceItem, DestinationItem>()` before reporting. If element mapping exists, no diagnostic is emitted.
 
-If collection containers are incompatible (`HashSet<T>` vs `List<T>`, `Queue<T>` vs `Stack<T>`, etc.), `AM003` owns the diagnostic.
+If collection containers are incompatible (`HashSet<T>` vs `List<T>`, `Queue<T>` vs `Stack<T>`, etc.), `AM003` owns the diagnostic. AM003 stays quiet when the source collection is already assignable to the destination collection contract.
 
 #### Solution
 
