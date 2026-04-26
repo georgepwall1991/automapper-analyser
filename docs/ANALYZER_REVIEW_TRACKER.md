@@ -32,6 +32,7 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | AM030 (2nd pass) | Complex Mappings | main | v2.30.5 | Counted type-based `ConvertUsing(typeof(MyConverter))` converter configuration as usage, reducing unused-converter false positives with targeted regression coverage. |
 | AM031 (2nd pass) | Performance | main | v2.30.6 | Normalized multiple-enumeration source collection paths, made nested source cache rewrites executable, suppressed unsafe captured-collection cache actions, and detected Task-valued source-property `.Result`. |
 | Trust-first hardening | All | main | v2.30.6 | Added `RuleCatalog` drift checks, aligned package/docs/SDK workflow metadata, clarified fixer trust levels in code action titles/docs, and converted skipped AM001/AM031/AM050 tests into active coverage. |
+| AM022 (3rd pass) | Complex Mappings | main | v2.30.7 | Required configured nested `CreateMap` chains before indirect recursion diagnostics, suppressed semantic `PreserveReferences` and `ConvertUsing`, and expanded boundary regression coverage. |
 
 ## In Progress
 

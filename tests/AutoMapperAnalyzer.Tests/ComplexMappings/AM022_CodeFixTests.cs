@@ -251,6 +251,7 @@ public class AM022_CodeFixTests
                                         public TestProfile()
                                         {
                                             CreateMap<SourceParent, DestParent>();
+                                            CreateMap<SourceChild, DestChild>().MaxDepth(2);
                                         }
                                     }
                                 }
@@ -286,6 +287,7 @@ public class AM022_CodeFixTests
                                                  public TestProfile()
                                                  {
                                                      CreateMap<SourceParent, DestParent>().MaxDepth(2);
+                                                     CreateMap<SourceChild, DestChild>().MaxDepth(2);
                                                  }
                                              }
                                          }
@@ -600,6 +602,8 @@ public class AM022_CodeFixTests
                                         public TestProfile()
                                         {
                                             CreateMap<SourceA, DestA>();
+                                            CreateMap<SourceB, DestB>().MaxDepth(2);
+                                            CreateMap<SourceC, DestC>().MaxDepth(2);
                                         }
                                     }
                                 }
@@ -651,6 +655,8 @@ public class AM022_CodeFixTests
                                                  public TestProfile()
                                                  {
                                                      CreateMap<SourceA, DestA>().MaxDepth(2);
+                                                     CreateMap<SourceB, DestB>().MaxDepth(2);
+                                                     CreateMap<SourceC, DestC>().MaxDepth(2);
                                                  }
                                              }
                                          }
