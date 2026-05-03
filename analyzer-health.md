@@ -1,6 +1,6 @@
 # Analyzer Health
 
-Reviewed: 2026-04-27
+Reviewed: 2026-05-03
 
 This is a deliberately harsh health audit for the 14 implemented AutoMapper analyzer rule IDs in this repository. Several rule IDs expose multiple diagnostic descriptors, especially `AM002`, `AM022`, `AM030`, and `AM031`; the scorecard rates the public rule ID as the user experiences it.
 
@@ -39,7 +39,7 @@ Priority is a planning signal: `High` means the analyzer is important and has me
 | AM006 | Destination property is not mapped | Data Integrity | Info | 4 | 4 | 4 | 4 | 4 | 4 | Low | Solid non-required counterpart to AM011 with flattening, reverse-map, ForPath, lookalike API, fuzzy-match, and bulk-ignore coverage; analyzer test count is lighter than AM004 but the risk is lower. |
 | AM011 | Required destination property is not mapped | Data Integrity | Error | 4 | 5 | 3 | 5 | 5 | 5 | Low | Important runtime-failure guardrail with required-member, reverse-map, constructor, custom-construction, and direct/nested ForPath coverage; fixer default/ignore actions are now documented as manual-review scaffolds. |
 | AM020 | Nested object mapping configuration missing | Complex Mappings | Warning | 4 | 4 | 4 | 5 | 5 | 5 | Low | The reference example in this repo: broad tests cover separate profiles, reverse maps, inheritance, records, interfaces, internal members, ForPath/string paths, and construction/conversion suppression. |
-| AM021 | Collection element type incompatibility | Complex Mappings | Warning | 4 | 4 | 4 | 4 | 4 | 4 | Low | Good AM003 boundary discipline and recent fixer hardening for case-only names plus queue/stack output shape; keep expanding dictionary/custom-collection and reverse-map edge cases. |
+| AM021 | Collection element type incompatibility | Complex Mappings | Warning | 4 | 4 | 4 | 4 | 4 | 4 | Low | Good AM003 boundary discipline and fixer hardening for case-only names plus queue/stack output shape; dictionary `KeyValuePair<,>` diagnostics now avoid unsafe element-`CreateMap` suggestions and keep only the manual ignore action. Remaining opportunities are custom-collection and reverse-map edge cases. |
 | AM022 | Infinite recursion risk | Complex Mappings | Warning | 4 | 4 | 4 | 5 | 5 | 4 | Low | Recursion diagnostics now require convention-mapped paths plus configured nested `CreateMap` chains for indirect cycles, and suppress forward `MaxDepth`, `PreserveReferences`, `ConvertUsing`, ignores, collections, and reverse-map boundaries. Remaining risk is the intentionally heuristic nature of graph analysis. |
 | AM030 | Custom type converter issues | Custom Conversions | Error/Warning/Info | 3 | 4 | 4 | 4 | 4 | 3 | Low | Unused-converter analysis now recognizes simple interface-typed converter locals, fields, and properties initialized with concrete converters and passed to `ConvertUsing(converter)`, alongside existing nullable-source fixer coverage. Remaining opportunities are mostly external DI/service-provider wiring and the mixed-concept shape of the single AM030 ID. |
 | AM031 | Performance warnings in mapping expressions | Performance | Warning/Info | 4 | 4 | 4 | 5 | 4 | 4 | Low | Multiple-enumeration diagnostics now normalize source-rooted collection paths, cache rewrites support nested source collections, unsafe captured-collection cache actions are suppressed, and Task-valued source-property `.Result` is covered. Remaining risk is mainly the intentionally heuristic nature of broad performance smells. |
@@ -62,6 +62,7 @@ The next improvement batch should focus on rules where user impact and health ga
 - AM001 fixer coverage now includes enum-to-string and null-guarded string-to-enum property mismatches, so the documented enum conversion scenario has an executable code action instead of only an ignore fallback.
 - AM050 now treats redundant cleanup as a proven safe rewrite: string-based destination members are resolved through `CreateMap<TSource, TDestination>()`, mismatched same-name types are suppressed, and fixer titles retain the destination member name.
 - AM030 now avoids unused-converter false positives when a converter is deliberately stored behind `ITypeConverter<TSource, TDestination>` before being passed to AutoMapper.
+- AM021 now reports dictionary key/value element mismatches without offering a misleading `CreateMap<KeyValuePair<...>, KeyValuePair<...>>()` fixer; dictionary diagnostics stay on the manual ignore/review path.
 - Analyzer ownership is a real strength. The conflict tests and shared helpers make `AM001`/`AM002`/`AM003`/`AM020`/`AM021` boundaries much healthier than a file-count audit would suggest.
 - The project now has a checked-in `RuleCatalog` health contract plus generated `docs/RULE_CATALOG.md` and sample diagnostic snapshots that tie rule IDs to descriptors, fixers, docs anchors, sample paths, and fixer trust levels.
 - Diagnostic placement is generally at the mapping invocation or mapping lambda, not always the precise property/member token. That is acceptable for many AutoMapper configuration rules, but high-volume rules benefit from tighter placement when practical.
@@ -73,9 +74,9 @@ Architecture-style coverage currently comes from analyzer/fixer tests, conflict 
 
 Current local verification:
 
-- `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM001_CodeFixTests` passed: 11 passed, 0 skipped, 0 failed.
-- `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM050` passed: 20 passed, 0 skipped, 0 failed.
-- `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM030_CustomTypeConverterTests` passed: 11 passed, 0 skipped, 0 failed.
-- `/usr/local/share/dotnet/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 682 passed, 0 skipped, 0 failed.
+- `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM021` passed: 38 passed, 0 skipped, 0 failed.
+- `/usr/local/share/dotnet/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 683 passed, 0 skipped, 0 failed.
+- `/usr/local/share/dotnet/dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj --configuration Release -- --check-catalog --check-snapshots` passed: rule catalog and sample diagnostics snapshot are up to date.
+- `git diff --check` passed.
 - The trust-first pass removed active skipped tests, added drift validation, and moved intentional analyzer-test warnings into an explicit test-project warning baseline.
 - `/opt/homebrew/bin/dotnet --list-runtimes` shows only .NET 10 runtimes in this local environment, so broader runtime verification remains blocked by missing .NET 8 and .NET 9 runtimes.

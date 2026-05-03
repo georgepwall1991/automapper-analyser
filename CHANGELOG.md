@@ -4,13 +4,23 @@
 
 ### Changed
 
+### Validation
+
+## [2.30.12] - 2026-05-03
+
+### Changed
+
 - Hardened AM030 unused-converter analysis so simple `ITypeConverter<TSource, TDestination>` locals, fields, and properties initialized with concrete converters count as `ConvertUsing` usage.
 - Added AM030 regression coverage for interface-typed local, field, and property converter usage.
 - Updated AM030 docs and analyzer health status to describe the supported interface-typed converter usage boundary.
+- Hardened AM021 dictionary element mismatch code fixes so `KeyValuePair<TKey, TValue>` diagnostics no longer offer unsafe element `CreateMap` suggestions.
+- Added AM021 regression coverage proving dictionary mismatch diagnostics keep only the manual ignore action.
+- Updated AM021 docs and analyzer health status to describe the dictionary fixer safety boundary.
 
 ### Validation
 
 - Targeted AM030 analyzer tests.
+- Targeted AM021 analyzer and code fix tests.
 - Full `net10.0` solution test suite.
 - Rule catalog and sample diagnostics snapshot checks.
 - `git diff --check`.

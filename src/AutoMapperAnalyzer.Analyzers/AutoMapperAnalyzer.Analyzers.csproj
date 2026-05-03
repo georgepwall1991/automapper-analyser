@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>11</PatchVersion>
+        <PatchVersion>12</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,19 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.11 - AM001 enum conversion fixer
+        <PackageReleaseNotes>Version 2.30.12 - AM030 and AM021 precision hardening
 
             Changed:
-            - Added AM001 code fixes for enum-to-string mappings using ToString()
-            - Added AM001 code fixes for string-to-enum mappings using null-guarded, fully qualified Enum.Parse&lt;TEnum&gt;()
-            - Added focused AM001 fixer coverage for both enum conversion directions
+            - Hardened AM030 unused-converter analysis for interface-typed converter locals, fields, and properties
+            - Hardened AM021 dictionary diagnostics so KeyValuePair element mismatches do not offer unsafe element CreateMap suggestions
+            - Updated docs, health notes, and release metadata for the safer AM030/AM021 boundaries
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM001 coverage
+            - Full solution test suite passing on net10.0 with targeted AM021 coverage
+            - Rule catalog and sample diagnostics snapshot checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.10 - AM050 proven redundant MapFrom cleanup
+            Previous Release: v2.30.11 - AM001 enum conversion fixer
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
