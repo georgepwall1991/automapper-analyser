@@ -37,6 +37,7 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | AM004/AM005 docs trust | Data Integrity | main | v2.30.9 | Aligned rule docs with shipped Warning severity/category metadata and added catalog trust coverage that keeps documented severity lines descriptor-accurate. |
 | AM050 (2nd pass) | Configuration | main | v2.30.10 | Required proven source/destination type compatibility before reporting redundant `MapFrom`, including string-based `ForMember` destination members resolved from `CreateMap`. |
 | AM001 (2nd pass) | Type Safety | main | v2.30.11 | Added direct enum-to-string and string-to-enum conversion fixes for documented AM001 enum mismatch scenarios. |
+| AM030 + AM021 follow-up | Complex Mappings | main | v2.30.12 | Recognized interface-typed converter usage for AM030 and kept AM021 dictionary `KeyValuePair<,>` mismatch diagnostics on the manual-review fixer path. |
 
 ## In Progress
 
