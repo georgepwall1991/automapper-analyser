@@ -108,8 +108,11 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             }
             else
             {
-                RegisterComplexMappingFix(context, operationContext.Root, invocation, destinationPropertyNameValue, sourceElementType!,
-                    destElementType!, diagnostic, operationContext.SemanticModel);
+                if (!IsKeyValuePairType(sourceElementType!) && !IsKeyValuePairType(destElementType!))
+                {
+                    RegisterComplexMappingFix(context, operationContext.Root, invocation, destinationPropertyNameValue, sourceElementType!,
+                        destElementType!, diagnostic, operationContext.SemanticModel);
+                }
             }
 
             context.RegisterCodeFix(
@@ -351,6 +354,14 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
     private static bool IsSimpleTypeConversion(string sourceElementType, string destElementType)
     {
         return IsSimpleConversionType(sourceElementType) && IsSimpleConversionType(destElementType);
+    }
+
+    private static bool IsKeyValuePairType(string typeName)
+    {
+        string normalizedType = typeName.Trim();
+        return normalizedType.StartsWith("System.Collections.Generic.KeyValuePair<", StringComparison.Ordinal) ||
+               normalizedType.StartsWith("global::System.Collections.Generic.KeyValuePair<", StringComparison.Ordinal) ||
+               normalizedType.StartsWith("KeyValuePair<", StringComparison.Ordinal);
     }
 
     private static string GetConversionMethod(string destElementType)
