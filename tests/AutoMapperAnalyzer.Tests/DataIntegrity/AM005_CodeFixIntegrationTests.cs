@@ -184,6 +184,7 @@ public class AM005_CodeFixIntegrationTests
         List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
         CodeAction action = Assert.Single(actions);
         Assert.Equal("Map 'emailAddress' to 'EmailAddress' explicitly", action.Title);
+        Assert.Equal("AM005_ExplicitMapping_emailAddress_EmailAddress", action.EquivalenceKey);
     }
 
     private static Document CreateDocument(string source)

@@ -124,7 +124,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                                 $"src.{propertyName}.Select({conversionLambda})",
                                 true,
                                 ct),
-                            $"Select_{propertyName}"),
+                            $"AM003_Select_{propertyName}"),
                         diagnostic);
                 }
 
@@ -132,7 +132,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                     CodeAction.Create(
                         $"Ignore property '{propertyName}' (manual review)",
                         ct => AddIgnoreAsync(context.Document, operationContext.Root, invocation, propertyName),
-                        $"Ignore_{propertyName}"),
+                        $"AM003_Ignore_{propertyName}"),
                     diagnostic);
             }
         }
@@ -218,13 +218,24 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
             return collectionConversion;
         }
 
+        if (TryCreateDestinationInterfaceFix(
+                propertyName,
+                destType,
+                needsElementConversion,
+                elementConversionLambda,
+                out (string Title, string Expression, bool RequiresLinq, string EquivalenceKey) interfaceFix))
+        {
+            fixes.Add(interfaceFix);
+            return fixes;
+        }
+
         if (Contains(sourceType, "HashSet") && Contains(destType, "List"))
         {
             fixes.Add((
                 $"Convert {propertyName} using ToList()",
                 BuildExpression($"src.{propertyName}.ToList()"),
                 true, // Always true if using ToList or Select
-                $"ToList_{propertyName}"));
+                $"AM003_ToList_{propertyName}"));
         }
 
         if (Contains(sourceType, "Queue") && Contains(destType, "List"))
@@ -262,7 +273,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                 $"Convert {propertyName} using {(needsElementConversion ? "Select" : "AsEnumerable")}()",
                 expr,
                 true,
-                $"AsEnumerable_{propertyName}"));
+                $"AM003_AsEnumerable_{propertyName}"));
         }
 
         if (!fixes.Any())
@@ -280,8 +291,79 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                 ? "System.Collections.Generic.List<object>"
                 : simplifiedDestType;
             return ($"Convert {propertyName} using collection constructor", $"new {targetType}(src.{propertyName})",
-                false, $"Constructor_{propertyName}");
+                false, $"AM003_Constructor_{propertyName}");
         }
+    }
+
+    private static bool TryCreateDestinationInterfaceFix(
+        string propertyName,
+        string destinationType,
+        bool needsElementConversion,
+        string elementConversionLambda,
+        out (string Title, string Expression, bool RequiresLinq, string EquivalenceKey) fix)
+    {
+        if (IsListLikeInterface(destinationType))
+        {
+            string expression = needsElementConversion
+                ? $"src.{propertyName}.Select({elementConversionLambda}).ToList()"
+                : $"src.{propertyName}.ToList()";
+            fix = (
+                $"Convert {propertyName} using ToList()",
+                expression,
+                true,
+                $"AM003_ToList_{propertyName}");
+            return true;
+        }
+
+        if (IsSetLikeInterface(destinationType) && TryGetGenericArgument(destinationType, out string? elementType))
+        {
+            string sourceExpression = needsElementConversion
+                ? $"src.{propertyName}.Select({elementConversionLambda})"
+                : $"src.{propertyName}";
+            fix = (
+                $"Convert {propertyName} using HashSet constructor",
+                $"new global::System.Collections.Generic.HashSet<{elementType}>({sourceExpression})",
+                needsElementConversion,
+                $"AM003_HashSet_{propertyName}");
+            return true;
+        }
+
+        fix = default;
+        return false;
+    }
+
+    private static bool IsListLikeInterface(string typeName)
+    {
+        return IsGenericCollectionInterface(typeName, "IList") ||
+               IsGenericCollectionInterface(typeName, "ICollection") ||
+               IsGenericCollectionInterface(typeName, "IReadOnlyList") ||
+               IsGenericCollectionInterface(typeName, "IReadOnlyCollection");
+    }
+
+    private static bool IsSetLikeInterface(string typeName)
+    {
+        return IsGenericCollectionInterface(typeName, "ISet") ||
+               IsGenericCollectionInterface(typeName, "IReadOnlySet");
+    }
+
+    private static bool IsGenericCollectionInterface(string typeName, string interfaceName)
+    {
+        return typeName.StartsWith($"System.Collections.Generic.{interfaceName}<", StringComparison.Ordinal) ||
+               typeName.StartsWith($"{interfaceName}<", StringComparison.Ordinal);
+    }
+
+    private static bool TryGetGenericArgument(string typeName, out string? genericArgument)
+    {
+        int start = typeName.IndexOf('<');
+        int end = typeName.LastIndexOf('>');
+        if (start < 0 || end <= start + 1)
+        {
+            genericArgument = null;
+            return false;
+        }
+
+        genericArgument = typeName.Substring(start + 1, end - start - 1);
+        return true;
     }
 
     private static string GetElementConversion(string sourceElementType, string destElementType)

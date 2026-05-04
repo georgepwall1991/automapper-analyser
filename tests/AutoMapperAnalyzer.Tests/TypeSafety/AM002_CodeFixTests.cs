@@ -1,6 +1,14 @@
+using System.Collections.Immutable;
+using System.IO;
+using AutoMapper;
 using AutoMapperAnalyzer.Analyzers.TypeSafety;
 using AutoMapperAnalyzer.Tests.Infrastructure;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests.TypeSafety;
@@ -509,5 +517,99 @@ public class AM002_CodeFixTests
                     "Name", "Source", "string?", "Destination", "string"),
                 expectedFixedCode,
                 codeActionIndex: 1); // Use the second fix (Ignore property)
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotRegisterCodeActions_ForNonNullableToNullableInfoDiagnostic()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; } = string.Empty;
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string? Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        ImmutableArray<Diagnostic> diagnostics = await GetDiagnosticsAsync(document);
+        Diagnostic diagnostic = Assert.Single(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == AM002_NullableCompatibilityAnalyzer.NonNullableToNullableRule);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Empty(actions);
+    }
+
+    private static Document CreateDocument(string source)
+    {
+        var workspace = new AdhocWorkspace();
+        ProjectId projectId = ProjectId.CreateNewId();
+        DocumentId documentId = DocumentId.CreateNewId(projectId);
+
+        Solution solution = workspace.CurrentSolution
+            .AddProject(projectId, "AM002Tests", "AM002Tests", LanguageNames.CSharp)
+            .WithProjectCompilationOptions(projectId, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .WithProjectParseOptions(projectId, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview));
+
+        string trustedPlatformAssemblies = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? string.Empty;
+        foreach (string assemblyPath in trustedPlatformAssemblies.Split(Path.PathSeparator))
+        {
+            if (!string.IsNullOrWhiteSpace(assemblyPath))
+            {
+                solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(assemblyPath));
+            }
+        }
+
+        solution = solution
+            .AddMetadataReference(projectId, MetadataReference.CreateFromFile(typeof(Profile).Assembly.Location))
+            .AddDocument(documentId, "Test0.cs", SourceText.From(source));
+
+        return solution.GetDocument(documentId)!;
+    }
+
+    private static async Task<ImmutableArray<Diagnostic>> GetDiagnosticsAsync(Document document)
+    {
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        return (await compilation.WithAnalyzers(
+                ImmutableArray.Create<DiagnosticAnalyzer>(new AM002_NullableCompatibilityAnalyzer()))
+            .GetAnalyzerDiagnosticsAsync())
+            .OrderBy(diagnostic => diagnostic.Location.SourceSpan.Start)
+            .ThenBy(diagnostic => diagnostic.GetMessage(), StringComparer.Ordinal)
+            .ToImmutableArray();
+    }
+
+    private static async Task<List<CodeAction>> RegisterActionsAsync(Document document, params Diagnostic[] diagnostics)
+    {
+        var actions = new List<CodeAction>();
+        var provider = new AM002_NullableCompatibilityCodeFixProvider();
+
+        var context = new CodeFixContext(
+            document,
+            diagnostics[0].Location.SourceSpan,
+            diagnostics.ToImmutableArray(),
+            (action, _) => actions.Add(action),
+            CancellationToken.None);
+
+        await provider.RegisterCodeFixesAsync(context);
+        return actions;
     }
 }

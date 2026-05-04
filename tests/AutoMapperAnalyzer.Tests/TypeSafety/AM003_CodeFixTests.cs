@@ -373,6 +373,281 @@ public class AM003_CodeFixTests
     }
 
     [Fact]
+    public async Task AM003_ShouldFixQueueToIListConversion_WithConcreteToList()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Queue<string> Messages { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public IList<string> Messages { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public Queue<string> Messages { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public IList<string> Messages { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Messages, opt => opt.MapFrom(src => src.Messages.ToList()));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+            20,
+            13,
+            expectedFixedCode,
+            "Messages",
+            "Source",
+            "System.Collections.Generic.Queue<string>",
+            "Destination",
+            "System.Collections.Generic.IList<string>");
+    }
+
+    [Fact]
+    public async Task AM003_ShouldFixQueueToISetConversion_WithConcreteHashSet()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Queue<int> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public ISet<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public Queue<int> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public ISet<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new global::System.Collections.Generic.HashSet<int>(src.Values)));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+            20,
+            13,
+            expectedFixedCode,
+            "Values",
+            "Source",
+            "System.Collections.Generic.Queue<int>",
+            "Destination",
+            "System.Collections.Generic.ISet<int>");
+    }
+
+    [Fact]
+    public async Task AM003_ShouldFixQueueToIListConversion_WithElementConversion()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Queue<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public IList<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public Queue<string> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public IList<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => src.Values.Select(x => int.Parse(x)).ToList()));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+            20,
+            13,
+            expectedFixedCode,
+            "Values",
+            "Source",
+            "System.Collections.Generic.Queue<string>",
+            "Destination",
+            "System.Collections.Generic.IList<int>");
+    }
+
+    [Fact]
+    public async Task AM003_ShouldFixQueueToReadOnlySetConversion_WithElementConversion()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Queue<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public IReadOnlySet<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public Queue<string> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public IReadOnlySet<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new global::System.Collections.Generic.HashSet<int>(src.Values.Select(x => int.Parse(x)))));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+            20,
+            13,
+            expectedFixedCode,
+            "Values",
+            "Source",
+            "System.Collections.Generic.Queue<string>",
+            "Destination",
+            "System.Collections.Generic.IReadOnlySet<int>");
+    }
+
+    [Fact]
     public async Task AM003_ShouldNotReportDiagnostic_WhenComplexElementTypesDiffer()
     {
         const string testCode = """
