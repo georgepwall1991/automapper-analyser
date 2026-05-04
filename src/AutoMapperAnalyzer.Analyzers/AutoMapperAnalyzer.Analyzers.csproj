@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>12</PatchVersion>
+        <PatchVersion>13</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,19 +32,19 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.12 - AM030 and AM021 precision hardening
+        <PackageReleaseNotes>Version 2.30.13 - AM041 duplicate type label precision
 
             Changed:
-            - Hardened AM030 unused-converter analysis for interface-typed converter locals, fields, and properties
-            - Hardened AM021 dictionary diagnostics so KeyValuePair element mismatches do not offer unsafe element CreateMap suggestions
-            - Updated docs, health notes, and release metadata for the safer AM030/AM021 boundaries
+            - Hardened AM041 duplicate-map diagnostics to preserve constructed generic type arguments and array ranks
+            - Added AM041 regression coverage for generic collection, one-dimensional array, and multidimensional array duplicate labels
+            - Updated docs, health notes, and release metadata for AM041 diagnostic label precision
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM021 coverage
+            - Full solution test suite passing on net10.0 with targeted AM041 coverage
             - Rule catalog and sample diagnostics snapshot checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.11 - AM001 enum conversion fixer
+            Previous Release: v2.30.12 - AM030 and AM021 precision hardening
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

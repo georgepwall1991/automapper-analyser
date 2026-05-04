@@ -4,11 +4,22 @@
 
 ### Changed
 
+### Validation
+
+## [2.30.13] - 2026-05-04
+
+### Changed
+
 - Hardened AM041 duplicate-map diagnostics so constructed generic and array source/destination types, including multidimensional array ranks, are included in the reported mapping labels.
+- Added AM041 regression coverage for generic, single-dimensional array, and multidimensional array duplicate labels.
+- Updated AM041 docs and analyzer health status to describe the improved duplicate-map diagnostic labels.
 
 ### Validation
 
 - Targeted AM041 analyzer and code fix tests.
+- Full `net10.0` solution test suite.
+- Rule catalog and sample diagnostics snapshot checks.
+- `git diff --check`.
 
 ## [2.30.12] - 2026-05-03
 
