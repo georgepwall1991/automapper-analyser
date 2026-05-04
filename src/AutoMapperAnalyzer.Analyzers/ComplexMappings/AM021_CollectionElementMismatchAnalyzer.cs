@@ -57,17 +57,35 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Analyze collection element compatibility for property mappings
-        AnalyzeCollectionElementCompatibility(context, invocationExpr, typeArguments.sourceType,
+        // Analyze collection element compatibility for property mappings.
+        HashSet<string> forwardDiagnostics = AnalyzeCollectionElementCompatibility(
+            context,
+            invocationExpr,
+            typeArguments.sourceType,
             typeArguments.destinationType);
+
+        InvocationExpressionSyntax? reverseMapInvocation =
+            AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocationExpr);
+        if (reverseMapInvocation != null)
+        {
+            AnalyzeCollectionElementCompatibility(
+                context,
+                reverseMapInvocation,
+                typeArguments.destinationType,
+                typeArguments.sourceType,
+                forwardDiagnostics);
+        }
     }
 
-    private static void AnalyzeCollectionElementCompatibility(SyntaxNodeAnalysisContext context,
-        InvocationExpressionSyntax invocation, ITypeSymbol sourceType, ITypeSymbol destinationType)
+    private static HashSet<string> AnalyzeCollectionElementCompatibility(SyntaxNodeAnalysisContext context,
+        InvocationExpressionSyntax invocation, ITypeSymbol sourceType, ITypeSymbol destinationType,
+        ISet<string>? suppressedCollectionProperties = null)
     {
+        var reportedProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
         {
-            return;
+            return reportedProperties;
         }
 
         IEnumerable<IPropertySymbol> sourceProperties =
@@ -81,6 +99,12 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
                 .FirstOrDefault(p => string.Equals(p.Name, sourceProperty.Name, StringComparison.OrdinalIgnoreCase));
 
             if (destinationProperty == null)
+            {
+                continue;
+            }
+
+            if (suppressedCollectionProperties?.Contains(sourceProperty.Name) == true ||
+                suppressedCollectionProperties?.Contains(destinationProperty.Name) == true)
             {
                 continue;
             }
@@ -99,9 +123,11 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
                 AutoMapperAnalysisHelpers.IsCollectionType(destinationProperty.Type))
             {
                 AnalyzeCollectionElementTypes(context, invocation, sourceProperty, destinationProperty,
-                    sourceType, destinationType);
+                    sourceType, destinationType, reportedProperties);
             }
         }
+
+        return reportedProperties;
     }
 
     private static void AnalyzeCollectionElementTypes(SyntaxNodeAnalysisContext context,
@@ -109,7 +135,8 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
         IPropertySymbol sourceProperty,
         IPropertySymbol destinationProperty,
         ITypeSymbol sourceType,
-        ITypeSymbol destinationType)
+        ITypeSymbol destinationType,
+        HashSet<string> reportedProperties)
     {
         // Get element types from collections
         ITypeSymbol? sourceElementType = AutoMapperAnalysisHelpers.GetCollectionElementType(sourceProperty.Type);
@@ -157,6 +184,8 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
                 destElementType.ToDisplayString());
 
             context.ReportDiagnostic(diagnostic);
+            reportedProperties.Add(sourceProperty.Name);
+            reportedProperties.Add(destinationProperty.Name);
         }
     }
 

@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>13</PatchVersion>
+        <PatchVersion>14</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,19 +32,19 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.13 - AM041 duplicate type label precision
+        <PackageReleaseNotes>Version 2.30.14 - AM021 reverse map element diagnostics
 
             Changed:
-            - Hardened AM041 duplicate-map diagnostics to preserve constructed generic type arguments and array ranks
-            - Added AM041 regression coverage for generic collection, one-dimensional array, and multidimensional array duplicate labels
-            - Updated docs, health notes, and release metadata for AM041 diagnostic label precision
+            - Hardened AM021 to check reverse collection element mappings when a parent map uses ReverseMap()
+            - Kept bidirectional collection element misses to one focused forward diagnostic until the forward map is configured
+            - Added AM021 regression coverage for reverse-only gaps, fully configured reverse maps, and non-duplicated forward diagnostics
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM041 coverage
+            - Full solution test suite passing on net10.0 with targeted AM021 coverage
             - Rule catalog and sample diagnostics snapshot checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.12 - AM030 and AM021 precision hardening
+            Previous Release: v2.30.13 - AM041 duplicate type label precision
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

@@ -6,6 +6,22 @@
 
 ### Validation
 
+## [2.30.14] - 2026-05-04
+
+### Changed
+
+- Hardened AM021 so parent `ReverseMap()` collection mappings check the reverse element direction when only the forward element map exists.
+- Kept plain bidirectional AM021 element-map misses to one focused forward diagnostic until the forward direction is configured.
+- Added AM021 regression coverage for reverse-only element gaps, fully configured reverse maps, and non-duplicated forward diagnostics.
+- Updated AM021 docs, analyzer health notes, and release metadata for the reverse-map element boundary.
+
+### Validation
+
+- Targeted AM021 analyzer and code fix tests.
+- Full `net10.0` solution test suite.
+- Rule catalog and sample diagnostics snapshot checks.
+- `git diff --check`.
+
 ## [2.30.13] - 2026-05-04
 
 ### Changed

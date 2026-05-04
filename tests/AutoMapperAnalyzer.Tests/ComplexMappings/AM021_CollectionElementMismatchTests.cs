@@ -909,6 +909,159 @@ public class AM021_CollectionElementMismatchTests
     }
 
     [Fact]
+    public async Task AM021_ShouldReportDiagnostic_WhenReverseMapMissingElementMapping()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class DestPerson
+                                    {
+                                        public string FullName { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<SourcePerson> People { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<DestPerson> People { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap();
+
+                                            CreateMap<SourcePerson, DestPerson>()
+                                                .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.Name));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 30, 13,
+                "People", "Destination", "TestNamespace.DestPerson", "Source",
+                "People", "TestNamespace.SourcePerson")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_WhenReverseMapElementMappingExists()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class DestPerson
+                                    {
+                                        public string FullName { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<SourcePerson> People { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<DestPerson> People { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap();
+
+                                            CreateMap<SourcePerson, DestPerson>()
+                                                .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.Name));
+                                            CreateMap<DestPerson, SourcePerson>()
+                                                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.FullName));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldReportOnlyForwardDiagnostic_WhenReverseMapAlsoMissingElementMapping()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class DestPerson
+                                    {
+                                        public string FullName { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<SourcePerson> People { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<DestPerson> People { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 30, 13,
+                "People", "Source", "TestNamespace.SourcePerson", "Destination",
+                "People", "TestNamespace.DestPerson")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM021_ShouldNotReportDiagnostic_ForCreateMapLikeApiOutsideAutoMapper()
     {
         const string testCode = """

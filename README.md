@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-685%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-688%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,24 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.13
+## 🎉 Latest Release: v2.30.14
 
-**AM041 Duplicate Type Labels — clearer generic and array duplicate diagnostics**
+**AM021 Reverse Element Maps — safer bidirectional collection diagnostics**
 
 ✅ **Highlights**
 
-- Reports duplicate generic maps with constructed type arguments, such as `List<Source>` to `List<Destination>`.
-- Preserves array element types and ranks in duplicate-map labels, including multidimensional shapes such as `Source[,]`.
-- Keeps existing AM041 duplicate detection and removal fixes intact while making diagnostics easier to act on.
+- Checks reverse collection element mappings when a parent map uses `ReverseMap()`.
+- Catches missing `CreateMap<DestinationItem, SourceItem>()` registrations even when the forward element map exists.
+- Keeps plain bidirectional element-map misses to one focused AM021 diagnostic until the forward direction is configured.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `685` passing and `0` skipped.
-- Release validation covered targeted AM041 tests, AnalyzerVerifier catalog/snapshot checks, and full solution verification before tagging.
+- Full test suite passed with `688` passing and `0` skipped.
+- Release validation covered targeted AM021 tests, AnalyzerVerifier catalog/snapshot checks, and full solution verification before tagging.
 
 ### Recent Releases
 
+- **v2.30.14**: AM021 reverse-map collection element diagnostics catch missing reverse element maps without duplicate noise.
 - **v2.30.13**: AM041 duplicate-map labels now preserve generic type arguments and array ranks.
 - **v2.30.12**: AM030 interface-typed converter usage and AM021 dictionary fixer safety.
 - **v2.30.11**: AM001 enum/string conversion fixes for direct property mismatch remediation.
@@ -181,7 +182,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.13">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.14">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -375,6 +376,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ### Recently Completed ✅
 
+- **v2.30.14**: AM021 reverse-map collection element diagnostics catch missing reverse element maps without duplicate noise
 - **v2.30.13**: AM041 duplicate-map labels preserve generic type arguments and array ranks
 - **v2.30.12**: AM030 interface-typed converter usage and AM021 dictionary fixer safety
 - **v2.30.11**: AM001 enum/string conversion fixes for direct property mismatch remediation

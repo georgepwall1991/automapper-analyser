@@ -740,6 +740,12 @@ public class MappingProfile : Profile
 
 `AM021` checks for an existing `CreateMap<SourceItem, DestinationItem>()` before reporting. If element mapping exists, no diagnostic is emitted.
 
+When a parent map uses `ReverseMap()`, AM021 also checks the reverse element direction. A forward
+`CreateMap<SourceItem, DestinationItem>()` does not automatically prove that
+`CreateMap<DestinationItem, SourceItem>()` exists, so reverse collection maps still need their own element map or explicit
+reverse configuration. To keep the signal focused, AM021 reports the forward missing element map first and does not add a
+second reverse diagnostic for the same collection until the forward direction is configured.
+
 If collection containers are incompatible (`HashSet<T>` vs `List<T>`, `Queue<T>` vs `Stack<T>`, etc.), `AM003` owns the diagnostic. AM003 stays quiet when the source collection is already assignable to the destination collection contract.
 
 Dictionary value/key mismatches are treated as `KeyValuePair<TKey, TValue>` element mismatches. For those diagnostics the fixer intentionally offers only the manual ignore action, because adding a `CreateMap<KeyValuePair<...>, KeyValuePair<...>>()` registration is not a reliable executable rewrite.
@@ -1299,7 +1305,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.13">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.14">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
