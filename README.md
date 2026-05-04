@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-688%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-701%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,24 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.14
+## 🎉 Latest Release: v2.30.15
 
-**AM021 Reverse Element Maps — safer bidirectional collection diagnostics**
+**Fixer UX Trust Hardening — clearer, executable code actions**
 
 ✅ **Highlights**
 
-- Checks reverse collection element mappings when a parent map uses `ReverseMap()`.
-- Catches missing `CreateMap<DestinationItem, SourceItem>()` registrations even when the forward element map exists.
-- Keeps plain bidirectional element-map misses to one focused AM021 diagnostic until the forward direction is configured.
+- Marks analyzer-only AM002 and AM030 descriptors as no-fix in generated trust artifacts.
+- Keeps AM003 and AM021 interface collection fixes executable with `ToList()` and concrete `HashSet<T>` rewrites.
+- Labels AM004 and AM006 suppression actions as manual-review work and keeps AM005 equivalence keys rule-prefixed.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `688` passing and `0` skipped.
-- Release validation covered targeted AM021 tests, AnalyzerVerifier catalog/snapshot checks, and full solution verification before tagging.
+- Full test suite passed with `701` passing and `0` skipped.
+- Release validation covered targeted AM002, AM003, AM004, AM005, AM006, AM021, AM030, and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
 
 ### Recent Releases
 
+- **v2.30.15**: Fixer UX trust hardening with descriptor-specific no-fix metadata and executable interface collection rewrites.
 - **v2.30.14**: AM021 reverse-map collection element diagnostics catch missing reverse element maps without duplicate noise.
 - **v2.30.13**: AM041 duplicate-map labels now preserve generic type arguments and array ranks.
 - **v2.30.12**: AM030 interface-typed converter usage and AM021 dictionary fixer safety.
@@ -182,7 +183,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.14">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.15">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -376,6 +377,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ### Recently Completed ✅
 
+- **v2.30.15**: Fixer UX trust hardening with descriptor-specific no-fix metadata and executable interface collection rewrites
 - **v2.30.14**: AM021 reverse-map collection element diagnostics catch missing reverse element maps without duplicate noise
 - **v2.30.13**: AM041 duplicate-map labels preserve generic type arguments and array ranks
 - **v2.30.12**: AM030 interface-typed converter usage and AM021 dictionary fixer safety

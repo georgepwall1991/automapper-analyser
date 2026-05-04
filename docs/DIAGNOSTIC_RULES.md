@@ -6,7 +6,7 @@ Complete reference guide for all AutoMapper Analyzer diagnostic rules, including
 
 - [Overview](#overview)
 - [Type Safety Rules (AM001-AM003)](#type-safety-rules)
-- [Data Integrity Rules (AM004-AM005, AM011)](#data-integrity-rules)
+- [Data Integrity Rules (AM004-AM006, AM011)](#data-integrity-rules)
 - [Complex Mapping Rules (AM020-AM022)](#complex-mapping-rules)
 - [Custom Conversion Rules (AM030)](#custom-conversion-rules)
 - [Performance Rules (AM031)](#performance-rules)
@@ -22,7 +22,7 @@ Complete reference guide for all AutoMapper Analyzer diagnostic rules, including
 | Category | Rules | Purpose |
 |----------|-------|---------|
 | **Type Safety** | AM001-AM003 | Prevent type mismatches and conversion errors |
-| **Data Integrity** | AM004-AM005, AM011 | Ensure complete data mapping |
+| **Data Integrity** | AM004-AM006, AM011 | Ensure complete data mapping |
 | **Complex Mappings** | AM020-AM022 | Handle nested objects and collections |
 | **Custom Conversions** | AM030 | Validate custom type converters |
 | **Performance** | AM031 | Detect expensive operations in mappings |
@@ -59,6 +59,7 @@ fixer providers, and trust levels.
 | **Safe rewrite** | Behavior-preserving or convention-equivalent cleanup. | Removing redundant `MapFrom`, adding a missing nested `CreateMap`. |
 | **Likely rewrite** | Reasonable generated mapping that should still be reviewed for domain policy. | Numeric/string conversions, collection conversion helpers, `MaxDepth`. |
 | **Scaffold** | Compile-safe starter code or explicit suppression that requires manual review. | Default-value mappings and `Ignore()` actions for required/unmapped/performance diagnostics. |
+| **No fix** | Diagnostic is intentionally analyzer-only because there is no safe automatic edit. | Informational nullability widening, invalid converter implementations, and unused converter cleanup. |
 
 Code action titles mark manual-review suppressions explicitly.
 
@@ -191,6 +192,10 @@ public class Destination
 }
 ```
 
+AM002 code fixes are offered only for the nullable-source to non-nullable-destination `Error` descriptor, where a default
+mapping or manual-review ignore can make the mapping explicit. The non-nullable-source to nullable-destination `Info`
+descriptor is analyzer-only and does not offer a code action.
+
 #### Safe Cases
 
 AM002 does not report when the destination member is explicitly configured with `ForMember` or `ForPath`, when the map uses custom construction/conversion, when nullable reference annotations are disabled or oblivious, or when the nullable source and destination member have incompatible underlying types owned by `AM001`.
@@ -246,6 +251,10 @@ public class MappingProfile : Profile
 CreateMap<Source, Destination>()
     .ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.Tags.ToList()));
 ```
+
+For interface destinations such as `IList<T>`, `ICollection<T>`, or `IReadOnlyCollection<T>`, the fixer maps through a
+concrete collection expression like `ToList()` rather than trying to construct the interface. For set interfaces such as
+`ISet<T>`, it uses a concrete `HashSet<T>` constructor.
 
 #### Detected Incompatibilities
 
@@ -306,30 +315,34 @@ public class MappingProfile : Profile
 
 #### Solutions
 
-**Option 1: Add Property to Destination (Smart Fix)**
+**Option 1: Add Property to Destination**
 
 ```csharp
 public class Destination
 {
     public int Id { get; set; }
     public string Name { get; set; }
-    public string Email { get; set; }  // ✅ Added automatically by code fix
+    public string Email { get; set; }  // ✅ Added intentionally
 }
 ```
 
-**Option 2: Explicitly Ignore**
-
-```csharp
-CreateMap<Source, Destination>()
-    .ForMember(dest => dest.Email, opt => opt.Ignore());
-```
-
-**Option 3: Map to Different Property**
+**Option 2: Map to a Similar Destination Property (Code Fix)**
 
 ```csharp
 CreateMap<Source, Destination>()
     .ForMember(dest => dest.ContactEmail, opt => opt.MapFrom(src => src.Email));
 ```
+
+AM004 offers this when it finds one compatible destination property with a strong fuzzy-name match.
+
+**Option 3: Suppress Source Validation (Code Fix, Manual Review)**
+
+```csharp
+CreateMap<Source, Destination>()
+    .ForSourceMember(src => src.Email, opt => opt.DoNotValidate());
+```
+
+Use `DoNotValidate()` only when dropping the source member is intentional.
 
 #### Configuration
 
@@ -474,12 +487,7 @@ CreateMap<Source, Destination>()
 
 **Per-property fixes:**
 - Map from similar source property (fuzzy match suggestion)
-- Ignore destination property (`ForMember` + `Ignore`)
-- Create property in source type
-
-**Bulk fixes:**
-- Ignore all unmapped destination properties
-- Create all missing properties in source type
+- Ignore destination property (`ForMember` + `Ignore`, manual review)
 
 #### Configuration
 
@@ -766,6 +774,10 @@ public class MappingProfile : Profile
 }
 ```
 
+For simple element conversions, AM021 can add a `Select(...)` mapping. List-like interface destinations use `ToList()`,
+while `HashSet<T>`/`ISet<T>` destinations are wrapped in a concrete `HashSet<T>` constructor so the generated mapping
+stays executable.
+
 #### Configuration
 
 ```ini
@@ -996,6 +1008,8 @@ if (source == null) throw new global::System.ArgumentNullException(nameof(source
 ```
 
 The generated guard is fully qualified so the fixer does not add, reorder, or duplicate `using System` directives.
+Invalid converter-signature and unused-converter diagnostics are analyzer-only reports; AM030 does not offer speculative
+rewrites for those descriptors.
 
 #### Configuration
 
@@ -1305,7 +1319,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.14">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.15">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>

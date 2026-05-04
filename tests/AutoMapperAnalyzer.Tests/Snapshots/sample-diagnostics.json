@@ -239,7 +239,7 @@
     "line": 53,
     "column": 13,
     "message": "Property 'Name' mapping: NonNullableSource.Name (string) is non-nullable but NullableDest.Name (string?) is nullable",
-    "fixTrustLevel": "Scaffold"
+    "fixTrustLevel": "NoFix"
   },
   {
     "ruleId": "AM002",
@@ -294,7 +294,7 @@
     "line": 40,
     "column": 13,
     "message": "Source property 'Extra1' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -305,7 +305,7 @@
     "line": 40,
     "column": 13,
     "message": "Source property 'Extra2' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -316,7 +316,7 @@
     "line": 40,
     "column": 13,
     "message": "Source property 'Extra3' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -327,7 +327,7 @@
     "line": 40,
     "column": 13,
     "message": "Source property 'Extra4' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -338,7 +338,7 @@
     "line": 40,
     "column": 13,
     "message": "Source property 'Extra5' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -349,7 +349,7 @@
     "line": 22,
     "column": 13,
     "message": "Source property 'FirstName' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -360,7 +360,7 @@
     "line": 22,
     "column": 13,
     "message": "Source property 'LastName' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -371,7 +371,7 @@
     "line": 31,
     "column": 13,
     "message": "Source property 'Prop01' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -382,7 +382,7 @@
     "line": 31,
     "column": 13,
     "message": "Source property 'Prop02' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -393,7 +393,7 @@
     "line": 31,
     "column": 13,
     "message": "Source property 'Prop03' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -404,7 +404,7 @@
     "line": 31,
     "column": 13,
     "message": "Source property 'Prop04' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -415,7 +415,7 @@
     "line": 31,
     "column": 13,
     "message": "Source property 'Prop05' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -426,7 +426,7 @@
     "line": 31,
     "column": 13,
     "message": "Source property 'Prop06' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -437,7 +437,7 @@
     "line": 31,
     "column": 13,
     "message": "Source property 'Prop07' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -448,7 +448,7 @@
     "line": 31,
     "column": 13,
     "message": "Source property 'Prop08' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -459,7 +459,7 @@
     "line": 31,
     "column": 13,
     "message": "Source property 'Prop09' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -470,7 +470,7 @@
     "line": 31,
     "column": 13,
     "message": "Source property 'Prop10' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM004",
@@ -481,7 +481,7 @@
     "line": 19,
     "column": 13,
     "message": "Source property 'ImportantData' will not be mapped - potential data loss",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM005",
@@ -855,7 +855,7 @@
     "line": 8,
     "column": 14,
     "message": "Type converter 'MissingConvertStringToDateTimeConverter' does not properly implement ITypeConverter<String, DateTime> or has invalid Convert method signature",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "NoFix"
   },
   {
     "ruleId": "AM030",
@@ -866,7 +866,7 @@
     "line": 8,
     "column": 14,
     "message": "Type converter 'MissingConvertStringToDateTimeConverter' is defined but not used in any CreateMap configuration",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "NoFix"
   },
   {
     "ruleId": "AM030",
@@ -888,7 +888,7 @@
     "line": 73,
     "column": 14,
     "message": "Type converter 'UnsafeStringToDateTimeConverter' is defined but not used in any CreateMap configuration",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "NoFix"
   },
   {
     "ruleId": "AM030",
@@ -910,7 +910,7 @@
     "line": 83,
     "column": 14,
     "message": "Type converter 'SafeStringToDateTimeConverter' is defined but not used in any CreateMap configuration",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "NoFix"
   },
   {
     "ruleId": "AM031",

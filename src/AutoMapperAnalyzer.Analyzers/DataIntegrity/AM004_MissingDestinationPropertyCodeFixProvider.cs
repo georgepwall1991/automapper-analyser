@@ -93,14 +93,14 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
                 // Always register ignore option
                 ctx.RegisterCodeFix(
                     CodeAction.Create(
-                        $"Ignore '{propertyName}' via DoNotValidate()",
+                        $"Suppress source validation for '{propertyName}' with DoNotValidate() (manual review)",
                         cancellationToken =>
                         {
                             var newInvocation = CodeFixSyntaxHelper.CreateForSourceMemberWithDoNotValidate(
                                 invocation, propertyName);
                             return ReplaceNodeAsync(ctx.Document, root, invocation, newInvocation);
                         },
-                        $"AM004_Ignore_{propertyName}"),
+                        $"AM004_DoNotValidate_{propertyName}"),
                     diagnostic);
             });
     }

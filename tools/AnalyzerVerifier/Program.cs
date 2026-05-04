@@ -134,7 +134,7 @@ internal static class Program
             {
                 sb.AppendLine(
                     CultureInfo.InvariantCulture,
-                    $"| `{rule.RuleId}` | {EscapeMarkdownTableCell(descriptor.Title.ToString(CultureInfo.InvariantCulture))} | `{descriptor.DefaultSeverity}` | `{descriptor.Category}` | `{rule.AnalyzerType.Name}` | `{rule.CodeFixProviderType.Name}` | `{rule.FixTrustLevel}` | [`{rule.SamplePath}`](../{rule.SamplePath}) | [docs]({BuildDocsLink(rule.DocumentationAnchor)}) |");
+                    $"| `{rule.RuleId}` | {EscapeMarkdownTableCell(descriptor.Title.ToString(CultureInfo.InvariantCulture))} | `{descriptor.DefaultSeverity}` | `{descriptor.Category}` | `{rule.AnalyzerType.Name}` | `{rule.CodeFixProviderType.Name}` | `{rule.GetFixTrustLevel(descriptor)}` | [`{rule.SamplePath}`](../{rule.SamplePath}) | [docs]({BuildDocsLink(rule.DocumentationAnchor)}) |");
             }
         }
 
@@ -172,14 +172,15 @@ internal static class Program
             .WithAnalyzers(analyzers)
             .GetAnalyzerDiagnosticsAsync();
 
-        Dictionary<string, CodeFixTrustLevel> trustByRuleId = RuleCatalog.Rules.ToDictionary(
-            rule => rule.RuleId,
-            rule => rule.FixTrustLevel,
-            StringComparer.Ordinal);
+        Dictionary<DescriptorTrustSnapshot, CodeFixTrustLevel> trustByDescriptor = RuleCatalog.Rules
+            .SelectMany(rule => rule.Descriptors.Select(descriptor => new KeyValuePair<DescriptorTrustSnapshot, CodeFixTrustLevel>(
+                DescriptorTrustSnapshot.From(rule.RuleId, descriptor),
+                rule.GetFixTrustLevel(descriptor))))
+            .ToDictionary(pair => pair.Key, pair => pair.Value);
 
         return diagnostics
             .Where(diagnostic => diagnostic.Id.StartsWith("AM", StringComparison.Ordinal))
-            .Select(diagnostic => ToSnapshot(repoRoot, diagnostic, trustByRuleId))
+            .Select(diagnostic => ToSnapshot(repoRoot, diagnostic, trustByDescriptor))
             .OrderBy(snapshot => snapshot.RuleId, StringComparer.Ordinal)
             .ThenBy(snapshot => snapshot.FilePath, StringComparer.Ordinal)
             .ThenBy(snapshot => snapshot.Line)
@@ -225,7 +226,7 @@ internal static class Program
     private static DiagnosticSnapshot ToSnapshot(
         string repoRoot,
         Diagnostic diagnostic,
-        Dictionary<string, CodeFixTrustLevel> trustByRuleId)
+        IReadOnlyDictionary<DescriptorTrustSnapshot, CodeFixTrustLevel> trustByDescriptor)
     {
         FileLinePositionSpan lineSpan = diagnostic.Location.GetLineSpan();
         string filePath = lineSpan.Path.Length == 0
@@ -241,7 +242,7 @@ internal static class Program
             lineSpan.StartLinePosition.Line + 1,
             lineSpan.StartLinePosition.Character + 1,
             diagnostic.GetMessage(CultureInfo.InvariantCulture),
-            trustByRuleId.TryGetValue(diagnostic.Id, out CodeFixTrustLevel trustLevel)
+            trustByDescriptor.TryGetValue(DescriptorTrustSnapshot.From(diagnostic), out CodeFixTrustLevel trustLevel)
                 ? trustLevel.ToString()
                 : string.Empty);
     }
@@ -371,4 +372,26 @@ internal static class Program
         int Column,
         string Message,
         string FixTrustLevel);
+
+    private sealed record DescriptorTrustSnapshot(
+        string RuleId,
+        string Title,
+        string Category)
+    {
+        public static DescriptorTrustSnapshot From(string ruleId, DiagnosticDescriptor descriptor)
+        {
+            return new DescriptorTrustSnapshot(
+                ruleId,
+                descriptor.Title.ToString(CultureInfo.InvariantCulture),
+                descriptor.Category);
+        }
+
+        public static DescriptorTrustSnapshot From(Diagnostic diagnostic)
+        {
+            return new DescriptorTrustSnapshot(
+                diagnostic.Id,
+                diagnostic.Descriptor.Title.ToString(CultureInfo.InvariantCulture),
+                diagnostic.Descriptor.Category);
+        }
+    }
 }

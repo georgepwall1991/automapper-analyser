@@ -6,6 +6,23 @@
 
 ### Validation
 
+## [2.30.15] - 2026-05-04
+
+### Changed
+
+- Added descriptor-specific code-fix trust metadata so analyzer-only AM002 and AM030 descriptors are reported as no-fix in generated trust artifacts.
+- Hardened AM003 collection container fixes so destination collection interfaces use executable `ToList()` or concrete `HashSet<T>` rewrites instead of invalid interface constructors.
+- Hardened AM021 simple element conversion fixes so set and read-only set destinations use concrete `HashSet<T>` mappings while list-like interfaces keep `ToList()`.
+- Clarified AM004 and AM006 manual-review code action titles, prefixed AM005 equivalence keys, and updated docs, analyzer health notes, rule catalog, and sample diagnostic snapshots.
+- Added regression coverage for unsupported AM002/AM030 descriptors, AM003/AM021 interface collection branches, and AM004/AM006 data-integrity code action UX.
+
+### Validation
+
+- Targeted AM002, AM003, AM004, AM005, AM006, AM021, AM030, and RuleCatalog tests.
+- Full `net10.0` solution test suite.
+- Rule catalog and sample diagnostics snapshot checks.
+- `git diff --check`.
+
 ## [2.30.14] - 2026-05-04
 
 ### Changed

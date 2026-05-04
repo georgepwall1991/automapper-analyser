@@ -1,5 +1,14 @@
+using System.Collections.Immutable;
+using System.IO;
+using AutoMapper;
 using AutoMapperAnalyzer.Analyzers.ComplexMappings;
 using AutoMapperAnalyzer.Tests.Infrastructure;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests.ComplexMappings;
@@ -63,6 +72,51 @@ public class AM030_CodeFixTests
                     .WithLocation(7, 20)
                     .WithArguments("NullUnsafeConverter", "String"),
                 expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotRegisterCodeActions_ForInvalidImplementationOrUnusedConverter()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class InvalidConverter : ITypeConverter<string, DateTime>
+                                    {
+                                    }
+
+                                    public class UnusedConverter : ITypeConverter<int, string>
+                                    {
+                                        public string Convert(int source, string destination, ResolutionContext context)
+                                        {
+                                            return source.ToString();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        ImmutableArray<Diagnostic> diagnostics = await GetDiagnosticsAsync(document);
+        Diagnostic[] unsupportedDiagnostics = diagnostics
+            .Where(diagnostic =>
+                diagnostic.Descriptor == AM030_CustomTypeConverterAnalyzer.InvalidConverterImplementationRule ||
+                diagnostic.Descriptor == AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule)
+            .ToArray();
+
+        Assert.Contains(
+            unsupportedDiagnostics,
+            diagnostic => diagnostic.Descriptor == AM030_CustomTypeConverterAnalyzer.InvalidConverterImplementationRule);
+        Assert.Contains(
+            unsupportedDiagnostics,
+            diagnostic => diagnostic.Descriptor == AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule);
+
+        foreach (Diagnostic diagnostic in unsupportedDiagnostics)
+        {
+            List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+            Assert.Empty(actions);
+        }
     }
 
     [Fact]
@@ -769,5 +823,59 @@ public class AM030_CodeFixTests
                 0,
                 2,
                 1);
+    }
+
+    private static Document CreateDocument(string source)
+    {
+        var workspace = new AdhocWorkspace();
+        ProjectId projectId = ProjectId.CreateNewId();
+        DocumentId documentId = DocumentId.CreateNewId(projectId);
+
+        Solution solution = workspace.CurrentSolution
+            .AddProject(projectId, "AM030Tests", "AM030Tests", LanguageNames.CSharp)
+            .WithProjectCompilationOptions(projectId, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .WithProjectParseOptions(projectId, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview));
+
+        string trustedPlatformAssemblies = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? string.Empty;
+        foreach (string assemblyPath in trustedPlatformAssemblies.Split(Path.PathSeparator))
+        {
+            if (!string.IsNullOrWhiteSpace(assemblyPath))
+            {
+                solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(assemblyPath));
+            }
+        }
+
+        solution = solution
+            .AddMetadataReference(projectId, MetadataReference.CreateFromFile(typeof(Profile).Assembly.Location))
+            .AddDocument(documentId, "Test0.cs", SourceText.From(source));
+
+        return solution.GetDocument(documentId)!;
+    }
+
+    private static async Task<ImmutableArray<Diagnostic>> GetDiagnosticsAsync(Document document)
+    {
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        return (await compilation.WithAnalyzers(
+                ImmutableArray.Create<DiagnosticAnalyzer>(new AM030_CustomTypeConverterAnalyzer()))
+            .GetAnalyzerDiagnosticsAsync())
+            .OrderBy(diagnostic => diagnostic.Location.SourceSpan.Start)
+            .ThenBy(diagnostic => diagnostic.GetMessage(), StringComparer.Ordinal)
+            .ToImmutableArray();
+    }
+
+    private static async Task<List<CodeAction>> RegisterActionsAsync(Document document, params Diagnostic[] diagnostics)
+    {
+        var actions = new List<CodeAction>();
+        var provider = new AM030_CustomTypeConverterCodeFixProvider();
+
+        var context = new CodeFixContext(
+            document,
+            diagnostics[0].Location.SourceSpan,
+            diagnostics.ToImmutableArray(),
+            (action, _) => actions.Add(action),
+            CancellationToken.None);
+
+        await provider.RegisterCodeFixesAsync(context);
+        return actions;
     }
 }

@@ -5,6 +5,9 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using AutoMapperAnalyzer.Analyzers;
+using AutoMapperAnalyzer.Analyzers.ComplexMappings;
+using AutoMapperAnalyzer.Analyzers.DataIntegrity;
+using AutoMapperAnalyzer.Analyzers.TypeSafety;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -22,6 +25,7 @@ public partial class RuleCatalogTests
         {
             Assert.All(rule.Descriptors, descriptor => Assert.Equal(rule.RuleId, descriptor.Id));
             Assert.True(Enum.IsDefined(rule.FixTrustLevel));
+            Assert.All(rule.Descriptors, descriptor => Assert.True(Enum.IsDefined(rule.GetFixTrustLevel(descriptor))));
 
             var analyzer = Assert.IsAssignableFrom<DiagnosticAnalyzer>(
                 Activator.CreateInstance(rule.AnalyzerType));
@@ -35,6 +39,38 @@ public partial class RuleCatalogTests
                 Activator.CreateInstance(rule.CodeFixProviderType));
             Assert.Contains(rule.RuleId, fixer.FixableDiagnosticIds);
         }
+    }
+
+    [Fact]
+    public void RuleCatalog_ShouldExposeDescriptorSpecificFixTrustLevels()
+    {
+        RuleCatalogEntry am002 = Assert.Single(RuleCatalog.Rules, rule => rule.RuleId == "AM002");
+        RuleCatalogEntry am004 = Assert.Single(RuleCatalog.Rules, rule => rule.RuleId == "AM004");
+        RuleCatalogEntry am030 = Assert.Single(RuleCatalog.Rules, rule => rule.RuleId == "AM030");
+
+        Assert.Equal(CodeFixTrustLevel.Scaffold, am002.FixTrustLevel);
+        Assert.Equal(
+            CodeFixTrustLevel.Scaffold,
+            am002.GetFixTrustLevel(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule));
+        Assert.Equal(
+            CodeFixTrustLevel.NoFix,
+            am002.GetFixTrustLevel(AM002_NullableCompatibilityAnalyzer.NonNullableToNullableRule));
+
+        Assert.Equal(CodeFixTrustLevel.Scaffold, am004.FixTrustLevel);
+        Assert.Equal(
+            CodeFixTrustLevel.Scaffold,
+            am004.GetFixTrustLevel(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule));
+
+        Assert.Equal(CodeFixTrustLevel.NoFix, am030.FixTrustLevel);
+        Assert.Equal(
+            CodeFixTrustLevel.NoFix,
+            am030.GetFixTrustLevel(AM030_CustomTypeConverterAnalyzer.InvalidConverterImplementationRule));
+        Assert.Equal(
+            CodeFixTrustLevel.LikelyRewrite,
+            am030.GetFixTrustLevel(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule));
+        Assert.Equal(
+            CodeFixTrustLevel.NoFix,
+            am030.GetFixTrustLevel(AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule));
     }
 
     [Fact]

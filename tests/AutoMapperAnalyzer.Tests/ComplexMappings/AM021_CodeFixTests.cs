@@ -518,6 +518,270 @@ public class AM021_CodeFixTests
     }
 
     [Fact]
+    public async Task AM021_ShouldFixHashSetToHashSet_WithSelectWrappedInHashSetConstructor()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public HashSet<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public HashSet<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+                                         using System;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public HashSet<string> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public HashSet<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new global::System.Collections.Generic.HashSet<int>(src.Values.Select(x => Convert.ToInt32(x)))));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("Values", "Source", "string", "Destination", "Values", "int"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldFixListToISet_WithSelectWrappedInHashSetConstructor()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public ISet<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+                                         using System;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public List<string> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public ISet<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new global::System.Collections.Generic.HashSet<int>(src.Values.Select(x => Convert.ToInt32(x)))));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("Values", "Source", "string", "Destination", "Values", "int"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldFixListToReadOnlySet_WithSelectWrappedInHashSetConstructor()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public IReadOnlySet<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+                                         using System;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public List<string> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public IReadOnlySet<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new global::System.Collections.Generic.HashSet<int>(src.Values.Select(x => Convert.ToInt32(x)))));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("Values", "Source", "string", "Destination", "Values", "int"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldFixListToReadOnlyList_WithSelectAndToList()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public IReadOnlyList<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+                                         using System;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public List<string> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public IReadOnlyList<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => src.Values.Select(x => Convert.ToInt32(x)).ToList()));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("Values", "Source", "string", "Destination", "Values", "int"),
+                expectedFixedCode);
+    }
+
+    [Fact]
     public async Task AM021_ShouldOnlyOfferIgnore_WhenDictionaryValueTypesMismatch()
     {
         const string testCode = """

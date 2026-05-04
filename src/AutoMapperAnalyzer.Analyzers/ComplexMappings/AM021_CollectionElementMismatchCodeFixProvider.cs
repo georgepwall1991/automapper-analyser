@@ -333,9 +333,12 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             return $"{selectExpression}.ToList()";
         }
 
-        if (IsConstructedFromType(destProperty.Type, "System.Collections.Generic.HashSet<T>"))
+        if (IsConstructedFromType(destProperty.Type, "System.Collections.Generic.HashSet<T>") ||
+            IsConstructedFromType(destProperty.Type, "System.Collections.Generic.ISet<T>") ||
+            IsConstructedFromType(destProperty.Type, "System.Collections.Generic.IReadOnlySet<T>"))
         {
-            return $"{selectExpression}.ToHashSet()";
+            string destinationElementTypeName = GetCollectionElementTypeName(destProperty.Type);
+            return $"new global::System.Collections.Generic.HashSet<{destinationElementTypeName}>({selectExpression})";
         }
 
         if (IsConstructedFromType(destProperty.Type, "System.Collections.Generic.Queue<T>"))
@@ -476,6 +479,12 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
     {
         return type is INamedTypeSymbol namedType &&
                namedType.OriginalDefinition.ToDisplayString() == genericDefinitionName;
+    }
+
+    private static string GetCollectionElementTypeName(ITypeSymbol collectionType)
+    {
+        return AutoMapperAnalysisHelpers.GetCollectionElementType(collectionType)
+            ?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "object";
     }
 
     private static string? ExtractPropertyNameFromDiagnostic(Diagnostic diagnostic)

@@ -62,7 +62,7 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : AutoMapperCodeFixPro
                         $"src.{sourcePropertyName}");
                     return ReplaceNodeAsync(context.Document, operationContext.Root, invocation, newInvocation);
                 },
-                $"ExplicitMapping_{sourcePropertyName}_{destinationPropertyName}");
+                $"AM005_ExplicitMapping_{sourcePropertyName}_{destinationPropertyName}");
 
             context.RegisterCodeFix(explicitMappingAction, diagnostic);
         }

@@ -72,7 +72,7 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
                 // Always register ignore option
                 ctx.RegisterCodeFix(
                     CodeAction.Create(
-                        $"Ignore '{propertyName}' via .Ignore()",
+                        $"Ignore destination property '{propertyName}' (manual review)",
                         cancellationToken =>
                         {
                             var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);

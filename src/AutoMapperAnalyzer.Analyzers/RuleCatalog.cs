@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using AutoMapperAnalyzer.Analyzers.ComplexMappings;
 using AutoMapperAnalyzer.Analyzers.Configuration;
 using AutoMapperAnalyzer.Analyzers.DataIntegrity;
@@ -26,7 +27,12 @@ public enum CodeFixTrustLevel
     /// <summary>
     ///     The fix is compile-safe starter code or an explicit suppression that requires manual review.
     /// </summary>
-    Scaffold
+    Scaffold,
+
+    /// <summary>
+    ///     The diagnostic has no safe automatic code action.
+    /// </summary>
+    NoFix
 }
 
 /// <summary>
@@ -44,7 +50,8 @@ public sealed class RuleCatalogEntry
         Type analyzerType,
         Type codeFixProviderType,
         CodeFixTrustLevel fixTrustLevel,
-        ImmutableArray<DiagnosticDescriptor> descriptors)
+        ImmutableArray<DiagnosticDescriptor> descriptors,
+        IEnumerable<KeyValuePair<DiagnosticDescriptor, CodeFixTrustLevel>>? descriptorTrustLevels = null)
     {
         RuleId = ruleId;
         DocumentationAnchor = documentationAnchor;
@@ -53,6 +60,10 @@ public sealed class RuleCatalogEntry
         CodeFixProviderType = codeFixProviderType;
         FixTrustLevel = fixTrustLevel;
         Descriptors = descriptors;
+        DescriptorTrustLevels = descriptorTrustLevels?.ToImmutableDictionary(
+            pair => GetDescriptorTrustKey(pair.Key),
+            pair => pair.Value,
+            StringComparer.Ordinal) ?? ImmutableDictionary<string, CodeFixTrustLevel>.Empty;
     }
 
     /// <summary>
@@ -81,7 +92,7 @@ public sealed class RuleCatalogEntry
     public Type CodeFixProviderType { get; }
 
     /// <summary>
-    ///     Trust classification for the rule's generated fixes.
+    ///     Default trust classification for the rule's generated fixes.
     /// </summary>
     public CodeFixTrustLevel FixTrustLevel { get; }
 
@@ -89,6 +100,26 @@ public sealed class RuleCatalogEntry
     ///     Descriptors exposed under this public rule ID.
     /// </summary>
     public ImmutableArray<DiagnosticDescriptor> Descriptors { get; }
+
+    private ImmutableDictionary<string, CodeFixTrustLevel> DescriptorTrustLevels { get; }
+
+    /// <summary>
+    ///     Gets the trust classification for a descriptor, falling back to the rule default.
+    /// </summary>
+    public CodeFixTrustLevel GetFixTrustLevel(DiagnosticDescriptor descriptor)
+    {
+        return DescriptorTrustLevels.TryGetValue(GetDescriptorTrustKey(descriptor), out CodeFixTrustLevel trustLevel)
+            ? trustLevel
+            : FixTrustLevel;
+    }
+
+    private static string GetDescriptorTrustKey(DiagnosticDescriptor descriptor)
+    {
+        return string.Join(
+            "\u001F",
+            descriptor.Title.ToString(CultureInfo.InvariantCulture),
+            descriptor.Category);
+    }
 }
 
 /// <summary>
@@ -99,7 +130,7 @@ public static class RuleCatalog
     /// <summary>
     ///     Current package version used by docs/package drift tests.
     /// </summary>
-    public const string CurrentPackageVersion = "2.30.14";
+    public const string CurrentPackageVersion = "2.30.15";
 
     /// <summary>
     ///     Implemented rules, grouped by public diagnostic ID.
@@ -124,6 +155,11 @@ public static class RuleCatalog
             [
                 AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
                 AM002_NullableCompatibilityAnalyzer.NonNullableToNullableRule
+            ],
+            [
+                new System.Collections.Generic.KeyValuePair<DiagnosticDescriptor, CodeFixTrustLevel>(
+                    AM002_NullableCompatibilityAnalyzer.NonNullableToNullableRule,
+                    CodeFixTrustLevel.NoFix)
             ]),
         new(
             "AM003",
@@ -139,7 +175,7 @@ public static class RuleCatalog
             "samples/AutoMapperAnalyzer.Samples/MissingProperties/MissingPropertyExamples.cs",
             typeof(AM004_MissingDestinationPropertyAnalyzer),
             typeof(AM004_MissingDestinationPropertyCodeFixProvider),
-            CodeFixTrustLevel.LikelyRewrite,
+            CodeFixTrustLevel.Scaffold,
             [AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule]),
         new(
             "AM005",
@@ -198,11 +234,16 @@ public static class RuleCatalog
             "samples/AutoMapperAnalyzer.Samples/Conversions/TypeConverterExamples.cs",
             typeof(AM030_CustomTypeConverterAnalyzer),
             typeof(AM030_CustomTypeConverterCodeFixProvider),
-            CodeFixTrustLevel.LikelyRewrite,
+            CodeFixTrustLevel.NoFix,
             [
                 AM030_CustomTypeConverterAnalyzer.InvalidConverterImplementationRule,
                 AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule,
                 AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule
+            ],
+            [
+                new System.Collections.Generic.KeyValuePair<DiagnosticDescriptor, CodeFixTrustLevel>(
+                    AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule,
+                    CodeFixTrustLevel.LikelyRewrite)
             ]),
         new(
             "AM031",
