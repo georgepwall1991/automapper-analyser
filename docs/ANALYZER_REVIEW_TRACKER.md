@@ -39,6 +39,7 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | AM001 (2nd pass) | Type Safety | main | v2.30.11 | Added direct enum-to-string and string-to-enum conversion fixes for documented AM001 enum mismatch scenarios. |
 | AM030 + AM021 follow-up | Complex Mappings | main | v2.30.12 | Recognized interface-typed converter usage for AM030 and kept AM021 dictionary `KeyValuePair<,>` mismatch diagnostics on the manual-review fixer path. |
 | AM041 follow-up | Configuration | [#89](https://github.com/georgepwall1991/automapper-analyser/pull/89) | v2.30.13 | Preserved constructed generic type arguments and array ranks in duplicate-map diagnostic labels. |
+| AM021 reverse-map follow-up | Complex Mappings | [#90](https://github.com/georgepwall1991/automapper-analyser/pull/90) | v2.30.14 | Checked reverse collection element maps when parent maps use `ReverseMap()` while avoiding duplicate forward/reverse diagnostics. |
 
 ## In Progress
 
