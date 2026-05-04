@@ -458,7 +458,91 @@ public class AM041_CodeFixTests
 
         DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
             .WithLocation(12, 9)
-            .WithArguments("List", "List");
+            .WithArguments("List<Source>", "List<Destination>");
+
+        await CodeFixVerifier<AM041_DuplicateMappingAnalyzer, AM041_DuplicateMappingCodeFixProvider>
+            .VerifyFixAsync(testCode, expected, fixedCode);
+    }
+
+    [Fact]
+    public async Task Should_Handle_ArrayTypeDuplicates()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source[], Destination[]>();
+                                        CreateMap<Source[], Destination[]>();
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 using AutoMapper;
+
+                                 public class Source {}
+                                 public class Destination {}
+
+                                 public class MyProfile : Profile
+                                 {
+                                     public MyProfile()
+                                     {
+                                         CreateMap<Source[], Destination[]>();
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(11, 9)
+            .WithArguments("Source[]", "Destination[]");
+
+        await CodeFixVerifier<AM041_DuplicateMappingAnalyzer, AM041_DuplicateMappingCodeFixProvider>
+            .VerifyFixAsync(testCode, expected, fixedCode);
+    }
+
+    [Fact]
+    public async Task Should_PreserveMultidimensionalArrayRank_InDuplicateLabels()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source[,], Destination[,]>();
+                                        CreateMap<Source[,], Destination[,]>();
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 using AutoMapper;
+
+                                 public class Source {}
+                                 public class Destination {}
+
+                                 public class MyProfile : Profile
+                                 {
+                                     public MyProfile()
+                                     {
+                                         CreateMap<Source[,], Destination[,]>();
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(11, 9)
+            .WithArguments("Source[,]", "Destination[,]");
 
         await CodeFixVerifier<AM041_DuplicateMappingAnalyzer, AM041_DuplicateMappingCodeFixProvider>
             .VerifyFixAsync(testCode, expected, fixedCode);

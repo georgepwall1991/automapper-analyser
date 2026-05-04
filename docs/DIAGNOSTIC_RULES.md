@@ -1129,6 +1129,7 @@ dotnet_diagnostic.AM031.004.severity = warning  # Non-deterministic
 #### Description
 
 Detects multiple `CreateMap<TSource, TDest>()` definitions for the same types within the compilation, which creates ambiguity and runtime issues.
+Diagnostics include constructed generic type arguments and array element types/ranks, so duplicate collection maps are reported as `List<Source>` to `List<Destination>` instead of only `List` to `List`.
 
 #### Problem
 

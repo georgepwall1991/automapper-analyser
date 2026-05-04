@@ -4,7 +4,11 @@
 
 ### Changed
 
+- Hardened AM041 duplicate-map diagnostics so constructed generic and array source/destination types, including multidimensional array ranks, are included in the reported mapping labels.
+
 ### Validation
+
+- Targeted AM041 analyzer and code fix tests.
 
 ## [2.30.12] - 2026-05-03
 

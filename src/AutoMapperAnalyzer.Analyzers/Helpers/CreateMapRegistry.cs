@@ -163,8 +163,8 @@ internal sealed class CreateMapRegistry
                 {
                     MappingInfo duplicate = sorted[i];
                     duplicates[duplicate.Node] = (
-                        Source: duplicate.Source.Name,
-                        Dest: duplicate.Destination.Name,
+                        Source: FormatMappingTypeName(duplicate.Source),
+                        Dest: FormatMappingTypeName(duplicate.Destination),
                         duplicate.Location
                     );
                 }
@@ -177,6 +177,23 @@ internal sealed class CreateMapRegistry
     public static CreateMapRegistry FromCompilation(Compilation compilation)
     {
         return Cache.GetValue(compilation, Build);
+    }
+
+    private static string FormatMappingTypeName(ITypeSymbol type)
+    {
+        if (type is IArrayTypeSymbol arrayType)
+        {
+            string rankSuffix = arrayType.Rank == 1 ? "[]" : $"[{new string(',', arrayType.Rank - 1)}]";
+            return $"{FormatMappingTypeName(arrayType.ElementType)}{rankSuffix}";
+        }
+
+        if (type is INamedTypeSymbol { TypeArguments.Length: > 0 } namedType)
+        {
+            string typeArguments = string.Join(", ", namedType.TypeArguments.Select(FormatMappingTypeName));
+            return $"{namedType.Name}<{typeArguments}>";
+        }
+
+        return type.Name;
     }
 
     internal struct MappingInfo
