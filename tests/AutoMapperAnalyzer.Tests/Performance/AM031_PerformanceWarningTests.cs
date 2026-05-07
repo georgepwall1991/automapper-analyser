@@ -220,6 +220,91 @@ public class AM031_PerformanceWarningTests
     }
 
     [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenForPathMapFromEnumeratesCollectionMultipleTimes()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class StatsDto
+                                    {
+                                        public int Total { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public StatsDto Stats { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForPath(dest => dest.Stats.Total, opt => opt.MapFrom(src => src.Numbers.Sum() + src.Numbers.Average()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule, 27, 71,
+                "Stats.Total", "Numbers")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_ForSimpleForPathMapFrom()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public int Total { get; set; }
+                                    }
+
+                                    public class StatsDto
+                                    {
+                                        public int Total { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public StatsDto Stats { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForPath(dest => dest.Stats.Total, opt => opt.MapFrom(src => src.Total));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM031_ShouldReportDiagnostic_WhenReflectionInMapFrom()
     {
         const string testCode = """

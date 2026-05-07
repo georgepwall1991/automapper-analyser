@@ -114,6 +114,28 @@
     "severity": "Warning",
     "title": "Nullable to non-nullable mapping issue in AutoMapper configuration",
     "category": "AutoMapper.NullSafety",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/PerformanceExamples.cs",
+    "line": 38,
+    "column": 13,
+    "message": "Property 'City' has nullable compatibility issue: Company.Address (AutoMapperAnalyzer.Samples.Performance.Address?) can be null but CompanyDto.City (string) is non-nullable",
+    "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM002",
+    "severity": "Warning",
+    "title": "Nullable to non-nullable mapping issue in AutoMapper configuration",
+    "category": "AutoMapper.NullSafety",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/PerformanceExamples.cs",
+    "line": 38,
+    "column": 13,
+    "message": "Property 'Country' has nullable compatibility issue: Company.Address (AutoMapperAnalyzer.Samples.Performance.Address?) can be null but CompanyDto.Country (string) is non-nullable",
+    "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM002",
+    "severity": "Warning",
+    "title": "Nullable to non-nullable mapping issue in AutoMapper configuration",
+    "category": "AutoMapper.NullSafety",
     "filePath": "samples/AutoMapperAnalyzer.Samples/SampleUsage.cs",
     "line": 116,
     "column": 9,

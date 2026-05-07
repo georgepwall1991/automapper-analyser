@@ -132,20 +132,21 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Find all ForMember calls in the method chain
-        List<InvocationExpressionSyntax> forMemberCalls = GetForMemberInvocations(invocationExpr, context.SemanticModel);
+        // Find all destination configuration calls in the method chain
+        List<InvocationExpressionSyntax> destinationConfigurationCalls =
+            GetDestinationConfigurationInvocations(invocationExpr, context.SemanticModel);
 
-        foreach (InvocationExpressionSyntax? forMemberCall in forMemberCalls)
+        foreach (InvocationExpressionSyntax? destinationConfigurationCall in destinationConfigurationCalls)
         {
-            AnalyzeForMemberCall(context, forMemberCall);
+            AnalyzeDestinationConfigurationCall(context, destinationConfigurationCall);
         }
     }
 
-    private static List<InvocationExpressionSyntax> GetForMemberInvocations(
+    private static List<InvocationExpressionSyntax> GetDestinationConfigurationInvocations(
         InvocationExpressionSyntax createMapInvocation,
         SemanticModel semanticModel)
     {
-        var forMemberCalls = new List<InvocationExpressionSyntax>();
+        var destinationConfigurationCalls = new List<InvocationExpressionSyntax>();
 
         // Find the parent expression statement or any ancestor that might contain the full chain
         SyntaxNode root = createMapInvocation.AncestorsAndSelf().OfType<ExpressionStatementSyntax>().FirstOrDefault()
@@ -153,32 +154,35 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                               ?.Parent?.Parent
                           ?? createMapInvocation;
 
-        // Find all ForMember invocations in descendants
+        // Find all ForMember/ForPath invocations in descendants
         IEnumerable<InvocationExpressionSyntax> allInvocations =
             root.DescendantNodes().OfType<InvocationExpressionSyntax>();
 
         foreach (InvocationExpressionSyntax? invocation in allInvocations)
         {
             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-                memberAccess.Name.Identifier.Text == "ForMember" &&
-                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ForMember"))
+                memberAccess.Name.Identifier.Text is "ForMember" or "ForPath" &&
+                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                    invocation,
+                    semanticModel,
+                    memberAccess.Name.Identifier.Text))
             {
-                // Check if this ForMember is part of the CreateMap chain
+                // Check if this destination configuration call is part of the CreateMap chain
                 if (IsPartOfCreateMapChain(invocation, createMapInvocation))
                 {
-                    forMemberCalls.Add(invocation);
+                    destinationConfigurationCalls.Add(invocation);
                 }
             }
         }
 
-        return forMemberCalls;
+        return destinationConfigurationCalls;
     }
 
-    private static bool IsPartOfCreateMapChain(InvocationExpressionSyntax forMemberInvocation,
+    private static bool IsPartOfCreateMapChain(InvocationExpressionSyntax destinationConfigurationInvocation,
         InvocationExpressionSyntax createMapInvocation)
     {
-        // Check if the ForMember's member access expression contains the CreateMap invocation
-        ExpressionSyntax currentExpr = forMemberInvocation.Expression;
+        // Check if the destination configuration's member access expression contains the CreateMap invocation
+        ExpressionSyntax currentExpr = destinationConfigurationInvocation.Expression;
         while (currentExpr is MemberAccessExpressionSyntax memberAccess)
         {
             if (memberAccess.Expression is InvocationExpressionSyntax invocation)
@@ -199,18 +203,18 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static void AnalyzeForMemberCall(SyntaxNodeAnalysisContext context,
-        InvocationExpressionSyntax forMemberInvocation)
+    private static void AnalyzeDestinationConfigurationCall(SyntaxNodeAnalysisContext context,
+        InvocationExpressionSyntax destinationConfigurationInvocation)
     {
         // Get the lambda expression from MapFrom
-        LambdaExpressionSyntax? mapFromLambda = GetMapFromLambda(forMemberInvocation, context.SemanticModel);
+        LambdaExpressionSyntax? mapFromLambda = GetMapFromLambda(destinationConfigurationInvocation, context.SemanticModel);
         if (mapFromLambda == null)
         {
             return;
         }
 
-        // Get the destination property name
-        string? propertyName = GetDestinationPropertyName(forMemberInvocation);
+        // Get the destination member path
+        string? propertyName = GetDestinationMemberPath(destinationConfigurationInvocation);
         if (propertyName == null)
         {
             return;
@@ -221,16 +225,16 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     }
 
     private static LambdaExpressionSyntax? GetMapFromLambda(
-        InvocationExpressionSyntax forMemberInvocation,
+        InvocationExpressionSyntax destinationConfigurationInvocation,
         SemanticModel semanticModel)
     {
         // Look for the second argument which should contain the MapFrom call
-        if (forMemberInvocation.ArgumentList.Arguments.Count < 2)
+        if (destinationConfigurationInvocation.ArgumentList.Arguments.Count < 2)
         {
             return null;
         }
 
-        ArgumentSyntax optionsArg = forMemberInvocation.ArgumentList.Arguments[1];
+        ArgumentSyntax optionsArg = destinationConfigurationInvocation.ArgumentList.Arguments[1];
 
         CSharpSyntaxNode? optionsBody = AutoMapperAnalysisHelpers.GetLambdaBody(optionsArg.Expression);
         if (optionsBody == null)
@@ -255,26 +259,46 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return mapFromArg?.Expression as LambdaExpressionSyntax;
     }
 
-    private static string? GetDestinationPropertyName(InvocationExpressionSyntax forMemberInvocation)
+    private static string? GetDestinationMemberPath(InvocationExpressionSyntax destinationConfigurationInvocation)
     {
-        if (forMemberInvocation.ArgumentList.Arguments.Count < 1)
+        if (destinationConfigurationInvocation.ArgumentList.Arguments.Count < 1)
         {
             return null;
         }
 
-        ArgumentSyntax firstArg = forMemberInvocation.ArgumentList.Arguments[0];
+        ArgumentSyntax firstArg = destinationConfigurationInvocation.ArgumentList.Arguments[0];
         CSharpSyntaxNode? destLambdaBody = AutoMapperAnalysisHelpers.GetLambdaBody(firstArg.Expression);
         if (destLambdaBody == null)
         {
             return null;
         }
 
-        if (destLambdaBody is MemberAccessExpressionSyntax memberAccess)
+        return TryGetMemberPath(destLambdaBody, out string memberPath) ? memberPath : null;
+    }
+
+    private static bool TryGetMemberPath(SyntaxNode node, out string memberPath)
+    {
+        memberPath = string.Empty;
+        if (node is not MemberAccessExpressionSyntax memberAccess)
         {
-            return memberAccess.Name.Identifier.Text;
+            return false;
         }
 
-        return null;
+        var pathSegments = new Stack<string>();
+        ExpressionSyntax currentExpression = memberAccess;
+        while (currentExpression is MemberAccessExpressionSyntax currentMemberAccess)
+        {
+            pathSegments.Push(currentMemberAccess.Name.Identifier.ValueText);
+            currentExpression = currentMemberAccess.Expression;
+        }
+
+        if (currentExpression is not IdentifierNameSyntax || pathSegments.Count == 0)
+        {
+            return false;
+        }
+
+        memberPath = string.Join(".", pathSegments);
+        return true;
     }
 
     private static void AnalyzeLambdaExpression(

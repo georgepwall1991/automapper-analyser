@@ -18,6 +18,20 @@ public class AM002_CodeFixTests
     private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column,
         params object[] messageArgs)
     {
+        if (descriptor == AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule &&
+            messageArgs is [object destinationPropertyName, object sourceTypeName, object sourcePropertyType, object destinationTypeName, object destinationPropertyType])
+        {
+            messageArgs =
+            [
+                destinationPropertyName,
+                sourceTypeName,
+                destinationPropertyName,
+                sourcePropertyType,
+                destinationTypeName,
+                destinationPropertyType
+            ];
+        }
+
         DiagnosticResult result = new DiagnosticResult(descriptor).WithLocation(line, column);
         if (messageArgs.Length > 0)
         {
@@ -97,6 +111,660 @@ public class AM002_CodeFixTests
             testCode,
             AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
             19,
+            13,
+            expectedFixedCode,
+            "Name",
+            "Source",
+            "string?",
+            "Destination",
+            "string");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReplaceUnsafePassThroughMapFromWithNullCoalescing()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string? Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 20, 13,
+                "Name",
+                "Source",
+                "string?",
+                "Destination",
+                "string"),
+            expectedFixedCode,
+            codeActionIndex: 0);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldCoalesceEffectiveLaterMapFromExpression()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty))
+                                                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string? Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty))
+                                                         .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 20, 13,
+                "Name",
+                "Source",
+                "string?",
+                "Destination",
+                "string"),
+            expectedFixedCode,
+            codeActionIndex: 0);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldCoalesceExistingMapFromExpression()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Name { get; set; }
+                                        public string? OtherName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Name, opt => opt.MapFrom(s => s.OtherName));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string? Name { get; set; }
+                                                 public string? OtherName { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.Name, opt => opt.MapFrom(s => s.OtherName ?? string.Empty));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            21,
+            13,
+            expectedFixedCode,
+            "Name",
+            "Source",
+            "OtherName",
+            "string?",
+            "Destination",
+            "string");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldCoalesceExistingMapFromExpressionWithQualifiedDateTimeDefault()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public System.DateTime? OtherDate { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public System.DateTime CreatedAt { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(s => s.OtherDate));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public System.DateTime? OtherDate { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public System.DateTime CreatedAt { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(s => s.OtherDate ?? global::System.DateTime.MinValue));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 20, 13,
+                "CreatedAt",
+                "Source",
+                "OtherDate",
+                "System.DateTime?",
+                "Destination",
+                "System.DateTime"),
+            expectedFixedCode,
+            codeActionIndex: 0);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldPreserveExistingNonVetoingMemberOptionsWhenAddingNullCoalescingMapFrom()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Name, opt => opt.AddTransform(value => value.Trim()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string? Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.Name, opt => { opt.AddTransform(value => value.Trim()); opt.MapFrom(src => src.Name ?? string.Empty); });
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            20,
+            13,
+            expectedFixedCode,
+            "Name",
+            "Source",
+            "string?",
+            "Destination",
+            "string");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldAddTopLevelForMember_WhenChildForPathExists()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public struct Address
+                                    {
+                                        public string? Line1 { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Address? Address { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Address Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForPath(dest => dest.Address.Line1, opt => opt.MapFrom(src => src.Address.Value.Line1));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public struct Address
+                                             {
+                                                 public string? Line1 { get; set; }
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public Address? Address { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public Address Address { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                         .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address ?? default)).ForPath(dest => dest.Address.Line1, opt => opt.MapFrom(src => src.Address.Value.Line1));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            25,
+            13,
+            expectedFixedCode,
+            "Address",
+            "Source",
+            "TestNamespace.Address?",
+            "Destination",
+            "TestNamespace.Address");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldAvoidSourceParameterCollision_WhenAppendingMapFrom()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Name, src => src.AddTransform(source => source.Trim()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string? Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.Name, src => { src.AddTransform(source => source.Trim()); src.MapFrom(source => source.Name ?? string.Empty); });
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            20,
+            13,
+            expectedFixedCode,
+            "Name",
+            "Source",
+            "string?",
+            "Destination",
+            "string");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotOfferDefaultValueFix_WhenExistingMemberConditionCanVetoAssignment()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Name, opt => opt.Condition(src => src.Name != null));
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("AM002_Ignore_Name", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotOfferDefaultValueFix_WhenMapFromDereferencesNullableReceiver()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name.Trim()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("AM002_Ignore_Name", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldCoalesceUnsafeTopLevelForPathMapFrom()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForPath(dest => dest.Name, opt => opt.MapFrom(src => src.Name));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string? Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForPath(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            20,
             13,
             expectedFixedCode,
             "Name",

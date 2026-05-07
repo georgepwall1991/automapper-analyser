@@ -94,6 +94,14 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         InvocationExpressionSyntax mappingInvocation =
             isReverseMap && reverseMapInvocation != null ? reverseMapInvocation : invocation;
 
+        if (HasCustomConversion(
+                mappingInvocation,
+                context.SemanticModel,
+                stopAtReverseMapBoundary: !isReverseMap))
+        {
+            return;
+        }
+
         foreach (IPropertySymbol destProperty in destinationProperties)
         {
             // Required members are enforced by AM011 (error). Skip here to avoid duplicate,
@@ -116,7 +124,7 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-                // 3. Check for explicit configuration (ForMember/ForPath)
+            // 3. Check for explicit configuration (ForMember/ForPath)
             if (IsPropertyConfiguredWithForMember(
                     mappingInvocation,
                     destProperty.Name,
@@ -125,7 +133,16 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
             {
                 continue;
             }
-            
+
+            if (IsDestinationPropertyInitializedByConstructUsing(
+                    mappingInvocation,
+                    destProperty.Name,
+                    context.SemanticModel,
+                    stopAtReverseMapBoundary: !isReverseMap))
+            {
+                continue;
+            }
+
             // 4. Check for Ignore? 
             // IsPropertyConfiguredWithForMember checks if ForMember exists. 
             // If ForMember exists (even if Ignore), it is "mapped" (or explicitly handled).
@@ -148,6 +165,121 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
 
             context.ReportDiagnostic(diagnostic);
         }
+    }
+
+    private static bool HasCustomConversion(
+        InvocationExpressionSyntax mappingInvocation,
+        SemanticModel semanticModel,
+        bool stopAtReverseMapBoundary)
+    {
+        foreach (InvocationExpressionSyntax chainedInvocation in MappingChainAnalysisHelper.GetScopedChainInvocations(
+                     mappingInvocation,
+                     semanticModel,
+                     stopAtReverseMapBoundary))
+        {
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ConvertUsing"))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsDestinationPropertyInitializedByConstructUsing(
+        InvocationExpressionSyntax mappingInvocation,
+        string propertyName,
+        SemanticModel semanticModel,
+        bool stopAtReverseMapBoundary)
+    {
+        bool? effectiveConstructUsingInitializesProperty = null;
+
+        foreach (InvocationExpressionSyntax chainedInvocation in MappingChainAnalysisHelper.GetScopedChainInvocations(
+                     mappingInvocation,
+                     semanticModel,
+                     stopAtReverseMapBoundary))
+        {
+            if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ConstructUsing") ||
+                chainedInvocation.ArgumentList.Arguments.Count == 0)
+            {
+                continue;
+            }
+
+            IReadOnlyList<BaseObjectCreationExpressionSyntax> objectCreations =
+                GetConstructUsingObjectCreations(chainedInvocation.ArgumentList.Arguments[0].Expression);
+            if (objectCreations.Count == 0)
+            {
+                effectiveConstructUsingInitializesProperty = false;
+                continue;
+            }
+
+            effectiveConstructUsingInitializesProperty = objectCreations.All(objectCreation =>
+                objectCreation.Initializer != null &&
+                objectCreation.Initializer.Expressions
+                    .OfType<AssignmentExpressionSyntax>()
+                    .Any(assignment => AssignmentTargetsProperty(assignment.Left, propertyName)));
+        }
+
+        return effectiveConstructUsingInitializesProperty == true;
+    }
+
+    private static IReadOnlyList<BaseObjectCreationExpressionSyntax> GetConstructUsingObjectCreations(ExpressionSyntax constructExpression)
+    {
+        return constructExpression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => GetObjectCreationFromLambdaBody(simpleLambda.Body),
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda =>
+                GetObjectCreationFromLambdaBody(parenthesizedLambda.Body),
+            BaseObjectCreationExpressionSyntax creation => [creation],
+            _ => []
+        };
+    }
+
+    private static IReadOnlyList<BaseObjectCreationExpressionSyntax> GetObjectCreationFromLambdaBody(CSharpSyntaxNode lambdaBody)
+    {
+        if (lambdaBody is BaseObjectCreationExpressionSyntax creation)
+        {
+            return [creation];
+        }
+
+        if (lambdaBody is not BlockSyntax block)
+        {
+            return [];
+        }
+
+        ReturnStatementSyntax[] returnStatements = block
+            .DescendantNodes()
+            .OfType<ReturnStatementSyntax>()
+            .ToArray();
+        if (returnStatements.Length == 0)
+        {
+            return [];
+        }
+
+        var objectCreations = new List<BaseObjectCreationExpressionSyntax>();
+        foreach (ReturnStatementSyntax returnStatement in returnStatements)
+        {
+            if (returnStatement.Expression is not BaseObjectCreationExpressionSyntax returnedCreation)
+            {
+                return [];
+            }
+
+            objectCreations.Add(returnedCreation);
+        }
+
+        return objectCreations;
+    }
+
+    private static bool AssignmentTargetsProperty(ExpressionSyntax assignmentTarget, string propertyName)
+    {
+        string? assignedPropertyName = assignmentTarget switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
+            _ => null
+        };
+
+        return string.Equals(assignedPropertyName, propertyName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsFlatteningMatch(IPropertySymbol sourceProperty, IPropertySymbol destinationProperty)

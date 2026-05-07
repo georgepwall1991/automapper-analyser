@@ -199,13 +199,6 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
         if (newRoot is CompilationUnitSyntax compilationUnit)
         {
             newRoot = AddUsingIfMissing(compilationUnit, "System.Linq");
-
-            if (mapFromExpression.Contains("Convert.", StringComparison.Ordinal) ||
-                mapFromExpression.Contains("DateTime.", StringComparison.Ordinal) ||
-                mapFromExpression.Contains("Guid.", StringComparison.Ordinal))
-            {
-                newRoot = AddUsingIfMissing((CompilationUnitSyntax)newRoot, "System");
-            }
         }
 
         return await Task.FromResult(document.WithSyntaxRoot(newRoot));
@@ -374,19 +367,19 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
         string normalizedDestType = NormalizeTypeName(destElementType);
         return normalizedDestType switch
         {
-            "int" or "System.Int32" => "Convert.ToInt32",
-            "long" or "System.Int64" => "Convert.ToInt64",
-            "double" or "System.Double" => "Convert.ToDouble",
-            "float" or "System.Single" => "Convert.ToSingle",
-            "decimal" or "System.Decimal" => "Convert.ToDecimal",
-            "bool" or "System.Boolean" => "Convert.ToBoolean",
-            "byte" or "System.Byte" => "Convert.ToByte",
-            "short" or "System.Int16" => "Convert.ToInt16",
-            "char" or "System.Char" => "Convert.ToChar",
-            "string" or "System.String" => "Convert.ToString",
-            "DateTime" or "System.DateTime" => "DateTime.Parse",
-            "Guid" or "System.Guid" => "Guid.Parse",
-            _ => "Convert.ToString"
+            "int" or "System.Int32" => "global::System.Convert.ToInt32",
+            "long" or "System.Int64" => "global::System.Convert.ToInt64",
+            "double" or "System.Double" => "global::System.Convert.ToDouble",
+            "float" or "System.Single" => "global::System.Convert.ToSingle",
+            "decimal" or "System.Decimal" => "global::System.Convert.ToDecimal",
+            "bool" or "System.Boolean" => "global::System.Convert.ToBoolean",
+            "byte" or "System.Byte" => "global::System.Convert.ToByte",
+            "short" or "System.Int16" => "global::System.Convert.ToInt16",
+            "char" or "System.Char" => "global::System.Convert.ToChar",
+            "string" or "System.String" => "global::System.Convert.ToString",
+            "DateTime" or "System.DateTime" => "global::System.DateTime.Parse",
+            "Guid" or "System.Guid" => "global::System.Guid.Parse",
+            _ => "global::System.Convert.ToString"
         };
     }
 

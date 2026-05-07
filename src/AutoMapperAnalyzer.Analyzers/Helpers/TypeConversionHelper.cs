@@ -37,9 +37,9 @@ public static class TypeConversionHelper
             "single" => "0.0f",
             "decimal" => "0m",
             "bool" => "false",
-            "datetime" => "DateTime.MinValue",
-            "datetimeoffset" => "DateTimeOffset.MinValue",
-            "guid" => "Guid.Empty",
+            "datetime" => "global::System.DateTime.MinValue",
+            "datetimeoffset" => "global::System.DateTimeOffset.MinValue",
+            "guid" => "global::System.Guid.Empty",
             _ => "default"
         };
     }

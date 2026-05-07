@@ -10,6 +10,20 @@ public class AM002_NullableCompatibilityTests
     private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, int line, int column,
         params object[] messageArgs)
     {
+        if (descriptor == AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule &&
+            messageArgs is [object destinationPropertyName, object sourceTypeName, object sourcePropertyType, object destinationTypeName, object destinationPropertyType])
+        {
+            messageArgs =
+            [
+                destinationPropertyName,
+                sourceTypeName,
+                destinationPropertyName,
+                sourcePropertyType,
+                destinationTypeName,
+                destinationPropertyType
+            ];
+        }
+
         return new DiagnosticResult(descriptor).WithLocation(line, column).WithArguments(messageArgs);
     }
 
@@ -229,6 +243,1110 @@ public class AM002_NullableCompatibilityTests
                           """;
 
         await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenExplicitMapFromPassesNullableSourceToNonNullableDestination()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Name", "Source",
+                "string?", "Destination", "string"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenLaterMemberConfigurationOverridesSafeNullHandling()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty))
+                                          .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Name", "Source",
+                "string?", "Destination", "string"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenExplicitMapFromUsesDifferentNullableSource()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                                  public string? OtherName { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.OtherName));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 22, 13, "Name", "Source",
+                "OtherName",
+                "string?", "Destination", "string"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenExplicitMapFromUsesNullableSourceWithoutConventionSource()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? OtherName { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.OtherName));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Name", "Source",
+                "OtherName",
+                "string?", "Destination", "string"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenExplicitMapFromUsesNullableSourceAndConventionSourceIsNonNullable()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string Name { get; set; }
+                                  public string? OtherName { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.OtherName));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 22, 13, "Name", "Source",
+                "OtherName",
+                "string?", "Destination", "string"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenMapFromCallsHelperNamedIgnore()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public static class StringExtensions
+                              {
+                                  public static string? Ignore(this string? value) => value;
+                              }
+
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name.Ignore()));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 26, 13, "Name", "Source",
+                "string?", "Destination", "string"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenHelperMapFromAppearsInsideMemberOptions()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+                          using System;
+
+                          namespace TestNamespace
+                          {
+                              public static class Helper
+                              {
+                                  public static void MapFrom<T>(Func<Source, T> resolver)
+                                  {
+                                  }
+                              }
+
+                              public class Source
+                              {
+                                  public string Name { get; set; }
+                                  public string? OtherNullableName { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => Helper.MapFrom(src => src.OtherNullableName));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenCustomResolverMapFromHandlesDestinationProperty()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class SafeNameResolver : IValueResolver<Source, Destination, string>
+                              {
+                                  public string Resolve(Source source, Destination destination, string destMember, ResolutionContext context)
+                                  {
+                                      return source.Name ?? string.Empty;
+                                  }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.MapFrom<SafeNameResolver>());
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenCustomMemberResolverMapFromHandlesDestinationProperty()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class NullSafeNameResolver : IMemberValueResolver<Source, Destination, string?, string>
+                              {
+                                  public string Resolve(Source source, Destination destination, string? sourceMember, string destMember, ResolutionContext context)
+                                  {
+                                      return sourceMember ?? string.Empty;
+                                  }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.MapFrom<NullSafeNameResolver, string?>(src => src.Name));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenMemberValueConverterHandlesDestinationProperty()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class NullSafeStringConverter : IValueConverter<string?, string>
+                              {
+                                  public string Convert(string? sourceMember, ResolutionContext context)
+                                  {
+                                      return sourceMember ?? string.Empty;
+                                  }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.ConvertUsing<NullSafeStringConverter, string?>(src => src.Name));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenDestinationPropertyIgnored()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.Ignore());
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenTopLevelForPathHandlesNullability()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForPath(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenGenericForPathMapFromPassesNullableSourceToNonNullableDestination()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForPath(dest => dest.Name, opt => opt.MapFrom<string?>(src => src.Name));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Name", "Source",
+                "string?", "Destination", "string"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenMapFromDereferencesNullableReceiver()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name.Trim()));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Name", "Source",
+                "string?", "Destination", "string"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenNullSubstituteIsPairedWithUnsafeMapFromDereference()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt =>
+                                          {
+                                              opt.NullSubstitute("fallback");
+                                              opt.MapFrom(src => src.Name.Trim());
+                                          });
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Name", "Source",
+                "string?", "Destination", "string"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenMapFromUsesNullNormalizingExtensionMethod()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public static class StringExtensions
+                              {
+                                  public static string OrEmpty(this string? value) => value ?? string.Empty;
+                              }
+
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name.OrEmpty()));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenLaterMapFromInSameOptionsLambdaHandlesNullability()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt =>
+                                          {
+                                              opt.MapFrom(src => src.Name);
+                                              opt.MapFrom(src => src.Name ?? string.Empty);
+                                          });
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenLaterMapFromInSameOptionsLambdaOverridesSafeMapping()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt =>
+                                          {
+                                              opt.MapFrom(src => src.Name ?? string.Empty);
+                                              opt.MapFrom(src => src.Name);
+                                          });
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Name", "Source",
+                "string?", "Destination", "string"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenDifferentSourceMapFromDereferencesNullableReceiver()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string Name { get; set; }
+                                  public string? OtherName { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.OtherName.Trim()));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 22, 13, "Name", "Source",
+                "OtherName",
+                "string?", "Destination", "string"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenMapFromDereferencesNullableReceiverForDifferentReturnType()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public int NameLength { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.NameLength, opt => opt.MapFrom(src => src.Name.Length));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "NameLength", "Source",
+                "Name",
+                "string?", "Destination", "int"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenMapFromGuardsNullableReceiverBeforeDereference()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name == null ? string.Empty : src.Name.Trim()));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenMapFromUsesNullableValueGetValueOrDefault()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public int? Count { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public int Count { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Count, opt => opt.MapFrom(src => src.Count.GetValueOrDefault()));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenOnlyChildForPathIsIgnored()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Address
+                              {
+                                  public string? Line1 { get; set; }
+                              }
+
+                              public class Source
+                              {
+                                  public Address? Address { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public Address Address { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForPath(dest => dest.Address.Line1, opt => opt.Ignore());
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 26, 13, "Address", "Source",
+                "TestNamespace.Address?", "Destination", "TestNamespace.Address"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenNullSubstituteHandlesDestinationProperty()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.NullSubstitute("fallback"));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenMapFromNullableSourceHasSafeNullSubstitute()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt =>
+                                          {
+                                              opt.MapFrom(src => src.Name);
+                                              opt.NullSubstitute("fallback");
+                                          });
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenNullSubstituteValueIsAssignableToDestinationProperty()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public object? Value { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public object Value { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Value, opt => opt.NullSubstitute("fallback"));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenNullSubstituteUsesTypedValueTypeDefault()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public int? Count { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public int Count { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Count, opt => opt.NullSubstitute(default(int)));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenNullSubstituteUsesNullForNonNullableDestination()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.NullSubstitute(null));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Name", "Source",
+                "string?", "Destination", "string"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenNullSubstituteUsesDefaultForNonNullableDestination()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string? Name { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string Name { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Name, opt => opt.NullSubstitute(default));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Name", "Source",
+                "string?", "Destination", "string"));
     }
 
     [Fact]

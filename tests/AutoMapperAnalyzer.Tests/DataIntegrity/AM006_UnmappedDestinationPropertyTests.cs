@@ -115,6 +115,317 @@ public class AM006_UnmappedDestinationPropertyTests
     }
 
     [Fact]
+    public async Task AM006_ShouldNotReportDiagnostic_WhenConstructUsingHandlesDestinationProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Info { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraInfo { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing(src => new Destination
+                                                {
+                                                    Name = src.Name,
+                                                    ExtraInfo = src.Info
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM006_ShouldNotReportDiagnostic_WhenBlockConstructUsingHandlesDestinationProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Info { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraInfo { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing((src, context) =>
+                                                {
+                                                    return new Destination
+                                                    {
+                                                        Name = src.Name,
+                                                        ExtraInfo = src.Info
+                                                    };
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM006_ShouldNotReportDiagnostic_WhenTargetTypedConstructUsingHandlesDestinationProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Info { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraInfo { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing(src => new()
+                                                {
+                                                    Name = src.Name,
+                                                    ExtraInfo = src.Info
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM006_ShouldReportDiagnostic_WhenConstructUsingDoesNotHandleDestinationProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Info { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraInfo { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing(src => new Destination
+                                                {
+                                                    Name = src.Name
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 21, 13,
+                "ExtraInfo", "Source")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM006_ShouldReportDiagnostic_WhenLaterConstructUsingDoesNotHandleDestinationProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Info { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraInfo { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing(src => new Destination
+                                                {
+                                                    Name = src.Name,
+                                                    ExtraInfo = src.Info
+                                                })
+                                                .ConstructUsing(src => new Destination
+                                                {
+                                                    Name = src.Name
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 21, 13,
+                "ExtraInfo", "Source")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM006_ShouldReportDiagnostic_WhenAnyConstructUsingReturnDoesNotHandleDestinationProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public bool UseInfo { get; set; }
+                                        public string Name { get; set; }
+                                        public string Info { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraInfo { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing((src, context) =>
+                                                {
+                                                    if (src.UseInfo)
+                                                    {
+                                                        return new Destination
+                                                        {
+                                                            Name = src.Name
+                                                        };
+                                                    }
+
+                                                    return new Destination
+                                                    {
+                                                        Name = src.Name,
+                                                        ExtraInfo = src.Info
+                                                    };
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 22, 13,
+                "ExtraInfo", "Source")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM006_ShouldNotReportDiagnostic_WhenConvertUsingHandlesDestinationProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Info { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraInfo { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConvertUsing(src => new Destination
+                                                {
+                                                    Name = src.Name,
+                                                    ExtraInfo = src.Info
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
     public async Task AM006_ShouldNotReportDiagnostic_ForCreateMapLikeApiOutsideAutoMapper()
     {
         const string testCode = """

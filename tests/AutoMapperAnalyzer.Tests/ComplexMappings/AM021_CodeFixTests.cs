@@ -48,7 +48,6 @@ public class AM021_CodeFixTests
                                          using AutoMapper;
                                          using System.Collections.Generic;
                                          using System.Linq;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -66,7 +65,7 @@ public class AM021_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Numbers, opt => opt.MapFrom(src => src.Numbers.Select(x => Convert.ToInt32(x)).ToList()));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Numbers, opt => opt.MapFrom(src => src.Numbers.Select(x => global::System.Convert.ToInt32(x)).ToList()));
                                                  }
                                              }
                                          }
@@ -286,7 +285,6 @@ public class AM021_CodeFixTests
                                          using AutoMapper;
                                          using System.Collections.Generic;
                                          using System.Linq;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -304,7 +302,7 @@ public class AM021_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.Tags.Select(x => Convert.ToInt32(x)).ToArray()));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.Tags.Select(x => global::System.Convert.ToInt32(x)).ToArray()));
                                                  }
                                              }
                                          }
@@ -352,7 +350,6 @@ public class AM021_CodeFixTests
                                          using AutoMapper;
                                          using System.Collections.Generic;
                                          using System.Linq;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -370,7 +367,7 @@ public class AM021_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new Queue<int>(src.Values.Select(x => Convert.ToInt32(x)))));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new Queue<int>(src.Values.Select(x => global::System.Convert.ToInt32(x)))));
                                                  }
                                              }
                                          }
@@ -418,7 +415,6 @@ public class AM021_CodeFixTests
                                          using AutoMapper;
                                          using System.Collections.Generic;
                                          using System.Linq;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -436,7 +432,7 @@ public class AM021_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new Stack<int>(src.Values.Select(x => Convert.ToInt32(x)))));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new Stack<int>(src.Values.Select(x => global::System.Convert.ToInt32(x)))));
                                                  }
                                              }
                                          }
@@ -484,7 +480,6 @@ public class AM021_CodeFixTests
                                          using AutoMapper;
                                          using System.Collections.Generic;
                                          using System.Linq;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -502,7 +497,7 @@ public class AM021_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => src.Values.Select(x => Convert.ToInt32(x)).ToList()));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => src.Values.Select(x => global::System.Convert.ToInt32(x)).ToList()));
                                                  }
                                              }
                                          }
@@ -550,7 +545,6 @@ public class AM021_CodeFixTests
                                          using AutoMapper;
                                          using System.Collections.Generic;
                                          using System.Linq;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -568,7 +562,7 @@ public class AM021_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new global::System.Collections.Generic.HashSet<int>(src.Values.Select(x => Convert.ToInt32(x)))));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new global::System.Collections.Generic.HashSet<int>(src.Values.Select(x => global::System.Convert.ToInt32(x)))));
                                                  }
                                              }
                                          }
@@ -616,7 +610,6 @@ public class AM021_CodeFixTests
                                          using AutoMapper;
                                          using System.Collections.Generic;
                                          using System.Linq;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -634,7 +627,7 @@ public class AM021_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new global::System.Collections.Generic.HashSet<int>(src.Values.Select(x => Convert.ToInt32(x)))));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new global::System.Collections.Generic.HashSet<int>(src.Values.Select(x => global::System.Convert.ToInt32(x)))));
                                                  }
                                              }
                                          }
@@ -682,7 +675,6 @@ public class AM021_CodeFixTests
                                          using AutoMapper;
                                          using System.Collections.Generic;
                                          using System.Linq;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -700,7 +692,7 @@ public class AM021_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new global::System.Collections.Generic.HashSet<int>(src.Values.Select(x => Convert.ToInt32(x)))));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new global::System.Collections.Generic.HashSet<int>(src.Values.Select(x => global::System.Convert.ToInt32(x)))));
                                                  }
                                              }
                                          }
@@ -748,7 +740,6 @@ public class AM021_CodeFixTests
                                          using AutoMapper;
                                          using System.Collections.Generic;
                                          using System.Linq;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -766,7 +757,7 @@ public class AM021_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => src.Values.Select(x => Convert.ToInt32(x)).ToList()));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => src.Values.Select(x => global::System.Convert.ToInt32(x)).ToList()));
                                                  }
                                              }
                                          }
@@ -854,7 +845,6 @@ public class AM021_CodeFixTests
                                          using AutoMapper;
                                          using System.Collections.Generic;
                                          using System.Linq;
-                                         using System;
 
                                          namespace TestNamespace
                                          {
@@ -872,7 +862,7 @@ public class AM021_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Numbers, opt => opt.MapFrom(src => src.numbers.Select(x => Convert.ToInt32(x)).ToList()));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Numbers, opt => opt.MapFrom(src => src.numbers.Select(x => global::System.Convert.ToInt32(x)).ToList()));
                                                  }
                                              }
                                          }
