@@ -363,6 +363,56 @@ public class AM031_CodeFixTests
     }
 
     [Fact]
+    public async Task AM031_ShouldNotRegisterFixes_ForForPathMultipleEnumeration()
+    {
+        const string source = """
+                              using AutoMapper;
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              namespace TestNamespace
+                              {
+                                  public class Source
+                                  {
+                                      public List<int> Numbers { get; set; } = new();
+                                  }
+
+                                  public class StatsDto
+                                  {
+                                      public int Total { get; set; }
+                                  }
+
+                                  public class Destination
+                                  {
+                                      public StatsDto Stats { get; set; } = new();
+                                  }
+
+                                  public class TestProfile : Profile
+                                  {
+                                      public TestProfile()
+                                      {
+                                          CreateMap<Source, Destination>()
+                                              .ForPath(dest => dest.Stats.Total, opt => opt.MapFrom(src => src.Numbers.Sum() + src.Numbers.Average()));
+                                      }
+                                  }
+                              }
+                              """;
+
+        Document document = CreateDocument(source);
+        Diagnostic diagnostic = await CreateDiagnosticAtSourceLambdaAsync(
+            document,
+            AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule,
+            "MultipleEnumeration",
+            "Stats.Total",
+            "Numbers",
+            "Stats.Total",
+            "Numbers");
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
     public async Task AM031_ShouldNotRegisterCachingFix_ForCapturedCollection()
     {
         const string source = """

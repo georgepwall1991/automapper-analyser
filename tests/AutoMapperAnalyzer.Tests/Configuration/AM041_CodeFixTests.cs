@@ -657,6 +657,74 @@ public class AM041_CodeFixTests
     }
 
     [Fact]
+    public async Task Should_NotOfferFix_WhenDuplicateReverseMapHasChainedConfiguration()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string DisplayName { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Destination, Source>();
+                                        CreateMap<Source, Destination>()
+                                            .ReverseMap()
+                                            .ForMember(src => src.Name, opt => opt.MapFrom(dest => dest.DisplayName));
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM041", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task Should_NotOfferFix_WhenParenthesizedDuplicateReverseMapHasChainedConfiguration()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string DisplayName { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Destination, Source>();
+                                        (CreateMap<Source, Destination>()
+                                            .ReverseMap())
+                                            .ForMember(src => src.Name, opt => opt.MapFrom(dest => dest.DisplayName));
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM041", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
     public async Task Should_NotDetectDuplicate_WhenUsingIncludeBase()
     {
         const string testCode = """

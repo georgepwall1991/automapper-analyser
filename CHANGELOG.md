@@ -2,9 +2,51 @@
 
 ## Unreleased
 
+## [2.30.16] - 2026-05-07
+
 ### Changed
 
+- Hardened AM006 so destination properties initialized through `ConstructUsing`, or fully owned through `ConvertUsing`, no longer report as unmapped while partial `ConstructUsing` maps still report untouched destination members.
+- Hardened AM006 so every block-bodied `ConstructUsing` return must initialize a destination member before AM006 treats it as mapped.
+- Hardened AM006 so repeated `ConstructUsing` configuration is judged from the later effective constructor expression.
+- Updated AM006 docs and analyzer health notes to document the property-specific construction and conversion suppression boundary.
+- Hardened AM041 so duplicate `ReverseMap()` diagnostics with chained reverse-side configuration do not offer an unsafe automatic removal.
+- Hardened AM041 so parenthesized chained `ReverseMap()` configuration is also kept on the manual-review path.
+- Hardened AM002 so pass-through `MapFrom(src => src.NullableMember)` no longer hides nullable-to-non-nullable diagnostics.
+- Hardened AM002 so `MapFrom` expressions that dereference nullable receivers still report instead of being trusted solely because the final return type is non-nullable.
+- Hardened AM002 so different-source nullable receiver dereferences such as `src.OtherName.Trim()` still report and name the nullable source member.
+- Hardened AM002 so nullable receiver dereferences still report when the dereferenced expression returns a different destination type, such as `src.Name.Length`.
+- Hardened AM002 so guarded nullable dereferences and nullable value `GetValueOrDefault()` remain recognized as safe explicit mappings.
+- Hardened the AM002 default-value fixer so it replaces an unsafe existing member mapping instead of adding a second mapping that can be overridden.
+- Hardened the AM002 default-value fixer so unsafe nullable receiver dereferences do not receive a misleading `expr ?? default` action after the dereference.
+- Hardened the AM002 default-value fixer so generated `DateTime`, `DateTimeOffset`, and `Guid` defaults are fully qualified and do not depend on `using System`.
+- Hardened AM002 so repeated destination-member configuration is analyzed and fixed from the later effective mapping instead of an earlier overridden mapping.
+- Hardened AM002 so explicit mappings from a different nullable source member still report, helper methods named `Ignore` or `NullSubstitute` inside `MapFrom` bodies do not get mistaken for AutoMapper null-handling options, and the default-value fixer preserves existing member options and source expressions when it adds null handling.
+- Hardened AM002 diagnostics so explicit different-source mappings name the actual nullable source member in the message.
+- Hardened AM002 so generic expression overloads such as `MapFrom<TSourceMember>(...)` are inspected instead of treated as opaque resolver ownership.
+- Hardened AM002 so assignable `NullSubstitute` fallback values are treated as safe even when their expression type is a derived type.
+- Hardened AM002 so typed value-type defaults such as `NullSubstitute(default(int))` are treated as safe while nullable/reference defaults still report.
+- Hardened AM002 so `NullSubstitute` does not hide unsafe nullable receiver dereferences inside an explicit `MapFrom` expression.
+- Hardened AM002 so helper calls named `MapFrom` inside member options are not mistaken for AutoMapper mapping configuration.
+- Hardened AM002 so custom resolver forms such as `MapFrom<TResolver>()` are treated as explicit mapping configuration instead of falling back to same-name convention nullability.
+- Hardened AM002 so custom member resolver forms such as `MapFrom<TResolver, TSourceMember>(...)` also stay on the explicit resolver path.
+- Hardened AM002 so member-level value converters such as `ConvertUsing<TConverter, TSourceMember>(...)` are treated as explicit mapping ownership.
+- Hardened AM002 so `NullSubstitute(null)` and `NullSubstitute(default)` no longer suppress nullable-to-non-nullable diagnostics.
+- Hardened the AM002 default-value fixer so existing child `ForPath` mappings are not reused as top-level null-handling targets and generated `MapFrom` lambdas avoid parameter-name collisions.
+- Hardened the AM002 default-value fixer so existing `Condition`/`PreCondition` guards keep the default-value action off the automatic path.
+- Hardened AM002 so child-only `ForPath` configuration does not suppress nullable top-level parent mappings.
+- Hardened AM002 so top-level `ForPath` null handling is respected and unsafe top-level `ForPath` mappings are fixed in place.
+- Hardened AM021 simple conversion fixes so generated `Convert`, `DateTime`, and `Guid` calls use fully qualified `global::System` APIs and no longer depend on `using System`.
+- Hardened AM031 so `ForPath(... MapFrom(...))` expressions are analyzed alongside `ForMember`, with nested destination paths preserved in diagnostics.
+- Hardened AM031 code fixes so `ForPath` diagnostics do not offer unsafe automatic rewrites; expression-tree `ForPath.MapFrom` cases stay analyzer-only.
+
 ### Validation
+
+- Targeted AM006 analyzer tests.
+- Targeted AM041 code fix tests.
+- Targeted AM002 analyzer and code fix tests.
+- Targeted AM021 analyzer and code fix tests.
+- Targeted AM031 analyzer and code fix tests.
 
 ## [2.30.15] - 2026-05-04
 

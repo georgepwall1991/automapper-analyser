@@ -198,7 +198,10 @@ descriptor is analyzer-only and does not offer a code action.
 
 #### Safe Cases
 
-AM002 does not report when the destination member is explicitly configured with `ForMember` or `ForPath`, when the map uses custom construction/conversion, when nullable reference annotations are disabled or oblivious, or when the nullable source and destination member have incompatible underlying types owned by `AM001`.
+AM002 does not report when the destination member is explicitly configured to handle nulls, such as `MapFrom(src => src.Name ?? "fallback")`, a safe AutoMapper `NullSubstitute("fallback")`, an assignable `NullSubstitute` fallback such as a `string` value for an `object` destination member, a typed value-type default such as `NullSubstitute(default(int))`, guarded nullable dereferences such as `src.Name == null ? string.Empty : src.Name.Trim()`, nullable value defaults such as `src.Count.GetValueOrDefault()`, AutoMapper `Ignore()`, a proven non-null-producing resolver expression that does not dereference a nullable receiver unsafely, a custom resolver form such as `MapFrom<TResolver>()` or `MapFrom<TResolver, TSourceMember>(...)`, or a member-level value converter such as `ConvertUsing<TConverter, TSourceMember>(...)`. Pass-through, unguarded nullable-receiver dereferences, different-member, and generic expression mappings like `MapFrom(src => src.Name)`, `MapFrom(src => src.Name.Trim())`, `MapFrom(src => src.Name.Length)`, `MapFrom(src => src.OtherNullableName)`, and `MapFrom<TSourceMember>(src => src.Name)` still report when the mapped value can come from a nullable source and the destination member is non-nullable, and diagnostics name the actual nullable source member used by the explicit mapping. Unsafe substitutes such as `NullSubstitute(null)`, `NullSubstitute(default)`, and nullable/reference typed defaults still report. Helper methods named `Ignore`, `NullSubstitute`, or `MapFrom` are not treated as AutoMapper null-handling or mapping options unless they are invoked on the AutoMapper options parameter. AM002 also stays quiet when the map uses custom construction/conversion, when nullable reference annotations are disabled or oblivious, or when the nullable source and destination member have incompatible underlying types owned by `AM001`.
+
+When the same destination member is configured more than once, AM002 evaluates and fixes the later effective configuration. The default-value fixer preserves existing top-level `ForMember` and top-level `ForPath` options when it adds null handling, emits fully qualified framework defaults such as `global::System.DateTime.MinValue`, but it does not reuse child `ForPath` mappings as top-level nullable-property fixes and it withholds the default-value action when existing `Condition` or `PreCondition` guards can veto assignment or when an existing `MapFrom` dereferences a nullable receiver before any fallback could run.
+Child-only `ForPath` configuration also does not suppress AM002 for a nullable top-level source member, because it does not construct or default the parent destination object.
 
 #### Configuration
 
@@ -489,6 +492,10 @@ CreateMap<Source, Destination>()
 - Map from similar source property (fuzzy match suggestion)
 - Ignore destination property (`ForMember` + `Ignore`, manual review)
 
+#### Safe Cases
+
+AM006 does not report when the destination member is matched by convention, configured with `ForMember` or `ForPath`, covered by flattening, explicitly initialized in every returned `ConstructUsing` object initializer, or when `ConvertUsing` owns destination object creation.
+
 #### Configuration
 
 ```ini
@@ -757,6 +764,8 @@ second reverse diagnostic for the same collection until the forward direction is
 If collection containers are incompatible (`HashSet<T>` vs `List<T>`, `Queue<T>` vs `Stack<T>`, etc.), `AM003` owns the diagnostic. AM003 stays quiet when the source collection is already assignable to the destination collection contract.
 
 Dictionary value/key mismatches are treated as `KeyValuePair<TKey, TValue>` element mismatches. For those diagnostics the fixer intentionally offers only the manual ignore action, because adding a `CreateMap<KeyValuePair<...>, KeyValuePair<...>>()` registration is not a reliable executable rewrite.
+
+For simple element conversions, AM021 generates `global::System.Convert`, `global::System.DateTime`, and `global::System.Guid` calls so the fix remains stable even when the project contains types with the same short names.
 
 #### Solution
 
@@ -1029,6 +1038,7 @@ dotnet_diagnostic.AM030.severity = warning
 #### Description
 
 Detects expensive operations inside mapping expressions that should be performed before mapping.
+AM031 analyzes both `ForMember(... MapFrom(...))` and `ForPath(... MapFrom(...))`; nested destination paths are reported as paths such as `Stats.Total`.
 
 #### Problem 1: Database Query in Mapping
 
@@ -1092,7 +1102,7 @@ CreateMap<Source, Destination>()
 
 **Code Fix 1: Cache Collection Enumeration**
 
-AM031 offers this executable rewrite only when the repeated enumeration is rooted in the source mapping parameter, including nested source paths such as `src.Customer.Orders`. Captured fields, injected services, and other closure values keep manual-review actions because the analyzer cannot safely decide where those values should be cached.
+AM031 offers this executable rewrite only for `ForMember` mappings when the repeated enumeration is rooted in the source mapping parameter, including nested source paths such as `src.Customer.Orders`. Captured fields, injected services, other closure values, and `ForPath` diagnostics stay analyzer-only because the analyzer cannot safely decide where those values should be cached or because the generated statement lambda would not compile for expression-tree `ForPath.MapFrom`.
 
 ```csharp
 CreateMap<Source, Destination>()
@@ -1178,6 +1188,8 @@ public class MyProfile : Profile
     }
 }
 ```
+
+The AM041 code fix is intentionally withheld when a duplicate `ReverseMap()` has reverse-side configuration chained after it, such as `.ReverseMap().ForMember(...)` or `(CreateMap<...>().ReverseMap()).ForMember(...)`. Removing that chain automatically could move or drop mapping policy, so those cases require manual review.
 
 #### Configuration
 
@@ -1319,7 +1331,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.15">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.16">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1357,6 +1369,6 @@ If analyzer slows down builds:
 
 ---
 
-**Last Updated**: 2025-11-19
-**Version**: 2.5.0
+**Last Updated**: 2026-05-07
+**Version**: 2.30.16
 **Maintainer**: George Wall

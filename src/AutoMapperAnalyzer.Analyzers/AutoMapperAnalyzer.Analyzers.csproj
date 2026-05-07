@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>15</PatchVersion>
+        <PatchVersion>16</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,20 +32,21 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.15 - Fixer UX and trust metadata hardening
+        <PackageReleaseNotes>Version 2.30.16 - Analyzer precision hardening
 
             Changed:
-            - Added descriptor-specific code-fix trust so analyzer-only AM002 and AM030 descriptors no longer look fixable
-            - Hardened AM003 and AM021 collection fixers so interface and set destinations use executable concrete collection rewrites
-            - Clarified manual-review AM004 and AM006 action titles and prefixed AM005 equivalence keys
-            - Added coverage for list, set, and read-only interface fixer branches
+            - Hardened AM002 explicit mapping nullability analysis and fixes for repeated MapFrom, NullSubstitute, resolver/converter, ForPath, and nullable receiver cases
+            - Hardened AM006 ConstructUsing and ConvertUsing ownership boundaries for unmapped destination diagnostics
+            - Hardened AM021 generated conversion calls with fully qualified System APIs
+            - Hardened AM031 ForPath diagnostics while withholding unsafe automatic rewrites
+            - Hardened AM041 chained ReverseMap duplicate fixes onto the manual-review path
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM002, AM003, AM004, AM005, AM006, AM021, AM030, and RuleCatalog coverage
+            - Full solution test suite passing on net10.0 with targeted AM002, AM006, AM021, AM031, AM041, and RuleCatalog coverage
             - Rule catalog and sample diagnostics snapshot checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.14 - AM021 reverse map element diagnostics
+            Previous Release: v2.30.15 - Fixer UX and trust metadata hardening
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

@@ -14,6 +14,7 @@ namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
 {
     internal const string PropertyNamePropertyName = "PropertyName";
+    internal const string SourcePropertyNamePropertyName = "SourcePropertyName";
     internal const string SourcePropertyTypePropertyName = "SourcePropertyType";
     internal const string DestinationPropertyTypePropertyName = "DestinationPropertyType";
 
@@ -23,7 +24,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor NullableToNonNullableRule = new(
         "AM002",
         "Nullable to non-nullable mapping issue in AutoMapper configuration",
-        "Property '{0}' has nullable compatibility issue: {1}.{0} ({2}) can be null but {3}.{0} ({4}) is non-nullable",
+        "Property '{0}' has nullable compatibility issue: {1}.{2} ({3}) can be null but {4}.{0} ({5}) is non-nullable",
         "AutoMapper.NullSafety",
         DiagnosticSeverity.Error,
         true,
@@ -99,6 +100,43 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToArray();
         IPropertySymbol[] destinationProperties =
             AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false).ToArray();
+        var explicitlyHandledDestinationProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (IPropertySymbol destinationProperty in destinationProperties)
+        {
+            bool hasExplicitNullabilityConfiguration = TryGetExplicitNullabilityConfiguration(
+                    invocation,
+                    destinationProperty.Name,
+                    destinationProperty.Type,
+                    context.SemanticModel,
+                    out bool configurationHandlesNullability,
+                    out ITypeSymbol? explicitNullableSourceType,
+                    out string? explicitNullableSourceName);
+            if (!hasExplicitNullabilityConfiguration)
+            {
+                continue;
+            }
+
+            if (configurationHandlesNullability)
+            {
+                explicitlyHandledDestinationProperties.Add(destinationProperty.Name);
+                continue;
+            }
+
+            if (explicitNullableSourceType != null)
+            {
+                ReportNullableToNonNullableDiagnostic(
+                    context,
+                    invocation,
+                    destinationProperty.Name,
+                    explicitNullableSourceName ?? destinationProperty.Name,
+                    explicitNullableSourceType,
+                    sourceType,
+                    destinationType,
+                    destinationProperty.Type);
+                explicitlyHandledDestinationProperties.Add(destinationProperty.Name);
+            }
+        }
 
         foreach (IPropertySymbol sourceProperty in sourceProperties)
         {
@@ -109,11 +147,41 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
 
             if (destinationProperty != null)
             {
-                // Check for explicit property mapping that might handle nullability
-                if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+                if (explicitlyHandledDestinationProperties.Contains(destinationProperty.Name))
+                {
+                    continue;
+                }
+
+                bool hasExplicitNullabilityConfiguration = TryGetExplicitNullabilityConfiguration(
                         invocation,
                         destinationProperty.Name,
-                        context.SemanticModel))
+                        destinationProperty.Type,
+                        context.SemanticModel,
+                        out bool configurationHandlesNullability,
+                        out ITypeSymbol? explicitNullableSourceType,
+                        out string? explicitNullableSourceName);
+                if (hasExplicitNullabilityConfiguration &&
+                    configurationHandlesNullability)
+                {
+                    continue;
+                }
+
+                if (explicitNullableSourceType != null)
+                {
+                    ReportNullableToNonNullableDiagnostic(
+                        context,
+                        invocation,
+                        destinationProperty.Name,
+                        explicitNullableSourceName ?? destinationProperty.Name,
+                        explicitNullableSourceType,
+                        sourceType,
+                        destinationType,
+                        destinationProperty.Type);
+                    continue;
+                }
+
+                if (hasExplicitNullabilityConfiguration &&
+                    !IsNullableToNonNullableCompatible(sourceProperty.Type, destinationProperty.Type))
                 {
                     continue;
                 }
@@ -128,6 +196,539 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                 );
             }
         }
+    }
+
+    private static bool TryGetExplicitNullabilityConfiguration(
+        InvocationExpressionSyntax createMapInvocation,
+        string destinationPropertyName,
+        ITypeSymbol destinationPropertyType,
+        SemanticModel semanticModel,
+        out bool handlesNullability,
+        out ITypeSymbol? explicitNullableSourceType,
+        out string? explicitNullableSourceName)
+    {
+        handlesNullability = false;
+        explicitNullableSourceType = null;
+        explicitNullableSourceName = null;
+        InvocationExpressionSyntax? effectiveMappingCall = null;
+        foreach (InvocationExpressionSyntax mappingCall in GetDestinationConfigurationCalls(createMapInvocation, semanticModel))
+        {
+            if (!ConfigurationTargetsTopLevelDestinationMember(mappingCall, semanticModel, destinationPropertyName))
+            {
+                continue;
+            }
+
+            effectiveMappingCall = mappingCall;
+        }
+
+        if (effectiveMappingCall == null)
+        {
+            return false;
+        }
+
+        if (ConfigurationCallsMethod(effectiveMappingCall, "Ignore") ||
+            ConfigurationCallsMethod(effectiveMappingCall, "ConvertUsing"))
+        {
+            handlesNullability = true;
+            return true;
+        }
+
+        if (TryGetMapFromBody(effectiveMappingCall, out ExpressionSyntax? mapFromBody))
+        {
+            if (mapFromBody == null)
+            {
+                handlesNullability = true;
+                return true;
+            }
+
+            if (MapFromExpressionProducesNonNullableValue(mapFromBody, destinationPropertyType, semanticModel))
+            {
+                handlesNullability = true;
+                return true;
+            }
+
+            if (TryGetNullableMapFromType(
+                    mapFromBody,
+                    destinationPropertyType,
+                    semanticModel,
+                    out ITypeSymbol? nullableMapFromType,
+                    out string? nullableMapFromName))
+            {
+                if (!ExpressionDereferencesNullableReceiver(mapFromBody, semanticModel) &&
+                    ConfigurationCallsSafeNullSubstitute(effectiveMappingCall, destinationPropertyType, semanticModel))
+                {
+                    handlesNullability = true;
+                    return true;
+                }
+
+                explicitNullableSourceType = nullableMapFromType;
+                explicitNullableSourceName = nullableMapFromName;
+                return true;
+            }
+        }
+
+        if (ConfigurationCallsSafeNullSubstitute(effectiveMappingCall, destinationPropertyType, semanticModel))
+        {
+            handlesNullability = true;
+            return true;
+        }
+
+        return true;
+    }
+
+    private static IEnumerable<InvocationExpressionSyntax> GetDestinationConfigurationCalls(
+        InvocationExpressionSyntax createMapInvocation,
+        SemanticModel semanticModel)
+    {
+        foreach (InvocationExpressionSyntax invocation in MappingChainAnalysisHelper.GetScopedChainInvocations(
+                     createMapInvocation,
+                     semanticModel,
+                     stopAtReverseMapBoundary: true))
+        {
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ForMember") ||
+                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ForPath"))
+            {
+                yield return invocation;
+            }
+        }
+    }
+
+    private static bool ConfigurationTargetsTopLevelDestinationMember(
+        InvocationExpressionSyntax mappingCall,
+        SemanticModel semanticModel,
+        string destinationPropertyName)
+    {
+        if (mappingCall.ArgumentList.Arguments.Count == 0)
+        {
+            return false;
+        }
+
+        ExpressionSyntax destinationExpression = mappingCall.ArgumentList.Arguments[0].Expression;
+        if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingCall, semanticModel, "ForMember"))
+        {
+            string? selectedMember =
+                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberName(destinationExpression);
+            return string.Equals(selectedMember, destinationPropertyName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingCall, semanticModel, "ForPath") &&
+               TryGetSelectedMemberPath(destinationExpression, out string memberPath) &&
+               !memberPath.Contains('.') &&
+               string.Equals(memberPath, destinationPropertyName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryGetSelectedMemberPath(ExpressionSyntax expression, out string memberPath)
+    {
+        memberPath = string.Empty;
+        if (expression is LiteralExpressionSyntax literal &&
+            literal.IsKind(SyntaxKind.StringLiteralExpression))
+        {
+            memberPath = literal.Token.ValueText.Trim();
+            return !string.IsNullOrEmpty(memberPath);
+        }
+
+        CSharpSyntaxNode? body = AutoMapperAnalysisHelpers.GetLambdaBody(expression);
+        if (body is not MemberAccessExpressionSyntax memberAccess)
+        {
+            return false;
+        }
+
+        var pathSegments = new Stack<string>();
+        ExpressionSyntax currentExpression = memberAccess;
+        while (currentExpression is MemberAccessExpressionSyntax currentMemberAccess)
+        {
+            pathSegments.Push(currentMemberAccess.Name.Identifier.ValueText);
+            currentExpression = currentMemberAccess.Expression;
+        }
+
+        if (currentExpression is not IdentifierNameSyntax || pathSegments.Count == 0)
+        {
+            return false;
+        }
+
+        memberPath = string.Join(".", pathSegments);
+        return true;
+    }
+
+    private static bool ConfigurationCallsMethod(
+        InvocationExpressionSyntax mappingCall,
+        string methodName)
+    {
+        if (mappingCall.ArgumentList.Arguments.Count <= 1)
+        {
+            return false;
+        }
+
+        ExpressionSyntax optionsExpression = mappingCall.ArgumentList.Arguments[1].Expression;
+        string? optionsParameterName = GetSingleParameterName(optionsExpression);
+        if (string.IsNullOrEmpty(optionsParameterName))
+        {
+            return false;
+        }
+
+        CSharpSyntaxNode? optionsBody = AutoMapperAnalysisHelpers.GetLambdaBody(optionsExpression);
+        if (optionsBody == null)
+        {
+            return false;
+        }
+
+        return optionsBody
+            .DescendantNodesAndSelf()
+            .OfType<InvocationExpressionSyntax>()
+            .Any(invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Expression is IdentifierNameSyntax receiver &&
+                string.Equals(receiver.Identifier.ValueText, optionsParameterName, StringComparison.Ordinal) &&
+                memberAccess.Name.Identifier.ValueText == methodName);
+    }
+
+    private static bool ConfigurationCallsSafeNullSubstitute(
+        InvocationExpressionSyntax mappingCall,
+        ITypeSymbol destinationPropertyType,
+        SemanticModel semanticModel)
+    {
+        if (mappingCall.ArgumentList.Arguments.Count <= 1)
+        {
+            return false;
+        }
+
+        ExpressionSyntax optionsExpression = mappingCall.ArgumentList.Arguments[1].Expression;
+        string? optionsParameterName = GetSingleParameterName(optionsExpression);
+        if (string.IsNullOrEmpty(optionsParameterName))
+        {
+            return false;
+        }
+
+        CSharpSyntaxNode? optionsBody = AutoMapperAnalysisHelpers.GetLambdaBody(optionsExpression);
+        if (optionsBody == null)
+        {
+            return false;
+        }
+
+        return optionsBody
+            .DescendantNodesAndSelf()
+            .OfType<InvocationExpressionSyntax>()
+            .Any(invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Expression is IdentifierNameSyntax receiver &&
+                string.Equals(receiver.Identifier.ValueText, optionsParameterName, StringComparison.Ordinal) &&
+                memberAccess.Name.Identifier.ValueText == "NullSubstitute" &&
+                invocation.ArgumentList.Arguments.Count > 0 &&
+                NullSubstituteValueIsSafe(
+                    invocation.ArgumentList.Arguments[0].Expression,
+                    destinationPropertyType,
+                    semanticModel));
+    }
+
+    private static bool NullSubstituteValueIsSafe(
+        ExpressionSyntax substituteExpression,
+        ITypeSymbol destinationPropertyType,
+        SemanticModel semanticModel)
+    {
+        if (substituteExpression.IsKind(SyntaxKind.NullLiteralExpression))
+        {
+            return false;
+        }
+
+        TypeInfo typeInfo = semanticModel.GetTypeInfo(substituteExpression);
+        ITypeSymbol? substituteType = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (substituteType == null)
+        {
+            return false;
+        }
+
+        if ((substituteExpression.IsKind(SyntaxKind.DefaultLiteralExpression) ||
+             substituteExpression is DefaultExpressionSyntax) &&
+            !IsNonNullableValueType(substituteType))
+        {
+            return false;
+        }
+
+        if (IsNullableType(substituteType))
+        {
+            return false;
+        }
+
+        Conversion conversion = semanticModel.ClassifyConversion(substituteExpression, destinationPropertyType);
+        if (conversion.Exists && conversion.IsImplicit)
+        {
+            return true;
+        }
+
+        return AreUnderlyingTypesCompatible(
+            AutoMapperAnalysisHelpers.GetUnderlyingType(substituteType),
+            AutoMapperAnalysisHelpers.GetUnderlyingType(destinationPropertyType));
+    }
+
+    private static bool IsNonNullableValueType(ITypeSymbol type)
+    {
+        return type.IsValueType && !IsNullableType(type);
+    }
+
+    private static string? GetSingleParameterName(ExpressionSyntax expression)
+    {
+        return expression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Parameter.Identifier.ValueText,
+            ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 1 } parenthesizedLambda =>
+                parenthesizedLambda.ParameterList.Parameters[0].Identifier.ValueText,
+            _ => null
+        };
+    }
+
+    private static bool TryGetMapFromBody(
+        InvocationExpressionSyntax mappingCall,
+        out ExpressionSyntax? mapFromBody)
+    {
+        mapFromBody = null;
+        if (mappingCall.ArgumentList.Arguments.Count <= 1)
+        {
+            return false;
+        }
+
+        ExpressionSyntax optionsExpression = mappingCall.ArgumentList.Arguments[1].Expression;
+        string? optionsParameterName = GetSingleParameterName(optionsExpression);
+        if (string.IsNullOrEmpty(optionsParameterName))
+        {
+            return false;
+        }
+
+        CSharpSyntaxNode? optionsBody = AutoMapperAnalysisHelpers.GetLambdaBody(optionsExpression);
+        if (optionsBody == null)
+        {
+            return false;
+        }
+
+        bool foundMapFrom = false;
+        foreach (InvocationExpressionSyntax invocation in optionsBody
+                     .DescendantNodesAndSelf()
+                     .OfType<InvocationExpressionSyntax>())
+        {
+            if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess ||
+                memberAccess.Expression is not IdentifierNameSyntax receiver ||
+                !string.Equals(receiver.Identifier.ValueText, optionsParameterName, StringComparison.Ordinal) ||
+                memberAccess.Name.Identifier.ValueText != "MapFrom")
+            {
+                continue;
+            }
+
+            if (invocation.ArgumentList.Arguments.Count == 0)
+            {
+                mapFromBody = null;
+                foundMapFrom = true;
+                continue;
+            }
+
+            if (memberAccess.Name is GenericNameSyntax
+                {
+                    TypeArgumentList.Arguments.Count: > 1
+                })
+            {
+                mapFromBody = null;
+                foundMapFrom = true;
+                continue;
+            }
+
+            ExpressionSyntax mapFromArgument = invocation.ArgumentList.Arguments[0].Expression;
+            mapFromBody = mapFromArgument switch
+            {
+                SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body as ExpressionSyntax,
+                ParenthesizedLambdaExpressionSyntax parenthesizedLambda => parenthesizedLambda.Body as ExpressionSyntax,
+                _ => null
+            };
+            foundMapFrom = true;
+        }
+
+        return foundMapFrom;
+    }
+
+    private static bool MapFromExpressionProducesNonNullableValue(
+        ExpressionSyntax mapFromBody,
+        ITypeSymbol destinationPropertyType,
+        SemanticModel semanticModel)
+    {
+        TypeInfo typeInfo = semanticModel.GetTypeInfo(mapFromBody);
+        ITypeSymbol? mappedType = typeInfo.ConvertedType ?? typeInfo.Type;
+        if (mappedType == null)
+        {
+            return false;
+        }
+
+        return !ExpressionDereferencesNullableReceiver(mapFromBody, semanticModel) &&
+               !IsNullableType(mappedType) &&
+               AreUnderlyingTypesCompatible(
+                   AutoMapperAnalysisHelpers.GetUnderlyingType(mappedType),
+                   AutoMapperAnalysisHelpers.GetUnderlyingType(destinationPropertyType));
+    }
+
+    private static bool ExpressionDereferencesNullableReceiver(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        return expression
+            .DescendantNodesAndSelf()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Any(memberAccess =>
+                !IsSafeNullableValueMemberAccess(memberAccess) &&
+                !IsExtensionMethodReceiverAccess(memberAccess, semanticModel) &&
+                IsNullableExpression(memberAccess.Expression, semanticModel));
+    }
+
+    private static bool IsExtensionMethodReceiverAccess(
+        MemberAccessExpressionSyntax memberAccess,
+        SemanticModel semanticModel)
+    {
+        if (memberAccess.Parent is not InvocationExpressionSyntax invocation ||
+            invocation.Expression != memberAccess)
+        {
+            return false;
+        }
+
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+        IMethodSymbol? methodSymbol = symbolInfo.Symbol as IMethodSymbol ??
+                                      symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+        return methodSymbol is { IsExtensionMethod: true } or { ReducedFrom: not null };
+    }
+
+    private static bool IsSafeNullableValueMemberAccess(MemberAccessExpressionSyntax memberAccess)
+    {
+        return memberAccess.Name.Identifier.ValueText == "GetValueOrDefault" &&
+               memberAccess.Parent is InvocationExpressionSyntax invocation &&
+               invocation.Expression == memberAccess;
+    }
+
+    private static bool IsNullableExpression(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        TypeInfo typeInfo = semanticModel.GetTypeInfo(expression);
+        ITypeSymbol? expressionType = typeInfo.Type ?? typeInfo.ConvertedType;
+        return expressionType != null && IsNullableType(expressionType);
+    }
+
+    private static bool TryGetNullableMapFromType(
+        ExpressionSyntax mapFromBody,
+        ITypeSymbol destinationPropertyType,
+        SemanticModel semanticModel,
+        out ITypeSymbol? nullableMapFromType,
+        out string? nullableMapFromName)
+    {
+        nullableMapFromType = null;
+        nullableMapFromName = null;
+        TypeInfo typeInfo = semanticModel.GetTypeInfo(mapFromBody);
+        ITypeSymbol? mappedType = typeInfo.ConvertedType ?? typeInfo.Type;
+        if (TryGetNullableDereferencedReceiver(
+                mapFromBody,
+                destinationPropertyType,
+                semanticModel,
+                out nullableMapFromType,
+                out nullableMapFromName))
+        {
+            return true;
+        }
+
+        if (mappedType == null ||
+            !IsNullableType(mappedType) ||
+            IsNullableType(destinationPropertyType) ||
+            !AreUnderlyingTypesCompatible(
+                AutoMapperAnalysisHelpers.GetUnderlyingType(mappedType),
+                AutoMapperAnalysisHelpers.GetUnderlyingType(destinationPropertyType)))
+        {
+            return false;
+        }
+
+        nullableMapFromType = mappedType;
+        nullableMapFromName = TryGetSourceMemberPath(mapFromBody, out string sourceMemberPath)
+            ? sourceMemberPath
+            : null;
+        return true;
+    }
+
+    private static bool TryGetNullableDereferencedReceiver(
+        ExpressionSyntax expression,
+        ITypeSymbol destinationPropertyType,
+        SemanticModel semanticModel,
+        out ITypeSymbol? nullableReceiverType,
+        out string? nullableReceiverName)
+    {
+        nullableReceiverType = null;
+        nullableReceiverName = null;
+        foreach (MemberAccessExpressionSyntax memberAccess in expression.DescendantNodesAndSelf().OfType<MemberAccessExpressionSyntax>())
+        {
+            if (IsSafeNullableValueMemberAccess(memberAccess))
+            {
+                continue;
+            }
+
+            TypeInfo receiverTypeInfo = semanticModel.GetTypeInfo(memberAccess.Expression);
+            ITypeSymbol? receiverType = receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType;
+            if (receiverType == null ||
+                !IsNullableType(receiverType) ||
+                IsNullableType(destinationPropertyType))
+            {
+                continue;
+            }
+
+            nullableReceiverType = receiverType;
+            nullableReceiverName = TryGetSourceMemberPath(memberAccess.Expression, out string sourceMemberPath)
+                ? sourceMemberPath
+                : null;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetSourceMemberPath(ExpressionSyntax expression, out string sourceMemberPath)
+    {
+        sourceMemberPath = string.Empty;
+        if (TryGetSourceMemberPathFromExpression(expression, out sourceMemberPath))
+        {
+            return true;
+        }
+
+        foreach (MemberAccessExpressionSyntax memberAccess in expression.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
+        {
+            if (TryGetSourceMemberPathFromExpression(memberAccess, out sourceMemberPath))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryGetSourceMemberPathFromExpression(ExpressionSyntax expression, out string sourceMemberPath)
+    {
+        sourceMemberPath = string.Empty;
+        if (expression is InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax invocationMemberAccess
+            })
+        {
+            return TryGetSourceMemberPathFromExpression(invocationMemberAccess.Expression, out sourceMemberPath);
+        }
+
+        if (expression is not MemberAccessExpressionSyntax memberAccess)
+        {
+            return false;
+        }
+
+        var pathSegments = new Stack<string>();
+        ExpressionSyntax currentExpression = memberAccess;
+        while (currentExpression is MemberAccessExpressionSyntax currentMemberAccess)
+        {
+            pathSegments.Push(currentMemberAccess.Name.Identifier.ValueText);
+            currentExpression = currentMemberAccess.Expression;
+        }
+
+        if (currentExpression is not IdentifierNameSyntax || pathSegments.Count == 0)
+        {
+            return false;
+        }
+
+        sourceMemberPath = string.Join(".", pathSegments);
+        return true;
     }
 
     private static void AnalyzeNullableCompatibility(
@@ -150,22 +751,15 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
 
             if (AreUnderlyingTypesCompatible(sourceUnderlyingType, destUnderlyingType))
             {
-                var properties = ImmutableDictionary.CreateBuilder<string, string?>();
-                properties.Add(PropertyNamePropertyName, sourceProperty.Name);
-                properties.Add(SourcePropertyTypePropertyName, sourceTypeName);
-                properties.Add(DestinationPropertyTypePropertyName, destTypeName);
-
-                var diagnostic = Diagnostic.Create(
-                    NullableToNonNullableRule,
-                    invocation.GetLocation(),
-                    properties.ToImmutable(),
+                ReportNullableToNonNullableDiagnostic(
+                    context,
+                    invocation,
                     sourceProperty.Name,
-                    AutoMapperAnalysisHelpers.GetTypeName(sourceType),
-                    sourceTypeName,
-                    AutoMapperAnalysisHelpers.GetTypeName(destinationType),
-                    destTypeName
-                );
-                context.ReportDiagnostic(diagnostic);
+                    sourceProperty.Name,
+                    sourceProperty.Type,
+                    sourceType,
+                    destinationType,
+                    destinationProperty.Type);
             }
         }
         // Case 2: Non-nullable source -> Nullable destination (INFO)
@@ -194,6 +788,53 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                 context.ReportDiagnostic(diagnostic);
             }
         }
+    }
+
+    private static void ReportNullableToNonNullableDiagnostic(
+        SyntaxNodeAnalysisContext context,
+        InvocationExpressionSyntax invocation,
+        string destinationPropertyName,
+        string sourcePropertyName,
+        ITypeSymbol sourcePropertyType,
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType,
+        ITypeSymbol destinationPropertyType)
+    {
+        string sourceTypeName = sourcePropertyType.ToDisplayString();
+        string destTypeName = destinationPropertyType.ToDisplayString();
+
+        var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+        properties.Add(PropertyNamePropertyName, destinationPropertyName);
+        properties.Add(SourcePropertyNamePropertyName, sourcePropertyName);
+        properties.Add(SourcePropertyTypePropertyName, sourceTypeName);
+        properties.Add(DestinationPropertyTypePropertyName, destTypeName);
+
+        var diagnostic = Diagnostic.Create(
+            NullableToNonNullableRule,
+            invocation.GetLocation(),
+            properties.ToImmutable(),
+            destinationPropertyName,
+            AutoMapperAnalysisHelpers.GetTypeName(sourceType),
+            sourcePropertyName,
+            sourceTypeName,
+            AutoMapperAnalysisHelpers.GetTypeName(destinationType),
+            destTypeName
+        );
+        context.ReportDiagnostic(diagnostic);
+    }
+
+    private static bool IsNullableToNonNullableCompatible(
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType)
+    {
+        if (!IsNullableType(sourceType) || IsNullableType(destinationType))
+        {
+            return false;
+        }
+
+        return AreUnderlyingTypesCompatible(
+            AutoMapperAnalysisHelpers.GetUnderlyingType(sourceType),
+            AutoMapperAnalysisHelpers.GetUnderlyingType(destinationType));
     }
 
     private static bool IsNullableType(ITypeSymbol type)

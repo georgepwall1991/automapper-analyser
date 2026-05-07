@@ -72,18 +72,23 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
             return;
         }
 
-        InvocationExpressionSyntax? forMemberInvocation = lambda.AncestorsAndSelf()
+        InvocationExpressionSyntax? destinationConfigurationInvocation = lambda.AncestorsAndSelf()
             .OfType<InvocationExpressionSyntax>()
             .FirstOrDefault(inv => inv.Expression is MemberAccessExpressionSyntax mae &&
-                                   mae.Name.Identifier.Text == "ForMember");
+                                   mae.Name.Identifier.Text is "ForMember" or "ForPath");
 
-        if (forMemberInvocation == null)
+        if (destinationConfigurationInvocation == null)
         {
             return;
         }
 
         string? propertyName = GetPropertyName(diagnostic);
         if (string.IsNullOrEmpty(propertyName))
+        {
+            return;
+        }
+
+        if (!IsForMemberInvocation(destinationConfigurationInvocation))
         {
             return;
         }
@@ -107,12 +112,23 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
             }
         }
 
-        RegisterIgnoreMappingFix(context, operationContext.Root, forMemberInvocation, propertyName!, relatedDiagnostics);
+        RegisterIgnoreMappingFix(context, operationContext.Root, destinationConfigurationInvocation, propertyName!, relatedDiagnostics);
 
-        if (await CanUseConventionMappingAsync(context.Document, forMemberInvocation, propertyName!, context.CancellationToken))
+        if (await CanUseConventionMappingAsync(
+                context.Document,
+                destinationConfigurationInvocation,
+                propertyName!,
+                context.CancellationToken))
         {
-            RegisterRemoveForMemberFix(context, operationContext.Root, forMemberInvocation, propertyName!, relatedDiagnostics);
+            RegisterRemoveForMemberFix(context, operationContext.Root, destinationConfigurationInvocation, propertyName!,
+                relatedDiagnostics);
         }
+    }
+
+    private static bool IsForMemberInvocation(InvocationExpressionSyntax invocation)
+    {
+        return invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+               memberAccess.Name.Identifier.Text == "ForMember";
     }
 
     private void RegisterMultipleEnumerationFix(

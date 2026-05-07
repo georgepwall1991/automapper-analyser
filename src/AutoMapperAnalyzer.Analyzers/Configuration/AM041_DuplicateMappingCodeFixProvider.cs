@@ -39,6 +39,11 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
 
             if (invocation != null)
             {
+                if (IsChainedReverseMapConfiguration(invocation))
+                {
+                    continue;
+                }
+
                 string mappingLabel = GetMappingLabel(invocation);
                 context.RegisterCodeFix(
                     CodeAction.Create(
@@ -121,6 +126,11 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
         // Check if it is ReverseMap()
         if (IsReverseMapInvocation(invocation))
         {
+            if (IsChainedReverseMapConfiguration(invocation))
+            {
+                return Task.FromResult(document);
+            }
+
             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
             {
                 // Replace the whole ReverseMap() invocation with the expression it was called on
@@ -224,5 +234,12 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
         }
 
         return false;
+    }
+
+    private static bool IsChainedReverseMapConfiguration(InvocationExpressionSyntax invocation)
+    {
+        return IsReverseMapInvocation(invocation) &&
+               (invocation.Parent is MemberAccessExpressionSyntax ||
+                invocation.Parent is ParenthesizedExpressionSyntax { Parent: MemberAccessExpressionSyntax });
     }
 }

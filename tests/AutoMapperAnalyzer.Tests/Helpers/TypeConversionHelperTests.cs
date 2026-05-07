@@ -74,9 +74,9 @@ public class TypeConversionHelperTests
     }
 
     [Theory]
-    [InlineData("datetime", "DateTime.MinValue")]
-    [InlineData("DateTime", "DateTime.MinValue")]
-    [InlineData("DATETIME", "DateTime.MinValue")]
+    [InlineData("datetime", "global::System.DateTime.MinValue")]
+    [InlineData("DateTime", "global::System.DateTime.MinValue")]
+    [InlineData("DATETIME", "global::System.DateTime.MinValue")]
     public void GetDefaultValueForType_ShouldReturnDateTimeMinValue_ForDateTimeTypes(string type, string expected)
     {
         string result = TypeConversionHelper.GetDefaultValueForType(type);
@@ -84,9 +84,9 @@ public class TypeConversionHelperTests
     }
 
     [Theory]
-    [InlineData("guid", "Guid.Empty")]
-    [InlineData("Guid", "Guid.Empty")]
-    [InlineData("GUID", "Guid.Empty")]
+    [InlineData("guid", "global::System.Guid.Empty")]
+    [InlineData("Guid", "global::System.Guid.Empty")]
+    [InlineData("GUID", "global::System.Guid.Empty")]
     public void GetDefaultValueForType_ShouldReturnGuidEmpty_ForGuidTypes(string type, string expected)
     {
         string result = TypeConversionHelper.GetDefaultValueForType(type);
