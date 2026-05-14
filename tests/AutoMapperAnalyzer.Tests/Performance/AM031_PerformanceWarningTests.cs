@@ -181,6 +181,160 @@ public class AM031_PerformanceWarningTests
     }
 
     [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_WhenMathMinAndMathMaxUsedInsideMapFrom()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public int Low { get; set; }
+                                        public int High { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Clamped { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Clamped, opt => opt.MapFrom(src => Math.Min(src.High, 100) + Math.Max(src.Low, 0)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenMinAndMaxEnumerateSameCollection()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Range { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Range, opt => opt.MapFrom(src => src.Numbers.Max() - src.Numbers.Min()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule, 22, 67,
+                "Range", "Numbers")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenAggregateAndCountEnumerateSameCollection()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public double Average { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Average, opt => opt.MapFrom(src => (double)src.Numbers.Aggregate(0, (a, b) => a + b) / src.Numbers.LongCount()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule, 22, 69,
+                "Average", "Numbers")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenSingleAndToHashSetEnumerateSameCollection()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Result { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Result, opt => opt.MapFrom(src => src.Numbers.Single() + src.Numbers.ToHashSet().Count));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule, 22, 68,
+                "Result", "Numbers")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM031_ShouldReportDiagnostic_WhenMultipleEnumerationUsesNonSrcParameterName()
     {
         const string testCode = """

@@ -14,23 +14,26 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.17
+## 🎉 Latest Release: v2.30.18
 
-**AM041 Chained CreateMap Fixer Safety — preserving conflicting mapping policy**
+**AM031 LINQ Enumeration Coverage — catching Min/Max/Aggregate/ToDictionary multi-enumeration**
 
 ✅ **Highlights**
 
-- Withholds the AM041 automatic removal when a duplicate `CreateMap<TSource, TDestination>()` carries chained `ForMember`, `ForPath`, or other configuration that would silently disappear, including parenthesized chains and chains beyond `.ReverseMap()`.
-- Keeps the bare `CreateMap<TSource, TDestination>().ReverseMap()` reversal path on the existing safe swap action.
+- Broadens AM031 multiple-enumeration tracking to the remaining commonly used terminal LINQ operators: `Min`, `Max`, `Aggregate`, `LongCount`, `Single`, `SingleOrDefault`, `ToHashSet`, `ToDictionary`, and `ToLookup`.
+- Shapes such as `src.Numbers.Min() + src.Numbers.Max()` and `src.Numbers.Single() + src.Numbers.ToHashSet().Count` now report AM031 instead of going silent.
+- Enumeration tracking is gated on `System.Linq.Enumerable`/`System.Linq.Queryable` containing types, so non-LINQ namesakes like `Math.Min` and `Math.Max` inside a `MapFrom` body no longer false-positive.
+- Lazy/intermediate operators (`Where`, `Select`, `OrderBy`, `GroupBy`, `Distinct`, etc.) remain off the terminal-enumeration list.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `755` passing and `0` skipped.
-- Release validation covered targeted AM041 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
+- Full test suite passed with `759` passing and `0` skipped.
+- Release validation covered targeted AM031 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
 
 ### Recent Releases
 
+- **v2.30.18**: AM031 multiple-enumeration tracking now covers `Min`, `Max`, `Aggregate`, `LongCount`, `Single`, `SingleOrDefault`, `ToHashSet`, `ToDictionary`, and `ToLookup`.
 - **v2.30.17**: AM041 withholds the duplicate-removal fix when the duplicate `CreateMap<>()` carries chained mapping policy.
 - **v2.30.16**: Analyzer precision hardening across AM002, AM006, AM021, AM031, and AM041.
 - **v2.30.15**: Fixer UX trust hardening with descriptor-specific no-fix metadata and executable interface collection rewrites.
@@ -184,7 +187,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.17">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.18">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

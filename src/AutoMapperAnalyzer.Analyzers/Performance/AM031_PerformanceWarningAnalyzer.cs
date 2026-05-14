@@ -405,7 +405,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             }
 
             // Track LINQ operations for multiple enumeration detection
-            if (IsLinqEnumerationMethod(methodName))
+            if (IsLinqEnumerationMethod(containingType, methodName))
             {
                 TrackCollectionAccess(invocation, collectionAccesses, sourceParameterName);
             }
@@ -732,10 +732,19 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsLinqEnumerationMethod(string methodName)
+    private static bool IsLinqEnumerationMethod(string containingType, string methodName)
     {
-        return methodName is "ToList" or "ToArray" or "Sum" or "Average" or "Count" or
-            "First" or "FirstOrDefault" or "Last" or "LastOrDefault" or "Any" or "All";
+        if (containingType != "System.Linq.Enumerable" && containingType != "System.Linq.Queryable")
+        {
+            return false;
+        }
+
+        return methodName is "ToList" or "ToArray" or "ToHashSet" or "ToDictionary" or "ToLookup" or
+            "Sum" or "Average" or "Min" or "Max" or "Aggregate" or
+            "Count" or "LongCount" or
+            "First" or "FirstOrDefault" or "Last" or "LastOrDefault" or
+            "Single" or "SingleOrDefault" or
+            "Any" or "All";
     }
 
     private static void TrackCollectionAccess(
