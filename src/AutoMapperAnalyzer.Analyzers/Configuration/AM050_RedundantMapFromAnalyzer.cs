@@ -125,9 +125,9 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
 
         ExpressionSyntax arg = mapFromInvocation.ArgumentList.Arguments[0].Expression;
 
-        // Expecting src => src.Name
-        if (arg is SimpleLambdaExpressionSyntax lambda &&
-            lambda.Body is MemberAccessExpressionSyntax memberAccess)
+        // Expecting src => src.Name or (src) => src.Name or (Source src) => src.Name
+        if (TryGetLambdaBody(arg, out _, out CSharpSyntaxNode? body) &&
+            body is MemberAccessExpressionSyntax memberAccess)
         {
             SymbolInfo symbolInfo = context.SemanticModel.GetSymbolInfo(memberAccess);
             if (symbolInfo.Symbol is IPropertySymbol propertySymbol)
@@ -173,9 +173,9 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
 
         ExpressionSyntax arg = forMemberInvocation.ArgumentList.Arguments[0].Expression;
 
-        // Expecting dest => dest.Name
-        if (arg is SimpleLambdaExpressionSyntax lambda &&
-            lambda.Body is MemberAccessExpressionSyntax memberAccess)
+        // Expecting dest => dest.Name or (dest) => dest.Name or (Dest dest) => dest.Name
+        if (TryGetLambdaBody(arg, out _, out CSharpSyntaxNode? memberAccessBody) &&
+            memberAccessBody is MemberAccessExpressionSyntax memberAccess)
         {
             SymbolInfo symbolInfo = context.SemanticModel.GetSymbolInfo(memberAccess);
             if (symbolInfo.Symbol is IPropertySymbol propertySymbol)
@@ -215,11 +215,11 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
 
         ExpressionSyntax arg = forMemberInvocation.ArgumentList.Arguments[0].Expression;
 
-        // Expecting dest => dest.Name
-        if (arg is SimpleLambdaExpressionSyntax lambda &&
-            lambda.Body is MemberAccessExpressionSyntax memberAccess &&
+        // Expecting dest => dest.Name or (dest) => dest.Name or (Dest dest) => dest.Name
+        if (TryGetLambdaBody(arg, out string? parameterName, out CSharpSyntaxNode? body) &&
+            body is MemberAccessExpressionSyntax memberAccess &&
             memberAccess.Expression is IdentifierNameSyntax identifier &&
-            identifier.Identifier.Text == lambda.Parameter.Identifier.Text)
+            identifier.Identifier.Text == parameterName)
         {
             return memberAccess.Name.Identifier.Text;
         }
@@ -243,16 +243,39 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
 
         ExpressionSyntax arg = mapFromInvocation.ArgumentList.Arguments[0].Expression;
 
-        // Expecting src => src.Name
-        if (arg is SimpleLambdaExpressionSyntax lambda &&
-            lambda.Body is MemberAccessExpressionSyntax memberAccess &&
+        // Expecting src => src.Name or (src) => src.Name or (Source src) => src.Name
+        if (TryGetLambdaBody(arg, out string? parameterName, out CSharpSyntaxNode? body) &&
+            body is MemberAccessExpressionSyntax memberAccess &&
             memberAccess.Expression is IdentifierNameSyntax identifier &&
-            identifier.Identifier.Text == lambda.Parameter.Identifier.Text)
+            identifier.Identifier.Text == parameterName)
         {
             return memberAccess.Name.Identifier.Text;
         }
 
         return null;
+    }
+
+    private static bool TryGetLambdaBody(
+        ExpressionSyntax expression,
+        out string? parameterName,
+        out CSharpSyntaxNode? body)
+    {
+        switch (expression)
+        {
+            case SimpleLambdaExpressionSyntax simpleLambda:
+                parameterName = simpleLambda.Parameter.Identifier.Text;
+                body = simpleLambda.Body;
+                return true;
+            case ParenthesizedLambdaExpressionSyntax parenthesizedLambda
+                when parenthesizedLambda.ParameterList.Parameters.Count == 1:
+                parameterName = parenthesizedLambda.ParameterList.Parameters[0].Identifier.Text;
+                body = parenthesizedLambda.Body;
+                return true;
+            default:
+                parameterName = null;
+                body = null;
+                return false;
+        }
     }
 
     private static string? GetStringLiteralValue(ExpressionSyntax expression)

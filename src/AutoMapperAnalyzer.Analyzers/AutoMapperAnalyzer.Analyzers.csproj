@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>20</PatchVersion>
+        <PatchVersion>21</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.20 - AM030 converter null-handling guard recognition
+        <PackageReleaseNotes>Version 2.30.21 - AM050 parenthesized lambda detection
 
             Changed:
-            - Hardened AM030 converter null-handling detection so modern guard clauses `ArgumentNullException.ThrowIfNull(source)`, `ArgumentException.ThrowIfNullOrEmpty(source)`, and `ArgumentException.ThrowIfNullOrWhiteSpace(source)` count as explicit null handling, including the named-argument shape `ThrowIfNull(paramName: ..., argument: source)`
-            - Guard calls whose `argument`/first positional argument is unrelated to the converter's source parameter (for example `ArgumentNullException.ThrowIfNull(context)`) still trigger AM030 so genuinely missing null handling keeps reporting
+            - Hardened AM050 redundant-MapFrom detection so parenthesized and typed lambda shapes — `o.MapFrom((s) =&gt; s.Name)` and `o.MapFrom((Source s) =&gt; s.Name)` — are now recognised, alongside the existing simple `s =&gt; s.Name` shape. Destination lambdas inside `ForMember(d =&gt; ...)` accept the same shapes
+            - Multi-parameter parenthesized lambdas remain ignored so AutoMapper's `(src, ctx) =&gt; ...` overload still stays quiet
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM030 and RuleCatalog coverage
+            - Full solution test suite passing on net10.0 with targeted AM050 and RuleCatalog coverage
             - Rule catalog and sample diagnostics snapshot checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.19 - AM030 DI-injected converter false-positive suppression
+            Previous Release: v2.30.20 - AM030 converter null-handling guard recognition
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
