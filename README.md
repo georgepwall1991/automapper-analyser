@@ -27,7 +27,7 @@ prevention*
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `777` passing and `0` skipped.
+- Full test suite passed with `778` passing and `0` skipped.
 - Release validation covered targeted AM050 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
 
 ### Recent Releases

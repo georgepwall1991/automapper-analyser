@@ -100,7 +100,7 @@ Current local verification:
 - `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM031` passed: 49 passed, 0 skipped, 0 failed.
 - `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM041` passed: 25 passed, 0 skipped, 0 failed.
 - `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter RuleCatalogTests` passed: 8 passed, 0 skipped, 0 failed.
-- `/usr/local/share/dotnet/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 777 passed, 0 skipped, 0 failed.
+- `/usr/local/share/dotnet/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 778 passed, 0 skipped, 0 failed.
 - `/usr/local/share/dotnet/dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj --configuration Release -- --check-catalog --check-snapshots` passed: rule catalog and sample diagnostics snapshot are up to date.
 - `git diff --check` passed.
 - The trust-first pass removed active skipped tests, added drift validation, and moved intentional analyzer-test warnings into an explicit test-project warning baseline.

@@ -676,6 +676,42 @@ public class AM050_CodeFixTests
     }
 
     [Fact]
+    public async Task Should_NotOfferFix_WhenParenthesizedOptionsLambdaHasSiblingConfiguration()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => d.Name, (o) =>
+                                            {
+                                                o.MapFrom(s => s.Name);
+                                                o.Condition((src, dest, value) => value != null);
+                                            });
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                ImmutableArray.Create<DiagnosticAnalyzer>(new AM050_RedundantMapFromAnalyzer()))
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM050", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
     public async Task Should_OfferFix_WhenForMemberLambdaContainsOnlyTheRedundantMapFrom()
     {
         const string testCode = """

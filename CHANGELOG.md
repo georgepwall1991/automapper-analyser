@@ -13,7 +13,7 @@
 ### Validation
 
 - Targeted AM050 code-fix tests.
-- Full solution test suite (`net10.0`) green at 777 passing, 0 skipped.
+- Full solution test suite (`net10.0`) green at 778 passing, 0 skipped.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
 
 ## [2.30.22] - 2026-05-14
