@@ -134,7 +134,7 @@ dotnet_diagnostic.AM001.severity = error
 ### AM002: Nullable Compatibility Issue
 
 **Severity**: Error 🔴 for nullable source to non-nullable destination; Info 🔵 for non-nullable source to nullable destination
-**Category**: AutoMapper.TypeSafety
+**Category**: AutoMapper.NullSafety
 
 #### Description
 
@@ -507,7 +507,7 @@ dotnet_diagnostic.AM006.severity = suggestion
 ### AM011: Unmapped Required Property
 
 **Severity**: Error 🔴
-**Category**: AutoMapper.DataIntegrity
+**Category**: AutoMapper.RequiredProperties
 
 #### Description
 
@@ -597,7 +597,7 @@ dotnet_diagnostic.AM011.severity = error
 ### AM020: Nested Object Mapping Issue
 
 **Severity**: Warning 🟡
-**Category**: AutoMapper.ComplexMappings
+**Category**: AutoMapper.NestedObjects
 
 #### Description
 
@@ -714,7 +714,7 @@ dotnet_diagnostic.AM020.severity = warning
 ### AM021: Collection Element Mismatch
 
 **Severity**: Warning 🟡
-**Category**: AutoMapper.ComplexMappings
+**Category**: AutoMapper.Collections
 
 #### Description
 
@@ -798,7 +798,7 @@ dotnet_diagnostic.AM021.severity = warning
 ### AM022: Infinite Recursion Risk
 
 **Severity**: Warning 🟡
-**Category**: AutoMapper.ComplexMappings
+**Category**: AutoMapper.Recursion
 
 #### Description
 
@@ -917,7 +917,7 @@ dotnet_diagnostic.AM022.severity = warning
 ### AM030: Custom Type Converter Issues
 
 **Severity**: Mixed (Error/Warning/Info)
-**Category**: AutoMapper.CustomConversions
+**Category**: AutoMapper.Converters
 
 #### Description
 
@@ -1343,7 +1343,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.24">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.25">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1382,5 +1382,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-14
-**Version**: 2.30.24
+**Version**: 2.30.25
 **Maintainer**: George Wall
