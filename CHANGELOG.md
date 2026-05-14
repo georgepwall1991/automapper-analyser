@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## [2.30.21] - 2026-05-14
+
+### Changed
+
+- Hardened AM050 redundant-`MapFrom` detection so parenthesized and typed lambda shapes — `o.MapFrom((s) => s.Name)` and `o.MapFrom((Source s) => s.Name)` — are recognised alongside the existing simple `s => s.Name` shape. Destination lambdas inside `ForMember(d => ...)` accept the same shapes.
+- Multi-parameter parenthesized lambdas continue to be ignored, so AutoMapper's `(src, ctx) => ...` `IMemberConfigurationExpression` overload still stays quiet.
+
+### Validation
+
+- Targeted AM050 analyzer tests.
+- Full solution test suite (`net10.0`) green at 769 passing, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+
 ## [2.30.20] - 2026-05-14
 
 ### Changed

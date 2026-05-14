@@ -14,24 +14,24 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.20
+## 🎉 Latest Release: v2.30.21
 
-**AM030 Converter Null-Handling Guard Recognition — modern `ThrowIfNull` guards count**
+**AM050 Parenthesized Lambda Detection — redundant `MapFrom((s) => s.Name)` no longer slips past**
 
 ✅ **Highlights**
 
-- `ArgumentNullException.ThrowIfNull(source)`, `ArgumentException.ThrowIfNullOrEmpty(source)`, and `ArgumentException.ThrowIfNullOrWhiteSpace(source)` now count as explicit null handling inside a converter's `Convert` method, alongside the existing `== null`/`!= null`, null patterns, `string.IsNullOrEmpty/IsNullOrWhiteSpace`, null-coalescing, and conditional-access shapes.
-- Recognition resolves the guarded value via the `argument:` named parameter when present, so `ThrowIfNull(paramName: nameof(source), argument: source)` also stays quiet.
-- Guard calls whose `argument`/first positional argument is unrelated to the source parameter (for example `ArgumentNullException.ThrowIfNull(context)`) still trigger AM030, so converters that genuinely miss null handling keep reporting.
+- AM050 redundant-`MapFrom` detection now recognises parenthesized and typed lambda shapes — `o.MapFrom((s) => s.Name)` and `o.MapFrom((Source s) => s.Name)` — alongside the existing simple `s => s.Name` shape. Destination lambdas inside `ForMember(d => ...)` accept the same shapes.
+- Multi-parameter parenthesized lambdas remain ignored, so AutoMapper's `(src, ctx) => ...` `IMemberConfigurationExpression` overload still stays quiet.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `766` passing and `0` skipped.
-- Release validation covered targeted AM030 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
+- Full test suite passed with `769` passing and `0` skipped.
+- Release validation covered targeted AM050 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
 
 ### Recent Releases
 
+- **v2.30.21**: AM050 redundant-`MapFrom` detection now also fires on parenthesized and typed lambdas such as `o.MapFrom((Source s) => s.Name)`.
 - **v2.30.20**: AM030 recognises `ArgumentNullException.ThrowIfNull`, `ArgumentException.ThrowIfNullOrEmpty`, and `ArgumentException.ThrowIfNullOrWhiteSpace` as null guards on the converter's source parameter.
 - **v2.30.19**: AM030 stops reporting concrete converters as unused when a matching `ITypeConverter<TSource, TDestination>` is passed to `ConvertUsing` through DI/service-locator shapes.
 - **v2.30.18**: AM031 multiple-enumeration tracking covers `Min`, `Max`, `Aggregate`, `LongCount`, `Single`, `SingleOrDefault`, `ToHashSet`, `ToDictionary`, and `ToLookup`, with a `System.Linq.Enumerable`/`Queryable` namesake gate.
@@ -188,7 +188,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.20">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.21">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

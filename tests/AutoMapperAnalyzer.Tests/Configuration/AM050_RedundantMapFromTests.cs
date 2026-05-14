@@ -33,6 +33,80 @@ public class AM050_RedundantMapFromTests
     }
 
     [Fact]
+    public async Task Should_ReportDiagnostic_When_MapFromUsesParenthesizedLambda()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => d.Name, o => o.MapFrom((s) => s.Name));
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+            .WithLocation(11, 42)
+            .WithArguments("Name");
+
+        await AnalyzerVerifier<AM050_RedundantMapFromAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_When_MapFromUsesTypedParenthesizedLambda()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => d.Name, o => o.MapFrom((Source s) => s.Name));
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+            .WithLocation(11, 42)
+            .WithArguments("Name");
+
+        await AnalyzerVerifier<AM050_RedundantMapFromAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_When_ParenthesizedLambdaMapsDifferentProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string OtherName { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => d.Name, o => o.MapFrom((Source s) => s.OtherName));
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM050_RedundantMapFromAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
     public async Task Should_NotReportDiagnostic_When_MappingDifferentProperty()
     {
         const string testCode = """
