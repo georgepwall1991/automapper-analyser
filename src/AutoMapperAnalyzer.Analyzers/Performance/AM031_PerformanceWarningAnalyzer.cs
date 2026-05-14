@@ -407,7 +407,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             // Track LINQ operations for multiple enumeration detection
             if (IsLinqEnumerationMethod(containingType, methodName))
             {
-                TrackCollectionAccess(invocation, collectionAccesses, sourceParameterName);
+                TrackCollectionAccess(invocation, collectionAccesses, sourceParameterName, context.SemanticModel);
             }
 
             // Check for complex LINQ operations
@@ -750,16 +750,22 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     private static void TrackCollectionAccess(
         InvocationExpressionSyntax invocation,
         Dictionary<string, int> collectionAccesses,
-        string? sourceParameterName)
+        string? sourceParameterName,
+        SemanticModel semanticModel)
     {
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
         {
-            string collectionName = TryGetSourceCollectionPath(
+            ExpressionSyntax collectionRoot = UnwrapChainedLinqReceiver(
                 memberAccess.Expression,
+                sourceParameterName,
+                semanticModel);
+
+            string collectionName = TryGetSourceCollectionPath(
+                collectionRoot,
                 sourceParameterName,
                 out string sourceCollectionPath)
                 ? sourceCollectionPath
-                : memberAccess.Expression.ToString();
+                : collectionRoot.ToString();
 
             if (!collectionAccesses.ContainsKey(collectionName))
             {
@@ -768,6 +774,59 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
             collectionAccesses[collectionName]++;
         }
+    }
+
+    private static ExpressionSyntax UnwrapChainedLinqReceiver(
+        ExpressionSyntax expression,
+        string? sourceParameterName,
+        SemanticModel semanticModel)
+    {
+        // For shapes like src.Items.Where(...).Count() / .Any() / .Sum() the terminal LINQ
+        // receiver is a chained invocation. Peel only invocations that resolve to a known lazy
+        // System.Linq operator. Even after peeling, only adopt the new root when it normalises
+        // to a source-parameter-rooted member path — otherwise the original (un-peeled) receiver
+        // string already distinguishes distinct method-call sources such as `src.GetItems()`
+        // vs `src.GetOtherItems()`, and adopting the peeled root would collapse them into the
+        // same key.
+        ExpressionSyntax candidate = expression;
+        while (candidate is InvocationExpressionSyntax chainedInvocation &&
+               chainedInvocation.Expression is MemberAccessExpressionSyntax chainedMemberAccess &&
+               IsLazyLinqInvocation(chainedInvocation, chainedMemberAccess, semanticModel))
+        {
+            candidate = chainedMemberAccess.Expression;
+        }
+
+        return TryGetSourceCollectionPath(candidate, sourceParameterName, out _)
+            ? candidate
+            : expression;
+    }
+
+    private static bool IsLazyLinqInvocation(
+        InvocationExpressionSyntax invocation,
+        MemberAccessExpressionSyntax memberAccess,
+        SemanticModel semanticModel)
+    {
+        if (!IsLazyLinqOperatorName(memberAccess.Name.Identifier.ValueText))
+        {
+            return false;
+        }
+
+        IMethodSymbol? methodSymbol = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol
+            ?? semanticModel.GetSymbolInfo(invocation).CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+
+        string? containingType = methodSymbol?.ContainingType?.ToDisplayString();
+        return containingType == "System.Linq.Enumerable" || containingType == "System.Linq.Queryable";
+    }
+
+    private static bool IsLazyLinqOperatorName(string methodName)
+    {
+        return methodName is
+            "Where" or "Select" or "SelectMany" or
+            "OrderBy" or "OrderByDescending" or "ThenBy" or "ThenByDescending" or
+            "GroupBy" or "Distinct" or
+            "Skip" or "SkipWhile" or "SkipLast" or
+            "Take" or "TakeWhile" or "TakeLast" or
+            "Reverse" or "Cast" or "OfType" or "DefaultIfEmpty";
     }
 
     private static string? GetSourceParameterName(LambdaExpressionSyntax lambda)

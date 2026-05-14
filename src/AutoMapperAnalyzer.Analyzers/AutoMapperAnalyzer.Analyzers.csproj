@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>21</PatchVersion>
+        <PatchVersion>22</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,19 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.21 - AM050 parenthesized lambda detection
+        <PackageReleaseNotes>Version 2.30.22 - AM031 chained LINQ source normalization
 
             Changed:
-            - Hardened AM050 redundant-MapFrom detection so parenthesized and typed lambda shapes — `o.MapFrom((s) =&gt; s.Name)` and `o.MapFrom((Source s) =&gt; s.Name)` — are now recognised, alongside the existing simple `s =&gt; s.Name` shape. Destination lambdas inside `ForMember(d =&gt; ...)` accept the same shapes
-            - Multi-parameter parenthesized lambdas remain ignored so AutoMapper's `(src, ctx) =&gt; ...` overload still stays quiet
+            - Hardened AM031 multiple-enumeration tracking so chained pre-terminal LINQ receivers normalise back to the source-rooted collection path. Shapes such as `src.Items.Where(x =&gt; x.Active).Count() + src.Items.Where(x =&gt; !x.Active).Any()` now correctly report instead of slipping past because the receivers stringified to distinct keys
+            - Receiver peeling is restricted to invocations that resolve semantically to lazy `System.Linq.Enumerable`/`Queryable` operators (`Where`, `Select`, `SelectMany`, `OrderBy[Descending]`, `ThenBy[Descending]`, `GroupBy`, `Distinct`, `Skip[While]/SkipLast`, `Take[While]/TakeLast`, `Reverse`, `Cast`, `OfType`, `DefaultIfEmpty`), and the peeled root is only adopted as the tracking key when it normalises to a source-parameter-rooted member path. Arbitrary source-returning method calls (`src.GetItems()`, `src.GetActiveItems()`) and user-defined namesake extensions are not collapsed under a single receiver key
+            - Single chained-LINQ terminals over a source collection still stay quiet
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM050 and RuleCatalog coverage
+            - Full solution test suite passing on net10.0 with targeted AM031 and RuleCatalog coverage
             - Rule catalog and sample diagnostics snapshot checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.20 - AM030 converter null-handling guard recognition
+            Previous Release: v2.30.21 - AM050 parenthesized lambda detection
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

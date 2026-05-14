@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.22] - 2026-05-14
+
+### Changed
+
+- Hardened AM031 multiple-enumeration tracking so chained pre-terminal LINQ receivers normalise back to the source-rooted collection path. Shapes such as `src.Items.Where(x => x.Active).Count() + src.Items.Where(x => !x.Active).Any()` now correctly report instead of slipping past because each terminal had a different stringified receiver key (`src.Items.Where(x => x.Active)` vs `src.Items.Where(x => !x.Active)`).
+- Receiver peeling is restricted to invocations that resolve to known lazy operators on `System.Linq.Enumerable`/`System.Linq.Queryable` (`Where`, `Select`, `SelectMany`, `OrderBy[Descending]`, `ThenBy[Descending]`, `GroupBy`, `Distinct`, `Skip[While]/SkipLast`, `Take[While]/TakeLast`, `Reverse`, `Cast`, `OfType`, `DefaultIfEmpty`).
+- The peeled root is only adopted as the tracking key when it normalises to a source-parameter-rooted member path. Otherwise the original (un-peeled) receiver string is used, so chains rooted at arbitrary source method calls (`src.GetItems().Where(x).Count() + src.GetItems().Where(y).Any()`) stay distinct, alongside user-defined namesake extensions.
+- Single chained-LINQ terminals over a source collection (e.g. `src.Items.Where(...).Count()`) still stay quiet — the normalisation only matters once two or more terminals enumerate the same source-rooted collection.
+
+### Validation
+
+- Targeted AM031 analyzer tests.
+- Full solution test suite (`net10.0`) green at 774 passing, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+
 ## [2.30.21] - 2026-05-14
 
 ### Changed
