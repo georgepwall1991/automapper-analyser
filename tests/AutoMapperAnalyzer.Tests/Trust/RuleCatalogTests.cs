@@ -202,6 +202,65 @@ public partial class RuleCatalogTests
     }
 
     [Fact]
+    public void RuleDocs_ShouldDocumentDescriptorCategories()
+    {
+        string repoRoot = GetRepositoryRoot();
+        string ruleDocs = File.ReadAllText(Path.Combine(repoRoot, "docs", "DIAGNOSTIC_RULES.md"));
+        var drifted = new List<string>();
+
+        foreach (RuleCatalogEntry rule in RuleCatalog.Rules)
+        {
+            string section = GetRuleDocumentationSection(ruleDocs, rule);
+            string categoryLine = section
+                .Split('\n')
+                .Select(line => line.TrimEnd('\r'))
+                .FirstOrDefault(line => line.StartsWith("**Category**:", StringComparison.Ordinal))
+                ?? string.Empty;
+
+            Assert.False(
+                string.IsNullOrWhiteSpace(categoryLine),
+                $"{rule.RuleId} documentation must include a category line.");
+
+            string[] documentedCategories = ParseDocumentedCategories(categoryLine);
+            string[] descriptorCategories = rule.Descriptors
+                .Select(descriptor => descriptor.Category)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(category => category, StringComparer.Ordinal)
+                .ToArray();
+
+            if (!documentedCategories.SequenceEqual(descriptorCategories, StringComparer.Ordinal))
+            {
+                drifted.Add(
+                    $"{rule.RuleId}: docs line `{categoryLine.Trim()}` lists categories "
+                    + $"[{string.Join(", ", documentedCategories)}] but descriptors are "
+                    + $"[{string.Join(", ", descriptorCategories)}]");
+            }
+        }
+
+        Assert.True(
+            drifted.Count == 0,
+            "Rule documentation category line must match every descriptor's Category exactly. Drift:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, drifted));
+    }
+
+    private static string[] ParseDocumentedCategories(string categoryLine)
+    {
+        const string prefix = "**Category**:";
+        string payload = categoryLine.StartsWith(prefix, StringComparison.Ordinal)
+            ? categoryLine[prefix.Length..]
+            : categoryLine;
+
+        return payload
+            .Split([',', '/'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(token => token.Trim())
+            .Where(token => token.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(token => token, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    [Fact]
     public void SampleDiagnosticsSnapshot_ShouldCoverEveryCatalogDescriptor()
     {
         string repoRoot = GetRepositoryRoot();

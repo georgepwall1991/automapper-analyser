@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>24</PatchVersion>
+        <PatchVersion>25</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,19 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.24 - Mark unwired AM003/AM030 DiagnosticDescriptor relics Obsolete and lock the invariant
+        <PackageReleaseNotes>Version 2.30.25 - Fix rule documentation category drift and add a category drift guard
 
             Changed:
-            - Marked the unwired `AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule` `DiagnosticDescriptor` field as `[Obsolete]`. The field is never included in `SupportedDiagnostics`, never tracked in `AnalyzerReleases.Shipped.md`, and contradicts the documented ownership boundary (AM001/AM020/AM021 own missing-converter mapping diagnostics, not AM030). The descriptor stays for binary compatibility; the Obsolete attribute and the new trust drift guard make the legacy intent explicit
-            - Marked the unwired `AM003_CollectionTypeIncompatibilityAnalyzer.CollectionElementIncompatibilityRule` `DiagnosticDescriptor` field as `[Obsolete]`. Same defect class: declared but never wired, ownership long since moved to `AM021_CollectionElementMismatchAnalyzer`'s identically named live descriptor
-            - Added a new `RuleCatalogTests.Analyzers_ShouldRegisterEveryDeclaredDiagnosticDescriptor` drift guard that enforces a two-part contract: every `public static DiagnosticDescriptor` field on a shipped analyzer must appear in `SupportedDiagnostics` or be explicitly marked `[Obsolete]`, and no descriptor can be both registered and Obsolete
+            - Corrected six rule documentation `**Category**:` lines in `docs/DIAGNOSTIC_RULES.md` to match the descriptor categories actually shipped: AM002 (TypeSafety -> NullSafety), AM011 (DataIntegrity -> RequiredProperties), AM020 (ComplexMappings -> NestedObjects), AM021 (ComplexMappings -> Collections), AM022 (ComplexMappings -> Recursion), AM030 (CustomConversions -> Converters). The descriptors themselves were unchanged; the docs had drifted away from the shipped categories
+            - Added a new `RuleCatalogTests.RuleDocs_ShouldDocumentDescriptorCategories` drift guard that asserts the `**Category**:` line in each rule's documentation section names every distinct `descriptor.Category` for that rule. This mirrors the existing severity drift guard and prevents future drift in either direction (docs ahead of descriptors or descriptors ahead of docs)
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM003, AM030, and RuleCatalog coverage
+            - Full solution test suite passing on net10.0 with targeted RuleCatalog coverage
             - Rule catalog and sample diagnostics snapshot checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.23 - AM050 preserve sibling configuration on redundant ForMember
+            Previous Release: v2.30.24 - Mark unwired AM003/AM030 DiagnosticDescriptor relics Obsolete
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

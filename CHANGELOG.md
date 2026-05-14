@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## [2.30.25] - 2026-05-14
+
+### Changed
+
+- Corrected six rule documentation `**Category**:` lines in `docs/DIAGNOSTIC_RULES.md` to match the descriptor categories actually shipped: AM002 (TypeSafety → NullSafety), AM011 (DataIntegrity → RequiredProperties), AM020 (ComplexMappings → NestedObjects), AM021 (ComplexMappings → Collections), AM022 (ComplexMappings → Recursion), AM030 (CustomConversions → Converters). The descriptors themselves were unchanged; the docs had drifted away from the shipped categories, which made `dotnet_diagnostic.*.category` lookups and `.editorconfig` category-based suppressions in user docs misleading.
+- Added `RuleCatalogTests.RuleDocs_ShouldDocumentDescriptorCategories` as a trust drift guard that asserts the `**Category**:` line in each rule's documentation section names every distinct `descriptor.Category` for that rule. This mirrors the existing severity drift guard and prevents future drift in either direction.
+
+### Validation
+
+- Targeted `RuleCatalogTests` slice.
+- Full solution test suite (`net10.0`) green.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+
 ## [2.30.24] - 2026-05-14
 
 ### Changed
