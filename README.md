@@ -14,14 +14,13 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.25
+## 🎉 Latest Release: v2.30.26
 
-**Fix rule documentation category drift and add a category drift guard**
+**Lock AM050 sibling-config withhold behavior with direct `PreCondition`/`UseDestinationValue`/`Ignore` tests**
 
 ✅ **Highlights**
 
-- Corrected six rule documentation `**Category**:` lines in `docs/DIAGNOSTIC_RULES.md` to match the descriptor categories actually shipped: AM002 (`TypeSafety` → `NullSafety`), AM011 (`DataIntegrity` → `RequiredProperties`), AM020 (`ComplexMappings` → `NestedObjects`), AM021 (`ComplexMappings` → `Collections`), AM022 (`ComplexMappings` → `Recursion`), AM030 (`CustomConversions` → `Converters`). The descriptors themselves were unchanged; only the docs had drifted.
-- Added `RuleCatalogTests.RuleDocs_ShouldDocumentDescriptorCategories` as a trust drift guard that asserts the `**Category**:` line in each rule's documentation section names every distinct `descriptor.Category` for that rule. This mirrors the existing severity drift guard and prevents future drift in either direction.
+- Added direct AM050 code-fix test coverage for three sibling member-options previously only covered by the generic structural check: `PreCondition`, `UseDestinationValue`, and `Ignore`. The check still withholds the automatic `ForMember`-removal whenever the options lambda contains anything besides the redundant `MapFrom`; the new tests lock that contract directly so a future refactor narrowing the check to a known-sibling list would fail tests.
 
 🧪 **Validation**
 
@@ -30,6 +29,7 @@ prevention*
 
 ### Recent Releases
 
+- **v2.30.26**: Locked AM050 sibling-config withhold behavior with direct `PreCondition`/`UseDestinationValue`/`Ignore` regression tests alongside the existing `Condition`/`NullSubstitute` cases.
 - **v2.30.25**: Corrected six AM002/AM011/AM020/AM021/AM022/AM030 rule-docs category lines to match the shipped descriptor categories and added a category drift guard that prevents future doc/descriptor drift.
 - **v2.30.24**: Marked unwired AM003/AM030 `DiagnosticDescriptor` relics `[Obsolete]` (binary compatibility preserved) and added a trust drift guard that fails when any shipped analyzer declares a `DiagnosticDescriptor` field outside its `SupportedDiagnostics` without an explicit Obsolete attribute.
 - **v2.30.23**: AM050 code fix is withheld when the redundant-`MapFrom` `ForMember` lambda contains sibling configuration (`Condition`, `NullSubstitute`, …) that would otherwise be dropped.
@@ -191,7 +191,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.25">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.26">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

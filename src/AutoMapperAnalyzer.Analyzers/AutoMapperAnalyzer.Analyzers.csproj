@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>25</PatchVersion>
+        <PatchVersion>26</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.25 - Fix rule documentation category drift and add a category drift guard
+        <PackageReleaseNotes>Version 2.30.26 - Lock AM050 sibling-config withhold behavior with direct PreCondition/UseDestinationValue/Ignore tests
 
             Changed:
-            - Corrected six rule documentation `**Category**:` lines in `docs/DIAGNOSTIC_RULES.md` to match the descriptor categories actually shipped: AM002 (TypeSafety -> NullSafety), AM011 (DataIntegrity -> RequiredProperties), AM020 (ComplexMappings -> NestedObjects), AM021 (ComplexMappings -> Collections), AM022 (ComplexMappings -> Recursion), AM030 (CustomConversions -> Converters). The descriptors themselves were unchanged; the docs had drifted away from the shipped categories
-            - Added a new `RuleCatalogTests.RuleDocs_ShouldDocumentDescriptorCategories` drift guard that asserts the `**Category**:` line in each rule's documentation section names every distinct `descriptor.Category` for that rule. This mirrors the existing severity drift guard and prevents future drift in either direction (docs ahead of descriptors or descriptors ahead of docs)
+            - Added direct AM050 code-fix test coverage for the three sibling member-options previously only covered by the generic `ForMemberLambdaContainsOnlyTheMapFrom` structural check: `PreCondition`, `UseDestinationValue`, and `Ignore`. The structural check already withholds the automatic `ForMember`-removal action whenever the options lambda contains anything besides the redundant `MapFrom`, so the diagnostic still fires while the unsafe automatic action stays suppressed
+            - The new tests lock the sibling-config withhold contract directly so a future refactor narrowing the structural check to a known-sibling list would now fail tests
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted RuleCatalog coverage
+            - Full solution test suite passing on net10.0 with targeted AM050 code-fix coverage
             - Rule catalog and sample diagnostics snapshot checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.24 - Mark unwired AM003/AM030 DiagnosticDescriptor relics Obsolete
+            Previous Release: v2.30.25 - Fix rule documentation category drift and add a category drift guard
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
