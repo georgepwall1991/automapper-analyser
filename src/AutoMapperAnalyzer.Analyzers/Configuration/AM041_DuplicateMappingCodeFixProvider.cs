@@ -44,6 +44,11 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
                     continue;
                 }
 
+                if (IsCreateMapWithUnsafeChainedConfiguration(invocation))
+                {
+                    continue;
+                }
+
                 string mappingLabel = GetMappingLabel(invocation);
                 context.RegisterCodeFix(
                     CodeAction.Create(
@@ -241,5 +246,37 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
         return IsReverseMapInvocation(invocation) &&
                (invocation.Parent is MemberAccessExpressionSyntax ||
                 invocation.Parent is ParenthesizedExpressionSyntax { Parent: MemberAccessExpressionSyntax });
+    }
+
+    private static bool IsCreateMapWithUnsafeChainedConfiguration(InvocationExpressionSyntax invocation)
+    {
+        if (!TryGetCreateMapGenericName(invocation, out _))
+        {
+            return false;
+        }
+
+        SyntaxNode? current = invocation.Parent;
+        while (current is ParenthesizedExpressionSyntax paren)
+        {
+            current = paren.Parent;
+        }
+
+        if (current is not MemberAccessExpressionSyntax memberAccess)
+        {
+            return false;
+        }
+
+        // The bare `CreateMap<S, D>().ReverseMap()` shape is reversed safely by
+        // TryCreateReverseCreateMapReplacement. Any further chaining beyond that — or
+        // any other chained configuration — would silently drop policy if removed.
+        if (memberAccess.Name.Identifier.Text == "ReverseMap" &&
+            memberAccess.Parent is InvocationExpressionSyntax reverseMapInvocation &&
+            reverseMapInvocation.ArgumentList.Arguments.Count == 0 &&
+            reverseMapInvocation.Parent is ExpressionStatementSyntax)
+        {
+            return false;
+        }
+
+        return true;
     }
 }

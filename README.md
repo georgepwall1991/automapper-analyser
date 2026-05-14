@@ -14,24 +14,24 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.16
+## 🎉 Latest Release: v2.30.17
 
-**Analyzer Precision Hardening — safer nullability, construction, and fixer boundaries**
+**AM041 Chained CreateMap Fixer Safety — preserving conflicting mapping policy**
 
 ✅ **Highlights**
 
-- Tightens AM002 explicit mapping nullability checks, including repeated `MapFrom`, `NullSubstitute`, resolver/converter, and unsafe nullable receiver cases.
-- Narrows AM006 `ConstructUsing`/`ConvertUsing` suppression so only effective destination construction ownership hides unmapped-member diagnostics.
-- Keeps AM021 conversions fully qualified, AM031 `ForPath` diagnostics analyzer-only, and AM041 chained reverse-map duplicates on manual review.
+- Withholds the AM041 automatic removal when a duplicate `CreateMap<TSource, TDestination>()` carries chained `ForMember`, `ForPath`, or other configuration that would silently disappear, including parenthesized chains and chains beyond `.ReverseMap()`.
+- Keeps the bare `CreateMap<TSource, TDestination>().ReverseMap()` reversal path on the existing safe swap action.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `752` passing and `0` skipped.
-- Release validation covered targeted AM002, AM006, AM021, AM031, AM041, and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
+- Full test suite passed with `755` passing and `0` skipped.
+- Release validation covered targeted AM041 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
 
 ### Recent Releases
 
+- **v2.30.17**: AM041 withholds the duplicate-removal fix when the duplicate `CreateMap<>()` carries chained mapping policy.
 - **v2.30.16**: Analyzer precision hardening across AM002, AM006, AM021, AM031, and AM041.
 - **v2.30.15**: Fixer UX trust hardening with descriptor-specific no-fix metadata and executable interface collection rewrites.
 - **v2.30.14**: AM021 reverse-map collection element diagnostics catch missing reverse element maps without duplicate noise.
@@ -184,7 +184,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.16">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.17">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

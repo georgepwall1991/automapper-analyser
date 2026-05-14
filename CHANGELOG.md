@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.17] - 2026-05-14
+
+### Changed
+
+- Hardened AM041 so duplicate `CreateMap<TSource, TDestination>()` registrations carrying chained `ForMember`, `ForPath`, or other configuration no longer offer an automatic removal that would silently drop mapping policy.
+- Hardened AM041 so parenthesized chained `CreateMap<TSource, TDestination>()` duplicates and duplicates whose chain continues past `.ReverseMap()` stay on the manual-review path.
+- The bare `CreateMap<TSource, TDestination>().ReverseMap()` reversal path remains unchanged and still receives the automatic type-swap action.
+
+### Validation
+
+- Targeted AM041 analyzer and code fix tests.
+- Full solution test suite (`net10.0`) green at 755 passing, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+
 ## [2.30.16] - 2026-05-07
 
 ### Changed
