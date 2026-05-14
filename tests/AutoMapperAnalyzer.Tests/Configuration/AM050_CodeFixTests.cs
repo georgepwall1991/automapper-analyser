@@ -603,6 +603,150 @@ public class AM050_CodeFixTests
         Assert.Equal("Remove redundant ForMember for 'Email'", action.Title);
     }
 
+    [Fact]
+    public async Task Should_NotOfferFix_WhenForMemberLambdaHasSiblingCondition()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => d.Name, o =>
+                                            {
+                                                o.MapFrom(s => s.Name);
+                                                o.Condition((src, dest, value) => value != null);
+                                            });
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                ImmutableArray.Create<DiagnosticAnalyzer>(new AM050_RedundantMapFromAnalyzer()))
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM050", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task Should_NotOfferFix_WhenForMemberLambdaHasSiblingNullSubstitute()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => d.Name, o =>
+                                            {
+                                                o.MapFrom(s => s.Name);
+                                                o.NullSubstitute("(unknown)");
+                                            });
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                ImmutableArray.Create<DiagnosticAnalyzer>(new AM050_RedundantMapFromAnalyzer()))
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM050", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task Should_NotOfferFix_WhenParenthesizedOptionsLambdaHasSiblingConfiguration()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => d.Name, (o) =>
+                                            {
+                                                o.MapFrom(s => s.Name);
+                                                o.Condition((src, dest, value) => value != null);
+                                            });
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                ImmutableArray.Create<DiagnosticAnalyzer>(new AM050_RedundantMapFromAnalyzer()))
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM050", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task Should_OfferFix_WhenForMemberLambdaContainsOnlyTheRedundantMapFrom()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => d.Name, o =>
+                                            {
+                                                o.MapFrom(s => s.Name);
+                                            });
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                ImmutableArray.Create<DiagnosticAnalyzer>(new AM050_RedundantMapFromAnalyzer()))
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM050", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("Remove redundant ForMember for 'Name'", action.Title);
+    }
+
     private static Document CreateDocument(string source)
     {
         var workspace = new AdhocWorkspace();

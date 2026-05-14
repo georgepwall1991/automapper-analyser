@@ -34,13 +34,21 @@ public class AM050_RedundantMapFromCodeFixProvider : AutoMapperCodeFixProviderBa
 
             // The analyzer reports on the 'MapFrom' invocation, which is inside ForMember
             // We need to find the outer ForMember invocation
+            InvocationExpressionSyntax? mapFromInvocation = node?.AncestorsAndSelf()
+                .OfType<InvocationExpressionSyntax>()
+                .FirstOrDefault(inv =>
+                    inv.Expression is MemberAccessExpressionSyntax ma &&
+                    ma.Name.Identifier.Text == "MapFrom");
+
             InvocationExpressionSyntax? forMemberInvocation = node?.AncestorsAndSelf()
                 .OfType<InvocationExpressionSyntax>()
                 .FirstOrDefault(inv =>
                     inv.Expression is MemberAccessExpressionSyntax ma &&
                     ma.Name.Identifier.Text == "ForMember");
 
-            if (forMemberInvocation != null)
+            if (forMemberInvocation != null &&
+                mapFromInvocation != null &&
+                ForMemberLambdaContainsOnlyTheMapFrom(forMemberInvocation, mapFromInvocation))
             {
                 string propertyName = GetDestinationPropertyName(forMemberInvocation) ?? "property";
                 context.RegisterCodeFix(
@@ -51,6 +59,33 @@ public class AM050_RedundantMapFromCodeFixProvider : AutoMapperCodeFixProviderBa
                     diagnostic);
             }
         }
+    }
+
+    private static bool ForMemberLambdaContainsOnlyTheMapFrom(
+        InvocationExpressionSyntax forMemberInvocation,
+        InvocationExpressionSyntax mapFromInvocation)
+    {
+        if (forMemberInvocation.ArgumentList.Arguments.Count < 2)
+        {
+            return false;
+        }
+
+        ExpressionSyntax optionsArgument = forMemberInvocation.ArgumentList.Arguments[1].Expression;
+        CSharpSyntaxNode? body = optionsArgument switch
+        {
+            SimpleLambdaExpressionSyntax simple => simple.Body,
+            ParenthesizedLambdaExpressionSyntax parenthesized => parenthesized.Body,
+            _ => null
+        };
+
+        if (body is BlockSyntax block)
+        {
+            return block.Statements.Count == 1 &&
+                   block.Statements[0] is ExpressionStatementSyntax statement &&
+                   statement.Expression == mapFromInvocation;
+        }
+
+        return body == mapFromInvocation;
     }
 
     private Task<Document> RemoveRedundantMapping(Document document, SyntaxNode root,

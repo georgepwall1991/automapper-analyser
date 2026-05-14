@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.23] - 2026-05-14
+
+### Changed
+
+- Hardened the AM050 redundant-`MapFrom` code fix so the automatic removal of the enclosing `ForMember(...)` is withheld when the `ForMember`'s options lambda contains sibling configuration besides the redundant `MapFrom` (such as `Condition`, `NullSubstitute`, `PreCondition`, `UseDestinationValue`, `Ignore`, or any other member-options call). Removing the whole `ForMember` would silently drop that sibling policy, which is exactly the kind of unsafe rewrite AM050's `SafeRewrite` catalog trust label was meant to avoid.
+- The simple shapes `o => o.MapFrom(s => s.Member)` (single-expression lambda body) and `o => { o.MapFrom(s => s.Member); }` (block with the redundant `MapFrom` as the only statement) still receive the automatic `ForMember`-removal fix.
+- AM050 still reports the redundant `MapFrom` in the unsafe case; only the automatic action is suppressed so the user removes the redundant call manually while preserving sibling configuration.
+
+### Validation
+
+- Targeted AM050 code-fix tests.
+- Full solution test suite (`net10.0`) green at 778 passing, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+
 ## [2.30.22] - 2026-05-14
 
 ### Changed
