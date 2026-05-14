@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>18</PatchVersion>
+        <PatchVersion>19</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,20 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.18 - AM031 LINQ enumeration coverage
+        <PackageReleaseNotes>Version 2.30.19 - AM030 DI-injected converter false-positive suppression
 
             Changed:
-            - Broadened AM031 multiple-enumeration tracking to cover the remaining commonly used terminal LINQ operators: `Min`, `Max`, `Aggregate`, `LongCount`, `Single`, `SingleOrDefault`, `ToHashSet`, `ToDictionary`, and `ToLookup`
-            - Shapes such as `src.Numbers.Min() + src.Numbers.Max()` and `src.Numbers.Single() + src.Numbers.ToHashSet().Count` now report AM031 instead of going silent
-            - Gated AM031 enumeration tracking on `System.Linq.Enumerable`/`System.Linq.Queryable` containing types so non-LINQ namesakes like `Math.Min`/`Math.Max` no longer false-positive
-            - Lazy/intermediate operators (`Where`, `Select`, `OrderBy`, `GroupBy`, `Distinct`, etc.) remain off the terminal-enumeration list
+            - Hardened AM030 unused-converter detection so a declared `ITypeConverter&lt;TSource, TDestination&gt;` is no longer reported as unused when any `ConvertUsing(...)` argument resolves to the interface `ITypeConverter&lt;TSource, TDestination&gt;` itself (covers constructor injection, service-locator resolution, and other DI shapes whose concrete implementation cannot be statically traced)
+            - The existing concrete-converter detection (via `ConvertUsing&lt;TConverter&gt;()`, `typeof(...)`, `new ...()`, or interface-typed locals/fields/properties with concrete initializers) remains untouched, so declared converters that no `ConvertUsing` call references — including ones with a different `&lt;TSource, TDestination&gt;` pair — still report
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM031 and RuleCatalog coverage
+            - Full solution test suite passing on net10.0 with targeted AM030 and RuleCatalog coverage
             - Rule catalog and sample diagnostics snapshot checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.17 - AM041 chained CreateMap fixer safety
+            Previous Release: v2.30.18 - AM031 LINQ enumeration coverage
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
