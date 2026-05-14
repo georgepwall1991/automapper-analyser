@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## [2.30.26] - 2026-05-14
+
+### Changed
+
+- Added direct AM050 code-fix test coverage for the three sibling member-options previously only covered by the generic `ForMemberLambdaContainsOnlyTheMapFrom` structural check: `PreCondition`, `UseDestinationValue`, and `Ignore`. The structural check already withholds the automatic `ForMember`-removal action whenever the options lambda contains anything besides the redundant `MapFrom`; the new tests lock that contract directly so a future refactor narrowing the structural check to a known-sibling list would fail tests.
+
+### Validation
+
+- Targeted AM050 code-fix tests (5 sibling-config cases now green: Condition, NullSubstitute, PreCondition, UseDestinationValue, Ignore).
+- Full solution test suite (`net10.0`) green.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+
 ## [2.30.25] - 2026-05-14
 
 ### Changed
