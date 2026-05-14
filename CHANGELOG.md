@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.18] - 2026-05-14
+
+### Changed
+
+- Hardened AM031 multiple-enumeration tracking to cover the remaining commonly used terminal LINQ operators: `Min`, `Max`, `Aggregate`, `LongCount`, `Single`, `SingleOrDefault`, `ToHashSet`, `ToDictionary`, and `ToLookup`.
+- Mapping shapes such as `src.Numbers.Min() + src.Numbers.Max()` and `src.Numbers.Single() + src.Numbers.ToHashSet().Count` now correctly report AM031 instead of going silent.
+- Hardened AM031 enumeration tracking to require a `System.Linq.Enumerable` or `System.Linq.Queryable` containing type, so non-LINQ namesakes like `Math.Min`/`Math.Max` inside a `MapFrom` body no longer false-positive.
+- Lazy/intermediate operators (`Where`, `Select`, `OrderBy`, `GroupBy`, `Distinct`, etc.) intentionally remain off the terminal-enumeration list so `src.Numbers.Where(...)` followed by a single terminal call still stays quiet.
+
+### Validation
+
+- Targeted AM031 analyzer tests.
+- Full solution test suite (`net10.0`) green at 759 passing, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+
 ## [2.30.17] - 2026-05-14
 
 ### Changed

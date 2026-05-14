@@ -1038,7 +1038,7 @@ dotnet_diagnostic.AM030.severity = warning
 #### Description
 
 Detects expensive operations inside mapping expressions that should be performed before mapping.
-AM031 analyzes both `ForMember(... MapFrom(...))` and `ForPath(... MapFrom(...))`; nested destination paths are reported as paths such as `Stats.Total`.
+AM031 analyzes both `ForMember(... MapFrom(...))` and `ForPath(... MapFrom(...))`; nested destination paths are reported as paths such as `Stats.Total`. Multiple-enumeration tracking covers the commonly used terminal LINQ operators — `ToList`, `ToArray`, `ToHashSet`, `ToDictionary`, `ToLookup`, `Sum`, `Average`, `Min`, `Max`, `Aggregate`, `Count`, `LongCount`, `First`/`FirstOrDefault`, `Last`/`LastOrDefault`, `Single`/`SingleOrDefault`, `Any`, and `All`. Lazy/intermediate operators such as `Where`, `Select`, `OrderBy`, `GroupBy`, and `Distinct` intentionally do not count toward the enumeration count.
 
 #### Problem 1: Database Query in Mapping
 
@@ -1333,7 +1333,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.17">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.18">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1372,5 +1372,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-07
-**Version**: 2.30.17
+**Version**: 2.30.18
 **Maintainer**: George Wall
