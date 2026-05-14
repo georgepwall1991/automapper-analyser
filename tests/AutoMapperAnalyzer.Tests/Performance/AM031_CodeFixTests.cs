@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using AutoMapper;
 using AutoMapperAnalyzer.Analyzers.Performance;
 using Microsoft.CodeAnalysis;
@@ -127,7 +126,56 @@ public class AM031_CodeFixTests
     }
 
     [Fact]
-    public async Task AM031_ShouldRegisterAndApplyRemoveForMemberFix()
+    public async Task AM031_ShouldRegisterAndApplyRemoveForMemberFix_ForConventionEquivalentMapFrom()
+    {
+        const string source = """
+                              using AutoMapper;
+
+                              namespace TestNamespace
+                              {
+                                  public class Source
+                                  {
+                                      public int Score { get; set; }
+                                  }
+
+                                  public class Destination
+                                  {
+                                      public int Score { get; set; }
+                                  }
+
+                                  public class TestProfile : Profile
+                                  {
+                                      public TestProfile()
+                                      {
+                                          CreateMap<Source, Destination>()
+                                              .ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score));
+                                      }
+                                  }
+                              }
+                              """;
+
+        Document document = CreateDocument(source);
+        var diagnostic = await CreateDiagnosticAtSourceLambdaAsync(
+            document,
+            AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule,
+            "ExpensiveOperation",
+            "Score",
+            "Score",
+            "method call");
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction removeAction = Assert.Single(
+            actions,
+            action => action.Title.Contains("Remove redundant ForMember for 'Score'", StringComparison.Ordinal));
+        Assert.Contains("Remove redundant ForMember for 'Score'", removeAction.Title, StringComparison.Ordinal);
+
+        string updatedCode = await ApplyActionAsync(removeAction, document);
+        Assert.Contains("CreateMap<Source, Destination>();", updatedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("ForMember(dest => dest.Score", updatedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AM031_ShouldNotRegisterRemoveForMemberFix_ForNonEquivalentMapFrom()
     {
         const string source = """
                               using AutoMapper;
@@ -163,33 +211,62 @@ public class AM031_CodeFixTests
             "Score",
             "Score",
             "method call");
-        SyntaxNode root = (await document.GetSyntaxRootAsync())!;
-        InvocationExpressionSyntax forMemberInvocation = root.DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .First(invocation => invocation.Expression is MemberAccessExpressionSyntax
-            {
-                Name.Identifier.Text: "ForMember"
-            });
 
-        var actions = new List<CodeAction>();
-        var context = new CodeFixContext(
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Contains(actions, action => action.Title.Contains("Ignore mapping for 'Score'", StringComparison.Ordinal));
+        Assert.DoesNotContain(actions, action => action.Title.Contains("Remove redundant ForMember", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AM031_ShouldNotRegisterRemoveForMemberFix_ForCapturedSameNameProperty()
+    {
+        const string source = """
+                              using AutoMapper;
+
+                              namespace TestNamespace
+                              {
+                                  public class Source
+                                  {
+                                      public int Id { get; set; }
+                                  }
+
+                                  public class ScoreSource
+                                  {
+                                      public int Score { get; set; }
+                                  }
+
+                                  public class Destination
+                                  {
+                                      public int Score { get; set; }
+                                  }
+
+                                  public class TestProfile : Profile
+                                  {
+                                      private readonly ScoreSource _scoreSource = new();
+
+                                      public TestProfile()
+                                      {
+                                          CreateMap<Source, Destination>()
+                                              .ForMember(dest => dest.Score, opt => opt.MapFrom(src => _scoreSource.Score));
+                                      }
+                                  }
+                              }
+                              """;
+
+        Document document = CreateDocument(source);
+        var diagnostic = await CreateDiagnosticAtSourceLambdaAsync(
             document,
-            diagnostic,
-            (action, _) => actions.Add(action),
-            CancellationToken.None);
+            AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule,
+            "ExpensiveOperation",
+            "Score",
+            "Score",
+            "method call");
 
-        MethodInfo registerRemoveFixMethod = typeof(AM031_PerformanceWarningCodeFixProvider).GetMethod(
-            "RegisterRemoveForMemberFix",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var provider = new AM031_PerformanceWarningCodeFixProvider();
-        registerRemoveFixMethod.Invoke(provider, [context, root, forMemberInvocation, "Score", ImmutableArray.Create(diagnostic)]);
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
 
-        CodeAction removeAction = Assert.Single(actions);
-        Assert.Contains("Remove redundant ForMember for 'Score'", removeAction.Title, StringComparison.Ordinal);
-
-        string updatedCode = await ApplyActionAsync(removeAction, document);
-        Assert.Contains("CreateMap<Source, Destination>();", updatedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("ForMember(dest => dest.Score", updatedCode, StringComparison.Ordinal);
+        Assert.Contains(actions, action => action.Title.Contains("Ignore mapping for 'Score'", StringComparison.Ordinal));
+        Assert.DoesNotContain(actions, action => action.Title.Contains("Remove redundant ForMember", StringComparison.Ordinal));
     }
 
     [Fact]
