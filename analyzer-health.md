@@ -71,7 +71,7 @@ The Planning Shortlist above summarises overall rule priority; this backlog is t
 ### P2 — Opportunistic, when adjacent work is open
 
 - _AM050 sibling-config direct coverage — resolved in 2.30.26._ Direct tests for `PreCondition`, `UseDestinationValue`, and `Ignore` now sit alongside the pre-existing `Condition`/`NullSubstitute` cases, so the generic structural check is locked against future narrowing.
-- **AM041 `ForPath` chained-config test.** The Notes and cross-cutting findings claim chained `ForPath` configuration also withholds the duplicate-removal fix. The generic algorithm in `IsCreateMapWithUnsafeChainedConfiguration` covers it, but `AM041_CodeFixTests.cs` has no `ForPath`-specific case. Add at least one to make the claim directly test-backed.
+- _AM041 `ForPath` chained-config test — resolved in 2.30.27._ The duplicate-removal fix withhold for `CreateMap<>().ForPath(...)` shapes now has direct test coverage alongside the pre-existing `ForMember`/parenthesized/`ReverseMap()`-chained cases.
 - **Tighten diagnostic placement** for high-volume rules (AM004 / AM006) where the diagnostic currently lands on the mapping invocation rather than the offending property token. The cross-cutting note already calls this out as acceptable but improvable when practical — no owner yet.
 
 ### P3 — Directional, longer-horizon
@@ -131,10 +131,10 @@ Current local verification:
 - `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM022` passed: 78 passed, 0 skipped, 0 failed.
 - `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM030` passed: 32 passed, 0 skipped, 0 failed.
 - `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM031` passed: 49 passed, 0 skipped, 0 failed.
-- `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM041` passed: 25 passed, 0 skipped, 0 failed.
+- `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM041` passed: 26 passed, 0 skipped, 0 failed.
 - `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM050` passed: 30 passed, 0 skipped, 0 failed.
 - `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter RuleCatalogTests` passed: 10 passed, 0 skipped, 0 failed.
-- `/usr/local/share/dotnet/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 783 passed, 0 skipped, 0 failed.
+- `/usr/local/share/dotnet/dotnet test automapper-analyser.sln --no-restore --framework net10.0` passed: 784 passed, 0 skipped, 0 failed.
 - `/usr/local/share/dotnet/dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj --configuration Release -- --check-catalog --check-snapshots` passed: rule catalog and sample diagnostics snapshot are up to date.
 - `git diff --check` passed.
 - The trust-first pass removed active skipped tests, added drift validation, and moved intentional analyzer-test warnings into an explicit test-project warning baseline.

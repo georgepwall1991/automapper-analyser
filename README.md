@@ -14,13 +14,13 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.26
+## 🎉 Latest Release: v2.30.27
 
-**Lock AM050 sibling-config withhold behavior with direct `PreCondition`/`UseDestinationValue`/`Ignore` tests**
+**Lock AM041 `ForPath` chained-configuration withhold behavior with a direct test**
 
 ✅ **Highlights**
 
-- Added direct AM050 code-fix test coverage for three sibling member-options previously only covered by the generic structural check: `PreCondition`, `UseDestinationValue`, and `Ignore`. The check still withholds the automatic `ForMember`-removal whenever the options lambda contains anything besides the redundant `MapFrom`; the new tests lock that contract directly so a future refactor narrowing the check to a known-sibling list would fail tests.
+- Added a direct AM041 code-fix test asserting that the duplicate `CreateMap` removal action is withheld when the duplicate carries chained `ForPath(...)` configuration. The structural withhold algorithm already handles this shape (any chained call besides bare `.ReverseMap()` is unsafe to remove); the new test makes the documented `ForPath` claim test-backed and locks the contract against future narrowing to a known-method list.
 
 🧪 **Validation**
 
@@ -29,6 +29,7 @@ prevention*
 
 ### Recent Releases
 
+- **v2.30.27**: Added a direct AM041 test locking the `ForPath` chained-configuration withhold behavior alongside the existing `ForMember`/parenthesized/`ReverseMap()`-chained coverage.
 - **v2.30.26**: Locked AM050 sibling-config withhold behavior with direct `PreCondition`/`UseDestinationValue`/`Ignore` regression tests alongside the existing `Condition`/`NullSubstitute` cases.
 - **v2.30.25**: Corrected six AM002/AM011/AM020/AM021/AM022/AM030 rule-docs category lines to match the shipped descriptor categories and added a category drift guard that prevents future doc/descriptor drift.
 - **v2.30.24**: Marked unwired AM003/AM030 `DiagnosticDescriptor` relics `[Obsolete]` (binary compatibility preserved) and added a trust drift guard that fails when any shipped analyzer declares a `DiagnosticDescriptor` field outside its `SupportedDiagnostics` without an explicit Obsolete attribute.
@@ -191,7 +192,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.26">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.27">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## [2.30.27] - 2026-05-14
+
+### Changed
+
+- Added direct AM041 code-fix coverage for the duplicate-`CreateMap` removal action being withheld when the duplicate carries chained `ForPath(...)` configuration. The generic `IsCreateMapWithUnsafeChainedConfiguration` algorithm in `AM041_DuplicateMappingCodeFixProvider` already covers this shape (any chained call besides bare `.ReverseMap()` is unsafe to remove); the new test locks the contract so a future refactor narrowing the structural check to a known-method list (e.g. `ForMember` only) would now fail tests.
+
+### Validation
+
+- Targeted AM041 code-fix test slice.
+- Full solution test suite (`net10.0`) green.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+
 ## [2.30.26] - 2026-05-14
 
 ### Changed

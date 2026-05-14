@@ -362,6 +362,41 @@ public class AM041_CodeFixTests
     }
 
     [Fact]
+    public async Task Should_NotOfferFix_WhenDuplicateCreateMapHasChainedForPathConfiguration()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class StreetSource { public string Name { get; set; } }
+                                public class Source { public StreetSource Street { get; set; } }
+                                public class Address { public string StreetName { get; set; } }
+                                public class Destination { public Address Address { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                        CreateMap<Source, Destination>()
+                                            .ForPath(d => d.Address.StreetName, opt => opt.MapFrom(s => s.Street.Name));
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM041", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
     public async Task Should_NotOfferFix_WhenParenthesizedDuplicateCreateMapHasChainedConfiguration()
     {
         const string testCode = """
