@@ -194,7 +194,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
             return false;
         }
 
-        InvocationExpressionSyntax? createMapInvocation = forMemberInvocation.AncestorsAndSelf()
+        InvocationExpressionSyntax? createMapInvocation = forMemberInvocation.DescendantNodesAndSelf()
             .OfType<InvocationExpressionSyntax>()
             .FirstOrDefault(inv => MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(inv, semanticModel, "CreateMap"));
 
@@ -223,7 +223,63 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
             return false;
         }
 
-        return AutoMapperAnalysisHelpers.AreTypesCompatible(sourceProperty.Type, destinationProperty.Type);
+        return AutoMapperAnalysisHelpers.AreTypesCompatible(sourceProperty.Type, destinationProperty.Type) &&
+               IsConventionEquivalentMapFrom(forMemberInvocation, propertyName, semanticModel, cancellationToken);
+    }
+
+    private static bool IsConventionEquivalentMapFrom(
+        InvocationExpressionSyntax forMemberInvocation,
+        string propertyName,
+        SemanticModel semanticModel,
+        CancellationToken cancellationToken)
+    {
+        if (forMemberInvocation.ArgumentList.Arguments.Count < 2)
+        {
+            return false;
+        }
+
+        ExpressionSyntax optionsArgument = forMemberInvocation.ArgumentList.Arguments[1].Expression;
+        CSharpSyntaxNode? body = optionsArgument switch
+        {
+            SimpleLambdaExpressionSyntax simple => simple.Body,
+            ParenthesizedLambdaExpressionSyntax parenthesized => parenthesized.Body,
+            _ => null
+        };
+
+        InvocationExpressionSyntax? mapFromInvocation = body switch
+        {
+            InvocationExpressionSyntax invocation => invocation,
+            BlockSyntax { Statements.Count: 1 } block
+                when block.Statements[0] is ExpressionStatementSyntax statement &&
+                     statement.Expression is InvocationExpressionSyntax invocation => invocation,
+            _ => null
+        };
+
+        if (mapFromInvocation == null ||
+            mapFromInvocation.Expression is not MemberAccessExpressionSyntax mapFromAccess ||
+            mapFromAccess.Name.Identifier.Text != "MapFrom" ||
+            mapFromInvocation.ArgumentList.Arguments.Count == 0)
+        {
+            return false;
+        }
+
+        ExpressionSyntax mapFromArgument = mapFromInvocation.ArgumentList.Arguments[0].Expression;
+        SyntaxNode? mapFromBody = AutoMapperAnalysisHelpers.GetLambdaBody(mapFromArgument);
+        if (mapFromBody is not MemberAccessExpressionSyntax memberAccess ||
+            memberAccess.Name.Identifier.ValueText != propertyName)
+        {
+            return false;
+        }
+
+        ISymbol? receiver = semanticModel.GetSymbolInfo(memberAccess.Expression, cancellationToken).Symbol;
+        if (receiver is not IParameterSymbol)
+        {
+            return false;
+        }
+
+        ISymbol? sourceMember = semanticModel.GetSymbolInfo(memberAccess, cancellationToken).Symbol;
+        return sourceMember is IPropertySymbol property &&
+               string.Equals(property.Name, propertyName, StringComparison.Ordinal);
     }
 
     private Task<Document> ReplaceWithIgnoreAsync(

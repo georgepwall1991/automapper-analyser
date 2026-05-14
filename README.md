@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-752%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-787%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,21 +14,24 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.27
+## 🎉 Latest Release: v2.30.28
 
-**Lock AM041 `ForPath` chained-configuration withhold behavior with a direct test**
+**Tighten fixer actions to avoid unsafe automatic rewrites**
 
 ✅ **Highlights**
 
-- Added a direct AM041 code-fix test asserting that the duplicate `CreateMap` removal action is withheld when the duplicate carries chained `ForPath(...)` configuration. The structural withhold algorithm already handles this shape (any chained call besides bare `.ReverseMap()` is unsafe to remove); the new test makes the documented `ForPath` claim test-backed and locks the contract against future narrowing to a known-method list.
+- AM031 now offers redundant-`ForMember` removal only for direct convention-equivalent `MapFrom(src => src.Member)` mappings, so transformed expressions and captured values stay on the manual-review path.
+- AM001 no longer offers speculative reference casts for unrelated reference/framework conversions such as `Uri` to `string`.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0`.
+- Full solution test validation passed on `net10.0` with 787 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- PR CI/CD and Claude Code Review green.
 
 ### Recent Releases
 
+- **v2.30.28**: Tightened AM031 and AM001 fixer action selection so automatic rewrites stay executable and behavior-preserving.
 - **v2.30.27**: Added a direct AM041 test locking the `ForPath` chained-configuration withhold behavior alongside the existing `ForMember`/parenthesized/`ReverseMap()`-chained coverage.
 - **v2.30.26**: Locked AM050 sibling-config withhold behavior with direct `PreCondition`/`UseDestinationValue`/`Ignore` regression tests alongside the existing `Condition`/`NullSubstitute` cases.
 - **v2.30.25**: Corrected six AM002/AM011/AM020/AM021/AM022/AM030 rule-docs category lines to match the shipped descriptor categories and added a category drift guard that prevents future doc/descriptor drift.
@@ -192,7 +195,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.27">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.28">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

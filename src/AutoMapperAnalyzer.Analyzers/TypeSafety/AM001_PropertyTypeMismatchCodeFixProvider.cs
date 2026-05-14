@@ -230,12 +230,6 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
             return $"src.{propertyName} ?? {fallback}";
         }
 
-        // As a safe catch-all, allow cast when the destination is assignable from source
-        if (destinationType.IsReferenceType && sourceType.IsReferenceType)
-        {
-            return $"({destinationTypeName})src.{propertyName}";
-        }
-
         return null;
     }
 

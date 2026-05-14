@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>27</PatchVersion>
+        <PatchVersion>28</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,19 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.27 - Lock AM041 ForPath chained-configuration withhold behavior with a direct test
+        <PackageReleaseNotes>Version 2.30.28 - Tighten fixer actions to avoid unsafe automatic rewrites
 
             Changed:
-            - Added a direct AM041 code-fix test asserting that the duplicate `CreateMap` removal action is withheld when the duplicate carries chained `ForPath(...)` configuration. Until now, the documented claim that `ForPath` chained-config was covered by the generic `IsCreateMapWithUnsafeChainedConfiguration` algorithm relied on the algorithm not caring about the chained method name; the new test makes the claim directly test-backed
-            - No production code changes; the algorithm already withholds the fix for chained `ForPath`, and the new test locks the contract so a future refactor narrowing the structural check to a known-method list would now fail tests
+            - Hardened AM031's redundant-`ForMember` removal code fix so it only appears for direct convention-equivalent `MapFrom(src =&gt; src.Member)` mappings; transformed expressions, captured values, and other mapping policy keep the manual-review action
+            - Hardened AM001 so unrelated reference/framework conversions such as `Uri` to `string` do not receive speculative cast actions
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM041 code-fix coverage
+            - Full solution test suite passing on net10.0 with targeted AM001 and AM031 code-fix coverage
             - Rule catalog and sample diagnostics snapshot checks passing
+            - PR CI/CD and Claude Code Review passing
             - git diff --check clean
 
-            Previous Release: v2.30.26 - Lock AM050 sibling-config withhold behavior with PreCondition/UseDestinationValue/Ignore tests
+            Previous Release: v2.30.27 - Lock AM041 ForPath chained-configuration withhold behavior with a direct test
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

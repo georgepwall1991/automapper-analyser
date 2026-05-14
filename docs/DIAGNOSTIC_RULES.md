@@ -1130,9 +1130,12 @@ CreateMap<Source, Destination>()
     .ForMember(dest => dest.OrderCount, opt => opt.Ignore());
 ```
 
-**Code Fix 3: Remove Redundant ForMember (when convention mapping is valid)**
+**Code Fix 3: Remove Redundant ForMember (when convention mapping is equivalent)**
 
-If source/destination have compatible same-name members, AM031 can remove the redundant `ForMember(...)` and let AutoMapper convention mapping apply.
+If source/destination have compatible same-name members and the existing mapping is already the direct convention shape
+(`MapFrom(src => src.Member)`), AM031 can remove the redundant `ForMember(...)` and let AutoMapper convention mapping
+apply. Transforms such as `src.Score + 1`, captured values, service calls, and other non-equivalent expressions keep the
+manual-review action only so the fixer does not change runtime mapping policy.
 
 #### Detected Patterns
 
@@ -1343,7 +1346,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.27">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.28">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1382,5 +1385,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-14
-**Version**: 2.30.27
+**Version**: 2.30.28
 **Maintainer**: George Wall

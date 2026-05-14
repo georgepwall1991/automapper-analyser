@@ -694,6 +694,43 @@ public class AM001_CodeFixTests
         Assert.Equal("Ignore property 'Status' (manual review)", action.Title);
     }
 
+    [Fact]
+    public async Task AM001_ShouldOfferOnlyIgnore_WhenReferenceConversionIsNotExecutable()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Uri Website { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Website { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        ImmutableArray<Diagnostic> diagnostics = await GetDiagnosticsAsync(document);
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostics);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("Ignore property 'Website' (manual review)", action.Title);
+    }
+
     private static Document CreateDocument(string source)
     {
         var workspace = new AdhocWorkspace();
