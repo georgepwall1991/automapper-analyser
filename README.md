@@ -14,25 +14,26 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.22
+## 🎉 Latest Release: v2.30.23
 
-**AM031 Chained LINQ Source Normalization — `Where(...).Count() + Where(...).Any()` now reports**
+**AM050 Code Fix Preserves Sibling Configuration — no more silent loss of `Condition`/`NullSubstitute`**
 
 ✅ **Highlights**
 
-- AM031 multiple-enumeration tracking now normalises chained pre-terminal LINQ receivers back to the source-rooted collection path. Shapes such as `src.Items.Where(x => x.Active).Count() + src.Items.Where(x => !x.Active).Any()` now correctly report instead of slipping past because each terminal had a different stringified receiver key.
-- Peeling is restricted to invocations that resolve semantically to `System.Linq.Enumerable`/`Queryable` lazy operators, and the peeled root is only adopted when it normalises to a source-parameter-rooted member path. Arbitrary source-returning method calls (`src.GetItems()`, `src.GetActiveItems()`) and user-defined `Where`-named namesake extensions are not collapsed under a single receiver key.
-- Single chained-LINQ terminals over a source collection (`src.Items.Where(...).Count()`) still stay quiet — only multiple enumerations of the same source-rooted collection report.
+- The AM050 automatic `ForMember` removal is now withheld when the `ForMember`'s options lambda contains sibling configuration besides the redundant `MapFrom` — for example `Condition`, `NullSubstitute`, `PreCondition`, `UseDestinationValue`, or `Ignore`. Removing the whole `ForMember` would silently drop that policy.
+- Simple shapes (`o => o.MapFrom(s => s.Member)` or a block with the redundant `MapFrom` as the only statement) still receive the automatic ForMember-removal fix.
+- The AM050 diagnostic still fires in the unsafe case; only the automatic action is suppressed so the user removes the redundant `MapFrom` manually while preserving sibling policy.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `774` passing and `0` skipped.
-- Release validation covered targeted AM031 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
+- Full test suite passed with `777` passing and `0` skipped.
+- Release validation covered targeted AM050 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
 
 ### Recent Releases
 
-- **v2.30.22**: AM031 normalises chained pre-terminal LINQ receivers (`src.Items.Where(...).Count() + src.Items.Where(...).Any()`) so multiple enumerations of the same source-rooted collection report.
+- **v2.30.23**: AM050 code fix is withheld when the redundant-`MapFrom` `ForMember` lambda contains sibling configuration (`Condition`, `NullSubstitute`, …) that would otherwise be dropped.
+- **v2.30.22**: AM031 normalises chained pre-terminal LINQ receivers so multiple enumerations of the same source-rooted collection report.
 - **v2.30.21**: AM050 redundant-`MapFrom` detection now also fires on parenthesized and typed lambdas such as `o.MapFrom((Source s) => s.Name)`.
 - **v2.30.20**: AM030 recognises `ArgumentNullException.ThrowIfNull`, `ArgumentException.ThrowIfNullOrEmpty`, and `ArgumentException.ThrowIfNullOrWhiteSpace` as null guards on the converter's source parameter.
 - **v2.30.19**: AM030 stops reporting concrete converters as unused when a matching `ITypeConverter<TSource, TDestination>` is passed to `ConvertUsing` through DI/service-locator shapes.
@@ -190,7 +191,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.22">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.23">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

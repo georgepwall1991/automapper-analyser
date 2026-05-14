@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>22</PatchVersion>
+        <PatchVersion>23</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,19 +32,19 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.22 - AM031 chained LINQ source normalization
+        <PackageReleaseNotes>Version 2.30.23 - AM050 preserve sibling configuration on redundant ForMember
 
             Changed:
-            - Hardened AM031 multiple-enumeration tracking so chained pre-terminal LINQ receivers normalise back to the source-rooted collection path. Shapes such as `src.Items.Where(x =&gt; x.Active).Count() + src.Items.Where(x =&gt; !x.Active).Any()` now correctly report instead of slipping past because the receivers stringified to distinct keys
-            - Receiver peeling is restricted to invocations that resolve semantically to lazy `System.Linq.Enumerable`/`Queryable` operators (`Where`, `Select`, `SelectMany`, `OrderBy[Descending]`, `ThenBy[Descending]`, `GroupBy`, `Distinct`, `Skip[While]/SkipLast`, `Take[While]/TakeLast`, `Reverse`, `Cast`, `OfType`, `DefaultIfEmpty`), and the peeled root is only adopted as the tracking key when it normalises to a source-parameter-rooted member path. Arbitrary source-returning method calls (`src.GetItems()`, `src.GetActiveItems()`) and user-defined namesake extensions are not collapsed under a single receiver key
-            - Single chained-LINQ terminals over a source collection still stay quiet
+            - Hardened AM050 redundant-`MapFrom` code fix so the automatic removal of the enclosing `ForMember(...)` is withheld when the `ForMember`'s options lambda contains sibling configuration besides the redundant `MapFrom` (such as `Condition`, `NullSubstitute`, `PreCondition`, `UseDestinationValue`, `Ignore`, or any other member-options call). Removing the whole `ForMember` would silently drop that sibling policy
+            - The simple shapes `o =&gt; o.MapFrom(s =&gt; s.Member)` and `o =&gt; { o.MapFrom(s =&gt; s.Member); }` (the only invocation inside the options lambda) still receive the automatic ForMember-removal fix
+            - AM050 still reports the redundant `MapFrom` in the unsafe case; only the automatic action is suppressed so the user removes the redundant call manually while preserving sibling configuration
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM031 and RuleCatalog coverage
+            - Full solution test suite passing on net10.0 with targeted AM050 and RuleCatalog coverage
             - Rule catalog and sample diagnostics snapshot checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.21 - AM050 parenthesized lambda detection
+            Previous Release: v2.30.22 - AM031 chained LINQ source normalization
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
