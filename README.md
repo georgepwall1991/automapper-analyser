@@ -14,26 +14,26 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.18
+## 🎉 Latest Release: v2.30.19
 
-**AM031 LINQ Enumeration Coverage — catching Min/Max/Aggregate/ToDictionary multi-enumeration**
+**AM030 DI-Injected Converter Detection — fewer "unused converter" false positives**
 
 ✅ **Highlights**
 
-- Broadens AM031 multiple-enumeration tracking to the remaining commonly used terminal LINQ operators: `Min`, `Max`, `Aggregate`, `LongCount`, `Single`, `SingleOrDefault`, `ToHashSet`, `ToDictionary`, and `ToLookup`.
-- Shapes such as `src.Numbers.Min() + src.Numbers.Max()` and `src.Numbers.Single() + src.Numbers.ToHashSet().Count` now report AM031 instead of going silent.
-- Enumeration tracking is gated on `System.Linq.Enumerable`/`System.Linq.Queryable` containing types, so non-LINQ namesakes like `Math.Min` and `Math.Max` inside a `MapFrom` body no longer false-positive.
-- Lazy/intermediate operators (`Where`, `Select`, `OrderBy`, `GroupBy`, `Distinct`, etc.) remain off the terminal-enumeration list.
+- A declared `ITypeConverter<TSource, TDestination>` is no longer reported as unused when any `ConvertUsing(...)` argument resolves to the interface `ITypeConverter<TSource, TDestination>` itself.
+- Covers constructor injection (`public TestProfile(ITypeConverter<string, DateTime> converter)`), service-locator resolution, and other DI shapes whose concrete implementation cannot be statically traced.
+- Declared converters that no `ConvertUsing` call references — including ones with a different `<TSource, TDestination>` pair — still report, so genuinely unused converters keep flagging.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `759` passing and `0` skipped.
-- Release validation covered targeted AM031 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
+- Full test suite passed with `762` passing and `0` skipped.
+- Release validation covered targeted AM030 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
 
 ### Recent Releases
 
-- **v2.30.18**: AM031 multiple-enumeration tracking now covers `Min`, `Max`, `Aggregate`, `LongCount`, `Single`, `SingleOrDefault`, `ToHashSet`, `ToDictionary`, and `ToLookup`.
+- **v2.30.19**: AM030 stops reporting concrete converters as unused when a matching `ITypeConverter<TSource, TDestination>` is passed to `ConvertUsing` through DI/service-locator shapes.
+- **v2.30.18**: AM031 multiple-enumeration tracking covers `Min`, `Max`, `Aggregate`, `LongCount`, `Single`, `SingleOrDefault`, `ToHashSet`, `ToDictionary`, and `ToLookup`, with a `System.Linq.Enumerable`/`Queryable` namesake gate.
 - **v2.30.17**: AM041 withholds the duplicate-removal fix when the duplicate `CreateMap<>()` carries chained mapping policy.
 - **v2.30.16**: Analyzer precision hardening across AM002, AM006, AM021, AM031, and AM041.
 - **v2.30.15**: Fixer UX trust hardening with descriptor-specific no-fix metadata and executable interface collection rewrites.
@@ -187,7 +187,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.18">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.19">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

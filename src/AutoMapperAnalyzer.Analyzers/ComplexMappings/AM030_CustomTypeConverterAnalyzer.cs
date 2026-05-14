@@ -82,17 +82,18 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             var declaredConverters = new ConcurrentDictionary<string, (INamedTypeSymbol Symbol, Location Location)>(
                 StringComparer.Ordinal);
             var usedConverters = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+            var usedConverterInterfaces = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
 
             compilationContext.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeClassDeclaration(nodeContext, declaredConverters),
                 SyntaxKind.ClassDeclaration);
 
             compilationContext.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeConvertUsingInvocation(nodeContext, usedConverters),
+                nodeContext => AnalyzeConvertUsingInvocation(nodeContext, usedConverters, usedConverterInterfaces),
                 SyntaxKind.InvocationExpression);
 
             compilationContext.RegisterCompilationEndAction(endContext =>
-                ReportUnusedConverters(endContext, declaredConverters, usedConverters));
+                ReportUnusedConverters(endContext, declaredConverters, usedConverters, usedConverterInterfaces));
         });
     }
 
@@ -126,7 +127,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeConvertUsingInvocation(
         SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<string, byte> usedConverters)
+        ConcurrentDictionary<string, byte> usedConverters,
+        ConcurrentDictionary<string, byte> usedConverterInterfaces)
     {
         if (context.Node is not InvocationExpressionSyntax invocation)
         {
@@ -142,12 +144,25 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         {
             usedConverters.TryAdd(GetConverterKey(converterSymbol), 0);
         }
+
+        foreach (ArgumentSyntax argument in invocation.ArgumentList.Arguments)
+        {
+            TypeInfo argumentTypeInfo = context.SemanticModel.GetTypeInfo(argument.Expression);
+            ITypeSymbol? argumentType = argumentTypeInfo.Type ?? argumentTypeInfo.ConvertedType;
+            if (argumentType is INamedTypeSymbol namedArgumentType &&
+                IsTypeConverterInterface(namedArgumentType) &&
+                TryGetTypeConverterInterfaceKey(namedArgumentType, out string interfaceKey))
+            {
+                usedConverterInterfaces.TryAdd(interfaceKey, 0);
+            }
+        }
     }
 
     private static void ReportUnusedConverters(
         CompilationAnalysisContext context,
         ConcurrentDictionary<string, (INamedTypeSymbol Symbol, Location Location)> declaredConverters,
-        ConcurrentDictionary<string, byte> usedConverters)
+        ConcurrentDictionary<string, byte> usedConverters,
+        ConcurrentDictionary<string, byte> usedConverterInterfaces)
     {
         foreach (KeyValuePair<string, (INamedTypeSymbol Symbol, Location Location)> entry in declaredConverters)
         {
@@ -158,6 +173,11 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             }
 
             (INamedTypeSymbol Symbol, Location Location) converterInfo = entry.Value;
+            if (ImplementsAnyUsedConverterInterface(converterInfo.Symbol, usedConverterInterfaces))
+            {
+                continue;
+            }
+
             var diagnostic = Diagnostic.Create(
                 UnusedTypeConverterRule,
                 converterInfo.Location,
@@ -165,6 +185,46 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
             context.ReportDiagnostic(diagnostic);
         }
+    }
+
+    private static bool ImplementsAnyUsedConverterInterface(
+        INamedTypeSymbol converter,
+        ConcurrentDictionary<string, byte> usedConverterInterfaces)
+    {
+        if (usedConverterInterfaces.IsEmpty)
+        {
+            return false;
+        }
+
+        foreach (INamedTypeSymbol implementedInterface in converter.AllInterfaces)
+        {
+            if (!IsTypeConverterInterface(implementedInterface))
+            {
+                continue;
+            }
+
+            if (TryGetTypeConverterInterfaceKey(implementedInterface, out string interfaceKey) &&
+                usedConverterInterfaces.ContainsKey(interfaceKey))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryGetTypeConverterInterfaceKey(INamedTypeSymbol interfaceSymbol, out string key)
+    {
+        key = string.Empty;
+        if (!IsTypeConverterInterface(interfaceSymbol))
+        {
+            return false;
+        }
+
+        ITypeSymbol source = interfaceSymbol.TypeArguments[0];
+        ITypeSymbol destination = interfaceSymbol.TypeArguments[1];
+        key = source.ToDisplayString() + "->" + destination.ToDisplayString();
+        return true;
     }
 
     private static IEnumerable<INamedTypeSymbol> GetConverterSymbolsFromInvocation(

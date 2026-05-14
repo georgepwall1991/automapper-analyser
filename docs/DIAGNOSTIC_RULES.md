@@ -930,7 +930,12 @@ Validates custom type converter implementations and detects converter-quality is
 Unused-converter analysis treats generic, instance, and type-based converter configuration as usage, including
 `ConvertUsing<MyConverter>()`, `ConvertUsing(new MyConverter())`, and `ConvertUsing(typeof(MyConverter))`.
 It also recognizes simple local, field, or property initializers where an `ITypeConverter<TSource, TDestination>`
-variable is initialized with a concrete converter and then passed to `ConvertUsing(converter)`.
+variable is initialized with a concrete converter and then passed to `ConvertUsing(converter)`. Additionally, when any
+`ConvertUsing(...)` argument resolves to the interface `ITypeConverter<TSource, TDestination>` itself —
+for example through constructor injection (`public TestProfile(ITypeConverter<string, DateTime> converter)`),
+a service-locator resolution call, or any other DI shape whose concrete implementation cannot be statically
+traced — every declared concrete implementation of that interface pair is treated as in use, so the runtime
+container is free to supply any of them without producing an "unused converter" false positive.
 
 #### Problem 1: Invalid Converter Signature
 
@@ -1333,7 +1338,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.18">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.19">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1372,5 +1377,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-07
-**Version**: 2.30.18
+**Version**: 2.30.19
 **Maintainer**: George Wall

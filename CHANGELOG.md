@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## [2.30.19] - 2026-05-14
+
+### Changed
+
+- Hardened AM030 unused-converter detection so a declared `ITypeConverter<TSource, TDestination>` implementation is no longer reported as unused when any `ConvertUsing(...)` argument resolves to the interface `ITypeConverter<TSource, TDestination>` itself. This closes a DI/service-provider false-positive where `public TestProfile(ITypeConverter<string, DateTime> converter)` or `services.Resolve<ITypeConverter<string, DateTime>>()` returns an interface-typed handle whose concrete class is supplied at runtime.
+- Declared converters whose `<TSource, TDestination>` pair is not referenced by any `ConvertUsing` call (concrete or interface-typed) still report, so genuinely unused converters remain flagged.
+
+### Validation
+
+- Targeted AM030 analyzer tests.
+- Full solution test suite (`net10.0`) green at 762 passing, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+
 ## [2.30.18] - 2026-05-14
 
 ### Changed
