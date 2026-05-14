@@ -725,7 +725,7 @@ dotnet pack --configuration Release
 
 # Test package locally
 cd test-install/NetCoreTest
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.23-local
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.24-local
 ```
 
 ---
@@ -907,6 +907,6 @@ dotnet build
 
 ---
 
-**Last Updated**: 2025-11-19
+**Last Updated**: 2026-05-14
 **Maintainer**: George Wall
-**Version**: 2.30.23
+**Version**: 2.30.24

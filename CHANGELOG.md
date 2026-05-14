@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.24] - 2026-05-14
+
+### Changed
+
+- Marked the unwired `AM030_CustomTypeConverterAnalyzer.MissingConvertUsingConfigurationRule` `DiagnosticDescriptor` field as `[Obsolete]`. The field is never included in `SupportedDiagnostics`, never tracked in `AnalyzerReleases.Shipped.md`, and contradicts the documented ownership boundary in `docs/ARCHITECTURE.md` (AM001/AM020/AM021 own missing-converter mapping diagnostics, not AM030). The descriptor is retained for binary compatibility but the Obsolete attribute and the new trust drift guard ensure the legacy intent is now explicit and the field cannot be silently revived.
+- Marked the unwired `AM003_CollectionTypeIncompatibilityAnalyzer.CollectionElementIncompatibilityRule` `DiagnosticDescriptor` field as `[Obsolete]`. Same defect class: declared but never wired, ownership long since moved to `AM021_CollectionElementMismatchAnalyzer`'s identically named live descriptor.
+- Added `RuleCatalogTests.Analyzers_ShouldRegisterEveryDeclaredDiagnosticDescriptor` as a trust drift guard that enforces a two-part contract: every `public static DiagnosticDescriptor` field on a shipped `DiagnosticAnalyzer` must appear in that analyzer's `SupportedDiagnostics` *or* be explicitly marked `[Obsolete]`; and no descriptor can be both registered and Obsolete. Future relics of this shape now fail loudly in tests rather than silently inflating the apparent rule surface.
+
+### Validation
+
+- Targeted AM003, AM030, and `RuleCatalogTests` test slices.
+- Full solution test suite (`net10.0`) green.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+
 ## [2.30.23] - 2026-05-14
 
 ### Changed

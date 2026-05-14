@@ -74,6 +74,59 @@ public partial class RuleCatalogTests
     }
 
     [Fact]
+    public void Analyzers_ShouldRegisterEveryDeclaredDiagnosticDescriptor()
+    {
+        Type[] analyzerTypes = GetShippedTypes<DiagnosticAnalyzer>()
+            .Where(type => type.GetCustomAttributes<DiagnosticAnalyzerAttribute>().Any())
+            .ToArray();
+
+        var orphanedDescriptors = new List<string>();
+        var unmarkedActiveDescriptors = new List<string>();
+        foreach (Type analyzerType in analyzerTypes)
+        {
+            var analyzer = (DiagnosticAnalyzer)Activator.CreateInstance(analyzerType)!;
+            HashSet<DiagnosticDescriptor> supported = new(analyzer.SupportedDiagnostics);
+
+            FieldInfo[] descriptorFields = analyzerType
+                .GetFields(BindingFlags.Public | BindingFlags.Static)
+                .Where(field => field.FieldType == typeof(DiagnosticDescriptor))
+                .ToArray();
+
+            foreach (FieldInfo field in descriptorFields)
+            {
+                var descriptor = (DiagnosticDescriptor)field.GetValue(null)!;
+                bool isObsolete = field.GetCustomAttribute<ObsoleteAttribute>() is not null;
+                bool isSupported = supported.Contains(descriptor);
+
+                if (!isSupported && !isObsolete)
+                {
+                    orphanedDescriptors.Add($"{analyzerType.FullName}.{field.Name}");
+                }
+
+                if (isSupported && isObsolete)
+                {
+                    unmarkedActiveDescriptors.Add($"{analyzerType.FullName}.{field.Name}");
+                }
+            }
+        }
+
+        Assert.True(
+            orphanedDescriptors.Count == 0,
+            "Every public static DiagnosticDescriptor on a shipped analyzer must be registered in "
+            + "SupportedDiagnostics, or explicitly marked [Obsolete] to signal that it is retained only "
+            + "for binary compatibility. Orphans:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, orphanedDescriptors));
+
+        Assert.True(
+            unmarkedActiveDescriptors.Count == 0,
+            "A DiagnosticDescriptor cannot be both registered in SupportedDiagnostics and marked "
+            + "[Obsolete]. Resolve the contradiction. Offenders:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, unmarkedActiveDescriptors));
+    }
+
+    [Fact]
     public void RuleCatalog_ShouldCoverEveryShippedAnalyzerAndFixProvider()
     {
         Type[] analyzerTypes = GetShippedTypes<DiagnosticAnalyzer>()
