@@ -14,24 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.19
+## 🎉 Latest Release: v2.30.20
 
-**AM030 DI-Injected Converter Detection — fewer "unused converter" false positives**
+**AM030 Converter Null-Handling Guard Recognition — modern `ThrowIfNull` guards count**
 
 ✅ **Highlights**
 
-- A declared `ITypeConverter<TSource, TDestination>` is no longer reported as unused when any `ConvertUsing(...)` argument resolves to the interface `ITypeConverter<TSource, TDestination>` itself.
-- Covers constructor injection (`public TestProfile(ITypeConverter<string, DateTime> converter)`), service-locator resolution, and other DI shapes whose concrete implementation cannot be statically traced.
-- Declared converters that no `ConvertUsing` call references — including ones with a different `<TSource, TDestination>` pair — still report, so genuinely unused converters keep flagging.
+- `ArgumentNullException.ThrowIfNull(source)`, `ArgumentException.ThrowIfNullOrEmpty(source)`, and `ArgumentException.ThrowIfNullOrWhiteSpace(source)` now count as explicit null handling inside a converter's `Convert` method, alongside the existing `== null`/`!= null`, null patterns, `string.IsNullOrEmpty/IsNullOrWhiteSpace`, null-coalescing, and conditional-access shapes.
+- Recognition resolves the guarded value via the `argument:` named parameter when present, so `ThrowIfNull(paramName: nameof(source), argument: source)` also stays quiet.
+- Guard calls whose `argument`/first positional argument is unrelated to the source parameter (for example `ArgumentNullException.ThrowIfNull(context)`) still trigger AM030, so converters that genuinely miss null handling keep reporting.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `762` passing and `0` skipped.
+- Full test suite passed with `766` passing and `0` skipped.
 - Release validation covered targeted AM030 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
 
 ### Recent Releases
 
+- **v2.30.20**: AM030 recognises `ArgumentNullException.ThrowIfNull`, `ArgumentException.ThrowIfNullOrEmpty`, and `ArgumentException.ThrowIfNullOrWhiteSpace` as null guards on the converter's source parameter.
 - **v2.30.19**: AM030 stops reporting concrete converters as unused when a matching `ITypeConverter<TSource, TDestination>` is passed to `ConvertUsing` through DI/service-locator shapes.
 - **v2.30.18**: AM031 multiple-enumeration tracking covers `Min`, `Max`, `Aggregate`, `LongCount`, `Single`, `SingleOrDefault`, `ToHashSet`, `ToDictionary`, and `ToLookup`, with a `System.Linq.Enumerable`/`Queryable` namesake gate.
 - **v2.30.17**: AM041 withholds the duplicate-removal fix when the duplicate `CreateMap<>()` carries chained mapping policy.
@@ -187,7 +188,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.19">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.20">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

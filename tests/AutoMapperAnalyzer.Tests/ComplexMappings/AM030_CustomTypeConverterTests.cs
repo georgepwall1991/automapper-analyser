@@ -82,6 +82,147 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenConverterUsesArgumentNullExceptionThrowIfNull()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class GuardedConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            ArgumentNullException.ThrowIfNull(source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<GuardedConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenConverterUsesArgumentExceptionThrowIfNullOrEmpty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class GuardedConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            ArgumentException.ThrowIfNullOrEmpty(source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<GuardedConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenThrowIfNullUsesNamedArgumentParameterOrder()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class NamedGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            ArgumentNullException.ThrowIfNull(paramName: nameof(source), argument: source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<NamedGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldReportDiagnostic_WhenThrowIfNullArgumentIsUnrelatedToSourceParameter()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class UnrelatedGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            ArgumentNullException.ThrowIfNull(context);
+                                            return DateTime.Parse(source!);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<UnrelatedGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule, 8, 25,
+                "UnrelatedGuardConverter", "String")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldNotReportDiagnostic_ForPropertyTypeMismatchWithoutConvertUsing()
     {
         const string testCode = """

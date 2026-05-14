@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>19</PatchVersion>
+        <PatchVersion>20</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.19 - AM030 DI-injected converter false-positive suppression
+        <PackageReleaseNotes>Version 2.30.20 - AM030 converter null-handling guard recognition
 
             Changed:
-            - Hardened AM030 unused-converter detection so a declared `ITypeConverter&lt;TSource, TDestination&gt;` is no longer reported as unused when any `ConvertUsing(...)` argument resolves to the interface `ITypeConverter&lt;TSource, TDestination&gt;` itself (covers constructor injection, service-locator resolution, and other DI shapes whose concrete implementation cannot be statically traced)
-            - The existing concrete-converter detection (via `ConvertUsing&lt;TConverter&gt;()`, `typeof(...)`, `new ...()`, or interface-typed locals/fields/properties with concrete initializers) remains untouched, so declared converters that no `ConvertUsing` call references — including ones with a different `&lt;TSource, TDestination&gt;` pair — still report
+            - Hardened AM030 converter null-handling detection so modern guard clauses `ArgumentNullException.ThrowIfNull(source)`, `ArgumentException.ThrowIfNullOrEmpty(source)`, and `ArgumentException.ThrowIfNullOrWhiteSpace(source)` count as explicit null handling, including the named-argument shape `ThrowIfNull(paramName: ..., argument: source)`
+            - Guard calls whose `argument`/first positional argument is unrelated to the converter's source parameter (for example `ArgumentNullException.ThrowIfNull(context)`) still trigger AM030 so genuinely missing null handling keeps reporting
 
             Validation:
             - Full solution test suite passing on net10.0 with targeted AM030 and RuleCatalog coverage
             - Rule catalog and sample diagnostics snapshot checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.18 - AM031 LINQ enumeration coverage
+            Previous Release: v2.30.19 - AM030 DI-injected converter false-positive suppression
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

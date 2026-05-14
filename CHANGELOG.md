@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.20] - 2026-05-14
+
+### Changed
+
+- Hardened AM030 converter null-handling detection so the modern guard clauses `ArgumentNullException.ThrowIfNull(source)`, `ArgumentException.ThrowIfNullOrEmpty(source)`, and `ArgumentException.ThrowIfNullOrWhiteSpace(source)` count as explicit null handling alongside the existing `== null`/`!= null`, null patterns, `string.IsNullOrEmpty`/`IsNullOrWhiteSpace`, null-coalescing, and conditional-access shapes.
+- Recognition resolves the guarded value through the `argument:` named argument when present, so the named-argument shape `ThrowIfNull(paramName: nameof(source), argument: source)` also stays quiet.
+- Guard calls whose `argument`/first positional argument is unrelated to the converter's source parameter (e.g. `ArgumentNullException.ThrowIfNull(context)`) still trigger AM030 so converters that genuinely miss null handling keep reporting.
+
+### Validation
+
+- Targeted AM030 analyzer tests.
+- Full solution test suite (`net10.0`) green at 766 passing, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+
 ## [2.30.19] - 2026-05-14
 
 ### Changed
