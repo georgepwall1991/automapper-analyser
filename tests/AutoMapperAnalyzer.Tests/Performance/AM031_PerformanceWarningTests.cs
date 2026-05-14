@@ -181,6 +181,214 @@ public class AM031_PerformanceWarningTests
     }
 
     [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenChainedWhereTerminalsEnumerateSameSourceCollection()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Item { public bool Active { get; set; } }
+
+                                    public class Source
+                                    {
+                                        public List<Item> Items { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Score { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Items.Where(x => x.Active).Count() + (src.Items.Where(x => !x.Active).Any() ? 1 : 0)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule, 24, 67,
+                "Score", "Items")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_WhenLinqChainsAreRootedAtSourceMethodCalls()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Item { public bool Active { get; set; } }
+
+                                    public class Source
+                                    {
+                                        public List<Item> GetItems() => new List<Item>();
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Score { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.GetItems().Where(x => x.Active).Count() + (src.GetItems().Where(x => !x.Active).Any() ? 1 : 0)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_WhenChainedMethodIsAUserDefinedWhereNamesake()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Item { public bool Active { get; set; } }
+
+                                    public static class ItemListExtensions
+                                    {
+                                        // User-defined namesake — eagerly materializes an independent list.
+                                        public static List<Item> Where(this List<Item> items, Func<Item, bool> predicate)
+                                        {
+                                            return Enumerable.Where(items, predicate).ToList();
+                                        }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<Item> Items { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Score { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Items.Where(x => x.Active).Count + (src.Items.Where(x => !x.Active).Count > 0 ? 1 : 0)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_WhenTerminalsAreCalledOnDistinctSourceMethodResults()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Item { public bool Active { get; set; } }
+
+                                    public class Source
+                                    {
+                                        public List<Item> GetActiveItems() => new List<Item>();
+                                        public List<Item> GetArchivedItems() => new List<Item>();
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Score { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.GetActiveItems().Count() + (src.GetArchivedItems().Any() ? 1 : 0)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_WhenChainedWhereTerminalEnumeratesSameCollectionOnlyOnce()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Item { public bool Active { get; set; } }
+
+                                    public class Source
+                                    {
+                                        public List<Item> Items { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Score { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Items.Where(x => x.Active).Count()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM031_ShouldNotReportDiagnostic_WhenMathMinAndMathMaxUsedInsideMapFrom()
     {
         const string testCode = """

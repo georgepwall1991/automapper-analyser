@@ -2,7 +2,7 @@
 
 This file is generated from `RuleCatalog`.
 
-Package version: `2.30.21`
+Package version: `2.30.22`
 
 | Rule ID | Descriptor Title | Severity | Category | Analyzer | Code Fix | Trust | Sample | Docs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |

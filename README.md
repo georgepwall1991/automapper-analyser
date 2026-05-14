@@ -14,23 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.21
+## 🎉 Latest Release: v2.30.22
 
-**AM050 Parenthesized Lambda Detection — redundant `MapFrom((s) => s.Name)` no longer slips past**
+**AM031 Chained LINQ Source Normalization — `Where(...).Count() + Where(...).Any()` now reports**
 
 ✅ **Highlights**
 
-- AM050 redundant-`MapFrom` detection now recognises parenthesized and typed lambda shapes — `o.MapFrom((s) => s.Name)` and `o.MapFrom((Source s) => s.Name)` — alongside the existing simple `s => s.Name` shape. Destination lambdas inside `ForMember(d => ...)` accept the same shapes.
-- Multi-parameter parenthesized lambdas remain ignored, so AutoMapper's `(src, ctx) => ...` `IMemberConfigurationExpression` overload still stays quiet.
+- AM031 multiple-enumeration tracking now normalises chained pre-terminal LINQ receivers back to the source-rooted collection path. Shapes such as `src.Items.Where(x => x.Active).Count() + src.Items.Where(x => !x.Active).Any()` now correctly report instead of slipping past because each terminal had a different stringified receiver key.
+- Peeling is restricted to invocations that resolve semantically to `System.Linq.Enumerable`/`Queryable` lazy operators, and the peeled root is only adopted when it normalises to a source-parameter-rooted member path. Arbitrary source-returning method calls (`src.GetItems()`, `src.GetActiveItems()`) and user-defined `Where`-named namesake extensions are not collapsed under a single receiver key.
+- Single chained-LINQ terminals over a source collection (`src.Items.Where(...).Count()`) still stay quiet — only multiple enumerations of the same source-rooted collection report.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `769` passing and `0` skipped.
-- Release validation covered targeted AM050 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
+- Full test suite passed with `774` passing and `0` skipped.
+- Release validation covered targeted AM031 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
 
 ### Recent Releases
 
+- **v2.30.22**: AM031 normalises chained pre-terminal LINQ receivers (`src.Items.Where(...).Count() + src.Items.Where(...).Any()`) so multiple enumerations of the same source-rooted collection report.
 - **v2.30.21**: AM050 redundant-`MapFrom` detection now also fires on parenthesized and typed lambdas such as `o.MapFrom((Source s) => s.Name)`.
 - **v2.30.20**: AM030 recognises `ArgumentNullException.ThrowIfNull`, `ArgumentException.ThrowIfNullOrEmpty`, and `ArgumentException.ThrowIfNullOrWhiteSpace` as null guards on the converter's source parameter.
 - **v2.30.19**: AM030 stops reporting concrete converters as unused when a matching `ITypeConverter<TSource, TDestination>` is passed to `ConvertUsing` through DI/service-locator shapes.
@@ -188,7 +190,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.21">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.22">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
