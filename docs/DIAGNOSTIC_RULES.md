@@ -930,7 +930,12 @@ Validates custom type converter implementations and detects converter-quality is
 Unused-converter analysis treats generic, instance, and type-based converter configuration as usage, including
 `ConvertUsing<MyConverter>()`, `ConvertUsing(new MyConverter())`, and `ConvertUsing(typeof(MyConverter))`.
 It also recognizes simple local, field, or property initializers where an `ITypeConverter<TSource, TDestination>`
-variable is initialized with a concrete converter and then passed to `ConvertUsing(converter)`. Additionally, when any
+variable is initialized with a concrete converter and then passed to `ConvertUsing(converter)`. Converter null-handling
+detection inside the `Convert` method recognizes the modern guard clauses `ArgumentNullException.ThrowIfNull(source)`,
+`ArgumentException.ThrowIfNullOrEmpty(source)`, and `ArgumentException.ThrowIfNullOrWhiteSpace(source)` on the
+converter's source parameter, alongside the existing `== null`/`!= null`, null patterns,
+`string.IsNullOrEmpty`/`IsNullOrWhiteSpace`, null-coalescing, and conditional-access shapes. Guard calls whose first
+argument is unrelated to the source parameter still trigger AM030. Additionally, when any
 `ConvertUsing(...)` argument resolves to the interface `ITypeConverter<TSource, TDestination>` itself —
 for example through constructor injection (`public TestProfile(ITypeConverter<string, DateTime> converter)`),
 a service-locator resolution call, or any other DI shape whose concrete implementation cannot be statically
@@ -1338,7 +1343,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.19">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.20">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1377,5 +1382,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-07
-**Version**: 2.30.19
+**Version**: 2.30.20
 **Maintainer**: George Wall

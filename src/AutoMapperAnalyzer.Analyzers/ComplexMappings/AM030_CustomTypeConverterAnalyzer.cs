@@ -497,6 +497,20 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
+        bool hasArgumentGuardNullCheck = nodes
+            .OfType<InvocationExpressionSyntax>()
+            .Any(invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Name.Identifier.ValueText is "ThrowIfNull" or "ThrowIfNullOrEmpty" or "ThrowIfNullOrWhiteSpace" &&
+                IsArgumentExceptionTypeAccess(memberAccess.Expression) &&
+                TryGetGuardArgument(invocation.ArgumentList, out ExpressionSyntax guardedExpression) &&
+                IsSourceReference(guardedExpression, sourceParameterName));
+
+        if (hasArgumentGuardNullCheck)
+        {
+            return true;
+        }
+
         bool hasNullCoalescing = nodes
             .OfType<BinaryExpressionSyntax>()
             .Any(binary => binary.IsKind(SyntaxKind.CoalesceExpression) &&
@@ -544,6 +558,41 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         {
             PredefinedTypeSyntax predefinedType => predefinedType.Keyword.IsKind(SyntaxKind.StringKeyword),
             IdentifierNameSyntax identifierName => identifierName.Identifier.ValueText is "String" or "string",
+            _ => false
+        };
+    }
+
+    private static bool TryGetGuardArgument(ArgumentListSyntax argumentList, out ExpressionSyntax guardedExpression)
+    {
+        guardedExpression = null!;
+        if (argumentList.Arguments.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (ArgumentSyntax argument in argumentList.Arguments)
+        {
+            if (argument.NameColon?.Name.Identifier.ValueText == "argument")
+            {
+                guardedExpression = argument.Expression;
+                return true;
+            }
+        }
+
+        guardedExpression = argumentList.Arguments[0].Expression;
+        return true;
+    }
+
+    private static bool IsArgumentExceptionTypeAccess(ExpressionSyntax expression)
+    {
+        return expression switch
+        {
+            IdentifierNameSyntax identifierName =>
+                identifierName.Identifier.ValueText is "ArgumentNullException" or "ArgumentException",
+            QualifiedNameSyntax qualifiedName =>
+                qualifiedName.Right.Identifier.ValueText is "ArgumentNullException" or "ArgumentException",
+            MemberAccessExpressionSyntax memberAccess =>
+                memberAccess.Name.Identifier.ValueText is "ArgumentNullException" or "ArgumentException",
             _ => false
         };
     }
