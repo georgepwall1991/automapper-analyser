@@ -32,8 +32,18 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         "Source and destination properties have incompatible collection types that require explicit conversion configuration.");
 
     /// <summary>
-    ///     Legacy descriptor kept for source compatibility; element mismatches are owned by AM021.
+    ///     Legacy descriptor retained for binary compatibility. Element-level incompatibility is owned by
+    ///     <c>AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule</c>; this AM003
+    ///     descriptor is never registered in <see cref="SupportedDiagnostics" /> and never reports. Do not
+    ///     reuse — the drift guard
+    ///     <c>RuleCatalogTests.Analyzers_ShouldRegisterEveryDeclaredDiagnosticDescriptor</c> requires every
+    ///     additional orphan to be marked <see cref="ObsoleteAttribute" /> so legacy intent stays explicit.
     /// </summary>
+    [Obsolete(
+        "AM003 no longer owns collection element incompatibility diagnostics. AM021's CollectionElement"
+        + "IncompatibilityRule handles element mismatches. This descriptor is retained only for binary "
+        + "compatibility and never appears in SupportedDiagnostics.",
+        error: false)]
     public static readonly DiagnosticDescriptor CollectionElementIncompatibilityRule = new(
         "AM003",
         "Collection element type incompatibility in AutoMapper configuration",

@@ -14,24 +14,24 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.23
+## 🎉 Latest Release: v2.30.24
 
-**AM050 Code Fix Preserves Sibling Configuration — no more silent loss of `Condition`/`NullSubstitute`**
+**Mark unwired AM003/AM030 `DiagnosticDescriptor` relics `[Obsolete]`, and lock the invariant in tests**
 
 ✅ **Highlights**
 
-- The AM050 automatic `ForMember` removal is now withheld when the `ForMember`'s options lambda contains sibling configuration besides the redundant `MapFrom` — for example `Condition`, `NullSubstitute`, `PreCondition`, `UseDestinationValue`, or `Ignore`. Removing the whole `ForMember` would silently drop that policy.
-- Simple shapes (`o => o.MapFrom(s => s.Member)` or a block with the redundant `MapFrom` as the only statement) still receive the automatic ForMember-removal fix.
-- The AM050 diagnostic still fires in the unsafe case; only the automatic action is suppressed so the user removes the redundant `MapFrom` manually while preserving sibling policy.
+- Marked the unwired `MissingConvertUsingConfigurationRule` field on `AM030_CustomTypeConverterAnalyzer` as `[Obsolete]`. The field was declared but never registered in `SupportedDiagnostics`, never tracked in `AnalyzerReleases.Shipped.md`, and contradicted the documented ownership boundary — AM001/AM020/AM021 own missing-converter mapping diagnostics, not AM030. The descriptor stays for binary compatibility; the Obsolete attribute makes the legacy intent explicit and the new drift guard keeps it so.
+- Marked the unwired `CollectionElementIncompatibilityRule` field on `AM003_CollectionTypeIncompatibilityAnalyzer` as `[Obsolete]`. Same defect class: declared but never wired, ownership long since moved to AM021's identically named live descriptor.
+- Added a `RuleCatalogTests.Analyzers_ShouldRegisterEveryDeclaredDiagnosticDescriptor` trust drift guard that enforces a two-part contract: every `public static DiagnosticDescriptor` field on a shipped analyzer must appear in that analyzer's `SupportedDiagnostics` or be explicitly marked `[Obsolete]`, and no descriptor can be both registered and Obsolete.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
-- Full test suite passed with `778` passing and `0` skipped.
-- Release validation covered targeted AM050 and RuleCatalog tests plus AnalyzerVerifier catalog/snapshot checks.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
 
 ### Recent Releases
 
+- **v2.30.24**: Marked unwired AM003/AM030 `DiagnosticDescriptor` relics `[Obsolete]` (binary compatibility preserved) and added a trust drift guard that fails when any shipped analyzer declares a `DiagnosticDescriptor` field outside its `SupportedDiagnostics` without an explicit Obsolete attribute.
 - **v2.30.23**: AM050 code fix is withheld when the redundant-`MapFrom` `ForMember` lambda contains sibling configuration (`Condition`, `NullSubstitute`, …) that would otherwise be dropped.
 - **v2.30.22**: AM031 normalises chained pre-terminal LINQ receivers so multiple enumerations of the same source-rooted collection report.
 - **v2.30.21**: AM050 redundant-`MapFrom` detection now also fires on parenthesized and typed lambdas such as `o.MapFrom((Source s) => s.Name)`.
@@ -191,7 +191,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.23">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.24">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

@@ -27,8 +27,17 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         "Custom type converters must implement ITypeConverter<TSource, TDestination> with proper Convert method signature.");
 
     /// <summary>
-    ///     Legacy descriptor kept for source compatibility; AM001/AM020/AM021 own missing-converter mapping diagnostics.
+    ///     Legacy descriptor retained for binary compatibility. AM001, AM020, and AM021 own missing-converter
+    ///     mapping diagnostics; this descriptor is never registered in <see cref="SupportedDiagnostics" /> and
+    ///     never reports. Do not reuse — the drift guard
+    ///     <c>RuleCatalogTests.Analyzers_ShouldRegisterEveryDeclaredDiagnosticDescriptor</c> requires every
+    ///     additional orphan to be marked <see cref="ObsoleteAttribute" /> so legacy intent stays explicit.
     /// </summary>
+    [Obsolete(
+        "AM030 no longer owns missing ConvertUsing configuration diagnostics. AM001, AM020, and AM021 handle "
+        + "property-level conversion absence. This descriptor is retained only for binary compatibility and "
+        + "never appears in SupportedDiagnostics.",
+        error: false)]
     public static readonly DiagnosticDescriptor MissingConvertUsingConfigurationRule = new(
         "AM030",
         "Missing ConvertUsing configuration for type converter",
