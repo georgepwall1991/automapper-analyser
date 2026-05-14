@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.28] - 2026-05-14
+
+### Changed
+
+- Hardened AM031's redundant-`ForMember` removal code fix so the automatic action is only offered when the existing mapping is already convention-equivalent: a direct `MapFrom(src => src.Member)` on a compatible same-name source/destination member. Transformed expressions such as `src.Score + 1`, captured same-name properties, service calls, and other mapping policy now keep only the manual-review action instead of being silently dropped.
+- Hardened AM001's property-mismatch fixer so unrelated reference/framework conversions such as `Uri` to `string` stay on the manual-review path instead of receiving a speculative cast action that would not compile or would misrepresent the mapping policy.
+- Updated AM031 docs and analyzer-health notes to document the narrower fixer boundary.
+
+### Validation
+
+- Targeted AM001 and AM031 code-fix tests.
+- Full solution test suite (`net10.0`) green.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- PR CI/CD and Claude Code Review green.
+
 ## [2.30.27] - 2026-05-14
 
 ### Changed

@@ -72,7 +72,7 @@ The Planning Shortlist above summarises overall rule priority; this backlog is t
 
 - _AM050 sibling-config direct coverage — resolved in 2.30.26._ Direct tests for `PreCondition`, `UseDestinationValue`, and `Ignore` now sit alongside the pre-existing `Condition`/`NullSubstitute` cases, so the generic structural check is locked against future narrowing.
 - _AM041 `ForPath` chained-config test — resolved in 2.30.27._ The duplicate-removal fix withhold for `CreateMap<>().ForPath(...)` shapes now has direct test coverage alongside the pre-existing `ForMember`/parenthesized/`ReverseMap()`-chained cases.
-- _AM031 remove-`ForMember` safety — resolved locally._ The automatic removal action now requires a direct convention-equivalent `MapFrom(src => src.Member)` expression; transforms such as `src.Score + 1` and captured same-name properties keep only the manual-review action.
+- _AM031 remove-`ForMember` safety — resolved in 2.30.28._ The automatic removal action now requires a direct convention-equivalent `MapFrom(src => src.Member)` expression; transforms such as `src.Score + 1` and captured same-name properties keep only the manual-review action.
 - **Tighten diagnostic placement** for high-volume rules (AM004 / AM006) where the diagnostic currently lands on the mapping invocation rather than the offending property token. The cross-cutting note already calls this out as acceptable but improvable when practical — no owner yet.
 
 ### P3 — Directional, longer-horizon
