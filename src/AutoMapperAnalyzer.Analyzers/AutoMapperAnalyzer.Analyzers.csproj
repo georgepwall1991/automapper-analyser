@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>16</PatchVersion>
+        <PatchVersion>17</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,21 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.16 - Analyzer precision hardening
+        <PackageReleaseNotes>Version 2.30.17 - AM041 chained CreateMap fixer safety
 
             Changed:
-            - Hardened AM002 explicit mapping nullability analysis and fixes for repeated MapFrom, NullSubstitute, resolver/converter, ForPath, and nullable receiver cases
-            - Hardened AM006 ConstructUsing and ConvertUsing ownership boundaries for unmapped destination diagnostics
-            - Hardened AM021 generated conversion calls with fully qualified System APIs
-            - Hardened AM031 ForPath diagnostics while withholding unsafe automatic rewrites
-            - Hardened AM041 chained ReverseMap duplicate fixes onto the manual-review path
+            - Hardened AM041 so duplicate `CreateMap&lt;TSource, TDestination&gt;()` registrations carrying chained `ForMember`, `ForPath`, or other configuration (including parenthesized chains and chains beyond `.ReverseMap()`) no longer offer an automatic removal that would silently drop mapping policy
+            - The bare `CreateMap&lt;TSource, TDestination&gt;().ReverseMap()` reversal path remains safe and still gets the automatic swap
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM002, AM006, AM021, AM031, AM041, and RuleCatalog coverage
+            - Full solution test suite passing on net10.0 with targeted AM041 and RuleCatalog coverage
             - Rule catalog and sample diagnostics snapshot checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.15 - Fixer UX and trust metadata hardening
+            Previous Release: v2.30.16 - Analyzer precision hardening
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

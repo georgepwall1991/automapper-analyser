@@ -1191,6 +1191,8 @@ public class MyProfile : Profile
 
 The AM041 code fix is intentionally withheld when a duplicate `ReverseMap()` has reverse-side configuration chained after it, such as `.ReverseMap().ForMember(...)` or `(CreateMap<...>().ReverseMap()).ForMember(...)`. Removing that chain automatically could move or drop mapping policy, so those cases require manual review.
 
+The same safety boundary applies to duplicate `CreateMap<TSource, TDestination>()` registrations that carry chained mapping configuration, such as `CreateMap<S, D>().ForMember(...)`, `(CreateMap<S, D>()).ForPath(...)`, or `CreateMap<S, D>().ReverseMap().ForMember(...)`. The fix is withheld because removing the duplicate statement would silently drop the chained policy (for example a `.ForMember(d => d.X, opt => opt.Ignore())` override). The bare `CreateMap<S, D>().ReverseMap()` reversal stays on the safe automatic swap.
+
 #### Configuration
 
 ```ini
@@ -1331,7 +1333,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.16">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.17">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1370,5 +1372,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-07
-**Version**: 2.30.16
+**Version**: 2.30.17
 **Maintainer**: George Wall

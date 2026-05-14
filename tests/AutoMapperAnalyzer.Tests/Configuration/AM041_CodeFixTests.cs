@@ -295,7 +295,7 @@ public class AM041_CodeFixTests
     }
 
     [Fact]
-    public async Task Should_Detect_ConflictingConfigurations()
+    public async Task Should_NotOfferFix_WhenDuplicateCreateMapHasChainedConflictingConfiguration()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -315,28 +315,121 @@ public class AM041_CodeFixTests
                                 }
                                 """;
 
-        const string fixedCode = """
-                                 using AutoMapper;
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
 
-                                 public class Source { public string Name { get; set; } }
-                                 public class Destination { public string FullName { get; set; } }
+        Assert.Equal("AM041", diagnostic.Id);
 
-                                 public class MyProfile : Profile
-                                 {
-                                     public MyProfile()
-                                     {
-                                         CreateMap<Source, Destination>()
-                                             .ForMember(d => d.FullName, opt => opt.MapFrom(s => s.Name));
-                                     }
-                                 }
-                                 """;
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
 
-        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
-            .WithLocation(12, 9)
-            .WithArguments("Source", "Destination");
+    [Fact]
+    public async Task Should_NotOfferFix_WhenDuplicateCreateMapHasChainedForMemberConfiguration()
+    {
+        const string testCode = """
+                                using AutoMapper;
 
-        await CodeFixVerifier<AM041_DuplicateMappingAnalyzer, AM041_DuplicateMappingCodeFixProvider>
-            .VerifyFixAsync(testCode, expected, fixedCode);
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string FullName { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => d.FullName, opt => opt.MapFrom(s => s.Name));
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM041", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task Should_NotOfferFix_WhenParenthesizedDuplicateCreateMapHasChainedConfiguration()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string FullName { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                        (CreateMap<Source, Destination>())
+                                            .ForMember(d => d.FullName, opt => opt.Ignore());
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM041", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task Should_NotOfferFix_WhenDuplicateCreateMapChainsConfigurationAfterReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string DisplayName { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                        CreateMap<Source, Destination>()
+                                            .ReverseMap()
+                                            .ForMember(src => src.Name, opt => opt.MapFrom(dest => dest.DisplayName));
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic[] diagnostics = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .ToArray();
+
+        Assert.NotEmpty(diagnostics);
+        Assert.All(diagnostics, d => Assert.Equal("AM041", d.Id));
+
+        foreach (Diagnostic diagnostic in diagnostics)
+        {
+            List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+            Assert.Empty(actions);
+        }
     }
 
     [Fact]
