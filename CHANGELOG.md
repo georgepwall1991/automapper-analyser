@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.30] - 2026-05-15
+
+### Changed
+
+- Added AM021 simple element-conversion code fixes for immutable and frozen destination collections: `ImmutableList<T>`, `ImmutableHashSet<T>`, and `FrozenSet<T>`.
+- The new AM021 rewrites use fully qualified `ImmutableList.CreateRange(...)`, `ImmutableHashSet.CreateRange(...)`, and `FrozenSet.ToFrozenSet(...)` calls around the existing `Select(...)` conversion pipeline, keeping generated mappings executable without relying on user imports.
+- Locked custom immutable-lookalike destination collections onto the manual-review ignore path so the fixer does not regress into name-based speculative rewrites.
+
+### Validation
+
+- Targeted AM021 immutable/frozen code-fix tests.
+- Full solution test suite (`net10.0`) green.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `codex review --uncommitted` green.
+
 ## [2.30.29] - 2026-05-15
 
 ### Changed

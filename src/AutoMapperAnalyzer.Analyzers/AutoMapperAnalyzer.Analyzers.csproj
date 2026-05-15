@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>29</PatchVersion>
+        <PatchVersion>30</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,19 +32,19 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.29 - Harden AM003 custom collection fixer safety
+        <PackageReleaseNotes>Version 2.30.30 - Add AM021 immutable and frozen collection fixes
 
             Changed:
-            - Hardened AM003 so unsupported custom collection destination types keep only the manual-review ignore action instead of speculative constructor rewrites that may not compile
-            - Preserved safe AM003 automatic conversions for known BCL collection destinations while keeping the manual-review ignore action available alongside those rewrites
+            - Added AM021 simple-conversion fixes for ImmutableList&lt;T&gt;, ImmutableHashSet&lt;T&gt;, and FrozenSet&lt;T&gt; destination collections
+            - Kept custom immutable-lookalike destination collections on the manual-review ignore path instead of using name-based rewrites
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM003 code-fix coverage
+            - Full solution test suite passing on net10.0 with targeted AM021 code-fix coverage
             - Rule catalog and sample diagnostics snapshot checks passing
             - Codex review passing
             - git diff --check clean
 
-            Previous Release: v2.30.28 - Tighten fixer actions to avoid unsafe automatic rewrites
+            Previous Release: v2.30.29 - Harden AM003 custom collection fixer safety
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

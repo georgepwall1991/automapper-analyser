@@ -344,6 +344,21 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             return $"new {destinationTypeName}({selectExpression})";
         }
 
+        if (IsConstructedFromType(destProperty.Type, "System.Collections.Immutable.ImmutableList<T>"))
+        {
+            return $"global::System.Collections.Immutable.ImmutableList.CreateRange({selectExpression})";
+        }
+
+        if (IsConstructedFromType(destProperty.Type, "System.Collections.Immutable.ImmutableHashSet<T>"))
+        {
+            return $"global::System.Collections.Immutable.ImmutableHashSet.CreateRange({selectExpression})";
+        }
+
+        if (IsConstructedFromType(destProperty.Type, "System.Collections.Frozen.FrozenSet<T>"))
+        {
+            return $"global::System.Collections.Frozen.FrozenSet.ToFrozenSet({selectExpression})";
+        }
+
         return null;
     }
 
