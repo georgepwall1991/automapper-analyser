@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>28</PatchVersion>
+        <PatchVersion>29</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,19 +32,19 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.28 - Tighten fixer actions to avoid unsafe automatic rewrites
+        <PackageReleaseNotes>Version 2.30.29 - Harden AM003 custom collection fixer safety
 
             Changed:
-            - Hardened AM031's redundant-`ForMember` removal code fix so it only appears for direct convention-equivalent `MapFrom(src =&gt; src.Member)` mappings; transformed expressions, captured values, and other mapping policy keep the manual-review action
-            - Hardened AM001 so unrelated reference/framework conversions such as `Uri` to `string` do not receive speculative cast actions
+            - Hardened AM003 so unsupported custom collection destination types keep only the manual-review ignore action instead of speculative constructor rewrites that may not compile
+            - Preserved safe AM003 automatic conversions for known BCL collection destinations while keeping the manual-review ignore action available alongside those rewrites
 
             Validation:
-            - Full solution test suite passing on net10.0 with targeted AM001 and AM031 code-fix coverage
+            - Full solution test suite passing on net10.0 with targeted AM003 code-fix coverage
             - Rule catalog and sample diagnostics snapshot checks passing
-            - PR CI/CD and Claude Code Review passing
+            - Codex review passing
             - git diff --check clean
 
-            Previous Release: v2.30.27 - Lock AM041 ForPath chained-configuration withhold behavior with a direct test
+            Previous Release: v2.30.28 - Tighten fixer actions to avoid unsafe automatic rewrites
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

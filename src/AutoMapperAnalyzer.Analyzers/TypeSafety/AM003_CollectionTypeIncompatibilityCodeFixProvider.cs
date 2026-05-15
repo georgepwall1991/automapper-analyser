@@ -95,9 +95,18 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
 
             if (diagnostic.Descriptor == AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule)
             {
-                foreach ((string Title, string Expression, bool RequiresLinq, string EquivalenceKey) fix in
-                         CreateCollectionFixes(propertyName, sourceCollectionType, destinationCollectionType, sourceElementType,
-                             destinationElementType))
+                (string Title, string Expression, bool RequiresLinq, string EquivalenceKey)[] fixes =
+                    CreateCollectionFixes(propertyName, sourceCollectionType, destinationCollectionType, sourceElementType,
+                        destinationElementType)
+                    .ToArray();
+
+                if (fixes.Length == 0)
+                {
+                    RegisterIgnoreFix(context, operationContext.Root, invocation, propertyName, diagnostic);
+                    continue;
+                }
+
+                foreach ((string Title, string Expression, bool RequiresLinq, string EquivalenceKey) fix in fixes)
                 {
                     context.RegisterCodeFix(
                         CodeAction.Create(
@@ -107,6 +116,8 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                             fix.EquivalenceKey),
                         diagnostic);
                 }
+
+                RegisterIgnoreFix(context, operationContext.Root, invocation, propertyName, diagnostic);
             }
             else
             {
@@ -128,14 +139,24 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                         diagnostic);
                 }
 
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        $"Ignore property '{propertyName}' (manual review)",
-                        ct => AddIgnoreAsync(context.Document, operationContext.Root, invocation, propertyName),
-                        $"AM003_Ignore_{propertyName}"),
-                    diagnostic);
+                RegisterIgnoreFix(context, operationContext.Root, invocation, propertyName, diagnostic);
             }
         }
+    }
+
+    private void RegisterIgnoreFix(
+        CodeFixContext context,
+        SyntaxNode root,
+        InvocationExpressionSyntax invocation,
+        string propertyName,
+        Diagnostic diagnostic)
+    {
+        context.RegisterCodeFix(
+            CodeAction.Create(
+                $"Ignore property '{propertyName}' (manual review)",
+                ct => AddIgnoreAsync(context.Document, root, invocation, propertyName),
+                $"AM003_Ignore_{propertyName}"),
+            diagnostic);
     }
 
     private static bool TryGetStringProperty(Diagnostic diagnostic, string key, out string? value)
@@ -229,7 +250,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
             return fixes;
         }
 
-        if (Contains(sourceType, "HashSet") && Contains(destType, "List"))
+        if (Contains(sourceType, "HashSet") && IsKnownConcreteCollectionType(destType, "List"))
         {
             fixes.Add((
                 $"Convert {propertyName} using ToList()",
@@ -238,25 +259,26 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                 $"AM003_ToList_{propertyName}"));
         }
 
-        if (Contains(sourceType, "Queue") && Contains(destType, "List"))
+        if (Contains(sourceType, "Queue") && IsKnownConcreteCollectionType(destType, "List"))
         {
             (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
-        if (Contains(sourceType, "Stack") && Contains(destType, "List"))
+        if (Contains(sourceType, "Stack") && IsKnownConcreteCollectionType(destType, "List"))
         {
             (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
-        if (Contains(sourceType, "List") && Contains(destType, "Queue"))
+        if (Contains(sourceType, "List") && IsKnownConcreteCollectionType(destType, "Queue"))
         {
             (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
-        if (Contains(sourceType, "IEnumerable") && (Contains(destType, "Stack") || Contains(destType, "HashSet")))
+        if (Contains(sourceType, "IEnumerable") &&
+            (IsKnownConcreteCollectionType(destType, "Stack") || IsKnownConcreteCollectionType(destType, "HashSet")))
         {
             (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
@@ -276,7 +298,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                 $"AM003_AsEnumerable_{propertyName}"));
         }
 
-        if (!fixes.Any())
+        if (!fixes.Any() && IsKnownConstructibleCollectionType(destType))
         {
             (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
@@ -344,6 +366,22 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
     {
         return IsGenericCollectionInterface(typeName, "ISet") ||
                IsGenericCollectionInterface(typeName, "IReadOnlySet");
+    }
+
+    private static bool IsKnownConstructibleCollectionType(string typeName)
+    {
+        return IsKnownConcreteCollectionType(typeName, "List") ||
+               IsKnownConcreteCollectionType(typeName, "HashSet") ||
+               IsKnownConcreteCollectionType(typeName, "Queue") ||
+               IsKnownConcreteCollectionType(typeName, "Stack") ||
+               IsKnownConcreteCollectionType(typeName, "SortedSet") ||
+               IsKnownConcreteCollectionType(typeName, "LinkedList");
+    }
+
+    private static bool IsKnownConcreteCollectionType(string typeName, string collectionName)
+    {
+        return typeName.StartsWith($"System.Collections.Generic.{collectionName}<", StringComparison.Ordinal) ||
+               typeName.StartsWith($"{collectionName}<", StringComparison.Ordinal);
     }
 
     private static bool IsGenericCollectionInterface(string typeName, string interfaceName)

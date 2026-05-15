@@ -1,6 +1,14 @@
+using System.Collections.Immutable;
+using System.IO;
+using AutoMapper;
 using AutoMapperAnalyzer.Analyzers.TypeSafety;
 using AutoMapperAnalyzer.Tests.Infrastructure;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests.TypeSafety;
@@ -24,7 +32,7 @@ public class AM003_CodeFixTests
     {
         return CodeFixVerifier<AM003_CollectionTypeIncompatibilityAnalyzer,
                 AM003_CollectionTypeIncompatibilityCodeFixProvider>
-            .VerifyFixAsync(source, Diagnostic(descriptor, line, column, messageArgs), fixedCode);
+            .VerifyFixAsync(source, Diagnostic(descriptor, line, column, messageArgs), fixedCode, codeActionIndex: 0);
     }
 
     [Fact]
@@ -442,6 +450,92 @@ public class AM003_CodeFixTests
     }
 
     [Fact]
+    public async Task AM003_ShouldOfferOnlyManualIgnoreForUnsupportedDestinationCollectionConstructor()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class CustomStringCollection : List<string>
+                                    {
+                                    }
+
+                                    public class Source
+                                    {
+                                        public HashSet<string> Tags { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public CustomStringCollection Tags { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("Ignore property 'Tags' (manual review)", action.Title);
+        Assert.Equal("AM003_Ignore_Tags", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM003_ShouldNotOfferConstructorForCustomDestinationNameContainingList()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class TagList : List<string>
+                                    {
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Queue<string> Tags { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public TagList Tags { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("Ignore property 'Tags' (manual review)", action.Title);
+        Assert.Equal("AM003_Ignore_Tags", action.EquivalenceKey);
+    }
+
+    [Fact]
     public async Task AM003_ShouldFixQueueToISetConversion_WithConcreteHashSet()
     {
         const string testCode = """
@@ -645,6 +739,90 @@ public class AM003_CodeFixTests
             "System.Collections.Generic.Queue<string>",
             "Destination",
             "System.Collections.Generic.IReadOnlySet<int>");
+    }
+
+    [Fact]
+    public async Task AM003_ShouldStillOfferHashSetConstructorForKnownBclDestinationCollection()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public ICollection<int> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public HashSet<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Contains(actions, action =>
+            action.Title == "Convert Values using collection constructor" &&
+            action.EquivalenceKey == "AM003_Constructor_Values");
+        Assert.Contains(actions, action =>
+            action.Title == "Ignore property 'Values' (manual review)" &&
+            action.EquivalenceKey == "AM003_Ignore_Values");
+    }
+
+    [Fact]
+    public async Task AM003_ShouldStillOfferConstructorForKnownBclSortedSetDestinationCollection()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public HashSet<int> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public SortedSet<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Contains(actions, action =>
+            action.Title == "Convert Values using collection constructor" &&
+            action.EquivalenceKey == "AM003_Constructor_Values");
+        Assert.Contains(actions, action =>
+            action.Title == "Ignore property 'Values' (manual review)" &&
+            action.EquivalenceKey == "AM003_Ignore_Values");
     }
 
     [Fact]
@@ -948,5 +1126,59 @@ public class AM003_CodeFixTests
             "System.Collections.Generic.IEnumerable<int>",
             "Destination",
             "System.Collections.Generic.HashSet<int>");
+    }
+
+    private static Document CreateDocument(string source)
+    {
+        var workspace = new AdhocWorkspace();
+        ProjectId projectId = ProjectId.CreateNewId();
+        DocumentId documentId = DocumentId.CreateNewId(projectId);
+
+        Solution solution = workspace.CurrentSolution
+            .AddProject(projectId, "AM003Tests", "AM003Tests", LanguageNames.CSharp)
+            .WithProjectCompilationOptions(projectId, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .WithProjectParseOptions(projectId, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview));
+
+        string trustedPlatformAssemblies = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? string.Empty;
+        foreach (string assemblyPath in trustedPlatformAssemblies.Split(Path.PathSeparator))
+        {
+            if (!string.IsNullOrWhiteSpace(assemblyPath))
+            {
+                solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(assemblyPath));
+            }
+        }
+
+        solution = solution
+            .AddMetadataReference(projectId, MetadataReference.CreateFromFile(typeof(Profile).Assembly.Location))
+            .AddDocument(documentId, "Test0.cs", SourceText.From(source));
+
+        return solution.GetDocument(documentId)!;
+    }
+
+    private static async Task<ImmutableArray<Diagnostic>> GetDiagnosticsAsync(Document document)
+    {
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        return (await compilation.WithAnalyzers(
+                ImmutableArray.Create<DiagnosticAnalyzer>(new AM003_CollectionTypeIncompatibilityAnalyzer()))
+            .GetAnalyzerDiagnosticsAsync())
+            .OrderBy(diagnostic => diagnostic.Location.SourceSpan.Start)
+            .ThenBy(diagnostic => diagnostic.GetMessage(), StringComparer.Ordinal)
+            .ToImmutableArray();
+    }
+
+    private static async Task<List<CodeAction>> RegisterActionsAsync(Document document, params Diagnostic[] diagnostics)
+    {
+        var actions = new List<CodeAction>();
+        var provider = new AM003_CollectionTypeIncompatibilityCodeFixProvider();
+
+        var context = new CodeFixContext(
+            document,
+            diagnostics[0].Location.SourceSpan,
+            diagnostics.ToImmutableArray(),
+            (action, _) => actions.Add(action),
+            CancellationToken.None);
+
+        await provider.RegisterCodeFixesAsync(context);
+        return actions;
     }
 }

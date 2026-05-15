@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-787%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-791%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,23 +14,24 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.28
+## 🎉 Latest Release: v2.30.29
 
-**Tighten fixer actions to avoid unsafe automatic rewrites**
+**Harden AM003 custom collection fixer safety**
 
 ✅ **Highlights**
 
-- AM031 now offers redundant-`ForMember` removal only for direct convention-equivalent `MapFrom(src => src.Member)` mappings, so transformed expressions and captured values stay on the manual-review path.
-- AM001 no longer offers speculative reference casts for unrelated reference/framework conversions such as `Uri` to `string`.
+- AM003 now withholds speculative constructor rewrites for unsupported custom collection destination types that may not compile.
+- Safe AM003 automatic conversions remain available for known BCL collection destinations, with the manual-review ignore action still available as an escape hatch.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0` with 787 tests.
+- Full solution test validation passed on `net10.0` with 791 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
-- PR CI/CD and Claude Code Review green.
+- Codex review green.
 
 ### Recent Releases
 
+- **v2.30.29**: Hardened AM003 custom collection fixer safety while preserving safe BCL collection constructor rewrites.
 - **v2.30.28**: Tightened AM031 and AM001 fixer action selection so automatic rewrites stay executable and behavior-preserving.
 - **v2.30.27**: Added a direct AM041 test locking the `ForPath` chained-configuration withhold behavior alongside the existing `ForMember`/parenthesized/`ReverseMap()`-chained coverage.
 - **v2.30.26**: Locked AM050 sibling-config withhold behavior with direct `PreCondition`/`UseDestinationValue`/`Ignore` regression tests alongside the existing `Condition`/`NullSubstitute` cases.
@@ -195,7 +196,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.28">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.29">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

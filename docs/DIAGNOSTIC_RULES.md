@@ -257,7 +257,10 @@ CreateMap<Source, Destination>()
 
 For interface destinations such as `IList<T>`, `ICollection<T>`, or `IReadOnlyCollection<T>`, the fixer maps through a
 concrete collection expression like `ToList()` rather than trying to construct the interface. For set interfaces such as
-`ISet<T>`, it uses a concrete `HashSet<T>` constructor.
+`ISet<T>`, it uses a concrete `HashSet<T>` constructor. The manual-review ignore action remains available alongside safe
+automatic conversions. For unsupported custom collection destination types, AM003 keeps the diagnostic but withholds
+speculative constructor rewrites and offers only the manual-review ignore action. Known BCL collection destinations with
+safe collection constructors, such as `SortedSet<T>` and `LinkedList<T>`, still receive constructor-based mapping actions.
 
 #### Detected Incompatibilities
 
@@ -1346,7 +1349,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.28">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.29">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1384,6 +1387,6 @@ If analyzer slows down builds:
 
 ---
 
-**Last Updated**: 2026-05-14
-**Version**: 2.30.28
+**Last Updated**: 2026-05-15
+**Version**: 2.30.29
 **Maintainer**: George Wall
