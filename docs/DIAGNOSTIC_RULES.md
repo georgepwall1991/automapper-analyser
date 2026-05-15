@@ -787,8 +787,10 @@ public class MappingProfile : Profile
 ```
 
 For simple element conversions, AM021 can add a `Select(...)` mapping. List-like interface destinations use `ToList()`,
-while `HashSet<T>`/`ISet<T>` destinations are wrapped in a concrete `HashSet<T>` constructor so the generated mapping
-stays executable.
+`HashSet<T>`/`ISet<T>` destinations are wrapped in a concrete `HashSet<T>` constructor, and known immutable/frozen
+destinations use fully qualified `ImmutableList.CreateRange(...)`, `ImmutableHashSet.CreateRange(...)`, or
+`FrozenSet.ToFrozenSet(...)` calls so the generated mapping stays executable. Custom collection lookalikes remain on
+the manual-review path instead of receiving name-based rewrites.
 
 #### Configuration
 
@@ -1349,7 +1351,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.29">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.30">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1388,5 +1390,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.29
+**Version**: 2.30.30
 **Maintainer**: George Wall
