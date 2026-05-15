@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.29] - 2026-05-15
+
+### Changed
+
+- Hardened AM003's collection-container code fix so unsupported custom collection destination types keep only the manual-review ignore action instead of receiving speculative constructor rewrites that may not compile.
+- Preserved safe AM003 automatic conversions for known BCL collection destinations, including `List<T>`, `HashSet<T>`, `Queue<T>`, `Stack<T>`, `SortedSet<T>`, and `LinkedList<T>`, while keeping the manual-review ignore action available alongside those rewrites.
+- Updated AM003 docs and analyzer-health notes to document the custom-collection fixer boundary.
+
+### Validation
+
+- Targeted AM003 code-fix tests.
+- Full solution test suite (`net10.0`) green.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `codex review --uncommitted` green.
+
 ## [2.30.28] - 2026-05-14
 
 ### Changed
