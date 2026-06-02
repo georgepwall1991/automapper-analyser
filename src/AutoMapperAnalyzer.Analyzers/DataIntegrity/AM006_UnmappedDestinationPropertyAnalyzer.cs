@@ -90,7 +90,7 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
             AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToList();
         HashSet<string> sourcePropertyNames = new HashSet<string>(sourcePropertiesList.Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
         IEnumerable<IPropertySymbol> destinationProperties =
-            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
+            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false, requireSetter: true);
         InvocationExpressionSyntax mappingInvocation =
             isReverseMap && reverseMapInvocation != null ? reverseMapInvocation : invocation;
 
