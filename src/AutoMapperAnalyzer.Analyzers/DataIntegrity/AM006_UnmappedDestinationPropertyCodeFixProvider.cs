@@ -40,7 +40,7 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
                 if (sourceType != null && destType != null)
                 {
                     IPropertySymbol? destPropertySymbol = AutoMapperAnalysisHelpers
-                        .GetMappableProperties(destType, requireSetter: true)
+                        .GetMappableProperties(destType, requireGetter: false, requireSetter: true)
                         .FirstOrDefault(p => p.Name == propertyName);
 
                     if (destPropertySymbol != null)
