@@ -71,7 +71,7 @@ internal sealed class CreateMapRegistry
     /// <summary>
     ///     Gets the duplicate mappings identified during registry build.
     /// </summary>
-    public Dictionary<InvocationExpressionSyntax, (string Source, string Dest, Location Location)>
+    public IReadOnlyDictionary<InvocationExpressionSyntax, (string Source, string Dest, Location Location)>
         GetDuplicateMappings()
     {
         return _duplicates;
