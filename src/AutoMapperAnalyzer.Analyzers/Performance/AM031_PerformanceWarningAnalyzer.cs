@@ -697,7 +697,10 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     private static bool IsTaskType(ITypeSymbol? typeSymbol)
     {
         string containingType = typeSymbol?.ToDisplayString() ?? "";
-        return containingType.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal);
+        // ValueTask<T> exposes the same blocking .Result accessor as Task<T>, so it carries the
+        // same synchronous-access deadlock/perf risk and must be detected here too.
+        return containingType.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal) ||
+               containingType.StartsWith("System.Threading.Tasks.ValueTask", StringComparison.Ordinal);
     }
 
     private static bool IsTaskWaitAccess(string containingType, string methodName)

@@ -982,6 +982,44 @@ public class AM031_PerformanceWarningTests
     }
 
     [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenValueTaskResultUsedOnPropertyInMapFrom()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Threading.Tasks;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public ValueTask<string> DataTask { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Data, opt => opt.MapFrom(src => src.DataTask.Result));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule, 21, 66,
+                "Data")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM031_ShouldReportDiagnostic_WhenToListCalledMultipleTimes()
     {
         const string testCode = """
