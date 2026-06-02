@@ -101,6 +101,183 @@ public class AM020_NestedObjectMappingCodeFixTests
     }
 
     [Fact]
+    public async Task AM020_CodeFix_ShouldPreserveGenericTypeArguments_ForGenericNestedObject()
+    {
+        // The old fixer emitted only type.Name, dropping <int> and producing CreateMap<SourceWrapper,
+        // DestWrapper>() which does not compile. The generated mapping must keep the generic arguments.
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceWrapper<T>
+                                    {
+                                        public T Value { get; set; }
+                                    }
+
+                                    public class DestWrapper<T>
+                                    {
+                                        public T Value { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceWrapper<int> Data { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestWrapper<int> Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class SourceWrapper<T>
+                                             {
+                                                 public T Value { get; set; }
+                                             }
+
+                                             public class DestWrapper<T>
+                                             {
+                                                 public T Value { get; set; }
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public SourceWrapper<int> Data { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public DestWrapper<int> Data { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                     CreateMap<SourceWrapper<int>, DestWrapper<int>>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(29, 13)
+                    .WithArguments("Data", "SourceWrapper", "DestWrapper"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldQualifyTypeNames_ForCrossNamespaceNestedObject()
+    {
+        // The old fixer emitted the simple type name, so CreateMap<Address, AddressDto>() failed to
+        // compile when the nested types live in a namespace not imported at the insertion point. The
+        // generated mapping must qualify the names.
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace Models
+                                {
+                                    public class Address
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class AddressDto
+                                    {
+                                        public string Street { get; set; }
+                                    }
+                                }
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Models.Address Home { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Models.AddressDto Home { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace Models
+                                         {
+                                             public class Address
+                                             {
+                                                 public string Street { get; set; }
+                                             }
+
+                                             public class AddressDto
+                                             {
+                                                 public string Street { get; set; }
+                                             }
+                                         }
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public Models.Address Home { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public Models.AddressDto Home { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                     CreateMap<Models.Address, Models.AddressDto>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(32, 13)
+                    .WithArguments("Home", "Address", "AddressDto"),
+                expectedFixedCode);
+    }
+
+    [Fact]
     public async Task AM020_CodeFix_ShouldUseDescriptiveActionTitleAndEquivalenceKey()
     {
         const string testCode = """

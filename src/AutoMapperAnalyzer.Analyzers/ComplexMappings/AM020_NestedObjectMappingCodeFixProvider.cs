@@ -89,7 +89,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         }
 
         ExpressionStatementSyntax[] newStatements = missingMappings.Select(m =>
-            CreateCreateMapStatement(m.sourceType, m.destinationType)).ToArray();
+            CreateCreateMapStatement(m.sourceType, m.destinationType, semanticModel, createMapInvocation.SpanStart)).ToArray();
 
         ExpressionStatementSyntax? originalStatement =
             createMapInvocation.Ancestors().OfType<ExpressionStatementSyntax>().FirstOrDefault();
@@ -258,19 +258,28 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
     }
 
     private static ExpressionStatementSyntax CreateCreateMapStatement(INamedTypeSymbol sourceType,
-        INamedTypeSymbol destinationType)
+        INamedTypeSymbol destinationType, SemanticModel semanticModel, int position)
     {
         InvocationExpressionSyntax createMapCall = SyntaxFactory.InvocationExpression(
                 SyntaxFactory.GenericName(SyntaxFactory.Identifier("CreateMap"))
                     .WithTypeArgumentList(
                         SyntaxFactory.TypeArgumentList(
-                            SyntaxFactory.SeparatedList<TypeSyntax>(new[]
+                            SyntaxFactory.SeparatedList(new[]
                             {
-                                SyntaxFactory.IdentifierName(sourceType.Name),
-                                SyntaxFactory.IdentifierName(destinationType.Name)
+                                CreateTypeName(sourceType, semanticModel, position),
+                                CreateTypeName(destinationType, semanticModel, position)
                             }))))
             .WithArgumentList(SyntaxFactory.ArgumentList());
 
         return SyntaxFactory.ExpressionStatement(createMapCall);
+    }
+
+    private static TypeSyntax CreateTypeName(INamedTypeSymbol type, SemanticModel semanticModel, int position)
+    {
+        // ToMinimalDisplayString yields the shortest name valid at the insertion point: a simple name when
+        // the type is in scope, a qualified name across namespaces, and it always keeps generic type
+        // arguments — so the generated CreateMap compiles instead of dropping the namespace (IdentifierName
+        // used only type.Name, which broke cross-namespace and generic nested types).
+        return SyntaxFactory.ParseTypeName(type.ToMinimalDisplayString(semanticModel, position));
     }
 }
