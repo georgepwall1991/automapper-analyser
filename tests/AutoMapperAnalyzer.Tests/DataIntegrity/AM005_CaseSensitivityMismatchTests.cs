@@ -56,6 +56,42 @@ public class AM005_CaseSensitivityMismatchTests
     }
 
     [Fact]
+    public async Task AM005_ShouldReportDiagnostic_ForRecordWithInitOnlyProperty()
+    {
+        // AutoMapper treats an init accessor as a settable member, so a case-only mismatch on a record's
+        // init-only destination property must still be reported.
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string firstName { get; set; }
+                                    }
+
+                                    public record Destination
+                                    {
+                                        public string FirstName { get; init; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 19, 13, "firstName",
+                "FirstName"));
+    }
+
+    [Fact]
     public async Task AM005_ShouldNotReportDiagnostic_WhenPropertyNamesMatchExactly()
     {
         const string testCode = """

@@ -369,6 +369,68 @@ public class AM001_CodeFixTests
     }
 
     [Fact]
+    public async Task AM001_ShouldApplyFixesToCorrectInvocation_ForSamePropertyNameAcrossCreateMaps()
+    {
+        // Two separate CreateMap calls each have an "Age" mismatch, so both code actions share the
+        // equivalence key AM001_MapWithConversion_Age. Each action closes over its own invocation, so
+        // applying both must fix each CreateMap independently rather than touching the wrong one.
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source1 { public int Age { get; set; } }
+                                    public class Dest1 { public string Age { get; set; } }
+                                    public class Source2 { public int Age { get; set; } }
+                                    public class Dest2 { public string Age { get; set; } }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source1, Dest1>();
+                                            CreateMap<Source2, Dest2>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source1 { public int Age { get; set; } }
+                                             public class Dest1 { public string Age { get; set; } }
+                                             public class Source2 { public int Age { get; set; } }
+                                             public class Dest2 { public string Age { get; set; } }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source1, Dest1>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString()));
+                                                     CreateMap<Source2, Dest2>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString()));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        DiagnosticResult[] diagnostics =
+        [
+            Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 14, 13,
+                "Age", "Source1", "int", "Dest1", "string"),
+            Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 15, 13,
+                "Age", "Source2", "int", "Dest2", "string")
+        ];
+
+        // Incremental application takes 2 passes (one per diagnostic); Fix-all-in-document batches both
+        // same-key actions into a single pass. Both must yield the same correctly-fixed result.
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(testCode, diagnostics, expectedFixedCode, null, 2, 1, null);
+    }
+
+    [Fact]
     public async Task AM001_ShouldFixNullableStringToIntWithParsePattern()
     {
         const string testCode = """

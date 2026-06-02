@@ -52,6 +52,44 @@ public class AM004_MissingDestinationPropertyTests
     }
 
     [Fact]
+    public async Task AM004_ShouldReportDiagnostic_WhenUnrelatedDestinationMemberHasCondition()
+    {
+        // A Condition() configured on a mapped destination member must not suppress the unmapped-source
+        // diagnostic for an unrelated source property.
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string ImportantData { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Name, opt => opt.Condition(src => src.Name != null));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 20, 13,
+                "ImportantData"));
+    }
+
+    [Fact]
     public async Task AM004_ShouldNotReportDiagnostic_WhenAllPropertiesAreMapped()
     {
         const string testCode = """
