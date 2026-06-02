@@ -121,6 +121,74 @@ public class AM002_CodeFixTests
     }
 
     [Fact]
+    public async Task AM002_ShouldEscapeKeywordPropertyName_WhenScaffoldingDefaultMapping()
+    {
+        // A property whose name is a C# keyword must be emitted as a verbatim identifier in both the
+        // destination selector and the source access, otherwise the generated fix fails to compile.
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? @class { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string @class { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string? @class { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string @class { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.@class, opt => opt.MapFrom(src => src.@class ?? string.Empty));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            19,
+            13,
+            expectedFixedCode,
+            "class",
+            "Source",
+            "string?",
+            "Destination",
+            "string");
+    }
+
+    [Fact]
     public async Task AM002_ShouldReplaceUnsafePassThroughMapFromWithNullCoalescing()
     {
         const string testCode = """

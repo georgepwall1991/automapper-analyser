@@ -47,6 +47,36 @@ public class CodeFixSyntaxHelperTests
     }
 
     [Fact]
+    public void CreateForMemberWithMapFrom_ShouldEscapeKeywordPropertyName()
+    {
+        // Arrange
+        InvocationExpressionSyntax createMapInvocation = CreateSampleCreateMapInvocation();
+
+        // Act — a property named with a C# keyword must produce a verbatim identifier so the
+        // generated selector (dest.@class) compiles instead of the invalid dest.class.
+        InvocationExpressionSyntax result = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
+            createMapInvocation,
+            "class",
+            "src.Source");
+
+        // Assert
+        string resultText = result.ToFullString();
+        Assert.Contains("dest.@class", resultText);
+    }
+
+    [Fact]
+    public void CreateForMemberWithIgnore_ShouldEscapeKeywordPropertyName()
+    {
+        InvocationExpressionSyntax createMapInvocation = CreateSampleCreateMapInvocation();
+
+        InvocationExpressionSyntax result = CodeFixSyntaxHelper.CreateForMemberWithIgnore(
+            createMapInvocation,
+            "event");
+
+        Assert.Contains("dest.@event", result.ToFullString());
+    }
+
+    [Fact]
     public void CreateForMemberWithMapFrom_ShouldGenerateCorrectSyntax_ForConstantValue()
     {
         // Arrange

@@ -128,7 +128,34 @@ public static class CodeFixSyntaxHelper
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
                 SyntaxFactory.IdentifierName(parameterName),
-                SyntaxFactory.IdentifierName(propertyName)));
+                CreateMemberName(propertyName)));
+    }
+
+    /// <summary>
+    ///     Builds the simple name for a member access, escaping reserved keywords. Parsing the verbatim
+    ///     form (e.g. <c>@class</c>) is used so the resulting token has the correct value text (<c>class</c>)
+    ///     in addition to rendering with the leading <c>@</c>; constructing <c>IdentifierName("@class")</c>
+    ///     directly would leave the <c>@</c> in the value text and produce a malformed token.
+    /// </summary>
+    private static SimpleNameSyntax CreateMemberName(string propertyName)
+    {
+        return SyntaxFacts.GetKeywordKind(propertyName) != SyntaxKind.None
+            ? (SimpleNameSyntax)SyntaxFactory.ParseName("@" + propertyName)
+            : SyntaxFactory.IdentifierName(propertyName);
+    }
+
+    /// <summary>
+    ///     Escapes a member name with a leading <c>@</c> when it collides with a C# reserved keyword, so
+    ///     it can be safely emitted into generated member-access syntax (e.g. <c>class</c> -> <c>@class</c>).
+    ///     Non-keyword names are returned unchanged. Intended for names interpolated into expression strings
+    ///     that are later parsed (e.g. <c>src.@class</c>); for directly-constructed name syntax use
+    ///     <see cref="CreateMemberName"/>.
+    /// </summary>
+    /// <param name="name">The member name to escape.</param>
+    /// <returns>The name, prefixed with <c>@</c> when it is a reserved keyword.</returns>
+    public static string EscapeIdentifier(string name)
+    {
+        return SyntaxFacts.GetKeywordKind(name) != SyntaxKind.None ? "@" + name : name;
     }
 
     /// <summary>

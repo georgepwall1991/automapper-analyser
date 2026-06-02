@@ -81,7 +81,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
                     CodeAction.Create(
                         $"Scaffold default mapping for '{propertyName}' ({defaultValue})",
                         cancellationToken => AddMapFromAsync(context.Document, invocation, propertyName!,
-                            $"src.{propertyName} ?? {defaultValue}", defaultValue, operationContext.SemanticModel, cancellationToken),
+                            $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName!)} ?? {defaultValue}", defaultValue, operationContext.SemanticModel, cancellationToken),
                         $"AM002_DefaultValue_{propertyName}"),
                     diagnostic);
             }
@@ -512,7 +512,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
         string sourceParameterName = string.Equals(optionParameterName, "src", StringComparison.Ordinal)
             ? "source"
             : "src";
-        string mapFromExpression = $"{sourceParameterName}.{propertyName} ?? {defaultValue}";
+        string mapFromExpression = $"{sourceParameterName}.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)} ?? {defaultValue}";
         StatementSyntax mapFromStatement =
             SyntaxFactory.ParseStatement($"{optionParameterName}.MapFrom({sourceParameterName} => {mapFromExpression});");
         BlockSyntax? replacementBlock = optionsLambda.Body switch
