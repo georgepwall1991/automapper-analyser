@@ -111,6 +111,37 @@ public class AM041_CodeFixTests
     }
 
     [Fact]
+    public async Task Should_NotOfferDestructiveFix_WhenDuplicateIsAssignedToVariable()
+    {
+        // A CreateMap stored in a variable has no ExpressionStatement to remove, so the fix must not
+        // be offered (previously it registered an action that silently changed nothing). The diagnostic
+        // still fires so the developer is informed; the source must be left untouched.
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        var first = CreateMap<Source, Destination>();
+                                        var second = CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(11, 22)
+            .WithArguments("Source", "Destination");
+
+        // No fix is offered (0 iterations); the diagnostic remains so the developer is still informed.
+        await CodeFixVerifier<AM041_DuplicateMappingAnalyzer, AM041_DuplicateMappingCodeFixProvider>
+            .VerifyFixAsync(testCode, new[] { expected }, testCode, null, 0, 0, new[] { expected });
+    }
+
+    [Fact]
     public async Task Should_Remove_ReverseMap_WhenItIsTheDuplicate()
     {
         const string testCode = """
