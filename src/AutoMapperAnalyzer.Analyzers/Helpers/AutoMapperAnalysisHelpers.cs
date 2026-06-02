@@ -107,6 +107,10 @@ public static class AutoMapperAnalysisHelpers
         }
 
         var properties = new List<IPropertySymbol>();
+        // Track names in a set so the property-hiding dedup is O(1) per member instead of O(n) — the
+        // List.Any scan made this O(n^2) across deep inheritance chains. Derived members are visited
+        // first, so a hidden base member is correctly skipped (Add returns false on the second sighting).
+        var seenNames = new HashSet<string>(StringComparer.Ordinal);
         ITypeSymbol? currentType = typeSymbol;
 
         while (currentType != null)
@@ -121,8 +125,8 @@ public static class AutoMapperAnalysisHelpers
                     (!requireGetter || property.GetMethod != null) &&
                     (!requireSetter || property.SetMethod != null))
                 {
-                    // Only include if not already in the list (handles property hiding)
-                    if (!properties.Any(p => p.Name == property.Name))
+                    // Only include if not already seen (handles property hiding)
+                    if (seenNames.Add(property.Name))
                     {
                         properties.Add(property);
                     }
