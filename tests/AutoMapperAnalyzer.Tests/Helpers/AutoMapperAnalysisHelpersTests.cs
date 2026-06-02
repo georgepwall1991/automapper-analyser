@@ -1067,6 +1067,35 @@ public class AutoMapperAnalysisHelpersTests
         Assert.Equal(expectedCompatible, result);
     }
 
+    [Fact]
+    public void IsBuiltInType_ShouldClassifyByNamespace_NotJustName()
+    {
+        const string code = @"
+            namespace MyApp { public class Guid { public string V { get; set; } } }
+            namespace MyApp { public class Customer { public string Name { get; set; } } }
+            namespace TestNs { public class Holder { public System.Guid RealGuid { get; set; } public int Count { get; set; } } }";
+
+        CSharpCompilation compilation = CreateCompilation(code);
+        SyntaxTree tree = compilation.SyntaxTrees.First();
+        SemanticModel semanticModel = compilation.GetSemanticModel(tree);
+        var classes = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().ToList();
+        INamedTypeSymbol userGuid =
+            semanticModel.GetDeclaredSymbol(classes.First(c => c.Identifier.Text == "Guid"))!;
+        INamedTypeSymbol userCustomer =
+            semanticModel.GetDeclaredSymbol(classes.First(c => c.Identifier.Text == "Customer"))!;
+        INamedTypeSymbol holder =
+            semanticModel.GetDeclaredSymbol(classes.First(c => c.Identifier.Text == "Holder"))!;
+        ITypeSymbol realGuid = holder.GetMembers("RealGuid").OfType<IPropertySymbol>().First().Type;
+        ITypeSymbol intType = holder.GetMembers("Count").OfType<IPropertySymbol>().First().Type;
+
+        // A user-defined type that merely shares a framework type's name must NOT be treated as built-in.
+        Assert.False(AutoMapperAnalysisHelpers.IsBuiltInType(userGuid));
+        Assert.False(AutoMapperAnalysisHelpers.IsBuiltInType(userCustomer));
+        // Genuine framework types still are.
+        Assert.True(AutoMapperAnalysisHelpers.IsBuiltInType(realGuid));
+        Assert.True(AutoMapperAnalysisHelpers.IsBuiltInType(intType));
+    }
+
     #endregion
 
     #region GetLambdaBody Tests
