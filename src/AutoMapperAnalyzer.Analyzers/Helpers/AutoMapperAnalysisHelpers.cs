@@ -434,13 +434,16 @@ public static class AutoMapperAnalysisHelpers
             return false;
         }
 
-        return type.SpecialType != SpecialType.None ||
-               type.Name == "String" ||
-               type.Name == "DateTime" ||
-               type.Name == "DateTimeOffset" ||
-               type.Name == "TimeSpan" ||
-               type.Name == "Guid" ||
-               type.Name == "Decimal";
+        if (type.SpecialType != SpecialType.None)
+        {
+            return true;
+        }
+
+        // DateTimeOffset/TimeSpan/Guid (and the SpecialType-less spellings of the others) are not
+        // SpecialTypes, so match them by name — but only inside the System namespace, so a user-defined
+        // type that merely shares the name (e.g. a custom "Guid") is not misclassified as built-in.
+        return type.ContainingNamespace?.ToDisplayString() == "System" &&
+               type.Name is "String" or "DateTime" or "DateTimeOffset" or "TimeSpan" or "Guid" or "Decimal";
     }
 
     /// <summary>
