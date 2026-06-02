@@ -49,6 +49,14 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
                     continue;
                 }
 
+                // Only offer removal when the duplicate registration is a standalone statement we can
+                // safely delete. A CreateMap stored in a variable or passed as an argument has no
+                // ExpressionStatement ancestor, so the removal would silently do nothing — don't offer it.
+                if (!HasRemovableStatement(invocation))
+                {
+                    continue;
+                }
+
                 string mappingLabel = GetMappingLabel(invocation);
                 context.RegisterCodeFix(
                     CodeAction.Create(
@@ -62,6 +70,11 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
                     diagnostic);
             }
         }
+    }
+
+    private static bool HasRemovableStatement(InvocationExpressionSyntax invocation)
+    {
+        return invocation.AncestorsAndSelf().OfType<ExpressionStatementSyntax>().FirstOrDefault() != null;
     }
 
     private static string GetMappingLabel(InvocationExpressionSyntax invocation)
