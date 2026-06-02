@@ -503,12 +503,17 @@ public static class AutoMapperAnalysisHelpers
             return false;
         }
 
-        // Allow implicit conversions (smaller to larger types)
-        return sourceLevel <= destLevel;
+        // Only a strict widening (lower level -> higher level) is safe. Two different types that share a
+        // level are a signed/unsigned pair (e.g. uint/int, short/ushort, byte/sbyte); neither direction is
+        // a lossless implicit conversion in C#, so they must NOT be treated as compatible. Same-type pairs
+        // are already handled by the equality check in AreTypesCompatible before reaching this method.
+        return sourceLevel < destLevel;
     }
 
     /// <summary>
-    ///     Gets the numeric conversion level for implicit conversions.
+    ///     Gets the numeric conversion level for implicit conversions. Signed and unsigned types of the
+    ///     same width share a level so that same-width signed/unsigned conversions are not classified as
+    ///     widening (see <see cref="AreNumericTypesCompatible"/>).
     /// </summary>
     /// <param name="specialType">The special type to check.</param>
     /// <returns>The conversion level, or int.MaxValue if not numeric.</returns>

@@ -83,6 +83,44 @@ public class AM001_PropertyTypeMismatchTests
     }
 
     [Fact]
+    public async Task AM001_ShouldReportDiagnostic_WhenUnsignedMappedToSignedSameWidth()
+    {
+        // uint -> int is NOT an implicit conversion in C#; AutoMapper would need explicit configuration,
+        // so AM001 must report it. The old conversion-level model wrongly treated same-width
+        // signed/unsigned pairs as compatible and stayed silent.
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public uint Value { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Value { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Value", "Source",
+                "uint", "Destination", "int"));
+    }
+
+    [Fact]
     public async Task AM001_ShouldReportDiagnostic_WhenSourcePropertyIsReadOnly()
     {
         const string testCode = """
