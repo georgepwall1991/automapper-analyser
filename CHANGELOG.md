@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+## [2.30.31] - 2026-06-02
+
+### Changed
+
+- **AM001**: Same-width signed/unsigned numeric pairs (e.g. `uint` → `int`, `short` → `ushort`, `byte` → `sbyte`) are now reported as incompatible. They share a conversion "level" and C# has no implicit conversion between them, so the previous `<=` level comparison wrongly stayed silent. The numeric model now requires a strict widening; same-type pairs and `decimal`-as-widest semantics are unchanged.
+- **Code fixes (shared)**: Property names that are C# keywords (e.g. `@class`, `@event`) are now escaped in generated `ForMember`/`MapFrom` selectors and expressions, so the produced code compiles instead of emitting `dest.class`.
+- **AM020**: The generated nested `CreateMap<,>()` now uses namespace-qualified, generic-aware type names (`ToMinimalDisplayString`) instead of the bare type name, so cross-namespace and generic nested objects produce compilable fixes.
+- **AM003**: The collection element conversion now emits a `(Dest)x` cast only when the source element is implicitly convertible to the destination (e.g. a derived-to-base upcast); unrelated element types fall back to manual review instead of a speculative cast that fails to compile or throws.
+- **AM031**: `ValueTask<T>.Result` synchronous access inside a mapping expression is now detected alongside `Task<T>.Result`.
+- **AM006**: The analyzer and fixer now use the same destination accessor filter, so a write-only unmapped destination property is handled consistently.
+- **AM041**: The duplicate-mapping removal fix is withheld when the duplicate `CreateMap` is assigned to a variable (no `ExpressionStatement` to remove), instead of offering an action that does nothing.
+- **AM050 / `CreateMapRegistry`**: The AM050 analyzer callback and helpers are now `static`, and `CreateMapRegistry.GetDuplicateMappings` returns an `IReadOnlyDictionary` rather than exposing its internal mutable dictionary.
+- **Helpers**: `IsBuiltInType` is now namespace-qualified (a user type named `Guid`/`DateTime` is no longer treated as built-in); `GetMappableProperties` deduplicates with a `HashSet` (O(n) instead of O(n²)); removed the dead `AddPropertiesToTypeAsync` helper.
+
+### Validation
+
+- Full solution test suite (`net10.0`) green — 818 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `dotnet build -warnaserror` clean.
+- `codex review --uncommitted` green per change.
+
 ## [2.30.30] - 2026-05-15
 
 ### Changed

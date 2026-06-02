@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-795%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-818%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,23 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.30
+## 🎉 Latest Release: v2.30.31
 
-**Add AM021 immutable and frozen collection fixes**
+**Correctness and code-fix hardening from an adversarial analyzer audit**
 
 ✅ **Highlights**
 
-- AM021 now offers executable simple-conversion fixes for `ImmutableList<T>`, `ImmutableHashSet<T>`, and `FrozenSet<T>` destination collections.
-- Custom immutable-lookalike destination collections stay on the manual-review ignore path instead of receiving speculative name-based rewrites.
+- AM001 now flags same-width signed/unsigned numeric mismatches (e.g. `uint` → `int`) that C# cannot convert implicitly.
+- Generated code fixes escape C# keyword property names (e.g. `@class`), and AM020's nested `CreateMap` fixes emit namespace-qualified, generic-aware type names so they compile.
+- AM003 element casts are gated on a safe implicit conversion; AM031 detects `ValueTask<T>.Result`; AM006/AM041/AM050 and shared helpers hardened.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0` with 795 tests.
+- Full solution test validation passed on `net10.0` with 818 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
-- Codex review green.
+- Codex review green per change.
 
 ### Recent Releases
 
+- **v2.30.31**: Correctness/code-fix hardening from an adversarial audit — AM001 signed/unsigned numeric mismatches, keyword-name escaping, AM020 qualified/generic nested `CreateMap` names, AM003 implicit-conversion-gated element casts, AM031 `ValueTask.Result`.
 - **v2.30.30**: Added AM021 simple-conversion fixes for `ImmutableList<T>`, `ImmutableHashSet<T>`, and `FrozenSet<T>` while keeping custom immutable-lookalikes manual-only.
 - **v2.30.29**: Hardened AM003 custom collection fixer safety while preserving safe BCL collection constructor rewrites.
 - **v2.30.28**: Tightened AM031 and AM001 fixer action selection so automatic rewrites stay executable and behavior-preserving.
@@ -197,7 +199,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.30">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.31">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
