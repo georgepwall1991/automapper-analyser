@@ -450,6 +450,98 @@ public class AM003_CodeFixTests
     }
 
     [Fact]
+    public async Task AM003_ShouldOfferOnlyManualIgnore_WhenElementsHaveNoKnownConversion()
+    {
+        // HashSet<CustomA> -> List<CustomB>: the containers differ (so AM003 fires) but there is no
+        // known element conversion. The fixer must not offer a speculative (CustomB)x cast that would
+        // throw InvalidCastException at runtime — only the manual-review ignore action.
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class CustomA { public int Id { get; set; } }
+
+                                    public class CustomB { public int Id { get; set; } }
+
+                                    public class Source
+                                    {
+                                        public HashSet<CustomA> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<CustomB> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("Ignore property 'Values' (manual review)", action.Title);
+        Assert.Equal("AM003_Ignore_Values", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM003_ShouldOfferConversionFix_WhenElementsAreImplicitlyConvertible()
+    {
+        // HashSet<Derived> -> List<Base>: Derived is implicitly convertible to Base, so a
+        // Select(x => (Base)x).ToList() conversion is safe and compilable and must still be offered
+        // alongside manual review (it must NOT be withheld like an unrelated-type conversion).
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Base { public int Id { get; set; } }
+
+                                    public class Derived : Base { }
+
+                                    public class Source
+                                    {
+                                        public HashSet<Derived> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<Base> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Contains(actions,
+            a => a.EquivalenceKey != null && a.EquivalenceKey.StartsWith("AM003_ToList", StringComparison.Ordinal));
+        Assert.Contains(actions, a => a.EquivalenceKey == "AM003_Ignore_Values");
+    }
+
+    [Fact]
     public async Task AM003_ShouldOfferOnlyManualIgnoreForUnsupportedDestinationCollectionConstructor()
     {
         const string testCode = """
