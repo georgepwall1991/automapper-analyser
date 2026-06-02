@@ -672,4 +672,42 @@ public class AM011_UnmappedRequiredPropertyTests
                 "ReverseOnly")
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM011_ShouldNotReportDiagnostic_WhenReverseMapForMemberConfiguresReverseRequiredProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public required string Code { get; set; }
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Label { get; set; }
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap()
+                                                .ForMember(src => src.Code, opt => opt.MapFrom(dest => dest.Label));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
 }
