@@ -39,7 +39,7 @@ public class AM041_DuplicateMappingAnalyzer : DiagnosticAnalyzer
         {
             // Use the shared registry which now handles duplicate detection
             var registry = CreateMapRegistry.FromCompilation(compilationContext.Compilation);
-            Dictionary<InvocationExpressionSyntax, (string Source, string Dest, Location Location)> duplicates =
+            IReadOnlyDictionary<InvocationExpressionSyntax, (string Source, string Dest, Location Location)> duplicates =
                 registry.GetDuplicateMappings();
 
             compilationContext.RegisterSyntaxNodeAction(ctx =>

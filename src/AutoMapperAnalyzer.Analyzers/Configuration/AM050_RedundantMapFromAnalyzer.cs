@@ -37,7 +37,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
     }
 
-    private void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -96,7 +96,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private bool AreTypesCompatibleForAutoMapping(
+    private static bool AreTypesCompatibleForAutoMapping(
         InvocationExpressionSyntax forMemberInvocation,
         InvocationExpressionSyntax mapFromInvocation,
         SyntaxNodeAnalysisContext context)
@@ -114,7 +114,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         return SymbolEqualityComparer.Default.Equals(sourceType, destType);
     }
 
-    private ITypeSymbol? GetSourcePropertyType(
+    private static ITypeSymbol? GetSourcePropertyType(
         InvocationExpressionSyntax mapFromInvocation,
         SyntaxNodeAnalysisContext context)
     {
@@ -139,7 +139,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    private InvocationExpressionSyntax? FindCreateMapInvocation(
+    private static InvocationExpressionSyntax? FindCreateMapInvocation(
         InvocationExpressionSyntax invocation,
         SemanticModel semanticModel)
     {
@@ -162,7 +162,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    private ITypeSymbol? GetDestinationPropertyType(
+    private static ITypeSymbol? GetDestinationPropertyType(
         InvocationExpressionSyntax forMemberInvocation,
         SyntaxNodeAnalysisContext context)
     {
@@ -206,7 +206,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
                 ?.Type;
     }
 
-    private string? GetDestinationPropertyName(InvocationExpressionSyntax forMemberInvocation)
+    private static string? GetDestinationPropertyName(InvocationExpressionSyntax forMemberInvocation)
     {
         if (forMemberInvocation.ArgumentList.Arguments.Count < 1)
         {
@@ -234,7 +234,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    private string? GetMapFromSourcePropertyName(InvocationExpressionSyntax mapFromInvocation)
+    private static string? GetMapFromSourcePropertyName(InvocationExpressionSyntax mapFromInvocation)
     {
         if (mapFromInvocation.ArgumentList.Arguments.Count < 1)
         {
