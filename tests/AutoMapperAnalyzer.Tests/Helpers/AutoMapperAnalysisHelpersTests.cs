@@ -1034,6 +1034,15 @@ public class AutoMapperAnalysisHelpersTests
     [InlineData("int", "byte", false)] // incompatible: larger to smaller
     [InlineData("long", "int", false)] // incompatible: larger to smaller
     [InlineData("double", "float", false)] // incompatible: larger to smaller
+    // Same-width signed<->unsigned require an explicit cast in C# and must NOT be treated as compatible.
+    [InlineData("uint", "int", false)] // unsigned -> signed (same width)
+    [InlineData("int", "uint", false)] // signed -> unsigned (same width)
+    [InlineData("ushort", "short", false)]
+    [InlineData("short", "ushort", false)]
+    [InlineData("ulong", "long", false)]
+    [InlineData("long", "ulong", false)]
+    [InlineData("byte", "sbyte", false)] // unsigned -> signed (same width)
+    [InlineData("sbyte", "byte", false)] // signed -> unsigned (same width)
     public void AreTypesCompatible_ShouldHandleAllNumericConversions(string sourceTypeName, string destTypeName,
         bool expectedCompatible)
     {
