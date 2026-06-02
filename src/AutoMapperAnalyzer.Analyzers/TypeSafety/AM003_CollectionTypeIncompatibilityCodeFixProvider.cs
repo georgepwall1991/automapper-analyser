@@ -93,11 +93,16 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
             string sourceElementType = safeSourceElementType!;
             string destinationElementType = safeDestElementType!;
 
+            bool elementImplicitlyConvertible = TryGetStringProperty(diagnostic,
+                    AM003_CollectionTypeIncompatibilityAnalyzer.ElementImplicitlyConvertiblePropertyName,
+                    out string? convertibleFlag) &&
+                string.Equals(convertibleFlag, "true", StringComparison.Ordinal);
+
             if (diagnostic.Descriptor == AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule)
             {
                 (string Title, string Expression, bool RequiresLinq, string EquivalenceKey)[] fixes =
                     CreateCollectionFixes(propertyName, sourceCollectionType, destinationCollectionType, sourceElementType,
-                        destinationElementType)
+                        destinationElementType, elementImplicitlyConvertible)
                     .ToArray();
 
                 if (fixes.Length == 0)
@@ -210,13 +215,33 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
             string sourceType,
             string destType,
             string sourceElementType,
-            string destElementType)
+            string destElementType,
+            bool elementImplicitlyConvertible)
     {
         var fixes = new List<(string Title, string Expression, bool RequiresLinq, string EquivalenceKey)>();
         string simplifiedDestType = SimplifyCollectionType(destType);
 
         // Determine if element conversion is needed
         string elementConversionLambda = GetElementConversion(sourceElementType, destElementType);
+        bool elementsDiffer = !string.Equals(
+            TypeConversionHelper.NormalizeTypeName(sourceElementType),
+            TypeConversionHelper.NormalizeTypeName(destElementType),
+            StringComparison.Ordinal);
+
+        if (elementsDiffer && string.IsNullOrEmpty(elementConversionLambda))
+        {
+            // No named conversion. A cast is only safe when the source element is implicitly convertible
+            // to the destination (e.g. a derived-to-base upcast); for unrelated types a speculative
+            // (Dest)x cast would fail to compile or throw, so withhold and let the caller offer manual
+            // review.
+            if (!elementImplicitlyConvertible)
+            {
+                return fixes;
+            }
+
+            elementConversionLambda = $"x => ({destElementType})x";
+        }
+
         bool needsElementConversion =
             !string.IsNullOrEmpty(elementConversionLambda) && elementConversionLambda != "x => x";
 
@@ -428,7 +453,10 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
             ("double", "int") or ("double", "int32") => "x => global::System.Convert.ToInt32(x)",
             ("double", "long") or ("double", "int64") => "x => global::System.Convert.ToInt64(x)",
             ("float", "int") or ("single", "int") => "x => global::System.Convert.ToInt32(x)",
-            _ => $"x => ({destElementType})x"
+            // No known safe element conversion. Return empty rather than a speculative ($"({dest})x") cast,
+            // which compiles for unrelated types but throws InvalidCastException at runtime; the caller
+            // withholds the automatic fix and offers manual review instead.
+            _ => string.Empty
         };
     }
 

@@ -20,6 +20,13 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
     internal const string DestinationElementTypePropertyName = "DestinationElementType";
 
     /// <summary>
+    ///     "true" when the source element type is implicitly convertible to the destination element type
+    ///     (e.g. a derived-to-base upcast). The fixer uses this to decide whether a <c>(Dest)x</c> element
+    ///     cast is safe to generate when no named string conversion exists.
+    /// </summary>
+    internal const string ElementImplicitlyConvertiblePropertyName = "ElementImplicitlyConvertible";
+
+    /// <summary>
     ///     AM003: Collection type incompatibility without proper conversion
     /// </summary>
     public static readonly DiagnosticDescriptor CollectionTypeIncompatibilityRule = new(
@@ -169,6 +176,10 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
             properties.Add(DestinationPropertyTypePropertyName, destTypeName);
             properties.Add(SourceElementTypePropertyName, sourceElementType.ToDisplayString());
             properties.Add(DestinationElementTypePropertyName, destElementType.ToDisplayString());
+            bool elementImplicitlyConvertible = context.SemanticModel.Compilation
+                .ClassifyConversion(sourceElementType, destElementType).IsImplicit;
+            properties.Add(ElementImplicitlyConvertiblePropertyName,
+                elementImplicitlyConvertible ? "true" : "false");
             // Backward-compatible aliases for existing fixers/consumers.
             properties.Add("SourceType", sourceTypeName);
             properties.Add("DestType", destTypeName);
