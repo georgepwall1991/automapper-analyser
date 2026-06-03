@@ -130,7 +130,7 @@ public static class RuleCatalog
     /// <summary>
     ///     Current package version used by docs/package drift tests.
     /// </summary>
-    public const string CurrentPackageVersion = "2.30.34";
+    public const string CurrentPackageVersion = "2.30.35";
 
     /// <summary>
     ///     Implemented rules, grouped by public diagnostic ID.
@@ -230,20 +230,33 @@ public static class RuleCatalog
             ]),
         new(
             "AM030",
-            "### AM030: Custom Type Converter Issues",
+            "### AM030: Invalid Type Converter Implementation",
             "samples/AutoMapperAnalyzer.Samples/Conversions/TypeConverterExamples.cs",
             typeof(AM030_CustomTypeConverterAnalyzer),
             typeof(AM030_CustomTypeConverterCodeFixProvider),
             CodeFixTrustLevel.NoFix,
             [
-                AM030_CustomTypeConverterAnalyzer.InvalidConverterImplementationRule,
-                AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule,
-                AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule
-            ],
+                AM030_CustomTypeConverterAnalyzer.InvalidConverterImplementationRule
+            ]),
+        new(
+            "AM032",
+            "### AM032: Type Converter Null Handling",
+            "samples/AutoMapperAnalyzer.Samples/Conversions/TypeConverterExamples.cs",
+            typeof(AM030_CustomTypeConverterAnalyzer),
+            typeof(AM030_CustomTypeConverterCodeFixProvider),
+            CodeFixTrustLevel.LikelyRewrite,
             [
-                new System.Collections.Generic.KeyValuePair<DiagnosticDescriptor, CodeFixTrustLevel>(
-                    AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule,
-                    CodeFixTrustLevel.LikelyRewrite)
+                AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule
+            ]),
+        new(
+            "AM033",
+            "### AM033: Unused Type Converter",
+            "samples/AutoMapperAnalyzer.Samples/Conversions/TypeConverterExamples.cs",
+            typeof(AM030_CustomTypeConverterAnalyzer),
+            typeof(AM030_CustomTypeConverterCodeFixProvider),
+            CodeFixTrustLevel.NoFix,
+            [
+                AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule
             ]),
         new(
             "AM031",

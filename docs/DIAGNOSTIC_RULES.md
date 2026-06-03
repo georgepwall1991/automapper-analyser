@@ -8,7 +8,7 @@ Complete reference guide for all AutoMapper Analyzer diagnostic rules, including
 - [Type Safety Rules (AM001-AM003)](#type-safety-rules)
 - [Data Integrity Rules (AM004-AM006, AM011)](#data-integrity-rules)
 - [Complex Mapping Rules (AM020-AM022)](#complex-mapping-rules)
-- [Custom Conversion Rules (AM030)](#custom-conversion-rules)
+- [Custom Conversion Rules (AM030, AM032-AM033)](#custom-conversion-rules)
 - [Performance Rules (AM031)](#performance-rules)
 - [Configuration](#configuration)
 - [Suppression](#suppression)
@@ -24,7 +24,7 @@ Complete reference guide for all AutoMapper Analyzer diagnostic rules, including
 | **Type Safety** | AM001-AM003 | Prevent type mismatches and conversion errors |
 | **Data Integrity** | AM004-AM006, AM011 | Ensure complete data mapping |
 | **Complex Mappings** | AM020-AM022 | Handle nested objects and collections |
-| **Custom Conversions** | AM030 | Validate custom type converters |
+| **Custom Conversions** | AM030, AM032-AM033 | Validate custom type converters |
 | **Performance** | AM031 | Detect expensive operations in mappings |
 
 ### Severity Levels
@@ -39,12 +39,14 @@ To avoid duplicate/conflicting diagnostics, each issue pattern has a single prim
 
 | Issue Pattern | Primary Rule | Suppressed Rules |
 |----------|-------|---------|
-| Nullable source to non-nullable destination (compatible underlying type) | `AM002` | `AM001`, `AM030` |
-| Scalar incompatible type conversion | `AM001` | `AM030` |
-| Collection container mismatch (`HashSet<T>` vs `List<T>`, etc.) | `AM003` | `AM021`, `AM030` |
-| Collection element mismatch (`List<A>` to `List<B>`) with no `CreateMap<A,B>` | `AM021` | `AM003` (element branch), `AM030` |
-| Nested complex property requires map (`Address` -> `AddressDto`) | `AM020` | `AM030` |
-| Converter implementation quality problems | `AM030` | none |
+| Nullable source to non-nullable destination (compatible underlying type) | `AM002` | `AM001`, `AM030-AM033` |
+| Scalar incompatible type conversion | `AM001` | `AM030-AM033` |
+| Collection container mismatch (`HashSet<T>` vs `List<T>`, etc.) | `AM003` | `AM021`, `AM030-AM033` |
+| Collection element mismatch (`List<A>` to `List<B>`) with no `CreateMap<A,B>` | `AM021` | `AM003` (element branch), `AM030-AM033` |
+| Nested complex property requires map (`Address` -> `AddressDto`) | `AM020` | `AM030-AM033` |
+| Invalid converter implementation/signature | `AM030` | none |
+| Nullable-source converter missing null handling | `AM032` | none |
+| Declared converter not used by any `ConvertUsing` configuration | `AM033` | none |
 
 ### Code Fix Trust Levels
 
@@ -923,35 +925,19 @@ dotnet_diagnostic.AM022.severity = warning
 
 ## Custom Conversion Rules
 
-### AM030: Custom Type Converter Issues
+### AM030: Invalid Type Converter Implementation
 
-**Severity**: Mixed (Error/Warning/Info)
+**Severity**: Error
 **Category**: AutoMapper.Converters
 
 #### Description
 
-Validates custom type converter implementations and detects converter-quality issues:
-- Invalid converter implementation/signature (`Error`)
-- Missing null handling for nullable source converters (`Warning`)
-- Unused converter declarations (`Info`)
+Reports custom converter classes that claim to implement `ITypeConverter<TSource, TDestination>` but do not provide the
+required `Convert(TSource source, TDestination destination, ResolutionContext context)` implementation.
 
 `AM030` no longer reports missing property-level conversion setup. Those mismatches are owned by `AM001`, `AM020`, and `AM021`.
-Unused-converter analysis treats generic, instance, and type-based converter configuration as usage, including
-`ConvertUsing<MyConverter>()`, `ConvertUsing(new MyConverter())`, and `ConvertUsing(typeof(MyConverter))`.
-It also recognizes simple local, field, or property initializers where an `ITypeConverter<TSource, TDestination>`
-variable is initialized with a concrete converter and then passed to `ConvertUsing(converter)`. Converter null-handling
-detection inside the `Convert` method recognizes the modern guard clauses `ArgumentNullException.ThrowIfNull(source)`,
-`ArgumentException.ThrowIfNullOrEmpty(source)`, and `ArgumentException.ThrowIfNullOrWhiteSpace(source)` on the
-converter's source parameter, alongside the existing `== null`/`!= null`, null patterns,
-`string.IsNullOrEmpty`/`IsNullOrWhiteSpace`, null-coalescing, and conditional-access shapes. Guard calls whose first
-argument is unrelated to the source parameter still trigger AM030. Additionally, when any
-`ConvertUsing(...)` argument resolves to the interface `ITypeConverter<TSource, TDestination>` itself —
-for example through constructor injection (`public TestProfile(ITypeConverter<string, DateTime> converter)`),
-a service-locator resolution call, or any other DI shape whose concrete implementation cannot be statically
-traced — every declared concrete implementation of that interface pair is treated as in use, so the runtime
-container is free to supply any of them without producing an "unused converter" false positive.
 
-#### Problem 1: Invalid Converter Signature
+#### Problem
 
 ```csharp
 public class StringToIntConverter : ITypeConverter<string, int>
@@ -968,12 +954,48 @@ CreateMap<Source, Destination>()
 // ⚠️ AM030: Converter has invalid signature
 ```
 
-#### Problem 2: Missing Null Handling
+#### Solution
+
+Implement the exact AutoMapper converter method signature:
 
 ```csharp
 public class StringToIntConverter : ITypeConverter<string, int>
 {
     public int Convert(string source, int destination, ResolutionContext context)
+    {
+        return int.TryParse(source, out var result) ? result : 0;
+    }
+}
+```
+
+AM030 is analyzer-only; it does not offer a speculative rewrite for invalid converter implementations.
+
+#### Configuration
+
+```ini
+dotnet_diagnostic.AM030.severity = error
+```
+
+### AM032: Type Converter Null Handling
+
+**Severity**: Warning
+**Category**: AutoMapper.Converters
+
+#### Description
+
+Reports nullable-source converters whose `Convert` implementation does not visibly guard or handle the source
+parameter before using it. Detection recognizes `== null`/`!= null`, null patterns,
+`string.IsNullOrEmpty`/`IsNullOrWhiteSpace`, null-coalescing, conditional access, and modern guard clauses such as
+`ArgumentNullException.ThrowIfNull(source)`, `ArgumentException.ThrowIfNullOrEmpty(source)`, and
+`ArgumentException.ThrowIfNullOrWhiteSpace(source)`. Guard calls whose first argument is unrelated to the source
+parameter still report.
+
+#### Problem
+
+```csharp
+public class StringToIntConverter : ITypeConverter<string?, int>
+{
+    public int Convert(string? source, int destination, ResolutionContext context)
     {
         // ❌ No null check - will throw if source is null
         return int.Parse(source);
@@ -982,10 +1004,62 @@ public class StringToIntConverter : ITypeConverter<string, int>
 
 CreateMap<string?, int>()
     .ConvertUsing<StringToIntConverter>();
-// ⚠️ AM030: Converter doesn't handle null values
+// ⚠️ AM032: Converter doesn't handle null values
 ```
 
-#### Problem 3: Unused Converter
+#### Solution
+
+Add explicit null handling:
+
+```csharp
+public class StringToIntConverter : ITypeConverter<string?, int>
+{
+    public int Convert(string? source, int destination, ResolutionContext context)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+            return 0;
+
+        return int.TryParse(source, out var result) ? result : 0;
+    }
+}
+```
+
+#### Code Fix
+
+For nullable-source converters, AM032 offers an executable fix that inserts:
+
+```csharp
+if (source == null) throw new global::System.ArgumentNullException(nameof(source));
+```
+
+The generated guard is fully qualified so the fixer does not add, reorder, or duplicate `using System` directives.
+
+#### Configuration
+
+```ini
+dotnet_diagnostic.AM032.severity = warning
+```
+
+### AM033: Unused Type Converter
+
+**Severity**: Info
+**Category**: AutoMapper.Converters
+
+#### Description
+
+Reports concrete `ITypeConverter<TSource, TDestination>` implementations that are declared but not referenced by any
+supported AutoMapper converter configuration. Usage analysis treats generic, instance, and type-based converter
+configuration as usage, including `ConvertUsing<MyConverter>()`, `ConvertUsing(new MyConverter())`, and
+`ConvertUsing(typeof(MyConverter))`. It also recognizes simple local, field, or property initializers where an
+`ITypeConverter<TSource, TDestination>` variable is initialized with a concrete converter and then passed to
+`ConvertUsing(converter)`.
+
+When any `ConvertUsing(...)` argument resolves to the interface `ITypeConverter<TSource, TDestination>` itself, for
+example through constructor injection (`public TestProfile(ITypeConverter<string, DateTime> converter)`), a
+service-locator resolution call, or another DI shape whose concrete implementation cannot be statically traced, every
+declared concrete implementation of that interface pair is treated as in use.
+
+#### Problem
 
 ```csharp
 public class LegacyConverter : ITypeConverter<string, DateTime>
@@ -995,7 +1069,7 @@ public class LegacyConverter : ITypeConverter<string, DateTime>
 }
 
 // Converter declared but never used in ConvertUsing
-// ℹ️ AM030: Type converter 'LegacyConverter' is defined but not used
+// ℹ️ AM033: Type converter 'LegacyConverter' is defined but not used
 ```
 
 No diagnostic is reported when the converter is referenced through a supported AutoMapper converter overload:
@@ -1009,40 +1083,15 @@ CreateMap<string, DateTime>()
     .ConvertUsing(converter); // ✅ counted as usage
 ```
 
-#### Solutions
+#### Solution
 
-**Option 1: Fix Converter Implementation**
-
-```csharp
-public class StringToIntConverter : ITypeConverter<string, int>
-{
-    public int Convert(string source, int destination, ResolutionContext context)
-    {
-        // ✅ Null check added
-        if (string.IsNullOrWhiteSpace(source))
-            return 0;
-
-        return int.TryParse(source, out var result) ? result : 0;
-    }
-}
-```
-
-**Option 2: Add Null Guard (Code Fix)**
-
-For nullable-source converters, AM030 offers an executable fix that inserts:
-
-```csharp
-if (source == null) throw new global::System.ArgumentNullException(nameof(source));
-```
-
-The generated guard is fully qualified so the fixer does not add, reorder, or duplicate `using System` directives.
-Invalid converter-signature and unused-converter diagnostics are analyzer-only reports; AM030 does not offer speculative
-rewrites for those descriptors.
+Remove the unused converter, or register it through the appropriate `ConvertUsing(...)` overload. AM033 is
+analyzer-only; it does not offer a speculative rewrite.
 
 #### Configuration
 
 ```ini
-dotnet_diagnostic.AM030.severity = warning
+dotnet_diagnostic.AM033.severity = info
 ```
 
 ---
@@ -1282,8 +1331,10 @@ dotnet_diagnostic.AM020.severity = warning
 dotnet_diagnostic.AM021.severity = warning
 dotnet_diagnostic.AM022.severity = warning
 
-# Custom Conversions - Treat as warnings
-dotnet_diagnostic.AM030.severity = warning
+# Custom Conversions
+dotnet_diagnostic.AM030.severity = error
+dotnet_diagnostic.AM032.severity = warning
+dotnet_diagnostic.AM033.severity = info
 
 # Performance - Treat expensive operations as errors
 dotnet_diagnostic.AM031.severity = warning
@@ -1355,7 +1406,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.34">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.35">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1394,5 +1445,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.34
+**Version**: 2.30.35
 **Maintainer**: George Wall

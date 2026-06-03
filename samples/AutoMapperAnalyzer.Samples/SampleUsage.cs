@@ -54,7 +54,7 @@ public class CompanyDestination
     public AddressDto Headquarters { get; set; } // Different nested object type
 }
 
-// Test classes for AM030 - Custom Type Converter Issues
+// Test classes for AM030/AM032/AM033 - Custom Type Converter Issues
 public class ProductSource
 {
     public string Price { get; set; } = "19.99"; // String price
@@ -74,7 +74,7 @@ public class UnsafeStringToDateTimeConverter : ITypeConverter<string?, DateTime>
 {
     public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
     {
-        // No null check - should trigger AM030 null-handling warning.
+        // No null check - should trigger AM032 null-handling warning.
         return DateTime.Parse(source);
     }
 }
@@ -111,7 +111,7 @@ public class TestProfile : Profile
                 opt => opt.MapFrom(src => src.PhoneNumbers.Select(int.Parse).ToList()));
 #pragma warning restore AM041
 
-        // Property-level conversion ownership lives with AM001/AM002 (not AM030).
+        // Property-level conversion ownership lives with AM001/AM002 (not AM030-AM033).
         // This should trigger AM001 (Price/CreatedDate) and AM002 (Description).
         CreateMap<ProductSource, ProductDestination>();
 

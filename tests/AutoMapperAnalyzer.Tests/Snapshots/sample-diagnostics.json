@@ -880,61 +880,6 @@
     "fixTrustLevel": "NoFix"
   },
   {
-    "ruleId": "AM030",
-    "severity": "Warning",
-    "title": "Type converter is defined but not used in mapping configuration",
-    "category": "AutoMapper.Converters",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/AnalyzerOnly/AM030_InvalidConverterImplementation.cs",
-    "line": 8,
-    "column": 14,
-    "message": "Type converter 'MissingConvertStringToDateTimeConverter' is defined but not used in any CreateMap configuration",
-    "fixTrustLevel": "NoFix"
-  },
-  {
-    "ruleId": "AM030",
-    "severity": "Warning",
-    "title": "Type converter may not handle null values properly",
-    "category": "AutoMapper.Converters",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/Conversions/TypeConverterExamples.cs",
-    "line": 253,
-    "column": 17,
-    "message": "Converter for 'NullUnsafeStringToGuidConverter' may not handle null values. Source type 'String' is nullable but converter doesn't check for null.",
-    "fixTrustLevel": "LikelyRewrite"
-  },
-  {
-    "ruleId": "AM030",
-    "severity": "Warning",
-    "title": "Type converter is defined but not used in mapping configuration",
-    "category": "AutoMapper.Converters",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/SampleUsage.cs",
-    "line": 73,
-    "column": 14,
-    "message": "Type converter 'UnsafeStringToDateTimeConverter' is defined but not used in any CreateMap configuration",
-    "fixTrustLevel": "NoFix"
-  },
-  {
-    "ruleId": "AM030",
-    "severity": "Warning",
-    "title": "Type converter may not handle null values properly",
-    "category": "AutoMapper.Converters",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/SampleUsage.cs",
-    "line": 75,
-    "column": 21,
-    "message": "Converter for 'UnsafeStringToDateTimeConverter' may not handle null values. Source type 'String' is nullable but converter doesn't check for null.",
-    "fixTrustLevel": "LikelyRewrite"
-  },
-  {
-    "ruleId": "AM030",
-    "severity": "Warning",
-    "title": "Type converter is defined but not used in mapping configuration",
-    "category": "AutoMapper.Converters",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/SampleUsage.cs",
-    "line": 83,
-    "column": 14,
-    "message": "Type converter 'SafeStringToDateTimeConverter' is defined but not used in any CreateMap configuration",
-    "fixTrustLevel": "NoFix"
-  },
-  {
     "ruleId": "AM031",
     "severity": "Warning",
     "title": "Expensive operation in mapping expression",
@@ -1021,6 +966,61 @@
     "column": 40,
     "message": "Property 'FilteredCount' mapping contains complex LINQ operation that may impact performance. Consider simplifying or computing before mapping.",
     "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM032",
+    "severity": "Warning",
+    "title": "Type converter may not handle null values properly",
+    "category": "AutoMapper.Converters",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Conversions/TypeConverterExamples.cs",
+    "line": 253,
+    "column": 17,
+    "message": "Converter for 'NullUnsafeStringToGuidConverter' may not handle null values. Source type 'String' is nullable but converter doesn't check for null.",
+    "fixTrustLevel": "LikelyRewrite"
+  },
+  {
+    "ruleId": "AM032",
+    "severity": "Warning",
+    "title": "Type converter may not handle null values properly",
+    "category": "AutoMapper.Converters",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/SampleUsage.cs",
+    "line": 75,
+    "column": 21,
+    "message": "Converter for 'UnsafeStringToDateTimeConverter' may not handle null values. Source type 'String' is nullable but converter doesn't check for null.",
+    "fixTrustLevel": "LikelyRewrite"
+  },
+  {
+    "ruleId": "AM033",
+    "severity": "Warning",
+    "title": "Type converter is defined but not used in mapping configuration",
+    "category": "AutoMapper.Converters",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/AnalyzerOnly/AM030_InvalidConverterImplementation.cs",
+    "line": 8,
+    "column": 14,
+    "message": "Type converter 'MissingConvertStringToDateTimeConverter' is defined but not used in any CreateMap configuration",
+    "fixTrustLevel": "NoFix"
+  },
+  {
+    "ruleId": "AM033",
+    "severity": "Warning",
+    "title": "Type converter is defined but not used in mapping configuration",
+    "category": "AutoMapper.Converters",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/SampleUsage.cs",
+    "line": 73,
+    "column": 14,
+    "message": "Type converter 'UnsafeStringToDateTimeConverter' is defined but not used in any CreateMap configuration",
+    "fixTrustLevel": "NoFix"
+  },
+  {
+    "ruleId": "AM033",
+    "severity": "Warning",
+    "title": "Type converter is defined but not used in mapping configuration",
+    "category": "AutoMapper.Converters",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/SampleUsage.cs",
+    "line": 83,
+    "column": 14,
+    "message": "Type converter 'SafeStringToDateTimeConverter' is defined but not used in any CreateMap configuration",
+    "fixTrustLevel": "NoFix"
   },
   {
     "ruleId": "AM041",

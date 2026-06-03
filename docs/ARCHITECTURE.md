@@ -82,8 +82,8 @@ Recent analyzer passes enforce two architectural rules across mapping analyzers:
 2. **Single-owner diagnostics for overlap-prone patterns**
    - `AM003` owns collection container mismatches.
    - `AM021` owns collection element mismatches (when containers are otherwise compatible).
-   - `AM030` owns converter-quality diagnostics only (invalid implementation, null handling, unused converter).
-   - Property-level conversion absence is intentionally handled by `AM001`/`AM020`/`AM021`, not `AM030`.
+   - `AM030` owns invalid converter implementations, `AM032` owns converter null handling, and `AM033` owns unused converters.
+   - Property-level conversion absence is intentionally handled by `AM001`/`AM020`/`AM021`, not the AM030-AM033 converter-quality rules.
 
 ### Diagnostic Lifecycle
 
@@ -725,7 +725,7 @@ dotnet pack --configuration Release
 
 # Test package locally
 cd test-install/NetCoreTest
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.34-local
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.35-local
 ```
 
 ---
@@ -909,4 +909,4 @@ dotnet build
 
 **Last Updated**: 2026-05-14
 **Maintainer**: George Wall
-**Version**: 2.30.34
+**Version**: 2.30.35
