@@ -202,7 +202,7 @@ descriptor is analyzer-only and does not offer a code action.
 
 AM002 does not report when the destination member is explicitly configured to handle nulls, such as `MapFrom(src => src.Name ?? "fallback")`, a safe AutoMapper `NullSubstitute("fallback")`, an assignable `NullSubstitute` fallback such as a `string` value for an `object` destination member, a typed value-type default such as `NullSubstitute(default(int))`, guarded nullable dereferences such as `src.Name == null ? string.Empty : src.Name.Trim()`, nullable value defaults such as `src.Count.GetValueOrDefault()`, AutoMapper `Ignore()`, a proven non-null-producing resolver expression that does not dereference a nullable receiver unsafely, a custom resolver form such as `MapFrom<TResolver>()` or `MapFrom<TResolver, TSourceMember>(...)`, or a member-level value converter such as `ConvertUsing<TConverter, TSourceMember>(...)`. Pass-through, unguarded nullable-receiver dereferences, different-member, and generic expression mappings like `MapFrom(src => src.Name)`, `MapFrom(src => src.Name.Trim())`, `MapFrom(src => src.Name.Length)`, `MapFrom(src => src.OtherNullableName)`, and `MapFrom<TSourceMember>(src => src.Name)` still report when the mapped value can come from a nullable source and the destination member is non-nullable, and diagnostics name the actual nullable source member used by the explicit mapping. Unsafe substitutes such as `NullSubstitute(null)`, `NullSubstitute(default)`, and nullable/reference typed defaults still report. Helper methods named `Ignore`, `NullSubstitute`, or `MapFrom` are not treated as AutoMapper null-handling or mapping options unless they are invoked on the AutoMapper options parameter. AM002 also stays quiet when the map uses custom construction/conversion, when nullable reference annotations are disabled or oblivious, or when the nullable source and destination member have incompatible underlying types owned by `AM001`.
 
-When the same destination member is configured more than once, AM002 evaluates and fixes the later effective configuration. The default-value fixer preserves existing top-level `ForMember` and top-level `ForPath` options when it adds null handling, emits fully qualified framework defaults such as `global::System.DateTime.MinValue`, but it does not reuse child `ForPath` mappings as top-level nullable-property fixes and it withholds the default-value action when existing `Condition` or `PreCondition` guards can veto assignment or when an existing `MapFrom` dereferences a nullable receiver before any fallback could run.
+When the same destination member is configured more than once, AM002 evaluates and fixes the later effective configuration. The default-value fixer preserves existing top-level `ForMember` and top-level `ForPath` options when it adds null handling, emits fully qualified framework defaults such as `global::System.DateTime.MinValue`, and uses `default!` for generic/reference fallback defaults where plain `default` would remain nullable, but it does not reuse child `ForPath` mappings as top-level nullable-property fixes and it withholds the default-value action when existing `Condition` or `PreCondition` guards can veto assignment or when an existing `MapFrom` dereferences a nullable receiver before any fallback could run.
 Child-only `ForPath` configuration also does not suppress AM002 for a nullable top-level source member, because it does not construct or default the parent destination object.
 
 #### Configuration
@@ -1406,7 +1406,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.35">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.36">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1445,5 +1445,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.35
+**Version**: 2.30.36
 **Maintainer**: George Wall

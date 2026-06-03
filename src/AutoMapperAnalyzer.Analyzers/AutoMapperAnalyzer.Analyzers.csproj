@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>35</PatchVersion>
+        <PatchVersion>36</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -25,28 +25,27 @@
         <PackageVersion Condition="'$(PackageVersion)' == ''">$(MajorVersion).$(MinorVersion).$(PatchVersion)</PackageVersion>
         <Title>AutoMapper Roslyn Analyzer</Title>
         <Authors>George Wall</Authors>
-        <Description>Catch AutoMapper configuration errors at compile-time before they cause runtime chaos! This Roslyn analyzer detects type mismatches, nullable issues, missing properties, collection incompatibilities, and complex mapping problems - all with intelligent code fixes. Transform AutoMapper development from reactive debugging to proactive prevention. Features 14 analyzer rules with smart fixes for type safety, data integrity, complex mappings, performance, and configuration. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, 9.0+, 10.0+.</Description>
+        <Description>Catch AutoMapper configuration errors at compile-time before they cause runtime chaos! This Roslyn analyzer detects type mismatches, nullable issues, missing properties, collection incompatibilities, and complex mapping problems - all with intelligent code fixes. Transform AutoMapper development from reactive debugging to proactive prevention. Features 16 analyzer rules with smart fixes for type safety, data integrity, complex mappings, performance, and configuration. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, 9.0+, 10.0+.</Description>
         <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis;code-quality;diagnostics;code-fix;type-safety;compile-time;netframework;netcore;dotnet;dotnet6;dotnet8;dotnet9;dotnet10</PackageTags>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/georgepwall1991/automapper-analyser</PackageProjectUrl>
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.35 - AM030 converter diagnostics split
+        <PackageReleaseNotes>Version 2.30.36 - AM002 generic nullability flow hardening
 
             Changed:
-            - AM030 now owns only invalid converter implementation diagnostics
-            - AM032 reports nullable-source converter null-handling issues and keeps the null-guard code fix
-            - AM033 reports unused type converter declarations as analyzer-only guidance
-            - Rule catalog, docs, samples, and analyzer health notes now expose independent converter rule IDs
+            - AM002 diagnostic messages now preserve constructed generic source/destination type arguments
+            - AM002 default-value scaffolds use default! for generic/reference fallback defaults where plain default remains nullable
+            - Added regression coverage for generic type-parameter nullable mappings and null-forgiving fallback flow
 
             Validation:
-            - Full solution test suite passing on net10.0 (824 tests)
+            - Full solution test suite passing on net10.0 (827 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
             - GitHub PR checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.34 - AM021/AM022 analyzer health calibration
+            Previous Release: v2.30.35 - AM030 converter diagnostics split
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

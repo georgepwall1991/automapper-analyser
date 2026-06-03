@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-824%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-827%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,24 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.35
+## 🎉 Latest Release: v2.30.36
 
-**AM030 converter diagnostics split**
+**AM002 generic nullability flow hardening**
 
 ✅ **Highlights**
 
-- AM030 now owns only invalid converter implementations.
-- AM032 reports nullable-source converters that do not visibly handle null input and keeps the null-guard code fix.
-- AM033 reports declared converter implementations that are not used by `ConvertUsing(...)`.
+- AM002 now preserves constructed generic type labels such as `Source<T>` and `Destination<T>` in nullable compatibility diagnostics.
+- AM002 default-value code fixes use `default!` for generic/reference fallback defaults where plain `default` remains nullable.
+- Added regression coverage for generic nullable type-parameter mappings and null-forgiving fallback flow.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0` with 824 tests.
+- Full solution test validation passed on `net10.0` with 827 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
 - GitHub PR checks green.
 
 ### Recent Releases
 
+- **v2.30.36**: AM002 preserves constructed generic type labels in nullable diagnostics and uses `default!` for generic/reference fallback defaults in generated fixes.
 - **v2.30.35**: Split AM030's mixed converter diagnostics into AM030 invalid implementation, AM032 null handling, and AM033 unused converter rules with independent docs, severities, and trust metadata.
 - **v2.30.34**: Calibrated AM021's analyzer-health Tests score to 5, aligning it with AM022 based on comparable analyzer coverage and stronger AM021 code-fix method count.
 - **v2.30.33**: AM003 detects immutable/frozen destination container mismatches and offers fully qualified factory fixes for `ImmutableList<T>`, `ImmutableHashSet<T>`, and `FrozenSet<T>`.
@@ -203,7 +204,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.35">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.36">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

@@ -69,7 +69,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
             }
 
             string? destinationType = ExtractDestinationTypeFromDiagnostic(diagnostic);
-            string defaultValue = TypeConversionHelper.GetDefaultValueForType(destinationType ?? string.Empty);
+            string defaultValue = GetDefaultValueForDestination(invocation, propertyName!, destinationType, operationContext.SemanticModel);
 
             InvocationExpressionSyntax? existingConfiguration = FindDestinationConfiguration(invocation, propertyName!);
             if (existingConfiguration == null ||
@@ -94,6 +94,48 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
                     $"AM002_Ignore_{propertyName}"),
                 diagnostic);
         }
+    }
+
+    private static string GetDefaultValueForDestination(
+        InvocationExpressionSyntax invocation,
+        string propertyName,
+        string? destinationType,
+        SemanticModel semanticModel)
+    {
+        string defaultValue = TypeConversionHelper.GetDefaultValueForType(destinationType ?? string.Empty);
+        if (defaultValue != "default")
+        {
+            return defaultValue;
+        }
+
+        (ITypeSymbol? _, ITypeSymbol? destinationMapType) =
+            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+        if (destinationMapType == null)
+        {
+            return defaultValue;
+        }
+
+        IPropertySymbol? destinationProperty = AutoMapperAnalysisHelpers
+            .GetMappableProperties(destinationMapType, requireSetter: false)
+            .FirstOrDefault(property =>
+                string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase));
+        if (destinationProperty == null)
+        {
+            return defaultValue;
+        }
+
+        return NeedsNullForgivingDefault(destinationProperty.Type) ? "default!" : defaultValue;
+    }
+
+    private static bool NeedsNullForgivingDefault(ITypeSymbol destinationPropertyType)
+    {
+        if (destinationPropertyType is ITypeParameterSymbol typeParameter)
+        {
+            return !typeParameter.HasValueTypeConstraint;
+        }
+
+        return destinationPropertyType.IsReferenceType &&
+               destinationPropertyType.NullableAnnotation != NullableAnnotation.Annotated;
     }
 
     private async Task<Document> AddMapFromAsync(

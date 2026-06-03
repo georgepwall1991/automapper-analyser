@@ -780,9 +780,9 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                     invocation.GetLocation(),
                     properties.ToImmutable(),
                     sourceProperty.Name,
-                    AutoMapperAnalysisHelpers.GetTypeName(sourceType),
+                    GetDiagnosticTypeName(sourceType),
                     sourceTypeName,
-                    AutoMapperAnalysisHelpers.GetTypeName(destinationType),
+                    GetDiagnosticTypeName(destinationType),
                     destTypeName
                 );
                 context.ReportDiagnostic(diagnostic);
@@ -814,13 +814,26 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             invocation.GetLocation(),
             properties.ToImmutable(),
             destinationPropertyName,
-            AutoMapperAnalysisHelpers.GetTypeName(sourceType),
+            GetDiagnosticTypeName(sourceType),
             sourcePropertyName,
             sourceTypeName,
-            AutoMapperAnalysisHelpers.GetTypeName(destinationType),
+            GetDiagnosticTypeName(destinationType),
             destTypeName
         );
         context.ReportDiagnostic(diagnostic);
+    }
+
+    private static string GetDiagnosticTypeName(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol { IsGenericType: true } genericType)
+        {
+            return genericType.ToDisplayString(new SymbolDisplayFormat(
+                typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameOnly,
+                genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
+                miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes));
+        }
+
+        return AutoMapperAnalysisHelpers.GetTypeName(type);
     }
 
     private static bool IsNullableToNonNullableCompatible(
