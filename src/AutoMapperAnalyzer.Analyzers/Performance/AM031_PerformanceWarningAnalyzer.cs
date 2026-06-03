@@ -63,16 +63,16 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "Complex computations in mapping expressions can impact performance. Consider computing values before mapping.");
 
     /// <summary>
-    ///     Diagnostic rule for synchronous access of Task.Result.
+    ///     Diagnostic rule for synchronous access of async operations.
     /// </summary>
     public static readonly DiagnosticDescriptor TaskResultSynchronousAccessRule = new(
         "AM031",
         "Synchronous access of async operation in mapping",
-        "Property '{0}' mapping uses Task.Result which can cause deadlocks. Perform async operations before mapping.",
+        "Property '{0}' mapping synchronously waits on an async operation, which can cause deadlocks. Perform async operations before mapping.",
         "AutoMapper.Performance",
         DiagnosticSeverity.Warning,
         true,
-        "Using Task.Result or Task.Wait() in mapping can cause deadlocks and performance issues. Await async operations before mapping.");
+        "Using Task.Result, Task.Wait(), or GetAwaiter().GetResult() in mapping can cause deadlocks and performance issues. Await async operations before mapping.");
 
     /// <summary>
     ///     Diagnostic rule for complex LINQ operations.
@@ -374,6 +374,16 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
             // Check for Task.Result
             if (IsTaskResultAccess(invocation, context.SemanticModel))
+            {
+                if (reportedIssueTypes.Add(TaskResultIssueType))
+                {
+                    ReportTaskResultDiagnostic(context, lambda, propertyName);
+                }
+
+                continue;
+            }
+
+            if (IsTaskAwaiterGetResultAccess(containingType, methodName))
             {
                 if (reportedIssueTypes.Add(TaskResultIssueType))
                 {
@@ -707,6 +717,15 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     {
         return methodName == "Wait" &&
                containingType.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal);
+    }
+
+    private static bool IsTaskAwaiterGetResultAccess(string containingType, string methodName)
+    {
+        return methodName == "GetResult" &&
+               (containingType.StartsWith("System.Runtime.CompilerServices.TaskAwaiter", StringComparison.Ordinal) ||
+                containingType.StartsWith("System.Runtime.CompilerServices.ValueTaskAwaiter", StringComparison.Ordinal) ||
+                containingType.StartsWith("System.Runtime.CompilerServices.ConfiguredTaskAwaitable", StringComparison.Ordinal) ||
+                containingType.StartsWith("System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable", StringComparison.Ordinal));
     }
 
     private static bool IsNonDeterministicOperation(string containingType, string methodName, out string operationType)

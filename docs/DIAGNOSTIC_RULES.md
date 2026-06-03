@@ -1160,13 +1160,13 @@ CreateMap<Source, Destination>()
 
 **Issue**: Mapping same object twice produces different results, breaks unit tests, and causes caching issues.
 
-#### Problem 4: Task.Result Deadlock Risk
+#### Problem 4: Sync-over-async Deadlock Risk
 
 ```csharp
 CreateMap<Source, Destination>()
     .ForMember(dest => dest.Data, opt => opt.MapFrom(src =>
         _service.GetDataAsync(src.Id).Result));  // ❌ Synchronous access
-// ⚠️ AM031: Task.Result can cause deadlocks
+// ⚠️ AM031: Synchronously waiting on async work can cause deadlocks
 ```
 
 Task-valued source members are also detected:
@@ -1176,6 +1176,8 @@ CreateMap<Source, Destination>()
     .ForMember(dest => dest.Data, opt => opt.MapFrom(src =>
         src.DataTask.Result));  // ❌ Synchronous access
 ```
+
+`Task.Wait()` and `GetAwaiter().GetResult()` are reported through the same descriptor.
 
 #### Solutions
 
@@ -1214,7 +1216,7 @@ manual-review action only so the fixer does not change runtime mapping policy.
 - ✅ Reflection operations
 - ✅ Multiple collection enumerations
 - ✅ `DateTime.Now`, `Random`, `Guid.NewGuid()`
-- ✅ `Task.Result`, `Task.Wait()`, including Task-valued source properties
+- ✅ `Task.Result`, `Task.Wait()`, `GetAwaiter().GetResult()`, including Task-valued source properties
 - ✅ Complex LINQ (SelectMany chains)
 
 #### Configuration
@@ -1225,7 +1227,7 @@ dotnet_diagnostic.AM031.severity = warning
 # Specific sub-rules
 dotnet_diagnostic.AM031.001.severity = error  # Expensive operations
 dotnet_diagnostic.AM031.002.severity = warning  # Multiple enumerations
-dotnet_diagnostic.AM031.003.severity = error  # Task.Result deadlock
+dotnet_diagnostic.AM031.003.severity = error  # Sync-over-async deadlock
 dotnet_diagnostic.AM031.004.severity = warning  # Non-deterministic
 ```
 

@@ -132,7 +132,7 @@ public class AM031_PerformanceExamples
     }
 
     /// <summary>
-    ///     AM031: Task.Result Synchronous Access
+    ///     AM031: Sync-over-async Access
     ///     This should trigger AM031 diagnostic
     /// </summary>
     public void TaskResultExample()
@@ -142,7 +142,7 @@ public class AM031_PerformanceExamples
         var config = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<AM031Customer, AM031CustomerDto>()
-                // ❌ AM031: Task.Result can cause deadlocks
+                // ❌ AM031: synchronously waiting on async work can cause deadlocks
                 .ForMember(dest => dest.ExternalData,
                     opt => opt.MapFrom(src => asyncService.GetDataAsync(src.Id).Result));
         });
@@ -150,7 +150,7 @@ public class AM031_PerformanceExamples
         var mapper = config.CreateMapper();
         var customer = new AM031Customer { Id = 1, Name = "Jane Smith" };
 
-        Console.WriteLine("❌ Task.Result usage detected - await async operations before mapping!");
+        Console.WriteLine("❌ Sync-over-async usage detected - await async operations before mapping!");
 
         // ✅ CORRECT WAY:
         // var externalData = await asyncService.GetDataAsync(customer.Id);

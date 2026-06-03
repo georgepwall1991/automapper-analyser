@@ -1584,6 +1584,168 @@ public class AM031_PerformanceWarningTests
     }
 
     [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenGetAwaiterGetResultUsedInMapFrom()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Threading.Tasks;
+
+                                namespace TestNamespace
+                                {
+                                    public static class DataService
+                                    {
+                                        public static Task<string> GetDataAsync(int id) => Task.FromResult("data");
+                                    }
+
+                                    public class Source
+                                    {
+                                        public int Id { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Data, opt => opt.MapFrom(src => DataService.GetDataAsync(src.Id).GetAwaiter().GetResult()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule, 26, 66,
+                "Data")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenConfiguredTaskGetResultUsedInMapFrom()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Threading.Tasks;
+
+                                namespace TestNamespace
+                                {
+                                    public static class DataService
+                                    {
+                                        public static Task<string> GetDataAsync(int id) => Task.FromResult("data");
+                                    }
+
+                                    public class Source
+                                    {
+                                        public int Id { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Data, opt => opt.MapFrom(src => DataService.GetDataAsync(src.Id).ConfigureAwait(false).GetAwaiter().GetResult()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule, 26, 66,
+                "Data")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenValueTaskGetAwaiterGetResultUsedInMapFrom()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Threading.Tasks;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public ValueTask<string> DataTask { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Data, opt => opt.MapFrom(src => src.DataTask.GetAwaiter().GetResult()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule, 21, 66,
+                "Data")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenConfiguredValueTaskGetResultUsedInMapFrom()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Threading.Tasks;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public ValueTask<string> DataTask { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Data, opt => opt.MapFrom(src => src.DataTask.ConfigureAwait(false).GetAwaiter().GetResult()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule, 21, 66,
+                "Data")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM031_ShouldReportDiagnostic_WhenTaskWaitUsedInMapFrom()
     {
         const string testCode = """
