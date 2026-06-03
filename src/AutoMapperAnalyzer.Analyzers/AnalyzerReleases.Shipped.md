@@ -1,3 +1,15 @@
+## Release 2.30.41
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|------
+
+### Removed Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|------
+
 ## Release 2.30.40
 
 ### New Rules

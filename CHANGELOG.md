@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.41] - 2026-06-04
+
+### Changed
+
+- **AM021**: Collection element compatibility now uses Roslyn conversion classification after the existing analyzer-specific checks, so compiler-known implicit element conversions are treated as safe.
+- **AM021**: Value-object collection elements with user-defined implicit conversions, such as `List<Money>` to `List<decimal>`, no longer report collection element mismatch diagnostics.
+- **Tests**: Added regression coverage proving implicit user-defined element conversions stay quiet while explicit-only element conversions still report.
+
+### Validation
+
+- PR #116 checks green: Build/Test, package analyzer, package smoke tests for `net8.0`, `net9.0`, and `net10.0`, Codecov patch, and Claude review.
+- Full solution test suite (`net10.0`) green — 837 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.40] - 2026-06-03
 
 ### Changed

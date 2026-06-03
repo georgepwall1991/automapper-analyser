@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>40</PatchVersion>
+        <PatchVersion>41</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,20 +32,20 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.40 - AM001 implicit conversion modelling
+        <PackageReleaseNotes>Version 2.30.41 - AM021 implicit element conversion modelling
 
             Changed:
-            - AM001 now uses Roslyn conversion classification after existing analyzer-specific compatibility checks
-            - Compiler-known implicit conversions, including user-defined value-object conversions, are treated as safe
-            - Explicit-only user-defined conversions still report and require explicit mapping configuration
+            - AM021 now uses Roslyn conversion classification after existing analyzer-specific element checks
+            - Compiler-known implicit element conversions, including value-object collection elements, are treated as safe
+            - Explicit-only element conversions still report and require explicit mapping configuration
 
             Validation:
-            - Full solution test suite passing on net10.0 (835 tests)
+            - Full solution test suite passing on net10.0 (837 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
-            - PR #115 CI/package smoke checks passing
+            - PR #116 CI/package smoke checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.39 - CI action runtime hardening
+            Previous Release: v2.30.40 - AM001 implicit conversion modelling
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

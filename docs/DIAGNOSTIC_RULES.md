@@ -767,6 +767,10 @@ public class MappingProfile : Profile
 
 `AM021` checks for an existing `CreateMap<SourceItem, DestinationItem>()` before reporting. If element mapping exists, no diagnostic is emitted.
 
+`AM021` also respects compiler-known implicit element conversions. For example, a collection mapping from
+`List<Money>` to `List<decimal>` stays quiet when `Money` defines an implicit conversion to `decimal`, while an
+explicit-only conversion still reports and requires mapping configuration.
+
 When a parent map uses `ReverseMap()`, AM021 also checks the reverse element direction. A forward
 `CreateMap<SourceItem, DestinationItem>()` does not automatically prove that
 `CreateMap<DestinationItem, SourceItem>()` exists, so reverse collection maps still need their own element map or explicit
@@ -1409,7 +1413,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.40">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.41">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1448,5 +1452,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.40
+**Version**: 2.30.41
 **Maintainer**: George Wall
