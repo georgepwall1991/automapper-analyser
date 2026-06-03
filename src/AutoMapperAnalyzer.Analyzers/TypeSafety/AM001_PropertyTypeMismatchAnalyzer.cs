@@ -164,7 +164,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         }
 
         // Check for basic type incompatibilities
-        if (!AreTypesCompatible(sourceProperty.Type, destinationProperty.Type))
+        if (!AreTypesCompatible(context.Compilation, sourceProperty.Type, destinationProperty.Type))
         {
             var properties = ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add(PropertyNamePropertyName, sourceProperty.Name);
@@ -265,12 +265,15 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
             destinationType);
     }
 
-    private static bool AreTypesCompatible(ITypeSymbol sourceType, ITypeSymbol destinationType)
+    private static bool AreTypesCompatible(Compilation compilation, ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
-        // Use the centralized helper method for comprehensive compatibility checking.
-        // This includes: exact type match, nullable compatibility, collection compatibility,
-        // and numeric type implicit conversions (using SpecialType for accuracy).
-        return AutoMapperAnalysisHelpers.AreTypesCompatible(sourceType, destinationType);
+        if (AutoMapperAnalysisHelpers.AreTypesCompatible(sourceType, destinationType))
+        {
+            return true;
+        }
+
+        Conversion conversion = compilation.ClassifyConversion(sourceType, destinationType);
+        return conversion.Exists && conversion.IsImplicit;
     }
 
     private static bool IsPrimitiveOrFrameworkType(ITypeSymbol type)

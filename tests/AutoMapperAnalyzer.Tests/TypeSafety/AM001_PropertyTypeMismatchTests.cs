@@ -188,6 +188,97 @@ public class AM001_PropertyTypeMismatchTests
     }
 
     [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenUserDefinedImplicitConversionExists()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public readonly struct Money
+                                    {
+                                        public Money(decimal value)
+                                        {
+                                            Value = value;
+                                        }
+
+                                        public decimal Value { get; }
+
+                                        public static implicit operator decimal(Money money) => money.Value;
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Money Amount { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public decimal Amount { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldReportDiagnostic_WhenOnlyUserDefinedExplicitConversionExists()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public readonly struct Money
+                                    {
+                                        public Money(decimal value)
+                                        {
+                                            Value = value;
+                                        }
+
+                                        public decimal Value { get; }
+
+                                        public static explicit operator decimal(Money money) => money.Value;
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Money Amount { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public decimal Amount { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 32, 13, "Amount", "Source",
+                "TestNamespace.Money", "Destination", "decimal"));
+    }
+
+    [Fact]
     public async Task AM001_ShouldReportDiagnostic_WhenSourcePropertyIsReadOnly()
     {
         const string testCode = """
