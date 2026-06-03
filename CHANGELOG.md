@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.39] - 2026-06-03
+
+### Changed
+
+- **CI/CD**: Refreshed CI, release, and CodeQL workflow action pins to current major versions with Node.js 24-compatible releases.
+- **CI/CD**: Updated checkout/setup-dotnet, Codecov, CodeQL, cache, upload-artifact, and GitHub release actions while preserving existing workflow behavior.
+
+### Validation
+
+- PR #114 checks green: Build/Test, package analyzer, package smoke tests for `net8.0`, `net9.0`, and `net10.0`, Codecov patch, and Claude review.
+- Full solution test suite (`net10.0`) green — 833 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.38] - 2026-06-03
 
 ### Changed

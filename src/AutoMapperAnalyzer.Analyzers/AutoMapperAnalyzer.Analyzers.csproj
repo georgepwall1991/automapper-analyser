@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>38</PatchVersion>
+        <PatchVersion>39</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,20 +32,20 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.38 - AM031 LINQ namesake precision
+        <PackageReleaseNotes>Version 2.30.39 - CI action runtime hardening
 
             Changed:
-            - AM031 complex LINQ SelectMany diagnostics now require System.Linq.Enumerable or System.Linq.Queryable calls
-            - User-defined SelectMany namesakes with nested selector invocations stay quiet
-            - Added regression coverage for custom SelectMany extensions with nested selector logic
+            - Refreshed CI, release, and CodeQL workflow action pins to current major versions with Node.js 24-compatible releases
+            - Updated checkout/setup-dotnet, Codecov, CodeQL, cache, upload-artifact, and GitHub release actions
+            - Preserved existing build, package, release, and smoke-test behavior
 
             Validation:
             - Full solution test suite passing on net10.0 (833 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
-            - Local 2.30.38 package build produced expected analyzer payloads
+            - PR #114 CI/package smoke checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.37 - AM001 exact numeric conversion modelling
+            Previous Release: v2.30.38 - AM031 LINQ namesake precision
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

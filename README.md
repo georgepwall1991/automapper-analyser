@@ -14,24 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.38
+## 🎉 Latest Release: v2.30.39
 
-**AM031 LINQ namesake precision**
+**CI action runtime hardening**
 
 ✅ **Highlights**
 
-- AM031 complex LINQ `SelectMany` diagnostics now require a real `System.Linq.Enumerable` or `System.Linq.Queryable` call.
-- User-defined `SelectMany` extension namesakes with nested selector invocations stay quiet.
-- Regression coverage locks the namesake boundary so broad performance heuristics do not over-report custom APIs.
+- CI, release, and CodeQL workflows now use current major action pins with Node.js 24-compatible releases.
+- Checkout/setup-dotnet, Codecov, CodeQL, cache, upload-artifact, and GitHub release actions were refreshed without changing workflow behavior.
+- Package smoke coverage still validates `net8.0`, `net9.0`, and `net10.0` consumers.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0` with 833 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
-- Local `2.30.38` package build produced the expected analyzer payloads.
+- PR #114 CI/package smoke checks green.
 
 ### Recent Releases
 
+- **v2.30.39**: Refreshed CI, release, and CodeQL workflow action pins to current major versions with Node.js 24-compatible releases.
 - **v2.30.38**: AM031 complex LINQ `SelectMany` diagnostics now require real `System.Linq.Enumerable`/`Queryable` calls, so user-defined namesakes with nested selector logic stay quiet.
 - **v2.30.37**: AM001 uses the exact C# implicit numeric conversion table, reports `double`/`float` to `decimal` mappings, and preserves valid widenings such as `char` to `int`.
 - **v2.30.36**: AM002 preserves constructed generic type labels in nullable diagnostics and uses `default!` for generic/reference fallback defaults in generated fixes.
@@ -206,7 +207,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.38">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.39">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
