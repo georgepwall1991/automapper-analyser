@@ -245,6 +245,103 @@ public class AM021_CollectionElementMismatchTests
     }
 
     [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_WhenUserDefinedImplicitElementConversionExists()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public readonly struct Money
+                                    {
+                                        public Money(decimal value)
+                                        {
+                                            Value = value;
+                                        }
+
+                                        public decimal Value { get; }
+
+                                        public static implicit operator decimal(Money money) => money.Value;
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<Money> Amounts { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<decimal> Amounts { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldReportDiagnostic_WhenOnlyUserDefinedExplicitElementConversionExists()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public readonly struct Money
+                                    {
+                                        public Money(decimal value)
+                                        {
+                                            Value = value;
+                                        }
+
+                                        public decimal Value { get; }
+
+                                        public static explicit operator decimal(Money money) => money.Value;
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<Money> Amounts { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<decimal> Amounts { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 32, 13,
+                "Amounts", "Source", "TestNamespace.Money", "Destination", "Amounts", "decimal")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM021_ShouldNotReportDiagnostic_WhenExplicitElementMappingProvided()
     {
         const string testCode = """

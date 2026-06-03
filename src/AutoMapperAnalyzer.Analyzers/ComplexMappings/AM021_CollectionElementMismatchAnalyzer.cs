@@ -154,7 +154,7 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
         }
 
         // Check if element types are compatible
-        if (!AutoMapperAnalysisHelpers.AreTypesCompatible(sourceElementType, destElementType))
+        if (!AreElementTypesCompatible(context.Compilation, sourceElementType, destElementType))
         {
             // Check if there's an explicit CreateMap for the element types
             var registry = CreateMapRegistry.FromCompilation(context.Compilation);
@@ -241,6 +241,17 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    private static bool AreElementTypesCompatible(Compilation compilation, ITypeSymbol sourceType, ITypeSymbol destinationType)
+    {
+        if (AutoMapperAnalysisHelpers.AreTypesCompatible(sourceType, destinationType))
+        {
+            return true;
+        }
+
+        Conversion conversion = compilation.ClassifyConversion(sourceType, destinationType);
+        return conversion.Exists && conversion.IsImplicit;
     }
 
     private static bool IsGenericCollection(ITypeSymbol type)
