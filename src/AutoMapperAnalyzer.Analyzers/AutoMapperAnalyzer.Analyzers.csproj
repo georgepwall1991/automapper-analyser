@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>33</PatchVersion>
+        <PatchVersion>34</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,13 +32,12 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.33 - AM003 immutable/frozen container conversions
+        <PackageReleaseNotes>Version 2.30.34 - AM021/AM022 analyzer health calibration
 
             Changed:
-            - AM003 reports collection-container mismatches when destination members use ImmutableList, ImmutableHashSet, or FrozenSet
-            - AM003 code fixes emit fully qualified ImmutableList.CreateRange, ImmutableHashSet.CreateRange, and FrozenSet.ToFrozenSet factory calls
-            - Immutable/frozen AM003 fixes preserve the existing AM003/AM021 ownership split and reuse safe element conversions when needed
-            - AM003 analyzer and code-fix regression coverage now locks immutable/frozen destination behavior
+            - Analyzer health audit now scores AM021 Tests at 5, matching AM022 under the same rubric
+            - Audit evidence records AM021's 29 analyzer test methods and 20 code-fix test methods against AM022's 29 analyzer and 16 code-fix methods
+            - The resolved P3 backlog entry documents the calibration in analyzer-health.md
 
             Validation:
             - Full solution test suite passing on net10.0 (824 tests)
@@ -46,7 +45,7 @@
             - GitHub PR checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.32 - Property-level AM004/AM006 diagnostics
+            Previous Release: v2.30.33 - AM003 immutable/frozen container conversions
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

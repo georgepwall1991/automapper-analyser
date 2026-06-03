@@ -14,15 +14,15 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.33
+## 🎉 Latest Release: v2.30.34
 
-**AM003 immutable/frozen container conversions**
+**AM021/AM022 analyzer health calibration**
 
 ✅ **Highlights**
 
-- AM003 now detects collection-container mismatches targeting `ImmutableList<T>`, `ImmutableHashSet<T>`, and `FrozenSet<T>`.
-- AM003 fixes emit fully qualified factory calls such as `ImmutableList.CreateRange(...)` and `FrozenSet.ToFrozenSet(...)`.
-- Immutable/frozen container fixes reuse safe element conversions while preserving the AM003/AM021 ownership boundary.
+- AM021's Tests score now aligns with AM022 under the same analyzer-health rubric.
+- The audit records current coverage evidence: AM021 has 29 analyzer test methods plus 20 code-fix test methods.
+- The resolved P3 backlog entry now documents the AM021/AM022 calibration explicitly.
 
 🧪 **Validation**
 
@@ -32,6 +32,7 @@ prevention*
 
 ### Recent Releases
 
+- **v2.30.34**: Calibrated AM021's analyzer-health Tests score to 5, aligning it with AM022 based on comparable analyzer coverage and stronger AM021 code-fix method count.
 - **v2.30.33**: AM003 detects immutable/frozen destination container mismatches and offers fully qualified factory fixes for `ImmutableList<T>`, `ImmutableHashSet<T>`, and `FrozenSet<T>`.
 - **v2.30.32**: AM004/AM006 diagnostics now point at the offending source/destination property identifiers while preserving code-fix routing through mapping invocation metadata.
 - **v2.30.31**: Correctness/code-fix hardening from an adversarial audit — AM001 signed/unsigned numeric mismatches, keyword-name escaping, AM020 qualified/generic nested `CreateMap` names, AM003 implicit-conversion-gated element casts, AM031 `ValueTask.Result`.
@@ -201,7 +202,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.33">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.34">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
