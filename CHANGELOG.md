@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.36] - 2026-06-03
+
+### Changed
+
+- **AM002**: Nullable compatibility diagnostics now preserve constructed generic source/destination type names, so generic mappings report actionable labels such as `Source<T>` and `Destination<T>` instead of collapsing to the metadata type name.
+- **AM002 code fixes**: Default-value scaffolds now use `default!` for generic/reference fallback defaults where plain `default` would remain nullable, keeping generated `MapFrom` expressions analyzer-clean.
+- **Tests**: Added AM002 regression coverage for generic nullable type-parameter mappings and null-forgiving fallback flow.
+
+### Validation
+
+- Targeted AM002 analyzer and code-fix tests green.
+- Full solution test suite (`net10.0`) green — 827 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.35] - 2026-06-03
 
 ### Changed

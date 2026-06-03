@@ -1550,6 +1550,82 @@ public class AM002_NullableCompatibilityTests
     }
 
     [Fact]
+    public async Task AM002_ShouldReportDiagnostic_ForGenericNullableTypeParameterToNonNullable()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source<T>
+                                  where T : class
+                              {
+                                  public T? Value { get; set; }
+                              }
+
+                              public class Destination<T>
+                                  where T : class
+                              {
+                                  public T Value { get; set; }
+                              }
+
+                              public class TestProfile<T> : Profile
+                                  where T : class
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source<T>, Destination<T>>();
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 24, 13, "Value", "Source<T>",
+                "T?", "Destination<T>", "T"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenGenericNullableTypeParameterMapFromUsesNullForgivingFallback()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source<T>
+                                  where T : class
+                              {
+                                  public T? Value { get; set; }
+                              }
+
+                              public class Destination<T>
+                                  where T : class
+                              {
+                                  public T Value { get; set; }
+                              }
+
+                              public class TestProfile<T> : Profile
+                                  where T : class
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source<T>, Destination<T>>()
+                                          .ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value ?? default!));
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
     public async Task AM002_ShouldNotReportDiagnostic_ForCreateMapLikeApiOutsideAutoMapper()
     {
         string testCode = """

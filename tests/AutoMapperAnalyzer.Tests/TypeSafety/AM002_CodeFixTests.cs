@@ -8,8 +8,8 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Tests.TypeSafety;
 
@@ -472,6 +472,80 @@ public class AM002_CodeFixTests
                 "System.DateTime"),
             expectedFixedCode,
             codeActionIndex: 0);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldFixGenericNullableTypeParameterWithNullForgivingDefault()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source<T>
+                                        where T : class
+                                    {
+                                        public T? Value { get; set; }
+                                    }
+
+                                    public class Destination<T>
+                                        where T : class
+                                    {
+                                        public T Value { get; set; }
+                                    }
+
+                                    public class TestProfile<T> : Profile
+                                        where T : class
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source<T>, Destination<T>>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source<T>
+                                                 where T : class
+                                             {
+                                                 public T? Value { get; set; }
+                                             }
+
+                                             public class Destination<T>
+                                                 where T : class
+                                             {
+                                                 public T Value { get; set; }
+                                             }
+
+                                             public class TestProfile<T> : Profile
+                                                 where T : class
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source<T>, Destination<T>>().ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value ?? default!));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            23,
+            13,
+            expectedFixedCode,
+            "Value",
+            "Source<T>",
+            "T?",
+            "Destination<T>",
+            "T");
     }
 
     [Fact]
