@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-833%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-835%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,24 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.39
+## 🎉 Latest Release: v2.30.40
 
-**CI action runtime hardening**
+**AM001 implicit conversion modelling**
 
 ✅ **Highlights**
 
-- CI, release, and CodeQL workflows now use current major action pins with Node.js 24-compatible releases.
-- Checkout/setup-dotnet, Codecov, CodeQL, cache, upload-artifact, and GitHub release actions were refreshed without changing workflow behavior.
-- Package smoke coverage still validates `net8.0`, `net9.0`, and `net10.0` consumers.
+- AM001 now uses Roslyn conversion classification after existing analyzer-specific compatibility checks.
+- Compiler-known implicit conversions, including user-defined value-object conversions, are treated as safe.
+- Explicit-only user-defined conversions still report and require explicit AutoMapper configuration.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0` with 833 tests.
+- Full solution test validation passed on `net10.0` with 835 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
-- PR #114 CI/package smoke checks green.
+- PR #115 CI/package smoke checks green.
 
 ### Recent Releases
 
+- **v2.30.40**: AM001 now respects compiler-known implicit conversions, including user-defined value-object conversions, while explicit-only conversions still report.
 - **v2.30.39**: Refreshed CI, release, and CodeQL workflow action pins to current major versions with Node.js 24-compatible releases.
 - **v2.30.38**: AM031 complex LINQ `SelectMany` diagnostics now require real `System.Linq.Enumerable`/`Queryable` calls, so user-defined namesakes with nested selector logic stay quiet.
 - **v2.30.37**: AM001 uses the exact C# implicit numeric conversion table, reports `double`/`float` to `decimal` mappings, and preserves valid widenings such as `char` to `int`.
@@ -207,7 +208,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.39">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.40">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
