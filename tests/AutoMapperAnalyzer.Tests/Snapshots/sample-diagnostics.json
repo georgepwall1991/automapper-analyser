@@ -920,7 +920,7 @@
     "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
     "line": 147,
     "column": 40,
-    "message": "Property 'ExternalData' mapping uses Task.Result which can cause deadlocks. Perform async operations before mapping.",
+    "message": "Property 'ExternalData' mapping synchronously waits on an async operation, which can cause deadlocks. Perform async operations before mapping.",
     "fixTrustLevel": "Scaffold"
   },
   {
