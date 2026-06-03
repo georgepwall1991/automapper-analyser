@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.34] - 2026-06-03
+
+### Changed
+
+- **Analyzer health**: Calibrated AM021's Tests score from 4 to 5 so it aligns with AM022 under the same audit rubric.
+- **Audit evidence**: Recorded the current AM021/AM022 method counts behind the calibration: AM021 has 29 analyzer test methods plus 20 code-fix test methods, while AM022 has 29 analyzer test methods plus 16 code-fix test methods.
+
+### Validation
+
+- Targeted AM021 and AM022 test filters green.
+- Full solution test suite (`net10.0`) green — 824 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.33] - 2026-06-03
 
 ### Changed
