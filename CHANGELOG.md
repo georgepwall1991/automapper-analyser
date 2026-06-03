@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.33] - 2026-06-03
+
+### Changed
+
+- **AM003**: Collection-container incompatibility diagnostics now cover immutable/frozen destination containers (`ImmutableList<T>`, `ImmutableHashSet<T>`, and `FrozenSet<T>`) when the source collection is not already assignable to the destination contract.
+- **AM003 code fixes**: Immutable/frozen destination fixes now emit fully qualified factory calls (`ImmutableList.CreateRange(...)`, `ImmutableHashSet.CreateRange(...)`, and `FrozenSet.ToFrozenSet(...)`) instead of unsafe constructors or manual-only fallbacks.
+- **Tests**: Added AM003 analyzer and code-fix regression coverage for immutable/frozen destination containers, including element conversion through the existing safe conversion pipeline.
+
+### Validation
+
+- Full solution test suite (`net10.0`) green — 824 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.32] - 2026-06-03
 
 ### Changed

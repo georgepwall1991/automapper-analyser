@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-819%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-824%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,24 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.32
+## 🎉 Latest Release: v2.30.33
 
-**Property-level AM004/AM006 diagnostics**
+**AM003 immutable/frozen container conversions**
 
 ✅ **Highlights**
 
-- AM004 now reports missing destination-property diagnostics on the offending source property identifier.
-- AM006 now reports unmapped destination-property diagnostics on the offending destination property identifier.
-- Existing AM004/AM006 code fixes still locate the owning `CreateMap` chain through diagnostic span metadata.
+- AM003 now detects collection-container mismatches targeting `ImmutableList<T>`, `ImmutableHashSet<T>`, and `FrozenSet<T>`.
+- AM003 fixes emit fully qualified factory calls such as `ImmutableList.CreateRange(...)` and `FrozenSet.ToFrozenSet(...)`.
+- Immutable/frozen container fixes reuse safe element conversions while preserving the AM003/AM021 ownership boundary.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0` with 819 tests.
+- Full solution test validation passed on `net10.0` with 824 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
-- Codex review green per change.
+- GitHub PR checks green.
 
 ### Recent Releases
 
+- **v2.30.33**: AM003 detects immutable/frozen destination container mismatches and offers fully qualified factory fixes for `ImmutableList<T>`, `ImmutableHashSet<T>`, and `FrozenSet<T>`.
 - **v2.30.32**: AM004/AM006 diagnostics now point at the offending source/destination property identifiers while preserving code-fix routing through mapping invocation metadata.
 - **v2.30.31**: Correctness/code-fix hardening from an adversarial audit — AM001 signed/unsigned numeric mismatches, keyword-name escaping, AM020 qualified/generic nested `CreateMap` names, AM003 implicit-conversion-gated element casts, AM031 `ValueTask.Result`.
 - **v2.30.30**: Added AM021 simple-conversion fixes for `ImmutableList<T>`, `ImmutableHashSet<T>`, and `FrozenSet<T>` while keeping custom immutable-lookalikes manual-only.
@@ -200,7 +201,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.32">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.33">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

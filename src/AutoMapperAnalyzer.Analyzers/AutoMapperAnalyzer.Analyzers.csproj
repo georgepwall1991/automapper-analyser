@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>32</PatchVersion>
+        <PatchVersion>33</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,21 +32,21 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.32 - Property-level AM004/AM006 diagnostics
+        <PackageReleaseNotes>Version 2.30.33 - AM003 immutable/frozen container conversions
 
             Changed:
-            - AM004 reports missing destination-property diagnostics on the offending source property identifier
-            - AM006 reports unmapped destination-property diagnostics on the offending destination property identifier
-            - AM004/AM006 diagnostics carry mapping invocation span metadata so existing code fixes still locate the CreateMap chain
-            - Shared code-fix test verification tolerates line-ending-only generated-source diffs across Windows/LF checkouts
+            - AM003 reports collection-container mismatches when destination members use ImmutableList, ImmutableHashSet, or FrozenSet
+            - AM003 code fixes emit fully qualified ImmutableList.CreateRange, ImmutableHashSet.CreateRange, and FrozenSet.ToFrozenSet factory calls
+            - Immutable/frozen AM003 fixes preserve the existing AM003/AM021 ownership split and reuse safe element conversions when needed
+            - AM003 analyzer and code-fix regression coverage now locks immutable/frozen destination behavior
 
             Validation:
-            - Full solution test suite passing on net10.0 (819 tests)
+            - Full solution test suite passing on net10.0 (824 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
-            - Codex review passing per change
+            - GitHub PR checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.31 - Correctness and code-fix hardening from an adversarial analyzer audit
+            Previous Release: v2.30.32 - Property-level AM004/AM006 diagnostics
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

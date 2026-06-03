@@ -309,6 +309,17 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
+        if (TryCreateImmutableOrFrozenDestinationFix(
+                propertyName,
+                destType,
+                needsElementConversion,
+                elementConversionLambda,
+                out (string Title, string Expression, bool RequiresLinq, string EquivalenceKey) immutableFix))
+        {
+            fixes.Add(immutableFix);
+            return fixes;
+        }
+
         if (IsArrayType(sourceType) && Contains(destType, "IEnumerable"))
         {
             // Arrays are IEnumerable, so AsEnumerable is fine, but if we need element conversion, we need Select
@@ -379,6 +390,51 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         return false;
     }
 
+    private static bool TryCreateImmutableOrFrozenDestinationFix(
+        string propertyName,
+        string destinationType,
+        bool needsElementConversion,
+        string elementConversionLambda,
+        out (string Title, string Expression, bool RequiresLinq, string EquivalenceKey) fix)
+    {
+        string sourceExpression = needsElementConversion
+            ? $"src.{propertyName}.Select({elementConversionLambda})"
+            : $"src.{propertyName}";
+
+        if (IsKnownConcreteCollectionType(destinationType, "ImmutableList", "System.Collections.Immutable."))
+        {
+            fix = (
+                $"Convert {propertyName} using ImmutableList.CreateRange()",
+                $"global::System.Collections.Immutable.ImmutableList.CreateRange({sourceExpression})",
+                needsElementConversion,
+                $"AM003_ImmutableList_{propertyName}");
+            return true;
+        }
+
+        if (IsKnownConcreteCollectionType(destinationType, "ImmutableHashSet", "System.Collections.Immutable."))
+        {
+            fix = (
+                $"Convert {propertyName} using ImmutableHashSet.CreateRange()",
+                $"global::System.Collections.Immutable.ImmutableHashSet.CreateRange({sourceExpression})",
+                needsElementConversion,
+                $"AM003_ImmutableHashSet_{propertyName}");
+            return true;
+        }
+
+        if (IsKnownConcreteCollectionType(destinationType, "FrozenSet", "System.Collections.Frozen."))
+        {
+            fix = (
+                $"Convert {propertyName} using FrozenSet.ToFrozenSet()",
+                $"global::System.Collections.Frozen.FrozenSet.ToFrozenSet({sourceExpression})",
+                needsElementConversion,
+                $"AM003_FrozenSet_{propertyName}");
+            return true;
+        }
+
+        fix = default;
+        return false;
+    }
+
     private static bool IsListLikeInterface(string typeName)
     {
         return IsGenericCollectionInterface(typeName, "IList") ||
@@ -405,7 +461,12 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
 
     private static bool IsKnownConcreteCollectionType(string typeName, string collectionName)
     {
-        return typeName.StartsWith($"System.Collections.Generic.{collectionName}<", StringComparison.Ordinal) ||
+        return IsKnownConcreteCollectionType(typeName, collectionName, "System.Collections.Generic.");
+    }
+
+    private static bool IsKnownConcreteCollectionType(string typeName, string collectionName, string namespacePrefix)
+    {
+        return typeName.StartsWith($"{namespacePrefix}{collectionName}<", StringComparison.Ordinal) ||
                typeName.StartsWith($"{collectionName}<", StringComparison.Ordinal);
     }
 

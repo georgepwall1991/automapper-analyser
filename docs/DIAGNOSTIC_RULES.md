@@ -261,12 +261,16 @@ concrete collection expression like `ToList()` rather than trying to construct t
 automatic conversions. For unsupported custom collection destination types, AM003 keeps the diagnostic but withholds
 speculative constructor rewrites and offers only the manual-review ignore action. Known BCL collection destinations with
 safe collection constructors, such as `SortedSet<T>` and `LinkedList<T>`, still receive constructor-based mapping actions.
+Immutable/frozen destination containers use fully qualified `ImmutableList.CreateRange(...)`,
+`ImmutableHashSet.CreateRange(...)`, or `FrozenSet.ToFrozenSet(...)` factory calls so generated mappings remain
+executable without depending on user imports.
 
 #### Detected Incompatibilities
 
 - ✅ `HashSet` ↔ `List`/`Array`
 - ✅ `Queue` ↔ other collections
 - ✅ `Stack` ↔ other collections
+- ✅ Mutable collections → `ImmutableList<T>`, `ImmutableHashSet<T>`, or `FrozenSet<T>`
 - ❌ Element type mismatches (owned by `AM021`)
 - ❌ `List` → `Array` (AutoMapper handles this)
 - ❌ Source collections already assignable to the destination contract, such as `T[]` → `IEnumerable<T>` or `HashSet<T>` → `IReadOnlyCollection<T>`
@@ -1351,7 +1355,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.32">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.33">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1390,5 +1394,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.32
+**Version**: 2.30.33
 **Maintainer**: George Wall
