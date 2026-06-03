@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>42</PatchVersion>
+        <PatchVersion>43</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,20 +32,20 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.42 - AM020 implicit nested conversion modelling
+        <PackageReleaseNotes>Version 2.30.43 - AM031 sync-over-async awaiter detection
 
             Changed:
-            - AM020 now uses Roslyn conversion classification after same-type, built-in, and collection ownership checks
-            - Compiler-known implicit nested object conversions are treated as safe
-            - Explicit-only nested conversions still report and require explicit mapping configuration
+            - AM031 now reports GetAwaiter().GetResult() sync-over-async calls in MapFrom expressions
+            - Detection covers Task, configured Task, ValueTask, and configured ValueTask awaiter shapes
+            - Descriptor wording and docs now describe the broader sync-over-async family
 
             Validation:
-            - Full solution test suite passing on net10.0 (839 tests)
+            - Full solution test suite passing on net10.0 (843 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
-            - PR #117 CI/package smoke checks passing
+            - PR #118 CI/package smoke checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.41 - AM021 implicit element conversion modelling
+            Previous Release: v2.30.42 - AM020 implicit nested conversion modelling
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

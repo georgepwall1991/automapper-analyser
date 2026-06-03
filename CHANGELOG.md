@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## [2.30.43] - 2026-06-04
+
+### Changed
+
+- **AM031**: Sync-over-async diagnostics now detect `GetAwaiter().GetResult()` in `MapFrom` expressions.
+- **AM031**: Detection covers framework `Task`, configured `Task`, `ValueTask`, and configured `ValueTask` awaiter shapes.
+- **Docs**: Broadened AM031 wording from `Task.Result` to the sync-over-async family and refreshed the sample diagnostics snapshot.
+- **Tests**: Added regression coverage for direct and configured task/value-task awaiter `GetResult()` calls.
+
+### Validation
+
+- PR #118 checks green: Build/Test, package analyzer, package smoke tests for `net8.0`, `net9.0`, and `net10.0`, Codecov patch, and Claude review.
+- Full solution test suite (`net10.0`) green — 843 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.42] - 2026-06-04
 
 ### Changed

@@ -1419,7 +1419,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.42">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.43">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1458,5 +1458,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.42
+**Version**: 2.30.43
 **Maintainer**: George Wall
