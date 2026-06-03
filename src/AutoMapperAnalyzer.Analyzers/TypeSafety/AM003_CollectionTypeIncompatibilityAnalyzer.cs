@@ -219,6 +219,16 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         bool destIsQueue = IsConstructedFromType(destType, "System.Collections.Generic.Queue<T>");
         bool sourceIsStack = IsConstructedFromType(sourceType, "System.Collections.Generic.Stack<T>");
         bool destIsStack = IsConstructedFromType(destType, "System.Collections.Generic.Stack<T>");
+        bool sourceIsImmutableList =
+            IsConstructedFromType(sourceType, "System.Collections.Immutable.ImmutableList<T>");
+        bool destIsImmutableList =
+            IsConstructedFromType(destType, "System.Collections.Immutable.ImmutableList<T>");
+        bool sourceIsImmutableHashSet =
+            IsConstructedFromType(sourceType, "System.Collections.Immutable.ImmutableHashSet<T>");
+        bool destIsImmutableHashSet =
+            IsConstructedFromType(destType, "System.Collections.Immutable.ImmutableHashSet<T>");
+        bool sourceIsFrozenSet = IsConstructedFromType(sourceType, "System.Collections.Frozen.FrozenSet<T>");
+        bool destIsFrozenSet = IsConstructedFromType(destType, "System.Collections.Frozen.FrozenSet<T>");
 
         // HashSet ↔ List/Array/IEnumerable bidirectional incompatibility
         if (sourceIsHashSet && !destIsHashSet)
@@ -249,6 +259,37 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         }
 
         if (!sourceIsStack && destIsStack)
+        {
+            return true;
+        }
+
+        // Immutable/frozen destination containers require explicit factory conversion.
+        if (sourceIsImmutableList && !destIsImmutableList)
+        {
+            return true;
+        }
+
+        if (!sourceIsImmutableList && destIsImmutableList)
+        {
+            return true;
+        }
+
+        if (sourceIsImmutableHashSet && !destIsImmutableHashSet)
+        {
+            return true;
+        }
+
+        if (!sourceIsImmutableHashSet && destIsImmutableHashSet)
+        {
+            return true;
+        }
+
+        if (sourceIsFrozenSet && !destIsFrozenSet)
+        {
+            return true;
+        }
+
+        if (!sourceIsFrozenSet && destIsFrozenSet)
         {
             return true;
         }

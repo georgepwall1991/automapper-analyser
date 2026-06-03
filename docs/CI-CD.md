@@ -112,8 +112,8 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 ### Package Versioning
 
 - **Format**: Major.Minor.Patch (SemVer)
-- **Current**: 2.30.32
-- **Pre-release**: 2.30.32-preview, 2.30.32-beta
+- **Current**: 2.30.33
+- **Pre-release**: 2.30.33-preview, 2.30.33-beta
 
 ## 🔧 Configuration
 

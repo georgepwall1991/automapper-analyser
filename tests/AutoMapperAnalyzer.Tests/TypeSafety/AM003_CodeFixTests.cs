@@ -8,8 +8,8 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Tests.TypeSafety;
 
@@ -915,6 +915,217 @@ public class AM003_CodeFixTests
         Assert.Contains(actions, action =>
             action.Title == "Ignore property 'Values' (manual review)" &&
             action.EquivalenceKey == "AM003_Ignore_Values");
+    }
+
+    [Fact]
+    public async Task AM003_ShouldFixListToImmutableListWithCreateRange()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Collections.Immutable;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Tags { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public ImmutableList<string> Tags { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Collections.Immutable;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public List<string> Tags { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public ImmutableList<string> Tags { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Tags, opt => opt.MapFrom(src => global::System.Collections.Immutable.ImmutableList.CreateRange(src.Tags)));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+            21,
+            13,
+            expectedFixedCode,
+            "Tags",
+            "Source",
+            "System.Collections.Generic.List<string>",
+            "Destination",
+            "System.Collections.Immutable.ImmutableList<string>");
+    }
+
+    [Fact]
+    public async Task AM003_ShouldFixListToImmutableHashSetWithCreateRange()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Collections.Immutable;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<int> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public ImmutableHashSet<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Collections.Immutable;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public List<int> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public ImmutableHashSet<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => global::System.Collections.Immutable.ImmutableHashSet.CreateRange(src.Values)));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+            21,
+            13,
+            expectedFixedCode,
+            "Values",
+            "Source",
+            "System.Collections.Generic.List<int>",
+            "Destination",
+            "System.Collections.Immutable.ImmutableHashSet<int>");
+    }
+
+    [Fact]
+    public async Task AM003_ShouldFixQueueToFrozenSetWithElementConversion()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Frozen;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Queue<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public FrozenSet<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Frozen;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public Queue<string> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public FrozenSet<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => global::System.Collections.Frozen.FrozenSet.ToFrozenSet(src.Values.Select(x => int.Parse(x)))));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+            21,
+            13,
+            expectedFixedCode,
+            "Values",
+            "Source",
+            "System.Collections.Generic.Queue<string>",
+            "Destination",
+            "System.Collections.Frozen.FrozenSet<int>");
     }
 
     [Fact]
