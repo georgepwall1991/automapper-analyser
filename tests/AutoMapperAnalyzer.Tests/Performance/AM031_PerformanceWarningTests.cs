@@ -1104,6 +1104,62 @@ public class AM031_PerformanceWarningTests
     }
 
     [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_WhenUserDefinedSelectManyNamesakeHasNestedInvocation()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Item
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public static class ItemExtensions
+                                    {
+                                        public static List<Item> SelectMany(
+                                            this List<List<Item>> groups,
+                                            Func<List<Item>, List<Item>> selector)
+                                        {
+                                            return selector(groups[0]);
+                                        }
+
+                                        public static List<Item> ActiveOnly(this List<Item> items) => items;
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<List<Item>> Groups { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int TotalItems { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.TotalItems, opt => opt.MapFrom(src =>
+                                                    src.Groups.SelectMany(group => group.ActiveOnly()).Count));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM031_ShouldNotReportDiagnostic_ForSimpleLinqExtension()
     {
         const string testCode = """

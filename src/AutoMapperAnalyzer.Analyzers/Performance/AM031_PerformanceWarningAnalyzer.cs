@@ -411,7 +411,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             }
 
             // Check for complex LINQ operations
-            if (IsComplexLinqOperation(methodName, invocation))
+            if (IsComplexLinqOperation(containingType, methodName, invocation))
             {
                 if (reportedIssueTypes.Add(ComplexLinqIssueType))
                 {
@@ -873,8 +873,16 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    private static bool IsComplexLinqOperation(string methodName, InvocationExpressionSyntax invocation)
+    private static bool IsComplexLinqOperation(
+        string containingType,
+        string methodName,
+        InvocationExpressionSyntax invocation)
     {
+        if (containingType != "System.Linq.Enumerable" && containingType != "System.Linq.Queryable")
+        {
+            return false;
+        }
+
         // SelectMany with nested operations
         if (methodName == "SelectMany")
         {
