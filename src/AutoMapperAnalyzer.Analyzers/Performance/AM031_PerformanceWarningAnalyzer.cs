@@ -14,6 +14,13 @@ namespace AutoMapperAnalyzer.Analyzers.Performance;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 {
+    private static readonly string[] LinearCollectionContainsTypes =
+    [
+        "System.Collections.Generic.List<",
+        "System.Collections.ObjectModel.Collection<",
+        "System.Collections.ObjectModel.ReadOnlyCollection<"
+    ];
+
     private const string IssueTypePropertyName = "IssueType";
     private const string PropertyNamePropertyName = "PropertyName";
     private const string OperationTypePropertyName = "OperationType";
@@ -415,7 +422,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             }
 
             // Track LINQ operations for multiple enumeration detection
-            if (IsLinqEnumerationMethod(containingType, methodName))
+            if (IsLinqEnumerationMethod(containingType, methodName) ||
+                IsLinearCollectionContainsMethod(containingType, methodName))
             {
                 TrackCollectionAccess(invocation, collectionAccesses, sourceParameterName, context.SemanticModel);
             }
@@ -766,7 +774,13 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             "Count" or "LongCount" or
             "First" or "FirstOrDefault" or "Last" or "LastOrDefault" or
             "Single" or "SingleOrDefault" or
-            "Any" or "All";
+            "Any" or "All" or "Contains" or "ElementAt" or "ElementAtOrDefault";
+    }
+
+    private static bool IsLinearCollectionContainsMethod(string containingType, string methodName)
+    {
+        return methodName == "Contains" &&
+               LinearCollectionContainsTypes.Any(prefix => containingType.StartsWith(prefix, StringComparison.Ordinal));
     }
 
     private static void TrackCollectionAccess(
