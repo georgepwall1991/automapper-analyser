@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.38] - 2026-06-03
+
+### Changed
+
+- **AM031**: Complex LINQ `SelectMany` diagnostics now require the invoked method to resolve to `System.Linq.Enumerable` or `System.Linq.Queryable`.
+- **AM031**: User-defined `SelectMany` namesakes with nested selector invocations stay quiet instead of being treated as complex LINQ performance smells.
+- **Tests**: Added regression coverage for a source mapping that calls a custom `SelectMany` extension with nested selector logic.
+
+### Validation
+
+- Targeted AM031 analyzer tests green.
+- Full solution test suite (`net10.0`) green — 833 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.37] - 2026-06-03
 
 ### Changed

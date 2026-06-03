@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-832%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-833%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,24 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.37
+## 🎉 Latest Release: v2.30.38
 
-**AM001 exact numeric conversion modelling**
+**AM031 LINQ namesake precision**
 
 ✅ **Highlights**
 
-- AM001 numeric compatibility now follows the C# predefined implicit numeric conversion table.
-- AM001 reports `double`/`float` to `decimal` mappings that require explicit casts instead of treating them as safe widenings.
-- Valid numeric widenings such as `char` to `int` stay quiet, and reported numeric conversions still get cast-based fixes.
+- AM031 complex LINQ `SelectMany` diagnostics now require a real `System.Linq.Enumerable` or `System.Linq.Queryable` call.
+- User-defined `SelectMany` extension namesakes with nested selector invocations stay quiet.
+- Regression coverage locks the namesake boundary so broad performance heuristics do not over-report custom APIs.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0` with 832 tests.
+- Full solution test validation passed on `net10.0` with 833 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
-- GitHub PR checks green.
+- Local `2.30.38` package build produced the expected analyzer payloads.
 
 ### Recent Releases
 
+- **v2.30.38**: AM031 complex LINQ `SelectMany` diagnostics now require real `System.Linq.Enumerable`/`Queryable` calls, so user-defined namesakes with nested selector logic stay quiet.
 - **v2.30.37**: AM001 uses the exact C# implicit numeric conversion table, reports `double`/`float` to `decimal` mappings, and preserves valid widenings such as `char` to `int`.
 - **v2.30.36**: AM002 preserves constructed generic type labels in nullable diagnostics and uses `default!` for generic/reference fallback defaults in generated fixes.
 - **v2.30.35**: Split AM030's mixed converter diagnostics into AM030 invalid implementation, AM032 null handling, and AM033 unused converter rules with independent docs, severities, and trust metadata.
@@ -205,7 +206,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.37">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.38">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
