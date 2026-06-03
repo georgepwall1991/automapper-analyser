@@ -1029,11 +1029,13 @@ public class AutoMapperAnalysisHelpersTests
     [InlineData("ulong", "float", true)] // ulong to float
     [InlineData("float", "float", true)] // System_Single - line 443
     [InlineData("float", "double", true)] // float to double
-    [InlineData("double", "decimal", true)] // double to decimal
+    [InlineData("char", "int", true)] // char to int
     [InlineData("decimal", "decimal", true)] // System_Decimal - line 445
     [InlineData("int", "byte", false)] // incompatible: larger to smaller
     [InlineData("long", "int", false)] // incompatible: larger to smaller
     [InlineData("double", "float", false)] // incompatible: larger to smaller
+    [InlineData("float", "decimal", false)] // no predefined implicit conversion
+    [InlineData("double", "decimal", false)] // no predefined implicit conversion
     // Same-width signed<->unsigned require an explicit cast in C# and must NOT be treated as compatible.
     [InlineData("uint", "int", false)] // unsigned -> signed (same width)
     [InlineData("int", "uint", false)] // signed -> unsigned (same width)
@@ -1046,7 +1048,7 @@ public class AutoMapperAnalysisHelpersTests
     public void AreTypesCompatible_ShouldHandleAllNumericConversions(string sourceTypeName, string destTypeName,
         bool expectedCompatible)
     {
-        // This tests lines 435-445: all numeric conversion levels in GetNumericConversionLevel
+        // This locks the predefined C# implicit numeric conversion table used by AreTypesCompatible.
         string code = $@"
             public class Source {{ public {sourceTypeName} Value {{ get; set; }} }}
             public class Destination {{ public {destTypeName} Value {{ get; set; }} }}";

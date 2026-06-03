@@ -115,6 +115,9 @@ CreateMap<Source, Destination>()
 
 For enum/string mismatches, AM001 offers direct conversion fixes such as `src.Status.ToString()` and
 `src.Status != null ? global::System.Enum.Parse<global::MyApp.OrderStatus>(src.Status) : default`.
+For numeric properties, AM001 follows the C# predefined implicit numeric conversion table: legal widenings
+such as `char` to `int` stay quiet, while conversions that require explicit casts, such as `double` to
+`decimal`, report and receive a cast-based `MapFrom` fix.
 
 #### When to Use
 
@@ -1406,7 +1409,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.36">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.37">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1445,5 +1448,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.36
+**Version**: 2.30.37
 **Maintainer**: George Wall
