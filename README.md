@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-837%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-839%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,24 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.41
+## 🎉 Latest Release: v2.30.42
 
-**AM021 implicit element conversion modelling**
+**AM020 implicit nested conversion modelling**
 
 ✅ **Highlights**
 
-- AM021 now uses Roslyn conversion classification after existing analyzer-specific element checks.
-- Compiler-known implicit element conversions, including value-object collection elements, are treated as safe.
-- Explicit-only element conversions still report and require explicit AutoMapper configuration.
+- AM020 now uses Roslyn conversion classification after same-type, built-in, and collection ownership checks.
+- Compiler-known implicit nested object conversions are treated as safe.
+- Explicit-only nested conversions still report and require explicit AutoMapper configuration.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0` with 837 tests.
+- Full solution test validation passed on `net10.0` with 839 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
-- PR #116 CI/package smoke checks green.
+- PR #117 CI/package smoke checks green.
 
 ### Recent Releases
 
+- **v2.30.42**: AM020 now respects compiler-known implicit nested conversions, while explicit-only nested conversions still report.
 - **v2.30.41**: AM021 now respects compiler-known implicit element conversions, including value-object collection elements, while explicit-only element conversions still report.
 - **v2.30.40**: AM001 now respects compiler-known implicit conversions, including user-defined value-object conversions, while explicit-only conversions still report.
 - **v2.30.39**: Refreshed CI, release, and CodeQL workflow action pins to current major versions with Node.js 24-compatible releases.
@@ -209,7 +210,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.41">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.42">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

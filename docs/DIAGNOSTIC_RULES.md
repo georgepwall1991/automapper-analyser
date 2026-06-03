@@ -690,6 +690,10 @@ public class PersonProfile : Profile
 }
 ```
 
+AM020 also respects compiler-known implicit nested conversions. A nested property mapping such as `SourceAddress` to
+`DestinationAddress` stays quiet when `SourceAddress` defines an implicit conversion to `DestinationAddress`, while an
+explicit-only conversion still reports and requires a nested `CreateMap` or explicit member mapping.
+
 #### Internal Property Support
 
 Also detects issues with `internal` properties:
@@ -1413,7 +1417,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.41">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.42">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1452,5 +1456,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.41
+**Version**: 2.30.42
 **Maintainer**: George Wall

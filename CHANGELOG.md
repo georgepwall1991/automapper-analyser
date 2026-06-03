@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.42] - 2026-06-04
+
+### Changed
+
+- **AM020**: Nested object mapping checks now use Roslyn conversion classification after same-type, built-in, and collection ownership checks, so compiler-known implicit nested conversions are treated as safe.
+- **AM020**: Nested value-object or DTO properties with user-defined implicit conversions no longer report missing nested-map diagnostics.
+- **Tests**: Added regression coverage proving implicit nested conversions stay quiet while explicit-only nested conversions still report.
+
+### Validation
+
+- PR #117 checks green: Build/Test, package analyzer, package smoke tests for `net8.0`, `net9.0`, and `net10.0`, Codecov patch, and Claude review.
+- Full solution test suite (`net10.0`) green — 839 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.41] - 2026-06-04
 
 ### Changed
