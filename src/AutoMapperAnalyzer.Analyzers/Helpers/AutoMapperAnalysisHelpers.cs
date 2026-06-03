@@ -500,46 +500,77 @@ public static class AutoMapperAnalysisHelpers
     /// <returns>True if both types are numeric and compatible; otherwise, false.</returns>
     private static bool AreNumericTypesCompatible(ITypeSymbol sourceType, ITypeSymbol destType)
     {
-        // Get numeric conversion levels
-        int sourceLevel = GetNumericConversionLevel(sourceType.SpecialType);
-        int destLevel = GetNumericConversionLevel(destType.SpecialType);
-
-        // If either is not a numeric type, no compatibility
-        if (sourceLevel == int.MaxValue || destLevel == int.MaxValue)
-        {
-            return false;
-        }
-
-        // Only a strict widening (lower level -> higher level) is safe. Two different types that share a
-        // level are a signed/unsigned pair (e.g. uint/int, short/ushort, byte/sbyte); neither direction is
-        // a lossless implicit conversion in C#, so they must NOT be treated as compatible. Same-type pairs
-        // are already handled by the equality check in AreTypesCompatible before reaching this method.
-        return sourceLevel < destLevel;
+        return IsImplicitNumericConversion(sourceType.SpecialType, destType.SpecialType);
     }
 
     /// <summary>
-    ///     Gets the numeric conversion level for implicit conversions. Signed and unsigned types of the
-    ///     same width share a level so that same-width signed/unsigned conversions are not classified as
-    ///     widening (see <see cref="AreNumericTypesCompatible"/>).
+    ///     Mirrors the C# predefined implicit numeric conversion table for property assignment compatibility.
     /// </summary>
-    /// <param name="specialType">The special type to check.</param>
-    /// <returns>The conversion level, or int.MaxValue if not numeric.</returns>
-    private static int GetNumericConversionLevel(SpecialType specialType)
+    private static bool IsImplicitNumericConversion(SpecialType sourceType, SpecialType destType)
     {
-        return specialType switch
+        return sourceType switch
         {
-            SpecialType.System_Byte => 1,
-            SpecialType.System_SByte => 1,
-            SpecialType.System_Int16 => 2,
-            SpecialType.System_UInt16 => 2,
-            SpecialType.System_Int32 => 3,
-            SpecialType.System_UInt32 => 3,
-            SpecialType.System_Int64 => 4,
-            SpecialType.System_UInt64 => 4,
-            SpecialType.System_Single => 5,
-            SpecialType.System_Double => 6,
-            SpecialType.System_Decimal => 7,
-            _ => int.MaxValue
+            SpecialType.System_SByte => destType is
+                SpecialType.System_Int16 or
+                SpecialType.System_Int32 or
+                SpecialType.System_Int64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_Byte => destType is
+                SpecialType.System_Int16 or
+                SpecialType.System_UInt16 or
+                SpecialType.System_Int32 or
+                SpecialType.System_UInt32 or
+                SpecialType.System_Int64 or
+                SpecialType.System_UInt64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_Int16 => destType is
+                SpecialType.System_Int32 or
+                SpecialType.System_Int64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_UInt16 => destType is
+                SpecialType.System_Int32 or
+                SpecialType.System_UInt32 or
+                SpecialType.System_Int64 or
+                SpecialType.System_UInt64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_Int32 => destType is
+                SpecialType.System_Int64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_UInt32 => destType is
+                SpecialType.System_Int64 or
+                SpecialType.System_UInt64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_Int64 => destType is
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_UInt64 => destType is
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_Char => destType is
+                SpecialType.System_UInt16 or
+                SpecialType.System_Int32 or
+                SpecialType.System_UInt32 or
+                SpecialType.System_Int64 or
+                SpecialType.System_UInt64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_Single => destType is SpecialType.System_Double,
+            _ => false
         };
     }
 

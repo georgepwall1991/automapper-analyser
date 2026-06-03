@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.37] - 2026-06-03
+
+### Changed
+
+- **AM001**: Numeric compatibility now follows the C# predefined implicit numeric conversion table instead of a simplified widening-level model.
+- **AM001**: `double`/`float` to `decimal` mappings now report as property type mismatches because C# requires an explicit conversion, while valid widenings such as `char` to `int` stay quiet.
+- **AM001 code fixes**: Explicit numeric conversions that now report still receive the existing cast-based `MapFrom` fix, with direct regression coverage for `double` to `decimal`.
+
+### Validation
+
+- Targeted AM001 analyzer and code-fix tests green.
+- Full solution test suite (`net10.0`) green — 832 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.36] - 2026-06-03
 
 ### Changed

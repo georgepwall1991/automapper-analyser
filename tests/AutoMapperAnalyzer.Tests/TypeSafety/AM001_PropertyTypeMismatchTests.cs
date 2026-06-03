@@ -121,6 +121,73 @@ public class AM001_PropertyTypeMismatchTests
     }
 
     [Fact]
+    public async Task AM001_ShouldReportDiagnostic_WhenDoubleMappedToDecimal()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public double Amount { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public decimal Amount { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Amount", "Source",
+                "double", "Destination", "decimal"));
+    }
+
+    [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenCharWidenedToInt()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public char Code { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Code { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
     public async Task AM001_ShouldReportDiagnostic_WhenSourcePropertyIsReadOnly()
     {
         const string testCode = """

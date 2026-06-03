@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>36</PatchVersion>
+        <PatchVersion>37</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,20 +32,21 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.36 - AM002 generic nullability flow hardening
+        <PackageReleaseNotes>Version 2.30.37 - AM001 exact numeric conversion modelling
 
             Changed:
-            - AM002 diagnostic messages now preserve constructed generic source/destination type arguments
-            - AM002 default-value scaffolds use default! for generic/reference fallback defaults where plain default remains nullable
-            - Added regression coverage for generic type-parameter nullable mappings and null-forgiving fallback flow
+            - AM001 numeric compatibility now follows the C# implicit numeric conversion table instead of an artificial widening level
+            - AM001 now reports double/float to decimal property mappings that require explicit casts
+            - AM001 keeps char-to-numeric widening mappings quiet when C# permits the implicit conversion
+            - Added analyzer and code-fix regression coverage for exact numeric conversion boundaries
 
             Validation:
-            - Full solution test suite passing on net10.0 (827 tests)
+            - Full solution test suite passing on net10.0 (832 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
             - GitHub PR checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.35 - AM030 converter diagnostics split
+            Previous Release: v2.30.36 - AM002 generic nullability flow hardening
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

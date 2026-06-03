@@ -10,8 +10,8 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Tests.TypeSafety;
 
@@ -144,6 +144,67 @@ public class AM001_CodeFixTests
                 testCode,
                 Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 13,
                     "Score", "Source", "double", "Destination", "float"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldFixDoubleToDecimalConversionWithCast()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public double Amount { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public decimal Amount { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public double Amount { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public decimal Amount { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Amount, opt => opt.MapFrom(src => (decimal)src.Amount));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 13,
+                    "Amount", "Source", "double", "Destination", "decimal"),
                 expectedFixedCode);
     }
 
