@@ -95,7 +95,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if this property requires nested object mapping
-            if (RequiresNestedObjectMapping(sourceProperty.Type, destinationProperty.Type))
+            if (RequiresNestedObjectMapping(context.Compilation, sourceProperty.Type, destinationProperty.Type))
             {
                 ITypeSymbol sourceNestedType = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceProperty.Type);
                 ITypeSymbol destNestedType = AutoMapperAnalysisHelpers.GetUnderlyingType(destinationProperty.Type);
@@ -128,7 +128,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool RequiresNestedObjectMapping(ITypeSymbol sourceType, ITypeSymbol destinationType)
+    private static bool RequiresNestedObjectMapping(Compilation compilation, ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
         // Get the underlying types (remove nullable wrappers)
         ITypeSymbol sourceUnderlyingType = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceType);
@@ -150,6 +150,12 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         // Collections should be handled by AM021, not AM020
         if (AutoMapperAnalysisHelpers.IsCollectionType(sourceUnderlyingType) ||
             AutoMapperAnalysisHelpers.IsCollectionType(destUnderlyingType))
+        {
+            return false;
+        }
+
+        Conversion conversion = compilation.ClassifyConversion(sourceUnderlyingType, destUnderlyingType);
+        if (conversion.Exists && conversion.IsImplicit)
         {
             return false;
         }
