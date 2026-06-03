@@ -10,7 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 
 /// <summary>
-///     Code fix provider for AM030 diagnostics.
+///     Code fix provider for custom type converter diagnostics.
 ///     Provides executable fixes for converter-quality diagnostics.
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM030_CustomTypeConverterCodeFixProvider))]
@@ -20,7 +20,11 @@ public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProvide
     /// <summary>
     ///     Gets the diagnostic IDs that this code fix provider can fix.
     /// </summary>
-    public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM030");
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArray.Create(
+            AM030_CustomTypeConverterAnalyzer.InvalidConverterImplementationRule.Id,
+            AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule.Id,
+            AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule.Id);
 
     /// <summary>
     ///     Registers code fixes for the specified context.
@@ -62,7 +66,7 @@ public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProvide
                         convertMethod,
                         sourceParameterName,
                         cancellationToken),
-                    $"AM030_AddNullGuard_{sourceParameterName}"),
+                    $"AM032_AddNullGuard_{sourceParameterName}"),
                 diagnostic);
         }
     }

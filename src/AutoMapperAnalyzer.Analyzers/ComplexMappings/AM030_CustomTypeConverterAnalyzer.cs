@@ -9,7 +9,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 
 /// <summary>
-///     Analyzer for AM030: Custom Type Converter quality and usage issues in AutoMapper configurations.
+///     Analyzer for custom type converter quality and usage issues in AutoMapper configurations.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
@@ -51,7 +51,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
     ///     Diagnostic rule for converter null handling issues.
     /// </summary>
     public static readonly DiagnosticDescriptor ConverterNullHandlingIssueRule = new(
-        "AM030",
+        "AM032",
         "Type converter may not handle null values properly",
         "Converter for '{0}' may not handle null values. Source type '{1}' is nullable but converter doesn't check for null.",
         "AutoMapper.Converters",
@@ -63,7 +63,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
     ///     Diagnostic rule for unused type converters.
     /// </summary>
     public static readonly DiagnosticDescriptor UnusedTypeConverterRule = new(
-        "AM030",
+        "AM033",
         "Type converter is defined but not used in mapping configuration",
         "Type converter '{0}' is defined but not used in any CreateMap configuration",
         "AutoMapper.Converters",

@@ -23,8 +23,10 @@ dotnet_diagnostic.AM020.severity = warning # Nested Object Mapping Missing
 dotnet_diagnostic.AM021.severity = warning # Collection Element Mismatch
 dotnet_diagnostic.AM022.severity = warning # Infinite Recursion Risk
 
-# Custom Converters (AM030)
-dotnet_diagnostic.AM030.severity = warning # Custom Type Converter Issues
+# Custom Converters (AM030, AM032-AM033)
+dotnet_diagnostic.AM030.severity = warning # Invalid Type Converter Implementation
+dotnet_diagnostic.AM032.severity = warning # Type Converter Null Handling
+dotnet_diagnostic.AM033.severity = warning # Unused Type Converter
 
 # Additional rules reserved for future implementations.
 dotnet_diagnostic.AM031.severity = warning # Performance Analysis

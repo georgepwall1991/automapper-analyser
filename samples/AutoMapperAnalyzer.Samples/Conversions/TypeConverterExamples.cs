@@ -70,14 +70,14 @@ public class TypeConverterExamples
     }
 
     /// <summary>
-    ///     AM030: Converter null-handling issue for nullable source input
-    ///     This should trigger an AM030 diagnostic.
+    ///     AM032: Converter null-handling issue for nullable source input
+    ///     This should trigger an AM032 diagnostic.
     /// </summary>
     public void NullUnsafeConverterClassExample()
     {
         var config = new MapperConfiguration(cfg =>
         {
-            // ❌ AM030: Source type is nullable and converter implementation has no null guard.
+            // ❌ AM032: Source type is nullable and converter implementation has no null guard.
             cfg.CreateMap<string?, Guid>().ConvertUsing<NullUnsafeStringToGuidConverter>();
         });
 
@@ -246,13 +246,13 @@ public class CorrectTypeConverterExamples
 }
 
 /// <summary>
-///     Example of an unsafe converter implementation (for AM030 null-handling diagnostic)
+///     Example of an unsafe converter implementation (for AM032 null-handling diagnostic)
 /// </summary>
 public class NullUnsafeStringToGuidConverter : ITypeConverter<string?, Guid>
 {
     public Guid Convert(string? source, Guid destination, ResolutionContext context)
     {
-        // Intentionally unsafe to demonstrate AM030.
+        // Intentionally unsafe to demonstrate AM032.
         return Guid.Parse(source);
     }
 }

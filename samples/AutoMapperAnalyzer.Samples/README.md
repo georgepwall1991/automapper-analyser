@@ -28,7 +28,9 @@ The sample project currently demonstrates these implemented rules:
 - `AM020` Missing nested object mapping
 - `AM021` Collection element mismatch
 - `AM022` Infinite recursion risk
-- `AM030` Custom converter quality/usage issues
+- `AM030` Invalid custom converter implementations
+- `AM032` Custom converter null-handling issues
+- `AM033` Unused custom converters
 - `AM031` Performance anti-patterns in mapping expressions
 - `AM041` Duplicate mapping registration
 - `AM050` Redundant `MapFrom` configuration
@@ -37,8 +39,8 @@ The sample project currently demonstrates these implemented rules:
 
 Recent analyzer ownership hardening changed expectations in samples:
 
-- Property conversion mismatches like `string -> DateTime` are owned by `AM001` (not `AM030`).
-- `AM030` focuses on converter implementation quality and converter usage (for example, null handling and unused converters).
+- Property conversion mismatches like `string -> DateTime` are owned by `AM001` (not `AM030-AM033`).
+- `AM030-AM033` focus on converter implementation quality and converter usage.
 - Collection container mismatches are owned by `AM003`; element mismatches are owned by `AM021`.
 
 ## Build and Verify

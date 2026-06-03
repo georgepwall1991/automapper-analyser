@@ -1,3 +1,17 @@
+## Release 2.30.35
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|------
+AM032 | AutoMapper.Converters | Warning | Type converter may not handle null values properly
+AM033 | AutoMapper.Converters | Info | Type converter is defined but not used in mapping configuration
+
+### Removed Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|------
+
 ## Release 2.30.34
 
 ### New Rules

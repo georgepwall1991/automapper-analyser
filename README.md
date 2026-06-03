@@ -14,15 +14,15 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.34
+## 🎉 Latest Release: v2.30.35
 
-**AM021/AM022 analyzer health calibration**
+**AM030 converter diagnostics split**
 
 ✅ **Highlights**
 
-- AM021's Tests score now aligns with AM022 under the same analyzer-health rubric.
-- The audit records current coverage evidence: AM021 has 29 analyzer test methods plus 20 code-fix test methods.
-- The resolved P3 backlog entry now documents the AM021/AM022 calibration explicitly.
+- AM030 now owns only invalid converter implementations.
+- AM032 reports nullable-source converters that do not visibly handle null input and keeps the null-guard code fix.
+- AM033 reports declared converter implementations that are not used by `ConvertUsing(...)`.
 
 🧪 **Validation**
 
@@ -32,6 +32,7 @@ prevention*
 
 ### Recent Releases
 
+- **v2.30.35**: Split AM030's mixed converter diagnostics into AM030 invalid implementation, AM032 null handling, and AM033 unused converter rules with independent docs, severities, and trust metadata.
 - **v2.30.34**: Calibrated AM021's analyzer-health Tests score to 5, aligning it with AM022 based on comparable analyzer coverage and stronger AM021 code-fix method count.
 - **v2.30.33**: AM003 detects immutable/frozen destination container mismatches and offers fully qualified factory fixes for `ImmutableList<T>`, `ImmutableHashSet<T>`, and `FrozenSet<T>`.
 - **v2.30.32**: AM004/AM006 diagnostics now point at the offending source/destination property identifiers while preserving code-fix routing through mapping invocation metadata.
@@ -153,7 +154,7 @@ var config = new MapperConfiguration(cfg =>
   detection)
 - **AM021**: Collection element type analysis with conversion strategies
 - **AM022**: Circular reference detection with MaxDepth recommendations
-- **AM030**: Custom type converter analysis with null safety validation
+- **AM030/AM032/AM033**: Custom type converter implementation, null safety, and usage validation
 
 ### ⚡ **Instant Code Fixes**
 
@@ -202,7 +203,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.34">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.35">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -329,14 +330,16 @@ public void ConfigureSafeUserMapping() { }
 | AM020                   | Nested Object Issues           | ✅        | ✅        | Warning  |
 | AM021                   | Collection Element Mismatch    | ✅        | ✅        | Warning  |
 | AM022                   | Circular Reference Risk        | ✅        | ✅        | Warning  |
-| AM030                   | Custom Type Converter Issues   | ✅        | ✅        | Error / Warning / Info |
+| AM030                   | Invalid Type Converter Implementation | ✅        | —        | Error    |
+| AM032                   | Type Converter Null Handling   | ✅        | ✅        | Warning  |
+| AM033                   | Unused Type Converter          | ✅        | —        | Info     |
 | **⚡ Performance**       |                                |          |          |
 | AM031                   | Performance Warnings           | ✅        | ✅        | Warning / Info |
 | **⚙️ Configuration**    |                                |          |          |
 | AM041                   | Duplicate Mapping Registration | ✅        | ✅        | Warning  |
 | AM050                   | Redundant MapFrom              | ✅        | ✅        | Info     |
 | **🚀 Future**           |                                |          |          |
-| AM032+                  | Advanced Null Propagation      | 🔮       | 🔮       | -        |
+| AM034+                  | Advanced Null Propagation      | 🔮       | 🔮       | -        |
 | AM040+                  | Configuration Rules            | 🔮       | 🔮       | -        |
 | AM050+                  | Advanced Optimizations         | 🔮       | 🔮       | -        |
 
@@ -420,7 +423,7 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 
 ### Phase 5B: Enhanced Analysis (Upcoming)
 
-- **AM032**: Advanced null propagation patterns with smart fixes
+- **AM034**: Advanced null propagation patterns with smart fixes
 
 ### Phase 6: Configuration & Profile Analysis
 

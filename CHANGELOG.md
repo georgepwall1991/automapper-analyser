@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.35] - 2026-06-03
+
+### Changed
+
+- **AM030/AM032/AM033**: Split the mixed AM030 converter diagnostics into separate public IDs: AM030 now covers invalid converter implementations, AM032 covers nullable-source converter null handling, and AM033 covers unused converter declarations.
+- **Code fixes**: The existing converter null-guard code fix now routes through AM032 with an AM032-prefixed equivalence key; AM030 and AM033 remain analyzer-only.
+- **Trust metadata/docs**: Rule catalog entries, rule docs, samples, and analyzer-health notes now expose independent severities, documentation anchors, and fixer trust levels for each converter diagnostic.
+
+### Validation
+
+- Targeted AM030/AM032/AM033 analyzer and code-fix tests green.
+- Full solution test suite (`net10.0`) green — 824 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.34] - 2026-06-03
 
 ### Changed

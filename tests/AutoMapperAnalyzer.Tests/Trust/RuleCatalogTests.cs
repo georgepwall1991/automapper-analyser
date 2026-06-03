@@ -27,17 +27,20 @@ public partial class RuleCatalogTests
             Assert.True(Enum.IsDefined(rule.FixTrustLevel));
             Assert.All(rule.Descriptors, descriptor => Assert.True(Enum.IsDefined(rule.GetFixTrustLevel(descriptor))));
 
-            var analyzer = Assert.IsAssignableFrom<DiagnosticAnalyzer>(
-                Activator.CreateInstance(rule.AnalyzerType));
-            ImmutableArray<DiagnosticDescriptor> supportedDiagnostics = analyzer.SupportedDiagnostics;
-
-            Assert.Equal(
-                rule.Descriptors.Select(ToDescriptorSnapshot),
-                supportedDiagnostics.Select(ToDescriptorSnapshot));
-
             var fixer = Assert.IsAssignableFrom<CodeFixProvider>(
                 Activator.CreateInstance(rule.CodeFixProviderType));
             Assert.Contains(rule.RuleId, fixer.FixableDiagnosticIds);
+        }
+
+        foreach (IGrouping<Type, RuleCatalogEntry> analyzerRules in RuleCatalog.Rules.GroupBy(rule => rule.AnalyzerType))
+        {
+            var analyzer = Assert.IsAssignableFrom<DiagnosticAnalyzer>(
+                Activator.CreateInstance(analyzerRules.Key));
+            ImmutableArray<DiagnosticDescriptor> supportedDiagnostics = analyzer.SupportedDiagnostics;
+
+            Assert.Equal(
+                analyzerRules.SelectMany(rule => rule.Descriptors).Select(ToDescriptorSnapshot),
+                supportedDiagnostics.Select(ToDescriptorSnapshot));
         }
     }
 
@@ -47,6 +50,8 @@ public partial class RuleCatalogTests
         RuleCatalogEntry am002 = Assert.Single(RuleCatalog.Rules, rule => rule.RuleId == "AM002");
         RuleCatalogEntry am004 = Assert.Single(RuleCatalog.Rules, rule => rule.RuleId == "AM004");
         RuleCatalogEntry am030 = Assert.Single(RuleCatalog.Rules, rule => rule.RuleId == "AM030");
+        RuleCatalogEntry am032 = Assert.Single(RuleCatalog.Rules, rule => rule.RuleId == "AM032");
+        RuleCatalogEntry am033 = Assert.Single(RuleCatalog.Rules, rule => rule.RuleId == "AM033");
 
         Assert.Equal(CodeFixTrustLevel.Scaffold, am002.FixTrustLevel);
         Assert.Equal(
@@ -65,12 +70,14 @@ public partial class RuleCatalogTests
         Assert.Equal(
             CodeFixTrustLevel.NoFix,
             am030.GetFixTrustLevel(AM030_CustomTypeConverterAnalyzer.InvalidConverterImplementationRule));
+        Assert.Equal(CodeFixTrustLevel.LikelyRewrite, am032.FixTrustLevel);
         Assert.Equal(
             CodeFixTrustLevel.LikelyRewrite,
-            am030.GetFixTrustLevel(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule));
+            am032.GetFixTrustLevel(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule));
+        Assert.Equal(CodeFixTrustLevel.NoFix, am033.FixTrustLevel);
         Assert.Equal(
             CodeFixTrustLevel.NoFix,
-            am030.GetFixTrustLevel(AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule));
+            am033.GetFixTrustLevel(AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule));
     }
 
     [Fact]
