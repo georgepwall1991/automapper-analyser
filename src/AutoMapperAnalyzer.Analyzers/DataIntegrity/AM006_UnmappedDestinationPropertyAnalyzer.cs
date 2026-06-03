@@ -155,10 +155,12 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
             properties.Add("PropertyType", destProperty.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
             properties.Add("DestinationTypeName", destinationType.Name);
             properties.Add("SourceTypeName", sourceType.Name);
+            properties.Add("MappingInvocationStart", mappingInvocation.SpanStart.ToString());
+            properties.Add("MappingInvocationLength", mappingInvocation.Span.Length.ToString());
 
             var diagnostic = Diagnostic.Create(
                 UnmappedDestinationPropertyRule,
-                mappingInvocation.GetLocation(),
+                GetPropertyLocation(destProperty) ?? mappingInvocation.GetLocation(),
                 properties.ToImmutable(),
                 destProperty.Name,
                 sourceType.Name);
@@ -377,5 +379,23 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         SemanticModel semanticModel)
     {
         return MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "CreateMap");
+    }
+
+    private static Location? GetPropertyLocation(IPropertySymbol property)
+    {
+        foreach (SyntaxReference syntaxReference in property.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
+            {
+                return propertyDeclaration.Identifier.GetLocation();
+            }
+
+            if (syntaxReference.GetSyntax() is ParameterSyntax parameter)
+            {
+                return parameter.Identifier.GetLocation();
+            }
+        }
+
+        return null;
     }
 }

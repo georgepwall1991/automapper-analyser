@@ -37,7 +37,7 @@ public class AM006_UnmappedDestinationPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 20, 13,
+            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 13, 23,
                 "ExtraInfo", "Source")
             .RunAsync();
     }
@@ -277,7 +277,7 @@ public class AM006_UnmappedDestinationPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 21, 13,
+            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 14, 23,
                 "ExtraInfo", "Source")
             .RunAsync();
     }
@@ -324,7 +324,7 @@ public class AM006_UnmappedDestinationPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 21, 13,
+            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 14, 23,
                 "ExtraInfo", "Source")
             .RunAsync();
     }
@@ -379,7 +379,7 @@ public class AM006_UnmappedDestinationPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 22, 13,
+            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 15, 23,
                 "ExtraInfo", "Source")
             .RunAsync();
     }
@@ -600,7 +600,7 @@ public class AM006_UnmappedDestinationPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 24, 13,
+            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 17, 23,
                 "CustomerAge", "Source")
             .RunAsync();
     }
@@ -641,7 +641,7 @@ public class AM006_UnmappedDestinationPropertyTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 22, 13,
+            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 15, 23,
                 "ReverseOnly", "Source")
             .RunAsync();
     }

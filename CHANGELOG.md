@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.32] - 2026-06-03
+
+### Changed
+
+- **AM004**: Missing destination-property diagnostics now report on the offending source property identifier instead of the owning `CreateMap` call, making high-volume reports easier to triage in editors and generated snapshots.
+- **AM006**: Unmapped destination-property diagnostics now report on the offending destination property identifier while preserving the existing mapping-level fallback when source syntax is unavailable.
+- **Code fixes (shared)**: AM004/AM006 diagnostics now carry mapping invocation span metadata, so their existing code fixes can still find and update the owning `CreateMap` chain after diagnostics move to property declarations.
+- **Tests**: Shared code-fix verification now tolerates line-ending-only generated-source diffs, keeping Windows and LF checkout behavior equivalent while still failing real generated-code differences.
+
+### Validation
+
+- Full solution test suite (`net10.0`) green — 819 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.31] - 2026-06-02
 
 ### Changed

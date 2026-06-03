@@ -71,7 +71,7 @@ public class AM004_EdgeCaseTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 17, 9, "Name"));
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 5, 19, "Name"));
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class AM004_EdgeCaseTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 18, 9, "Extra"));
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 6, 12, "Extra"));
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public class AM004_EdgeCaseTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 18, 9, "Extra"));
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 6, 19, "Extra"));
     }
 
     [Fact]
@@ -184,7 +184,7 @@ public class AM004_EdgeCaseTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 30, 9, "Extra"));
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 16, 19, "Extra"));
     }
 
     [Fact]
@@ -288,6 +288,6 @@ public class AM004_EdgeCaseTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 29, 9, "Extra"));
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 16, 19, "Extra"));
     }
 }

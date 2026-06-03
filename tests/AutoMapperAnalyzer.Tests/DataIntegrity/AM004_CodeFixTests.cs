@@ -19,12 +19,47 @@ public class AM004_CodeFixTests
         return result;
     }
 
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, string source, params object[] messageArgs)
+    {
+        if (messageArgs.Length == 0 || messageArgs[0] is not string propertyName)
+        {
+            return new DiagnosticResult(descriptor);
+        }
+
+        (int line, int column) = FindPropertyLocation(source, propertyName);
+        return Diagnostic(descriptor, line, column, messageArgs);
+    }
+
     private static Task VerifyFixAsync(string source, DiagnosticDescriptor descriptor, int line, int column,
         string fixedCode, params object[] messageArgs)
     {
         return CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer,
                 AM004_MissingDestinationPropertyCodeFixProvider>
-            .VerifyFixAsync(source, Diagnostic(descriptor, line, column, messageArgs), fixedCode);
+            .VerifyFixAsync(source, Diagnostic(descriptor, source, messageArgs), fixedCode);
+    }
+
+    private static (int Line, int Column) FindPropertyLocation(string source, string propertyName)
+    {
+        string[] lines = source.Split(["\r\n", "\n"], StringSplitOptions.None);
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i];
+            if (line.TrimStart().StartsWith("//", StringComparison.Ordinal) ||
+                line.Contains("CreateMap", StringComparison.Ordinal) ||
+                line.Contains("ForMember", StringComparison.Ordinal) ||
+                line.Contains("MapFrom", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            int column = line.IndexOf(propertyName, StringComparison.Ordinal);
+            if (column >= 0)
+            {
+                return (i + 1, column + 1);
+            }
+        }
+
+        throw new InvalidOperationException($"Could not find property '{propertyName}' in the test source.");
     }
 
     [Fact]
@@ -284,14 +319,12 @@ public class AM004_CodeFixTests
 
         DiagnosticResult extra1Diagnostic = Diagnostic(
             AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
-            21,
-            13,
+            testCode,
             "Extra1");
 
         DiagnosticResult extra2Diagnostic = Diagnostic(
             AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
-            21,
-            13,
+            testCode,
             "Extra2");
 
         await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
@@ -508,7 +541,7 @@ public class AM004_CodeFixTests
                 new[]
                 {
                     new DiagnosticResult(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule)
-                        .WithLocation(21, 13)
+                        .WithLocation(8, 23)
                         .WithArguments("Emal")
                 },
                 expectedFixedCode,
@@ -580,7 +613,7 @@ public class AM004_CodeFixTests
                 new[]
                 {
                     new DiagnosticResult(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule)
-                        .WithLocation(21, 13)
+                        .WithLocation(8, 23)
                         .WithArguments("Usr")
                 },
                 expectedFixedCode,
@@ -651,7 +684,7 @@ public class AM004_CodeFixTests
                 new[]
                 {
                     new DiagnosticResult(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule)
-                        .WithLocation(20, 13)
+                        .WithLocation(8, 23)
                         .WithArguments("InternalTrackingCode")
                 },
                 expectedFixedCode,
@@ -728,7 +761,7 @@ public class AM004_CodeFixTests
                 new[]
                 {
                     new DiagnosticResult(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule)
-                        .WithLocation(20, 13)
+                        .WithLocation(13, 23)
                         .WithArguments("DestExtra")
                 },
                 expectedFixedCode,

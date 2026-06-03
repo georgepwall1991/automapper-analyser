@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Analyzers.Helpers;
 
@@ -83,17 +84,16 @@ public abstract class AutoMapperCodeFixProviderBase : CodeFixProvider
         Diagnostic diagnostic,
         params string[] propertyNames)
     {
-        var result = new Dictionary<string, string>();
+        var result = diagnostic.Properties
+            .Where(property => !string.IsNullOrEmpty(property.Value))
+            .ToDictionary(property => property.Key, property => property.Value!);
 
         foreach (var propertyName in propertyNames)
         {
-            if (!diagnostic.Properties.TryGetValue(propertyName, out string? value) ||
-                string.IsNullOrEmpty(value))
+            if (!result.ContainsKey(propertyName))
             {
                 return null;
             }
-
-            result[propertyName] = value!; // Safe: already validated above
         }
 
         return result;
@@ -105,11 +105,30 @@ public abstract class AutoMapperCodeFixProviderBase : CodeFixProvider
     /// </summary>
     /// <param name="root">The syntax tree root.</param>
     /// <param name="diagnostic">The diagnostic.</param>
+    /// <param name="diagnosticProperties">Optional diagnostic properties used to locate the mapping invocation.</param>
     /// <returns>The invocation expression, or null if not found.</returns>
-    protected InvocationExpressionSyntax? GetCreateMapInvocation(SyntaxNode root, Diagnostic diagnostic)
+    protected InvocationExpressionSyntax? GetCreateMapInvocation(
+        SyntaxNode root,
+        Diagnostic diagnostic,
+        IReadOnlyDictionary<string, string>? diagnosticProperties = null)
     {
         SyntaxNode node = root.FindNode(diagnostic.Location.SourceSpan);
-        return node as InvocationExpressionSyntax;
+        if (node is InvocationExpressionSyntax invocation)
+        {
+            return invocation;
+        }
+
+        if (diagnosticProperties == null ||
+            !diagnosticProperties.TryGetValue("MappingInvocationStart", out string? startText) ||
+            !diagnosticProperties.TryGetValue("MappingInvocationLength", out string? lengthText) ||
+            !int.TryParse(startText, out int start) ||
+            !int.TryParse(lengthText, out int length))
+        {
+            return null;
+        }
+
+        var mappingNode = root.FindNode(new TextSpan(start, length));
+        return mappingNode as InvocationExpressionSyntax;
     }
 
     /// <summary>
@@ -172,7 +191,7 @@ public abstract class AutoMapperCodeFixProviderBase : CodeFixProvider
                 continue;
             }
 
-            var invocation = GetCreateMapInvocation(operationContext.Root, diagnostic);
+            var invocation = GetCreateMapInvocation(operationContext.Root, diagnostic, properties);
             if (invocation == null)
             {
                 continue;
