@@ -19,14 +19,78 @@ public class AM006_CodeFixTests
         return result;
     }
 
+    private static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor, string source, params object[] messageArgs)
+    {
+        if (messageArgs.Length == 0 || messageArgs[0] is not string propertyName)
+        {
+            return new DiagnosticResult(descriptor);
+        }
+
+        (int line, int column) = FindDestinationPropertyLocation(source, propertyName);
+        return Diagnostic(descriptor, line, column, messageArgs);
+    }
+
     private static Task VerifyFixAsync(string source, DiagnosticDescriptor descriptor, int line, int column,
         string fixedCode, int? codeActionIndex = null, DiagnosticResult[]? remainingDiagnostics = null,
         params object[] messageArgs)
     {
         return CodeFixVerifier<AM006_UnmappedDestinationPropertyAnalyzer,
                 AM006_UnmappedDestinationPropertyCodeFixProvider>
-            .VerifyFixAsync(source, Diagnostic(descriptor, line, column, messageArgs), fixedCode, codeActionIndex,
+            .VerifyFixAsync(source, Diagnostic(descriptor, source, messageArgs), fixedCode, codeActionIndex,
                 remainingDiagnostics);
+    }
+
+    private static (int Line, int Column) FindDestinationPropertyLocation(string source, string propertyName)
+    {
+        string[] lines = source.Split(["\r\n", "\n"], StringSplitOptions.None);
+        var candidates = new List<(int Line, int Column, string ClassName)>();
+        string currentClass = string.Empty;
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i];
+            string trimmed = line.TrimStart();
+            if (trimmed.StartsWith("//", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            string[] tokens = trimmed.Split([' ', '<', '(', '{'], StringSplitOptions.RemoveEmptyEntries);
+            int classIndex = Array.FindIndex(tokens, token => token is "class" or "record" or "interface" or "struct");
+            if (classIndex >= 0 && classIndex + 1 < tokens.Length)
+            {
+                currentClass = tokens[classIndex + 1];
+            }
+
+            if (line.Contains("CreateMap", StringComparison.Ordinal) ||
+                line.Contains("ForMember", StringComparison.Ordinal) ||
+                line.Contains("MapFrom", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            int column = line.IndexOf(propertyName, StringComparison.Ordinal);
+            if (column >= 0)
+            {
+                candidates.Add((i + 1, column + 1, currentClass));
+            }
+        }
+
+        (int Line, int Column, string ClassName) destination = candidates.FirstOrDefault(candidate =>
+            candidate.ClassName.Contains("Destination", StringComparison.Ordinal) ||
+            candidate.ClassName.Contains("Dest", StringComparison.Ordinal));
+        if (destination.Line != 0)
+        {
+            return (destination.Line, destination.Column);
+        }
+
+        (int Line, int Column, string ClassName) first = candidates.FirstOrDefault();
+        if (first.Line != 0)
+        {
+            return (first.Line, first.Column);
+        }
+
+        throw new InvalidOperationException($"Could not find property '{propertyName}' in the test source.");
     }
 
     [Fact]
@@ -195,10 +259,12 @@ public class AM006_CodeFixTests
         // Both diagnostics are fixed in a single operation with the simplified fixer
         var forwardDiag = Diagnostic(
             AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
-            22, 13, "DestOnly", "Source");
+            testCode,
+            "DestOnly", "Source");
         var reverseDiag = Diagnostic(
             AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
-            22, 13, "SourceOnly", "Destination");
+            testCode,
+            "SourceOnly", "Destination");
 
         await CodeFixVerifier<AM006_UnmappedDestinationPropertyAnalyzer,
                 AM006_UnmappedDestinationPropertyCodeFixProvider>
@@ -401,10 +467,12 @@ public class AM006_CodeFixTests
 
         var diag1 = Diagnostic(
             AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
-            22, 13, "Extra1", "Source");
+            testCode,
+            "Extra1", "Source");
         var diag2 = Diagnostic(
             AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
-            22, 13, "Extra2", "Source");
+            testCode,
+            "Extra2", "Source");
 
         await CodeFixVerifier<AM006_UnmappedDestinationPropertyAnalyzer,
                 AM006_UnmappedDestinationPropertyCodeFixProvider>
@@ -472,10 +540,12 @@ public class AM006_CodeFixTests
 
         var forwardDiag1 = Diagnostic(
             AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
-            22, 13, "Extra1", "Source");
+            testCode,
+            "Extra1", "Source");
         var forwardDiag2 = Diagnostic(
             AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
-            22, 13, "Extra2", "Source");
+            testCode,
+            "Extra2", "Source");
 
         await CodeFixVerifier<AM006_UnmappedDestinationPropertyAnalyzer,
                 AM006_UnmappedDestinationPropertyCodeFixProvider>
@@ -617,7 +687,8 @@ public class AM006_CodeFixTests
 
         var diag = Diagnostic(
             AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
-            22, 13, "NotYetIgnored", "Source");
+            testCode,
+            "NotYetIgnored", "Source");
 
         await CodeFixVerifier<AM006_UnmappedDestinationPropertyAnalyzer,
                 AM006_UnmappedDestinationPropertyCodeFixProvider>

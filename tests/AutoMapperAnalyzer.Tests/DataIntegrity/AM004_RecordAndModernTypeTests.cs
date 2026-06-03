@@ -37,7 +37,7 @@ public class AM004_RecordAndModernTypeTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 13, 13,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 5, 46,
                 "Extra"));
     }
 
@@ -97,7 +97,7 @@ public class AM004_RecordAndModernTypeTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 20, 13,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 8, 23,
                 "Extra"));
     }
 
@@ -128,7 +128,7 @@ public class AM004_RecordAndModernTypeTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 16, 13,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 5, 53,
                 "Extra"));
     }
 
@@ -160,7 +160,7 @@ public class AM004_RecordAndModernTypeTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 17, 13,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 8, 23,
                 "Data"));
     }
 
@@ -190,7 +190,7 @@ public class AM004_RecordAndModernTypeTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 15, 13,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 7, 46,
                 "Extra"));
     }
 
@@ -271,11 +271,11 @@ public class AM004_RecordAndModernTypeTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 13, 13,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 5, 46,
                 "Missing1"),
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 13, 13,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 5, 63,
                 "Missing2"),
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 13, 13,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 5, 77,
                 "MissingNumber"));
     }
 
@@ -400,7 +400,7 @@ public class AM004_RecordAndModernTypeTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 26, 13,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 13, 16,
                 "ExtraField"));
     }
 
@@ -456,7 +456,7 @@ public class AM004_RecordAndModernTypeTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 15, 13,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 7, 68,
                 "WorkAddress"));
     }
 
@@ -493,7 +493,7 @@ public class AM004_RecordAndModernTypeTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 22, 13,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 9, 23,
                 "TemporaryField"));
     }
 
@@ -525,7 +525,7 @@ public class AM004_RecordAndModernTypeTests
 
         await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 17, 13,
+            Diagnostic(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule, 9, 47,
                 "ExtraData"));
     }
 

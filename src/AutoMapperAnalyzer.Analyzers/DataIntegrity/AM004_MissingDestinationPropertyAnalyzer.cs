@@ -95,12 +95,32 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
             properties.Add("SourceTypeName", sourceType.Name);
             properties.Add("DestinationTypeName", destinationType.Name);
             properties.Add("IsReverseMap", isReverseMap ? "true" : "false");
+            properties.Add("MappingInvocationStart", mappingInvocation.SpanStart.ToString());
+            properties.Add("MappingInvocationLength", mappingInvocation.Span.Length.ToString());
 
             context.ReportDiagnostic(Diagnostic.Create(
                 MissingDestinationPropertyRule,
-                mappingInvocation.GetLocation(),
+                GetPropertyLocation(sourceProperty) ?? mappingInvocation.GetLocation(),
                 properties.ToImmutable(),
                 sourceProperty.Name));
         }
+    }
+
+    private static Location? GetPropertyLocation(IPropertySymbol property)
+    {
+        foreach (SyntaxReference syntaxReference in property.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
+            {
+                return propertyDeclaration.Identifier.GetLocation();
+            }
+
+            if (syntaxReference.GetSyntax() is ParameterSyntax parameter)
+            {
+                return parameter.Identifier.GetLocation();
+            }
+        }
+
+        return null;
     }
 }

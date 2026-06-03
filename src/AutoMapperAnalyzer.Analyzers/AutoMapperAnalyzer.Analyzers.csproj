@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>31</PatchVersion>
+        <PatchVersion>32</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,22 +32,21 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.31 - Correctness and code-fix hardening from an adversarial analyzer audit
+        <PackageReleaseNotes>Version 2.30.32 - Property-level AM004/AM006 diagnostics
 
             Changed:
-            - AM001 now flags same-width signed/unsigned numeric mismatches (e.g. uint to int) that C# has no implicit conversion for
-            - Generated code fixes escape C# keyword property names (e.g. @class) so they compile
-            - AM020 nested CreateMap fixes emit namespace-qualified, generic-aware type names
-            - AM003 element conversion casts are gated on a safe implicit conversion instead of a speculative cast
-            - AM031 detects ValueTask&lt;T&gt;.Result synchronous access; AM006/AM041/AM050 and shared helpers hardened
+            - AM004 reports missing destination-property diagnostics on the offending source property identifier
+            - AM006 reports unmapped destination-property diagnostics on the offending destination property identifier
+            - AM004/AM006 diagnostics carry mapping invocation span metadata so existing code fixes still locate the CreateMap chain
+            - Shared code-fix test verification tolerates line-ending-only generated-source diffs across Windows/LF checkouts
 
             Validation:
-            - Full solution test suite passing on net10.0 (818 tests)
+            - Full solution test suite passing on net10.0 (819 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
             - Codex review passing per change
             - git diff --check clean
 
-            Previous Release: v2.30.30 - Add AM021 immutable and frozen collection fixes
+            Previous Release: v2.30.31 - Correctness and code-fix hardening from an adversarial analyzer audit
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
