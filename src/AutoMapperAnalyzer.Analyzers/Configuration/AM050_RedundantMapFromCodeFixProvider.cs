@@ -32,45 +32,53 @@ public class AM050_RedundantMapFromCodeFixProvider : AutoMapperCodeFixProviderBa
         {
             SyntaxNode? node = operationContext.Root.FindNode(diagnostic.Location.SourceSpan);
 
-            // The analyzer reports on the 'MapFrom' invocation, which is inside ForMember
-            // We need to find the outer ForMember invocation
+            // The analyzer reports on the 'MapFrom' invocation, which is inside ForMember/ForPath.
+            // We need to find the outer destination configuration invocation.
             InvocationExpressionSyntax? mapFromInvocation = node?.AncestorsAndSelf()
                 .OfType<InvocationExpressionSyntax>()
                 .FirstOrDefault(inv =>
                     inv.Expression is MemberAccessExpressionSyntax ma &&
                     ma.Name.Identifier.Text == "MapFrom");
 
-            InvocationExpressionSyntax? forMemberInvocation = node?.AncestorsAndSelf()
+            InvocationExpressionSyntax? destinationConfigurationInvocation = node?.AncestorsAndSelf()
                 .OfType<InvocationExpressionSyntax>()
                 .FirstOrDefault(inv =>
                     inv.Expression is MemberAccessExpressionSyntax ma &&
-                    ma.Name.Identifier.Text == "ForMember");
+                    ma.Name.Identifier.Text is "ForMember" or "ForPath" &&
+                    MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                        inv,
+                        operationContext.SemanticModel,
+                        ma.Name.Identifier.Text));
 
-            if (forMemberInvocation != null &&
+            if (destinationConfigurationInvocation != null &&
                 mapFromInvocation != null &&
-                ForMemberLambdaContainsOnlyTheMapFrom(forMemberInvocation, mapFromInvocation))
+                DestinationConfigurationLambdaContainsOnlyTheMapFrom(destinationConfigurationInvocation, mapFromInvocation))
             {
-                string propertyName = GetDestinationPropertyName(forMemberInvocation) ?? "property";
+                string configurationMethodName = GetConfigurationMethodName(destinationConfigurationInvocation) ?? "mapping";
+                string propertyName = GetDestinationPropertyName(destinationConfigurationInvocation) ?? "property";
+                string equivalenceKey = configurationMethodName == "ForMember"
+                    ? $"AM050_RemoveRedundantMapping_{propertyName}"
+                    : $"AM050_RemoveRedundant{configurationMethodName}_{propertyName}";
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        $"Remove redundant ForMember for '{propertyName}'",
-                        c => RemoveRedundantMapping(context.Document, operationContext.Root, forMemberInvocation),
-                        $"AM050_RemoveRedundantMapping_{propertyName}"),
+                        $"Remove redundant {configurationMethodName} for '{propertyName}'",
+                        c => RemoveRedundantMapping(context.Document, operationContext.Root, destinationConfigurationInvocation),
+                        equivalenceKey),
                     diagnostic);
             }
         }
     }
 
-    private static bool ForMemberLambdaContainsOnlyTheMapFrom(
-        InvocationExpressionSyntax forMemberInvocation,
+    private static bool DestinationConfigurationLambdaContainsOnlyTheMapFrom(
+        InvocationExpressionSyntax destinationConfigurationInvocation,
         InvocationExpressionSyntax mapFromInvocation)
     {
-        if (forMemberInvocation.ArgumentList.Arguments.Count < 2)
+        if (destinationConfigurationInvocation.ArgumentList.Arguments.Count < 2)
         {
             return false;
         }
 
-        ExpressionSyntax optionsArgument = forMemberInvocation.ArgumentList.Arguments[1].Expression;
+        ExpressionSyntax optionsArgument = destinationConfigurationInvocation.ArgumentList.Arguments[1].Expression;
         CSharpSyntaxNode? body = optionsArgument switch
         {
             SimpleLambdaExpressionSyntax simple => simple.Body,
@@ -93,8 +101,8 @@ public class AM050_RedundantMapFromCodeFixProvider : AutoMapperCodeFixProviderBa
     {
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
         {
-            // Replace the whole ForMember(...) invocation with the expression it was called on
-            // e.g. CreateMap<A,B>().ForMember(...) -> CreateMap<A,B>()
+            // Replace the whole ForMember/ForPath invocation with the expression it was called on.
+            // e.g. CreateMap<A,B>().ForMember(...) -> CreateMap<A,B>().
             return ReplaceNodeAsync(document, root, invocation,
                 memberAccess.Expression.WithTrailingTrivia(invocation.GetTrailingTrivia()));
         }
@@ -102,20 +110,27 @@ public class AM050_RedundantMapFromCodeFixProvider : AutoMapperCodeFixProviderBa
         return Task.FromResult(document);
     }
 
-    private static string? GetDestinationPropertyName(InvocationExpressionSyntax forMemberInvocation)
+    private static string? GetConfigurationMethodName(InvocationExpressionSyntax destinationConfigurationInvocation)
     {
-        if (forMemberInvocation.ArgumentList.Arguments.Count == 0)
+        return destinationConfigurationInvocation.Expression is MemberAccessExpressionSyntax memberAccess
+            ? memberAccess.Name.Identifier.ValueText
+            : null;
+    }
+
+    private static string? GetDestinationPropertyName(InvocationExpressionSyntax destinationConfigurationInvocation)
+    {
+        if (destinationConfigurationInvocation.ArgumentList.Arguments.Count == 0)
         {
             return null;
         }
 
-        SyntaxNode? lambdaBody = AutoMapperAnalysisHelpers.GetLambdaBody(forMemberInvocation.ArgumentList.Arguments[0].Expression);
+        SyntaxNode? lambdaBody = AutoMapperAnalysisHelpers.GetLambdaBody(destinationConfigurationInvocation.ArgumentList.Arguments[0].Expression);
         if (lambdaBody is MemberAccessExpressionSyntax memberAccess)
         {
             return memberAccess.Name.Identifier.ValueText;
         }
 
-        ExpressionSyntax expression = forMemberInvocation.ArgumentList.Arguments[0].Expression;
+        ExpressionSyntax expression = destinationConfigurationInvocation.ArgumentList.Arguments[0].Expression;
         return expression is LiteralExpressionSyntax literal &&
                literal.IsKind(SyntaxKind.StringLiteralExpression)
             ? literal.Token.ValueText

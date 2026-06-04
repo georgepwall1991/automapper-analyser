@@ -50,21 +50,24 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
                 return;
             }
 
-            // Check if it's inside ForMember
-            InvocationExpressionSyntax? forMemberInvocation = invocation.Ancestors()
+            // Check if it's inside a destination member/path configuration.
+            InvocationExpressionSyntax? destinationConfigurationInvocation = invocation.Ancestors()
                 .OfType<InvocationExpressionSyntax>()
                 .FirstOrDefault(inv =>
                     inv.Expression is MemberAccessExpressionSyntax ma &&
-                    ma.Name.Identifier.Text == "ForMember" &&
-                    MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(inv, context.SemanticModel, "ForMember"));
+                    ma.Name.Identifier.Text is "ForMember" or "ForPath" &&
+                    MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                        inv,
+                        context.SemanticModel,
+                        ma.Name.Identifier.Text));
 
-            if (forMemberInvocation == null)
+            if (destinationConfigurationInvocation == null)
             {
                 return;
             }
 
             // Get destination property name
-            string? destPropName = GetDestinationPropertyName(forMemberInvocation);
+            string? destPropName = GetDestinationPropertyName(destinationConfigurationInvocation);
             if (destPropName == null)
             {
                 return;
@@ -81,7 +84,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
             if (string.Equals(sourcePropName, destPropName, StringComparison.Ordinal))
             {
                 // Check if types are compatible (same type including nullability)
-                if (!AreTypesCompatibleForAutoMapping(forMemberInvocation, invocation, context))
+                if (!AreTypesCompatibleForAutoMapping(destinationConfigurationInvocation, invocation, context))
                 {
                     return; // Not redundant if types differ (e.g., int? to int)
                 }
@@ -97,13 +100,13 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
     }
 
     private static bool AreTypesCompatibleForAutoMapping(
-        InvocationExpressionSyntax forMemberInvocation,
+        InvocationExpressionSyntax destinationConfigurationInvocation,
         InvocationExpressionSyntax mapFromInvocation,
         SyntaxNodeAnalysisContext context)
     {
         // Get source and destination property types
         ITypeSymbol? sourceType = GetSourcePropertyType(mapFromInvocation, context);
-        ITypeSymbol? destType = GetDestinationPropertyType(forMemberInvocation, context);
+        ITypeSymbol? destType = GetDestinationPropertyType(destinationConfigurationInvocation, context);
 
         if (sourceType == null || destType == null)
         {

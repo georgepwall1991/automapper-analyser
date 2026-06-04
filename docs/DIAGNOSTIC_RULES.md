@@ -1294,7 +1294,7 @@ dotnet_diagnostic.AM041.severity = warning
 
 Detects explicit `MapFrom` calls where the source and destination properties have the same name. AutoMapper maps these automatically by default.
 
-AM050 only reports when it can prove the source and destination members have the same type, including string-based destination member names such as `ForMember("Name", ...)`. It stays quiet when the destination member cannot be resolved or the same-name members have different types. Both source and destination lambda arguments accept simple, parenthesized, and typed shapes — `s => s.Name`, `(s) => s.Name`, and `(Source s) => s.Name` are all recognised. Multi-parameter parenthesized lambdas (such as AutoMapper's `(src, ctx) => ...` `IMemberConfigurationExpression` overload) intentionally stay outside the analyzer's scope.
+AM050 only reports when it can prove the source and destination members have the same type, including string-based destination member names such as `ForMember("Name", ...)` and top-level `ForPath(dest => dest.Name, ...)` mappings. Nested `ForPath` destination paths stay outside this cleanup rule because convention mapping equivalence is not guaranteed. It stays quiet when the destination member cannot be resolved or the same-name members have different types. Both source and destination lambda arguments accept simple, parenthesized, and typed shapes — `s => s.Name`, `(s) => s.Name`, and `(Source s) => s.Name` are all recognised. Multi-parameter parenthesized lambdas (such as AutoMapper's `(src, ctx) => ...` `IMemberConfigurationExpression` overload) intentionally stay outside the analyzer's scope.
 
 #### Problem
 
@@ -1311,6 +1311,8 @@ CreateMap<Source, Destination>()
 CreateMap<Source, Destination>();
 // AutoMapper automatically maps 'Name' to 'Name'
 ```
+
+Top-level redundant `ForPath(dest => dest.Name, opt => opt.MapFrom(src => src.Name))` configurations receive the same removal action. Nested paths keep no automatic cleanup action.
 
 #### Configuration
 
