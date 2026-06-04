@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## [2.30.48] - 2026-06-04
+
+### Changed
+
+- **AM021 code fixes**: Simple element-conversion fixes now cover destination `ImmutableArray<T>` collections with fully qualified `ImmutableArray.CreateRange(...)` factory mappings.
+- **AM021 code fixes**: `List<string>` to `ImmutableArray<int>` mappings now get an executable `Select(...)` plus `global::System.Convert.ToInt32(...)` rewrite instead of only the manual ignore action.
+- **Docs**: Updated AM021 rule docs and release metadata to include the `ImmutableArray<T>` element-conversion path.
+- **Tests**: Added AM021 code-fix regression coverage for mutable source collections mapped to immutable-array destinations.
+
+### Validation
+
+- PR #123 checks green: Build/Test, package analyzer, package smoke tests for `net8.0`, `net9.0`, and `net10.0`, Codecov patch, and Claude review.
+- Full solution test suite (`net10.0`) green — 859 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.47] - 2026-06-04
 
 ### Changed

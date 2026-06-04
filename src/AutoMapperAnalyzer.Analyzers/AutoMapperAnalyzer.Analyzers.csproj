@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>47</PatchVersion>
+        <PatchVersion>48</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,20 +32,20 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.47 - AM003 ImmutableArray container support
+        <PackageReleaseNotes>Version 2.30.48 - AM021 ImmutableArray element conversion fix
 
             Changed:
-            - AM003 now reports ImmutableArray container mismatches in both source and destination directions
-            - Destination ImmutableArray mappings receive a fully qualified ImmutableArray.CreateRange factory fix
-            - Source-side ImmutableArray mappings to known mutable containers keep the safe constructor rewrite path
+            - AM021 simple element-conversion fixes now cover destination ImmutableArray collections
+            - Generated mappings use fully qualified ImmutableArray.CreateRange factory calls
+            - Added regression coverage for List&lt;string&gt; to ImmutableArray&lt;int&gt; mappings
 
             Validation:
-            - Full solution test suite passing on net10.0 (858 tests)
+            - Full solution test suite passing on net10.0 (859 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
-            - PR #122 CI/package smoke checks passing
+            - PR #123 CI/package smoke checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.46 - AM050 top-level ForPath redundant MapFrom cleanup
+            Previous Release: v2.30.47 - AM003 ImmutableArray container support
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-858%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-859%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,24 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.47
+## 🎉 Latest Release: v2.30.48
 
-**AM003 ImmutableArray container support**
+**AM021 ImmutableArray element conversion fix**
 
 ✅ **Highlights**
 
-- AM003 now reports collection-container mismatches when `ImmutableArray<T>` appears on one side of a mapping.
-- Destination `ImmutableArray<T>` fixes emit fully qualified `ImmutableArray.CreateRange(...)` factory mappings.
-- Source-side `ImmutableArray<T>` mappings to known mutable containers keep the existing safe constructor rewrite path.
+- AM021 simple element-conversion fixes now cover destination `ImmutableArray<T>` collections.
+- Generated mappings use fully qualified `ImmutableArray.CreateRange(...)` plus the existing `global::System.Convert` element conversions.
+- Added regression coverage for `List<string>` to `ImmutableArray<int>` collection element mismatches.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0` with 858 tests.
+- Full solution test validation passed on `net10.0` with 859 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
-- PR #122 CI/package smoke checks green.
+- PR #123 CI/package smoke checks green.
 
 ### Recent Releases
 
+- **v2.30.48**: AM021 simple element-conversion fixes now cover destination `ImmutableArray<T>` collections with fully qualified `ImmutableArray.CreateRange(...)` mappings.
 - **v2.30.47**: AM003 now covers `ImmutableArray<T>` container mismatches and offers `ImmutableArray.CreateRange(...)` for destination immutable arrays.
 - **v2.30.46**: AM050 now covers redundant top-level `ForPath` `MapFrom` mappings and removes them with the same safe single-call rewrite guard as `ForMember`.
 - **v2.30.45**: AM031 tracks `SequenceEqual` as a terminal enumeration, counts both sequence inputs, and keys static LINQ terminals to their source sequence arguments.
@@ -215,7 +216,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.47">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.48">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
