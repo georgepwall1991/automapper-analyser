@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## [2.30.45] - 2026-06-04
+
+### Changed
+
+- **AM031**: Multiple-enumeration tracking now treats LINQ `SequenceEqual` as a terminal enumeration call.
+- **AM031**: `SequenceEqual` tracks both sequence inputs, including captured/local collections passed as the second sequence.
+- **AM031**: Static `Enumerable`/`Queryable` terminal calls are keyed to their source sequence arguments instead of the static type name, avoiding false positives when different source collections are enumerated.
+- **Docs**: Updated AM031 terminal-operator documentation to include `SequenceEqual` and static LINQ source-argument tracking.
+- **Tests**: Added regression coverage for receiver, argument, static, captured, and distinct-source static LINQ mappings.
+
+### Validation
+
+- PR #120 checks green: Build/Test, package analyzer, package smoke tests for `net8.0`, `net9.0`, and `net10.0`, Codecov patch, and Claude review.
+- Full solution test suite (`net10.0`) green — 851 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.44] - 2026-06-04
 
 ### Changed

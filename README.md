@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-845%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-851%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,24 +14,25 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.44
+## 🎉 Latest Release: v2.30.45
 
-**AM031 LINQ terminal enumeration coverage**
+**AM031 SequenceEqual and static LINQ enumeration tracking**
 
 ✅ **Highlights**
 
-- AM031 multiple-enumeration tracking now covers `Contains`, `ElementAt`, and `ElementAtOrDefault`.
-- `List<T>.Contains(...)` instance calls are tracked for common linear collection types.
-- Regression coverage locks `Contains + Sum` and `Contains + ElementAt*` mappings against silent misses.
+- AM031 multiple-enumeration tracking now treats `SequenceEqual` as a terminal LINQ enumeration.
+- `SequenceEqual` tracks both sequence inputs, including captured/local collections passed as the second sequence.
+- Static `Enumerable`/`Queryable` terminal calls are keyed to their source sequence arguments instead of the static type name.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0` with 845 tests.
+- Full solution test validation passed on `net10.0` with 851 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
-- PR #119 CI/package smoke checks green.
+- PR #120 CI/package smoke checks green.
 
 ### Recent Releases
 
+- **v2.30.45**: AM031 tracks `SequenceEqual` as a terminal enumeration, counts both sequence inputs, and keys static LINQ terminals to their source sequence arguments.
 - **v2.30.44**: AM031 multiple-enumeration tracking now covers `Contains`, `ElementAt`, `ElementAtOrDefault`, and common linear collection instance `Contains` calls.
 - **v2.30.43**: AM031 reports `GetAwaiter().GetResult()` sync-over-async mapping expressions across `Task`, configured `Task`, `ValueTask`, and configured `ValueTask` awaiters.
 - **v2.30.42**: AM020 now respects compiler-known implicit nested conversions, while explicit-only nested conversions still report.
@@ -212,7 +213,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.44">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.45">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
