@@ -223,6 +223,10 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
             IsConstructedFromType(sourceType, "System.Collections.Immutable.ImmutableList<T>");
         bool destIsImmutableList =
             IsConstructedFromType(destType, "System.Collections.Immutable.ImmutableList<T>");
+        bool sourceIsImmutableArray =
+            IsConstructedFromType(sourceType, "System.Collections.Immutable.ImmutableArray<T>");
+        bool destIsImmutableArray =
+            IsConstructedFromType(destType, "System.Collections.Immutable.ImmutableArray<T>");
         bool sourceIsImmutableHashSet =
             IsConstructedFromType(sourceType, "System.Collections.Immutable.ImmutableHashSet<T>");
         bool destIsImmutableHashSet =
@@ -270,6 +274,16 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         }
 
         if (!sourceIsImmutableList && destIsImmutableList)
+        {
+            return true;
+        }
+
+        if (sourceIsImmutableArray && !destIsImmutableArray)
+        {
+            return true;
+        }
+
+        if (!sourceIsImmutableArray && destIsImmutableArray)
         {
             return true;
         }

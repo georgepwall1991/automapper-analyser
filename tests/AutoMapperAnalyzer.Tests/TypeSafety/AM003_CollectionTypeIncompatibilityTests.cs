@@ -265,6 +265,82 @@ public class AM003_CollectionTypeIncompatibilityTests
     }
 
     [Fact]
+    public async Task AM003_ShouldReportDiagnostic_WhenListToImmutableArray()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Collections.Immutable;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Tags { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public ImmutableArray<string> Tags { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 22, 13,
+                "Tags", "Source", "System.Collections.Generic.List<string>", "Destination",
+                "System.Collections.Immutable.ImmutableArray<string>"));
+    }
+
+    [Fact]
+    public async Task AM003_ShouldReportDiagnostic_WhenImmutableArrayToList()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Collections.Immutable;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public ImmutableArray<string> Tags { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<string> Tags { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM003_CollectionTypeIncompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule, 22, 13,
+                "Tags", "Source", "System.Collections.Immutable.ImmutableArray<string>", "Destination",
+                "System.Collections.Generic.List<string>"));
+    }
+
+    [Fact]
     public async Task AM003_ShouldReportDiagnostic_WhenQueueToFrozenSet()
     {
         const string testCode = """

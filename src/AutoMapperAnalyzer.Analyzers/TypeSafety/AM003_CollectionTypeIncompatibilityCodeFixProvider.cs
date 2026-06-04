@@ -411,6 +411,16 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
             return true;
         }
 
+        if (IsKnownConcreteCollectionType(destinationType, "ImmutableArray", "System.Collections.Immutable."))
+        {
+            fix = (
+                $"Convert {propertyName} using ImmutableArray.CreateRange()",
+                $"global::System.Collections.Immutable.ImmutableArray.CreateRange({sourceExpression})",
+                needsElementConversion,
+                $"AM003_ImmutableArray_{propertyName}");
+            return true;
+        }
+
         if (IsKnownConcreteCollectionType(destinationType, "ImmutableHashSet", "System.Collections.Immutable."))
         {
             fix = (
