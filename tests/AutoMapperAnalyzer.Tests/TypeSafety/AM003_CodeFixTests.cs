@@ -988,6 +988,146 @@ public class AM003_CodeFixTests
     }
 
     [Fact]
+    public async Task AM003_ShouldFixListToImmutableArrayWithCreateRange()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Collections.Immutable;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Tags { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public ImmutableArray<string> Tags { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Collections.Immutable;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public List<string> Tags { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public ImmutableArray<string> Tags { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Tags, opt => opt.MapFrom(src => global::System.Collections.Immutable.ImmutableArray.CreateRange(src.Tags)));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+            21,
+            13,
+            expectedFixedCode,
+            "Tags",
+            "Source",
+            "System.Collections.Generic.List<string>",
+            "Destination",
+            "System.Collections.Immutable.ImmutableArray<string>");
+    }
+
+    [Fact]
+    public async Task AM003_ShouldFixImmutableArrayToListWithConstructor()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Collections.Immutable;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public ImmutableArray<string> Tags { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<string> Tags { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Collections.Immutable;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public ImmutableArray<string> Tags { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public List<string> Tags { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Tags, opt => opt.MapFrom(src => new List<string>(src.Tags)));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+            21,
+            13,
+            expectedFixedCode,
+            "Tags",
+            "Source",
+            "System.Collections.Immutable.ImmutableArray<string>",
+            "Destination",
+            "System.Collections.Generic.List<string>");
+    }
+
+    [Fact]
     public async Task AM003_ShouldFixListToImmutableHashSetWithCreateRange()
     {
         const string testCode = """
