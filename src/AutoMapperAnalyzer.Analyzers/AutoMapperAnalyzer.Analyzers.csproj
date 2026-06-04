@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>46</PatchVersion>
+        <PatchVersion>47</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,20 +32,20 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.46 - AM050 top-level ForPath redundant MapFrom cleanup
+        <PackageReleaseNotes>Version 2.30.47 - AM003 ImmutableArray container support
 
             Changed:
-            - AM050 now reports redundant top-level ForPath MapFrom mappings when source and destination members match
-            - The safe rewrite action removes redundant top-level ForPath calls when only MapFrom is configured
-            - Nested ForPath destination paths remain outside AM050 because convention equivalence is not guaranteed
+            - AM003 now reports ImmutableArray container mismatches in both source and destination directions
+            - Destination ImmutableArray mappings receive a fully qualified ImmutableArray.CreateRange factory fix
+            - Source-side ImmutableArray mappings to known mutable containers keep the safe constructor rewrite path
 
             Validation:
-            - Full solution test suite passing on net10.0 (854 tests)
+            - Full solution test suite passing on net10.0 (858 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
-            - PR #121 CI/package smoke checks passing
+            - PR #122 CI/package smoke checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.45 - AM031 SequenceEqual and static LINQ enumeration tracking
+            Previous Release: v2.30.46 - AM050 top-level ForPath redundant MapFrom cleanup
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

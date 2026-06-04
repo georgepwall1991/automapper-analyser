@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## [2.30.47] - 2026-06-04
+
+### Changed
+
+- **AM003**: Collection-container diagnostics now cover `ImmutableArray<T>` when either the source or destination side uses it with a different collection container.
+- **AM003 code fixes**: Destination `ImmutableArray<T>` mappings now receive a fully qualified `ImmutableArray.CreateRange(...)` factory fix.
+- **AM003 code fixes**: Source-side `ImmutableArray<T>` mappings to known mutable destinations keep the existing safe constructor conversion path.
+- **Docs**: Updated AM003 rule docs to list `ImmutableArray<T>` with the existing immutable/frozen container boundary.
+- **Tests**: Added analyzer and code-fix regression coverage for both `List<T>` → `ImmutableArray<T>` and `ImmutableArray<T>` → `List<T>`.
+
+### Validation
+
+- PR #122 checks green: Build/Test, package analyzer, package smoke tests for `net8.0`, `net9.0`, and `net10.0`, Codecov patch, and Claude review.
+- Full solution test suite (`net10.0`) green — 858 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.46] - 2026-06-04
 
 ### Changed
