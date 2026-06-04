@@ -840,6 +840,73 @@ public class AM021_CodeFixTests
     }
 
     [Fact]
+    public async Task AM021_ShouldFixListToImmutableArray_WithSelectAndCreateRange()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Collections.Immutable;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public ImmutableArray<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Collections.Immutable;
+                                         using System.Linq;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public List<string> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public ImmutableArray<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => global::System.Collections.Immutable.ImmutableArray.CreateRange(src.Values.Select(x => global::System.Convert.ToInt32(x)))));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(21, 13)
+                    .WithArguments("Values", "Source", "string", "Destination", "Values", "int"),
+                expectedFixedCode);
+    }
+
+    [Fact]
     public async Task AM021_ShouldFixListToImmutableHashSet_WithSelectAndCreateRange()
     {
         const string testCode = """
