@@ -805,9 +805,9 @@ public class MappingProfile : Profile
 
 For simple element conversions, AM021 can add a `Select(...)` mapping. List-like interface destinations use `ToList()`,
 `HashSet<T>`/`ISet<T>` destinations are wrapped in a concrete `HashSet<T>` constructor, and known immutable/frozen
-destinations use fully qualified `ImmutableList.CreateRange(...)`, `ImmutableHashSet.CreateRange(...)`, or
-`FrozenSet.ToFrozenSet(...)` calls so the generated mapping stays executable. Custom collection lookalikes remain on
-the manual-review path instead of receiving name-based rewrites.
+destinations use fully qualified `ImmutableList.CreateRange(...)`, `ImmutableArray.CreateRange(...)`,
+`ImmutableHashSet.CreateRange(...)`, or `FrozenSet.ToFrozenSet(...)` calls so the generated mapping stays executable.
+Custom collection lookalikes remain on the manual-review path instead of receiving name-based rewrites.
 
 #### Configuration
 
