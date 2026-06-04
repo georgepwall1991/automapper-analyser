@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## [2.30.44] - 2026-06-04
+
+### Changed
+
+- **AM031**: Multiple-enumeration tracking now treats LINQ `Contains`, `ElementAt`, and `ElementAtOrDefault` as terminal enumeration calls.
+- **AM031**: Instance `Contains` calls on common linear collection types such as `List<T>` are tracked so `Contains(...) && Sum()` reports on the shared source collection.
+- **Docs**: Updated AM031 terminal-operator documentation to include the new operators.
+- **Tests**: Added regression coverage for `Contains`/`ElementAt*` and `List<T>.Contains(...) && Sum()` mappings.
+
+### Validation
+
+- PR #119 checks green: Build/Test, package analyzer, package smoke tests for `net8.0`, `net9.0`, and `net10.0`, Codecov patch, and Claude review.
+- Full solution test suite (`net10.0`) green — 845 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.43] - 2026-06-04
 
 ### Changed
