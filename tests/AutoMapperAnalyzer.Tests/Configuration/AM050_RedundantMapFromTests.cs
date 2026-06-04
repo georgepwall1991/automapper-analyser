@@ -33,6 +33,55 @@ public class AM050_RedundantMapFromTests
     }
 
     [Fact]
+    public async Task Should_ReportDiagnostic_When_TopLevelForPathMapsSamePropertyName()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForPath(d => d.Name, o => o.MapFrom(s => s.Name));
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+            .WithLocation(11, 40)
+            .WithArguments("Name");
+
+        await AnalyzerVerifier<AM050_RedundantMapFromAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_When_ForPathMapsNestedDestinationPath()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public DestinationChild Child { get; set; } }
+                                public class DestinationChild { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForPath(d => d.Child.Name, o => o.MapFrom(s => s.Name));
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM050_RedundantMapFromAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
     public async Task Should_ReportDiagnostic_When_MapFromUsesParenthesizedLambda()
     {
         const string testCode = """
