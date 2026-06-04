@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>45</PatchVersion>
+        <PatchVersion>46</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,20 +32,20 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.45 - AM031 SequenceEqual and static LINQ enumeration tracking
+        <PackageReleaseNotes>Version 2.30.46 - AM050 top-level ForPath redundant MapFrom cleanup
 
             Changed:
-            - AM031 multiple-enumeration tracking now covers SequenceEqual as a terminal LINQ operation
-            - SequenceEqual tracks both sequence inputs, including captured/local second-sequence arguments
-            - Static Enumerable/Queryable terminal calls are keyed to source sequence arguments
+            - AM050 now reports redundant top-level ForPath MapFrom mappings when source and destination members match
+            - The safe rewrite action removes redundant top-level ForPath calls when only MapFrom is configured
+            - Nested ForPath destination paths remain outside AM050 because convention equivalence is not guaranteed
 
             Validation:
-            - Full solution test suite passing on net10.0 (851 tests)
+            - Full solution test suite passing on net10.0 (854 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
-            - PR #120 CI/package smoke checks passing
+            - PR #121 CI/package smoke checks passing
             - git diff --check clean
 
-            Previous Release: v2.30.44 - AM031 LINQ terminal enumeration coverage
+            Previous Release: v2.30.45 - AM031 SequenceEqual and static LINQ enumeration tracking
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

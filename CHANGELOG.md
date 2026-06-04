@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## [2.30.46] - 2026-06-04
+
+### Changed
+
+- **AM050**: Redundant `MapFrom` detection now covers top-level `ForPath(dest => dest.Name, opt => opt.MapFrom(src => src.Name))` mappings when source and destination member names and types match.
+- **AM050**: The automatic cleanup removes redundant top-level `ForPath` calls when the options lambda contains only the redundant `MapFrom`, preserving the existing sibling-configuration safety boundary.
+- **AM050**: Nested `ForPath` destination paths stay out of scope because convention mapping equivalence is not guaranteed.
+- **Docs**: Updated AM050 documentation to describe the top-level `ForPath` support and nested-path boundary.
+- **Tests**: Added analyzer and code-fix regression coverage for top-level `ForPath` reporting, nested `ForPath` suppression, and safe removal at the end of a chain.
+
+### Validation
+
+- PR #121 checks green: Build/Test, package analyzer, package smoke tests for `net8.0`, `net9.0`, and `net10.0`, Codecov patch, and Claude review.
+- Full solution test suite (`net10.0`) green — 854 tests, 0 skipped.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` clean.
+
 ## [2.30.45] - 2026-06-04
 
 ### Changed
