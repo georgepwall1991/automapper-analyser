@@ -543,6 +543,84 @@ public class AM031_PerformanceWarningTests
     }
 
     [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenContainsAndElementAtEnumerateSameCollection()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public bool Result { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Result, opt => opt.MapFrom(src => src.Numbers.Contains(src.Numbers.ElementAt(0)) || src.Numbers.ElementAtOrDefault(1) == 0));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule, 22, 68,
+                "Result", "Numbers")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenListContainsAndSumEnumerateSameCollection()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public bool Result { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Result, opt => opt.MapFrom(src => src.Numbers.Contains(5) && src.Numbers.Sum() > 0));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule, 22, 68,
+                "Result", "Numbers")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM031_ShouldReportDiagnostic_WhenMultipleEnumerationUsesNonSrcParameterName()
     {
         const string testCode = """
