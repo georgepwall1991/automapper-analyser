@@ -422,10 +422,17 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             }
 
             // Track LINQ operations for multiple enumeration detection
-            if (IsLinqEnumerationMethod(containingType, methodName) ||
+            bool isLinqEnumerationMethod = IsLinqEnumerationMethod(containingType, methodName);
+            if (isLinqEnumerationMethod ||
                 IsLinearCollectionContainsMethod(containingType, methodName))
             {
-                TrackCollectionAccess(invocation, collectionAccesses, sourceParameterName, context.SemanticModel);
+                TrackCollectionAccess(
+                    invocation,
+                    collectionAccesses,
+                    sourceParameterName,
+                    context.SemanticModel,
+                    isLinqEnumerationMethod,
+                    methodName);
             }
 
             // Check for complex LINQ operations
@@ -774,7 +781,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             "Count" or "LongCount" or
             "First" or "FirstOrDefault" or "Last" or "LastOrDefault" or
             "Single" or "SingleOrDefault" or
-            "Any" or "All" or "Contains" or "ElementAt" or "ElementAtOrDefault";
+            "Any" or "All" or "Contains" or "ElementAt" or "ElementAtOrDefault" or
+            "SequenceEqual";
     }
 
     private static bool IsLinearCollectionContainsMethod(string containingType, string methodName)
@@ -787,29 +795,92 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         InvocationExpressionSyntax invocation,
         Dictionary<string, int> collectionAccesses,
         string? sourceParameterName,
-        SemanticModel semanticModel)
+        SemanticModel semanticModel,
+        bool isLinqEnumerationMethod,
+        string methodName)
     {
+        if (isLinqEnumerationMethod &&
+            TryTrackStaticLinqSourceArguments(invocation, collectionAccesses, sourceParameterName, semanticModel, methodName))
+        {
+            return;
+        }
+
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
         {
-            ExpressionSyntax collectionRoot = UnwrapChainedLinqReceiver(
+            TrackCollectionExpression(
                 memberAccess.Expression,
+                collectionAccesses,
                 sourceParameterName,
                 semanticModel);
-
-            string collectionName = TryGetSourceCollectionPath(
-                collectionRoot,
-                sourceParameterName,
-                out string sourceCollectionPath)
-                ? sourceCollectionPath
-                : collectionRoot.ToString();
-
-            if (!collectionAccesses.ContainsKey(collectionName))
-            {
-                collectionAccesses[collectionName] = 0;
-            }
-
-            collectionAccesses[collectionName]++;
         }
+
+        if (isLinqEnumerationMethod && methodName == "SequenceEqual")
+        {
+            TrackSequenceEqualArgumentAccess(invocation, collectionAccesses, sourceParameterName, semanticModel);
+        }
+    }
+
+    private static bool TryTrackStaticLinqSourceArguments(
+        InvocationExpressionSyntax invocation,
+        Dictionary<string, int> collectionAccesses,
+        string? sourceParameterName,
+        SemanticModel semanticModel,
+        string methodName)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess ||
+            semanticModel.GetSymbolInfo(memberAccess.Expression).Symbol is not INamedTypeSymbol)
+        {
+            return false;
+        }
+
+        int sourceArgumentCount = methodName == "SequenceEqual" ? 2 : 1;
+        int argumentsToTrack = Math.Min(sourceArgumentCount, invocation.ArgumentList.Arguments.Count);
+        for (int index = 0; index < argumentsToTrack; index++)
+        {
+            TrackCollectionExpression(
+                invocation.ArgumentList.Arguments[index].Expression,
+                collectionAccesses,
+                sourceParameterName,
+                semanticModel);
+        }
+
+        return true;
+    }
+
+    private static void TrackSequenceEqualArgumentAccess(
+        InvocationExpressionSyntax invocation,
+        Dictionary<string, int> collectionAccesses,
+        string? sourceParameterName,
+        SemanticModel semanticModel)
+    {
+        TrackCollectionExpression(
+            invocation.ArgumentList.Arguments[0].Expression,
+            collectionAccesses,
+            sourceParameterName,
+            semanticModel);
+    }
+
+    private static void TrackCollectionExpression(
+        ExpressionSyntax expression,
+        Dictionary<string, int> collectionAccesses,
+        string? sourceParameterName,
+        SemanticModel semanticModel)
+    {
+        ExpressionSyntax collectionRoot = UnwrapChainedLinqReceiver(
+            expression,
+            sourceParameterName,
+            semanticModel);
+
+        string collectionName = TryGetSourceCollectionPath(collectionRoot, sourceParameterName, out string sourceCollectionPath)
+            ? sourceCollectionPath
+            : collectionRoot.ToString();
+
+        if (!collectionAccesses.ContainsKey(collectionName))
+        {
+            collectionAccesses[collectionName] = 0;
+        }
+
+        collectionAccesses[collectionName]++;
     }
 
     private static ExpressionSyntax UnwrapChainedLinqReceiver(
