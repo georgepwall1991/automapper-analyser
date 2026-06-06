@@ -668,6 +668,93 @@ public class AM021_CollectionElementMismatchTests
     }
 
     [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_WhenDictionaryValueHasElementMapping()
+    {
+        // AutoMapper maps Dictionary<int, Foo> -> Dictionary<int, FooDto> correctly when CreateMap<Foo, FooDto>
+        // is registered (verified at runtime). Reporting it was a false positive: AM021 was asking the registry
+        // for CreateMap<KeyValuePair<...>, KeyValuePair<...>> (which never exists) instead of decomposing the
+        // KeyValuePair into key/value axes.
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Foo { public string Name { get; set; } }
+
+                                    public class FooDto { public string Name { get; set; } }
+
+                                    public class Source
+                                    {
+                                        public Dictionary<int, Foo> Lookup { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Dictionary<int, FooDto> Lookup { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Foo, FooDto>();
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldReportDiagnostic_WhenDictionaryValueMissingElementMapping()
+    {
+        // Without CreateMap<Foo, FooDto>, AutoMapper throws at runtime (verified), so AM021 must still fire.
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Foo { public string Name { get; set; } }
+
+                                    public class FooDto { public string Name { get; set; } }
+
+                                    public class Source
+                                    {
+                                        public Dictionary<int, Foo> Lookup { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Dictionary<int, FooDto> Lookup { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 24, 13,
+                "Lookup", "Source", "System.Collections.Generic.KeyValuePair<int, TestNamespace.Foo>", "Destination",
+                "Lookup", "System.Collections.Generic.KeyValuePair<int, TestNamespace.FooDto>")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM021_ShouldNotReportDiagnostic_WhenCustomCollectionWithElementMapping()
     {
         const string testCode = """

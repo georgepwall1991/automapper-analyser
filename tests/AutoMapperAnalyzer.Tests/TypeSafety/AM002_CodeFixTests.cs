@@ -1369,6 +1369,48 @@ public class AM002_CodeFixTests
         Assert.Empty(actions);
     }
 
+    [Fact]
+    public async Task AM002_ShouldOfferOnlyIgnore_ForNullableElementCollection()
+    {
+        // A "src.Tags ?? default" coalesce scaffold cannot fix element-level nullability (the elements are
+        // still nullable), so the element-nullability diagnostic must offer only the manual-review ignore
+        // action — the user has to choose filter-vs-default semantics deliberately.
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string?> Tags { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<string> Tags { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("AM002_Ignore_Tags", action.EquivalenceKey);
+    }
+
     private static Document CreateDocument(string source)
     {
         var workspace = new AdhocWorkspace();

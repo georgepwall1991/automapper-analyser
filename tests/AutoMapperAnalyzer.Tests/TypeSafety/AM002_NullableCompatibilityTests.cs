@@ -1815,4 +1815,223 @@ public class AM002_NullableCompatibilityTests
             Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Age", "Source", "int?",
                 "Destination", "int"));
     }
+
+    // --- Collection element nullability -------------------------------------------------------------
+    // AM002 catches a null collection (List<string>?) but historically missed a non-null collection whose
+    // ELEMENTS are nullable (List<string?>). A null element flows straight into a non-nullable element slot,
+    // the same NRE class one level down. Scoped to reference-type elements with the same underlying type so
+    // genuine element-type mismatches (and value-type nullables) stay AM021/AM001's responsibility.
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenNullableElementListToNonNullableElementList()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+                          using System.Collections.Generic;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public List<string?> Tags { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public List<string> Tags { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>();
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 22, 13, "Tags", "Source",
+                "System.Collections.Generic.List<string?>", "Destination", "System.Collections.Generic.List<string>"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldReportDiagnostic_WhenNullableElementArrayToNonNullableElementArray()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public string?[] Tags { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public string[] Tags { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>();
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule, 21, 13, "Tags", "Source",
+                "string?[]", "Destination", "string[]"));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenNullableElementToNullableElement()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+                          using System.Collections.Generic;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public List<string?> Tags { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public List<string?> Tags { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>();
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenNonNullableElementToNullableElement()
+    {
+        // Non-null element -> nullable element widens nullability safely; the Error rule must stay silent.
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+                          using System.Collections.Generic;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public List<string> Tags { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public List<string?> Tags { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>();
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenElementNullabilityHandledByIgnore()
+    {
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+                          using System.Collections.Generic;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public List<string?> Tags { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public List<string> Tags { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>()
+                                          .ForMember(dest => dest.Tags, opt => opt.Ignore());
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldNotReportDiagnostic_WhenElementTypesDifferentReferenceTypes()
+    {
+        // Different reference element types are a type mismatch (AM021's lane), not nullability — AM002 must
+        // not fire just because the source element is nullable.
+        string testCode = """
+
+                          #nullable enable
+                          using AutoMapper;
+                          using System.Collections.Generic;
+
+                          namespace TestNamespace
+                          {
+                              public class Source
+                              {
+                                  public List<string?> Tags { get; set; }
+                              }
+
+                              public class Destination
+                              {
+                                  public List<object> Tags { get; set; }
+                              }
+
+                              public class TestProfile : Profile
+                              {
+                                  public TestProfile()
+                                  {
+                                      CreateMap<Source, Destination>();
+                                  }
+                              }
+                          }
+                          """;
+
+        await AnalyzerVerifier<AM002_NullableCompatibilityAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
 }

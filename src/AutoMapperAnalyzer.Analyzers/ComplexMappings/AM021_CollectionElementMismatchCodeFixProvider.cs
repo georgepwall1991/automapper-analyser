@@ -97,6 +97,16 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
                 continue;
             }
 
+            // Dictionary destinations carry decomposed key/value axes; offer a ToDictionary rewrite (simple
+            // axes) or a decomposed element CreateMap (complex value), instead of the previous ignore-only
+            // dead end. The KeyValuePair-guarded simple/complex paths below remain no-ops for dictionaries.
+            if (diagnostic.Properties.TryGetValue("IsDictionary", out string? isDictionary) &&
+                string.Equals(isDictionary, "true", StringComparison.Ordinal))
+            {
+                RegisterDictionaryFixes(context, operationContext.Root, invocation, sourcePropertyName,
+                    destinationPropertyNameValue, diagnostic, operationContext.SemanticModel);
+            }
+
             // Determine if this is a simple type conversion or complex mapping
             bool isSimpleConversion = IsSimpleTypeConversion(sourceElementType!, destElementType!);
 
@@ -155,6 +165,120 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
                     AddMapFromWithLinqAsync(context.Document, root, invocation, destinationPropertyName, mapFromExpression),
                 $"AM021_SimpleConversion_{destinationPropertyName}"),
             diagnostic);
+    }
+
+    private void RegisterDictionaryFixes(
+        CodeFixContext context,
+        SyntaxNode root,
+        InvocationExpressionSyntax invocation,
+        string sourcePropertyName,
+        string destinationPropertyName,
+        Diagnostic diagnostic,
+        SemanticModel semanticModel)
+    {
+        if (!diagnostic.Properties.TryGetValue("KeySourceType", out string? keySource) ||
+            !diagnostic.Properties.TryGetValue("KeyDestType", out string? keyDest) ||
+            !diagnostic.Properties.TryGetValue("ValueSourceType", out string? valueSource) ||
+            !diagnostic.Properties.TryGetValue("ValueDestType", out string? valueDest) ||
+            string.IsNullOrEmpty(keySource) || string.IsNullOrEmpty(keyDest) ||
+            string.IsNullOrEmpty(valueSource) || string.IsNullOrEmpty(valueDest))
+        {
+            return;
+        }
+
+        bool keyNeedsConversion = !TypeNamesEquivalent(keySource!, keyDest!);
+        bool valueNeedsConversion = !TypeNamesEquivalent(valueSource!, valueDest!);
+        bool keyAxisSimple = !keyNeedsConversion || IsSafeAxisConversion(keySource!, keyDest!);
+        bool valueAxisSimple = !valueNeedsConversion || IsSafeAxisConversion(valueSource!, valueDest!);
+
+        // Both axes are pass-through or simple primitive conversions -> executable ToDictionary rewrite.
+        if ((keyNeedsConversion || valueNeedsConversion) && keyAxisSimple && valueAxisSimple)
+        {
+            string keySelector = keyNeedsConversion
+                ? $"{GetConversionMethod(keyDest!)}(kvp.Key)"
+                : "kvp.Key";
+            string valueSelector = valueNeedsConversion
+                ? $"{GetConversionMethod(valueDest!)}(kvp.Value)"
+                : "kvp.Value";
+            string mapFromExpression =
+                $"src.{sourcePropertyName}.ToDictionary(kvp => {keySelector}, kvp => {valueSelector})";
+
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    $"Convert {destinationPropertyName} entries using ToDictionary()",
+                    cancellationToken =>
+                        AddMapFromWithLinqAsync(context.Document, root, invocation, destinationPropertyName,
+                            mapFromExpression),
+                    $"AM021_DictionaryConversion_{destinationPropertyName}"),
+                diagnostic);
+            return;
+        }
+
+        // The value axis is a complex object type with no registered CreateMap -> offer the element map.
+        // Restricted to plain named types (generic collections/arrays such as List<int> vs List<string> are
+        // not a CreateMap target) AND a pass-through key axis: when the key also needs conversion (e.g.
+        // Dictionary<string, Foo> -> Dictionary<int, FooDto>), a value-only CreateMap would leave the key
+        // mismatch unresolved, so the diagnostic falls through to the manual-review ignore action only.
+        if (valueNeedsConversion && !valueAxisSimple && !keyNeedsConversion &&
+            IsPlainNamedTypeName(valueSource!) && IsPlainNamedTypeName(valueDest!))
+        {
+            RegisterComplexMappingFix(context, root, invocation, destinationPropertyName, valueSource!, valueDest!,
+                diagnostic, semanticModel);
+        }
+    }
+
+    /// <summary>
+    ///     Determines whether a dictionary key/value axis conversion is one the generated ToDictionary
+    ///     selector can actually compile. Both sides must be simple types, and a <c>DateTime</c>/<c>Guid</c>
+    ///     destination (which only exposes a <c>Parse(string)</c> conversion) requires a string source —
+    ///     otherwise a call such as <c>DateTime.Parse(intValue)</c> would not compile.
+    /// </summary>
+    private static bool IsSafeAxisConversion(string sourceType, string destType)
+    {
+        if (!IsSimpleConversionType(sourceType) || !IsSimpleConversionType(destType))
+        {
+            return false;
+        }
+
+        if (GetConversionMethod(destType).EndsWith(".Parse", StringComparison.Ordinal))
+        {
+            string normalizedSource = NormalizeTypeName(sourceType);
+            return normalizedSource is "string" or "System.String";
+        }
+
+        return true;
+    }
+
+    private static bool TypeNamesEquivalent(string left, string right)
+    {
+        // Preserve generic arguments here: List<int> and List<string> must be treated as DIFFERENT axes so a
+        // ToDictionary pass-through is not generated for a genuine inner-element mismatch. NormalizeTypeName
+        // intentionally strips generics for the simple-primitive check, which is the wrong comparison for
+        // deciding whether an axis needs conversion.
+        return string.Equals(StripTypeQualifiers(left), StripTypeQualifiers(right), StringComparison.Ordinal);
+    }
+
+    private static string StripTypeQualifiers(string typeName)
+    {
+        string value = typeName.Trim();
+        if (value.StartsWith("global::", StringComparison.Ordinal))
+        {
+            value = value.Substring("global::".Length);
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    ///     A plain named type is a candidate for a decomposed element <c>CreateMap</c>: not a generic type,
+    ///     array, or simple primitive (those are handled by ToDictionary or left to manual review).
+    /// </summary>
+    private static bool IsPlainNamedTypeName(string typeName)
+    {
+        string value = typeName.Trim();
+        return !value.Contains('<') &&
+               !value.Contains('[') &&
+               !IsSimpleConversionType(value);
     }
 
     private void RegisterComplexMappingFix(
