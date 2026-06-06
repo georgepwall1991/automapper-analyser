@@ -71,10 +71,19 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
             string? destinationType = ExtractDestinationTypeFromDiagnostic(diagnostic);
             string defaultValue = GetDefaultValueForDestination(invocation, propertyName!, destinationType, operationContext.SemanticModel);
 
+            // A "src.X ?? default" coalesce scaffold cannot fix element-level nullability (the elements of
+            // List<string?> are still nullable), so the element-nullability diagnostic gets only the
+            // manual-review ignore action below.
+            bool isElementNullability =
+                diagnostic.Properties.TryGetValue(
+                    AM002_NullableCompatibilityAnalyzer.ElementNullabilityPropertyName, out string? elementFlag) &&
+                string.Equals(elementFlag, "true", StringComparison.Ordinal);
+
             InvocationExpressionSyntax? existingConfiguration = FindDestinationConfiguration(invocation, propertyName!);
-            if (existingConfiguration == null ||
+            if (!isElementNullability &&
+                (existingConfiguration == null ||
                 (!ConfigurationCanVetoAssignment(existingConfiguration) &&
-                 ConfigurationCanAcceptDefaultValueFix(existingConfiguration, operationContext.SemanticModel)))
+                 ConfigurationCanAcceptDefaultValueFix(existingConfiguration, operationContext.SemanticModel))))
             {
                 // Option 1: Map with default value
                 context.RegisterCodeFix(

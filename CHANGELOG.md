@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.49] - 2026-06-07
+
+Two new detection capabilities. Both premises and the generated fixes were verified against a real AutoMapper 14 runtime probe.
+
+### Added
+
+- **AM021**: Decomposes dictionary `KeyValuePair<TKey, TValue>` element types into independent key/value axes. Removes a false positive on idiomatic dictionary mappings (`Dictionary<K, Foo>` → `Dictionary<K, FooDto>` maps correctly when `CreateMap<Foo, FooDto>` is registered — previously reported because the analyzer looked for a non-existent `CreateMap<KeyValuePair<…>, KeyValuePair<…>>`) and adds executable fixes where only manual-ignore existed: a `ToDictionary(…)` projection for simple primitive key/value conversions (gated so `DateTime`/`Guid` `Parse` targets require a string source) and a decomposed `CreateMap<TValueSource, TValueDest>()` for a complex value with a pass-through key (never a `KeyValuePair` map). Generic-collection axes (e.g. `List<int>` vs `List<string>`) and both-axes-incompatible dictionaries keep the manual-review ignore action only.
+- **AM002**: Detects collection element nullability loss — a nullable reference-type element mapped to a non-nullable element of the same type (e.g. `List<string?>` → `List<string>`, `string?[]` → `string[]`). Scoped to convention-based mappings and reference-type elements of the same underlying type; element-type mismatches and value-type nullables stay with `AM021`/`AM001`. The diagnostic offers only the manual-review ignore action (a `?? default` scaffold cannot fix element-level nullability).
+
+### Validation
+
+- Full solution test suite (`net10.0`) green.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `dotnet build -warnaserror` clean.
+
 ## [2.30.48] - 2026-06-04
 
 ### Changed

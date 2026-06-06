@@ -1084,7 +1084,7 @@ public class AM021_CodeFixTests
     }
 
     [Fact]
-    public async Task AM021_ShouldOnlyOfferIgnore_WhenDictionaryValueTypesMismatch()
+    public async Task AM021_ShouldOfferToDictionaryFix_WhenDictionaryValueTypesMismatch()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -1117,10 +1117,285 @@ public class AM021_CodeFixTests
         Diagnostic diagnostic = Assert.Single(diagnostics);
         List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
 
-        CodeAction action = Assert.Single(actions);
-        Assert.Equal("Ignore property 'Data' (manual review)", action.Title);
+        // Now offers an executable ToDictionary conversion alongside ignore — but never a
+        // CreateMap<KeyValuePair<...>, KeyValuePair<...>> (which would not compile).
+        Assert.Contains(actions, a => a.EquivalenceKey == "AM021_DictionaryConversion_Data");
+        Assert.Contains(actions, a => a.EquivalenceKey == "AM021_Ignore_Data");
         Assert.DoesNotContain(actions, codeAction =>
-            codeAction.Title.StartsWith("Add CreateMap<", StringComparison.Ordinal));
+            codeAction.Title.StartsWith("Add CreateMap<KeyValuePair", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AM021_ShouldFixDictionaryValueConversion_WithToDictionary()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Dictionary<string, int> Data { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Dictionary<string, string> Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public Dictionary<string, int> Data { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public Dictionary<string, string> Data { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Data, opt => opt.MapFrom(src => src.Data.ToDictionary(kvp => kvp.Key, kvp => global::System.Convert.ToString(kvp.Value))));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("Data", "Source", "System.Collections.Generic.KeyValuePair<string, int>",
+                        "Destination", "Data", "System.Collections.Generic.KeyValuePair<string, string>"),
+                expectedFixedCode,
+                codeActionIndex: 0);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldOfferCreateMapFix_WhenDictionaryValueIsComplexType()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Foo { public string Name { get; set; } }
+
+                                    public class FooDto { public string Name { get; set; } }
+
+                                    public class Source
+                                    {
+                                        public Dictionary<int, Foo> Lookup { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Dictionary<int, FooDto> Lookup { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Contains(actions, a =>
+            a.Title == "Add CreateMap<Foo, FooDto>() for element mapping");
+        Assert.Contains(actions, a => a.EquivalenceKey == "AM021_Ignore_Lookup");
+        Assert.DoesNotContain(actions, codeAction =>
+            codeAction.Title.StartsWith("Add CreateMap<KeyValuePair", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AM021_ShouldOfferOnlyIgnore_WhenBothDictionaryAxesMismatch()
+    {
+        // Dictionary<string, Foo> -> Dictionary<int, FooDto>: both key (string -> int) and value
+        // (Foo -> FooDto) mismatch. A value-only CreateMap<Foo, FooDto> would leave the key unresolved, so
+        // the partial fix is withheld and only the manual-review ignore is offered.
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Foo { public string Name { get; set; } }
+
+                                    public class FooDto { public string Name { get; set; } }
+
+                                    public class Source
+                                    {
+                                        public Dictionary<string, Foo> Data { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Dictionary<int, FooDto> Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("AM021_Ignore_Data", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldOfferOnlyIgnore_WhenDictionaryValueParsesFromNonStringSource()
+    {
+        // int -> DateTime would emit DateTime.Parse(kvp.Value) where kvp.Value is int, which does not
+        // compile (DateTime.Parse only accepts a string). The ToDictionary fix must be withheld.
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Dictionary<string, int> Data { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Dictionary<string, DateTime> Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("AM021_Ignore_Data", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldOfferToDictionaryFix_WhenDictionaryValueParsesFromStringSource()
+    {
+        // string -> DateTime is a safe Parse conversion, so the ToDictionary fix is still offered.
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Dictionary<string, string> Data { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Dictionary<string, DateTime> Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Contains(actions, a => a.EquivalenceKey == "AM021_DictionaryConversion_Data");
+    }
+
+    [Fact]
+    public async Task AM021_ShouldOfferOnlyIgnore_WhenDictionaryValueIsMismatchedGenericCollection()
+    {
+        // Dictionary<string, List<int>> -> Dictionary<int, List<string>>: the value axis is a generic
+        // collection whose inner elements mismatch. Neither a ToDictionary pass-through (would not compile)
+        // nor a CreateMap<List<int>, List<string>> is a valid fix, so only the manual-review ignore is offered.
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Dictionary<string, List<int>> Data { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Dictionary<int, List<string>> Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("AM021_Ignore_Data", action.EquivalenceKey);
     }
 
     [Fact]

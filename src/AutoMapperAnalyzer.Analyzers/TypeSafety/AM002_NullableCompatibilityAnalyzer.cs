@@ -19,6 +19,14 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
     internal const string DestinationPropertyTypePropertyName = "DestinationPropertyType";
 
     /// <summary>
+    ///     Marker property set when the diagnostic is a collection-element nullability mismatch
+    ///     (e.g. <c>List&lt;string?&gt;</c> → <c>List&lt;string&gt;</c>) rather than a top-level one. The
+    ///     code-fix provider uses it to withhold the <c>?? default</c> scaffold (which cannot fix element
+    ///     nullability) and offer only the manual-review ignore action.
+    /// </summary>
+    internal const string ElementNullabilityPropertyName = "ElementNullability";
+
+    /// <summary>
     ///     AM002: Nullable to non-nullable assignment without proper handling.
     /// </summary>
     public static readonly DiagnosticDescriptor NullableToNonNullableRule = new(
@@ -788,6 +796,59 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                 context.ReportDiagnostic(diagnostic);
             }
         }
+        // Case 3: Collection whose element nullability is lost (e.g. List<string?> -> List<string>).
+        // The container is non-nullable on both sides (so Cases 1/2 do not apply), but a nullable source
+        // element flows into a non-nullable destination element — the same NRE risk one level down.
+        else if (HasNullableElementMismatch(sourceProperty.Type, destinationProperty.Type))
+        {
+            ReportNullableToNonNullableDiagnostic(
+                context,
+                invocation,
+                sourceProperty.Name,
+                sourceProperty.Name,
+                sourceProperty.Type,
+                sourceType,
+                destinationType,
+                destinationProperty.Type,
+                isElementNullability: true);
+        }
+    }
+
+    /// <summary>
+    ///     Determines whether the source collection's reference-type element is nullable while the
+    ///     destination collection's element of the same underlying type is non-nullable. Value-type nullable
+    ///     elements and genuine element-type mismatches are intentionally excluded — those stay with
+    ///     AM001/AM021 so the rules never double-report.
+    /// </summary>
+    private static bool HasNullableElementMismatch(ITypeSymbol sourceType, ITypeSymbol destType)
+    {
+        if (!AutoMapperAnalysisHelpers.IsCollectionType(sourceType) ||
+            !AutoMapperAnalysisHelpers.IsCollectionType(destType))
+        {
+            return false;
+        }
+
+        ITypeSymbol? sourceElement = AutoMapperAnalysisHelpers.GetCollectionElementType(sourceType);
+        ITypeSymbol? destElement = AutoMapperAnalysisHelpers.GetCollectionElementType(destType);
+        if (sourceElement == null || destElement == null)
+        {
+            return false;
+        }
+
+        if (!sourceElement.IsReferenceType || !destElement.IsReferenceType)
+        {
+            return false;
+        }
+
+        if (!IsNullableType(sourceElement) || IsNullableType(destElement))
+        {
+            return false;
+        }
+
+        // Same underlying reference type, differing only in nullability annotation (e.g. string? vs string).
+        return SymbolEqualityComparer.Default.Equals(
+            sourceElement.WithNullableAnnotation(NullableAnnotation.NotAnnotated),
+            destElement.WithNullableAnnotation(NullableAnnotation.NotAnnotated));
     }
 
     private static void ReportNullableToNonNullableDiagnostic(
@@ -798,7 +859,8 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourcePropertyType,
         ITypeSymbol sourceType,
         ITypeSymbol destinationType,
-        ITypeSymbol destinationPropertyType)
+        ITypeSymbol destinationPropertyType,
+        bool isElementNullability = false)
     {
         string sourceTypeName = sourcePropertyType.ToDisplayString();
         string destTypeName = destinationPropertyType.ToDisplayString();
@@ -808,6 +870,10 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         properties.Add(SourcePropertyNamePropertyName, sourcePropertyName);
         properties.Add(SourcePropertyTypePropertyName, sourceTypeName);
         properties.Add(DestinationPropertyTypePropertyName, destTypeName);
+        if (isElementNullability)
+        {
+            properties.Add(ElementNullabilityPropertyName, "true");
+        }
 
         var diagnostic = Diagnostic.Create(
             NullableToNonNullableRule,
