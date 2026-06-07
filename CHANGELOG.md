@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.50] - 2026-06-07
+
+First step of the code-fix item-picker redesign: aggregate code fixes so a CreateMap with many unmapped required properties can be fixed in a single action instead of one property at a time.
+
+### Added
+
+- **AM011 aggregate code fixes**: when 2+ required destination properties are unmapped on one `CreateMap`, the lightbulb now offers **"Map all N unmapped required properties"** and **"Ignore all N unmapped required properties"**. Each folds one chained `.ForMember(...)` edit covering every flagged property (fuzzy-matched source, else a scaffolded default for "Map all"; `opt.Ignore()` for "Ignore all") and applies it as a single replacement that clears every diagnostic at once. The single-unmapped-property case is unchanged — it keeps the existing per-property scaffold/ignore actions, so no aggregate noise is added when there is nothing to batch.
+
+### Validation
+
+- Full solution test suite (`net10.0`) green.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- Analyzer and test projects build clean under `-warnaserror` (the release gate; the samples project intentionally carries diagnostics).
+
 ## [2.30.49] - 2026-06-07
 
 Two new detection capabilities. Both premises and the generated fixes were verified against a real AutoMapper 14 runtime probe.

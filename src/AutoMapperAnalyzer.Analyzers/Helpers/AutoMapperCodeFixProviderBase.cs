@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -199,5 +200,167 @@ public abstract class AutoMapperCodeFixProviderBase : CodeFixProvider
 
             registerPerPropertyFixes(context, diagnostic, invocation, properties, operationContext.SemanticModel, operationContext.Root);
         }
+    }
+
+    /// <summary>
+    ///     The kind of per-member configuration an aggregate fix appends to a CreateMap.
+    /// </summary>
+    protected enum AggregateFixKind
+    {
+        /// <summary>opt.MapFrom(src =&gt; expression) for a destination member.</summary>
+        MapFrom,
+
+        /// <summary>opt.Ignore() for a destination member.</summary>
+        Ignore,
+
+        /// <summary>opt.DoNotValidate() for a source member (ForSourceMember).</summary>
+        DoNotValidate
+    }
+
+    /// <summary>
+    ///     Describes a single member configuration to fold into an aggregate CreateMap fix.
+    ///     Use the factory methods rather than the constructor.
+    /// </summary>
+    protected sealed class PropertyFixSpec
+    {
+        private PropertyFixSpec(AggregateFixKind kind, string memberName, string? mapFromExpression)
+        {
+            Kind = kind;
+            MemberName = memberName;
+            MapFromExpression = mapFromExpression;
+        }
+
+        /// <summary>The configuration kind.</summary>
+        public AggregateFixKind Kind { get; }
+
+        /// <summary>The destination member (MapFrom/Ignore) or source member (DoNotValidate) name.</summary>
+        public string MemberName { get; }
+
+        /// <summary>The MapFrom expression text (e.g. <c>src.Foo</c> or <c>string.Empty</c>); null otherwise.</summary>
+        public string? MapFromExpression { get; }
+
+        /// <summary>Maps <paramref name="destinationName"/> from <paramref name="mapFromExpression"/>.</summary>
+        public static PropertyFixSpec MapFrom(string destinationName, string mapFromExpression) =>
+            new(AggregateFixKind.MapFrom, destinationName, mapFromExpression);
+
+        /// <summary>Ignores the destination member <paramref name="destinationName"/>.</summary>
+        public static PropertyFixSpec Ignore(string destinationName) =>
+            new(AggregateFixKind.Ignore, destinationName, null);
+
+        /// <summary>Suppresses source-member validation for <paramref name="sourceName"/>.</summary>
+        public static PropertyFixSpec DoNotValidate(string sourceName) =>
+            new(AggregateFixKind.DoNotValidate, sourceName, null);
+    }
+
+    /// <summary>
+    ///     Folds a list of member configurations into a single chained CreateMap invocation
+    ///     (<c>CreateMap&lt;,&gt;().ForMember(...).ForMember(...)...</c>) so one
+    ///     <see cref="ReplaceNode"/> applies every fix as a single, conflict-free edit. Specs are
+    ///     expected to be pre-filtered to members the analyzer flagged (so no member is configured twice).
+    /// </summary>
+    /// <param name="invocation">The CreateMap invocation to chain onto.</param>
+    /// <param name="specs">The member configurations to append, in the order they should appear.</param>
+    /// <returns>The chained invocation with every ForMember/ForSourceMember appended.</returns>
+    protected static InvocationExpressionSyntax FoldAggregateForMembers(
+        InvocationExpressionSyntax invocation,
+        IReadOnlyList<PropertyFixSpec> specs)
+    {
+        InvocationExpressionSyntax accumulated = invocation;
+        foreach (PropertyFixSpec spec in specs)
+        {
+            accumulated = spec.Kind switch
+            {
+                AggregateFixKind.Ignore =>
+                    CodeFixSyntaxHelper.CreateForMemberWithIgnore(accumulated, spec.MemberName),
+                AggregateFixKind.MapFrom =>
+                    CodeFixSyntaxHelper.CreateForMemberWithMapFrom(accumulated, spec.MemberName, spec.MapFromExpression!),
+                AggregateFixKind.DoNotValidate =>
+                    CodeFixSyntaxHelper.CreateForSourceMemberWithDoNotValidate(accumulated, spec.MemberName),
+                _ => accumulated
+            };
+        }
+
+        return accumulated;
+    }
+
+    /// <summary>
+    ///     A set of diagnostics from one rule that all resolve to the same CreateMap invocation, with the
+    ///     distinct flagged property names in first-seen order. Used to register a single aggregate fix per
+    ///     CreateMap that addresses every one of its diagnostics.
+    /// </summary>
+    protected sealed class DiagnosticInvocationGroup
+    {
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="DiagnosticInvocationGroup"/> class.
+        /// </summary>
+        /// <param name="invocation">The shared CreateMap (or chained) invocation.</param>
+        /// <param name="diagnostics">Every diagnostic resolving to <paramref name="invocation"/>.</param>
+        /// <param name="propertyNames">Distinct flagged property names in first-seen order.</param>
+        public DiagnosticInvocationGroup(
+            InvocationExpressionSyntax invocation,
+            ImmutableArray<Diagnostic> diagnostics,
+            IReadOnlyList<string> propertyNames)
+        {
+            Invocation = invocation;
+            Diagnostics = diagnostics;
+            PropertyNames = propertyNames;
+        }
+
+        /// <summary>The shared CreateMap (or chained) invocation the diagnostics target.</summary>
+        public InvocationExpressionSyntax Invocation { get; }
+
+        /// <summary>Every diagnostic that resolves to <see cref="Invocation"/>.</summary>
+        public ImmutableArray<Diagnostic> Diagnostics { get; }
+
+        /// <summary>Distinct <c>PropertyName</c> values across the group, in first-seen order.</summary>
+        public IReadOnlyList<string> PropertyNames { get; }
+    }
+
+    /// <summary>
+    ///     Groups diagnostics that resolve to the same CreateMap invocation so an aggregate fix can be
+    ///     registered once per invocation. Diagnostics missing any of <paramref name="requiredPropertyKeys"/>
+    ///     or whose invocation cannot be resolved are skipped.
+    /// </summary>
+    protected IReadOnlyList<DiagnosticInvocationGroup> GroupDiagnosticsByInvocation(
+        SyntaxNode root,
+        IEnumerable<Diagnostic> diagnostics,
+        params string[] requiredPropertyKeys)
+    {
+        var builders = new Dictionary<int, (InvocationExpressionSyntax Invocation, List<Diagnostic> Diagnostics, List<string> Names, HashSet<string> Seen)>();
+        var order = new List<int>();
+
+        foreach (Diagnostic diagnostic in diagnostics)
+        {
+            var properties = TryGetDiagnosticProperties(diagnostic, requiredPropertyKeys);
+            if (properties == null)
+            {
+                continue;
+            }
+
+            InvocationExpressionSyntax? invocation = GetCreateMapInvocation(root, diagnostic, properties);
+            if (invocation == null)
+            {
+                continue;
+            }
+
+            int key = invocation.SpanStart;
+            if (!builders.TryGetValue(key, out var builder))
+            {
+                builder = (invocation, new List<Diagnostic>(), new List<string>(), new HashSet<string>());
+                builders[key] = builder;
+                order.Add(key);
+            }
+
+            builder.Diagnostics.Add(diagnostic);
+            if (properties.TryGetValue("PropertyName", out string? propertyName) && builder.Seen.Add(propertyName))
+            {
+                builder.Names.Add(propertyName);
+            }
+        }
+
+        return order
+            .Select(key => builders[key])
+            .Select(b => new DiagnosticInvocationGroup(b.Invocation, b.Diagnostics.ToImmutableArray(), b.Names))
+            .ToList();
     }
 }

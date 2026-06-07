@@ -32,15 +32,29 @@ internal static class CodeFixActionInspector
     /// <summary>
     ///     Registers the provider's fixes for a single diagnostic and returns the flattened action tree.
     /// </summary>
-    public static async Task<IReadOnlyList<ActionInfo>> GetActionsAsync(
+    public static Task<IReadOnlyList<ActionInfo>> GetActionsAsync(
         Document document,
         CodeFixProvider provider,
         Diagnostic diagnostic)
     {
+        return GetActionsAsync(document, provider, ImmutableArray.Create(diagnostic));
+    }
+
+    /// <summary>
+    ///     Registers the provider's fixes for a set of diagnostics that share a code-fix span (as the IDE
+    ///     does when several diagnostics overlap one caret) and returns the flattened action tree. Required
+    ///     to exercise aggregate actions, which only register when 2+ diagnostics are present.
+    /// </summary>
+    public static async Task<IReadOnlyList<ActionInfo>> GetActionsAsync(
+        Document document,
+        CodeFixProvider provider,
+        ImmutableArray<Diagnostic> diagnostics)
+    {
         var topLevel = new List<CodeAction>();
         var context = new CodeFixContext(
             document,
-            diagnostic,
+            diagnostics[0].Location.SourceSpan,
+            diagnostics,
             (action, _) => topLevel.Add(action),
             CancellationToken.None);
 
@@ -71,6 +85,69 @@ internal static class CodeFixActionInspector
     public static int TopLevelCount(IEnumerable<ActionInfo> actions)
     {
         return actions.Count(a => a.Depth == 0);
+    }
+
+    /// <summary>
+    ///     Registers the provider's fixes for the full diagnostic set (as the IDE does when several
+    ///     diagnostics overlap one caret), selects the action whose equivalence key matches
+    ///     <paramref name="equivalenceKey"/>, applies it, and returns the changed document. This is the
+    ///     correct way to exercise aggregate (multi-diagnostic) actions, which the standard per-diagnostic
+    ///     code-fix verifier cannot register.
+    /// </summary>
+    public static async Task<Document> ApplyActionByKeyAsync(
+        Document document,
+        CodeFixProvider provider,
+        ImmutableArray<Diagnostic> diagnostics,
+        string equivalenceKey)
+    {
+        var topLevel = new List<CodeAction>();
+        var context = new CodeFixContext(
+            document,
+            diagnostics[0].Location.SourceSpan,
+            diagnostics,
+            (action, _) => topLevel.Add(action),
+            CancellationToken.None);
+
+        await provider.RegisterCodeFixesAsync(context);
+
+        CodeAction? action = FindByKey(topLevel, equivalenceKey);
+        if (action == null)
+        {
+            string available = string.Join(", ", Flatten(topLevel).Select(a => a.EquivalenceKey ?? "(null)"));
+            throw new InvalidOperationException(
+                $"No code action with equivalence key '{equivalenceKey}'. Available keys: {available}");
+        }
+
+        ImmutableArray<CodeActionOperation> operations =
+            await action.GetOperationsAsync(CancellationToken.None);
+        foreach (CodeActionOperation operation in operations)
+        {
+            if (operation is ApplyChangesOperation applyChanges)
+            {
+                return applyChanges.ChangedSolution.GetDocument(document.Id)!;
+            }
+        }
+
+        throw new InvalidOperationException($"Code action '{equivalenceKey}' produced no document change.");
+    }
+
+    private static CodeAction? FindByKey(IEnumerable<CodeAction> actions, string equivalenceKey)
+    {
+        foreach (CodeAction action in actions)
+        {
+            if (action.EquivalenceKey == equivalenceKey)
+            {
+                return action;
+            }
+
+            CodeAction? nestedMatch = FindByKey(action.NestedActions, equivalenceKey);
+            if (nestedMatch != null)
+            {
+                return nestedMatch;
+            }
+        }
+
+        return null;
     }
 
     private static void Flatten(CodeAction action, int depth, List<ActionInfo> sink)

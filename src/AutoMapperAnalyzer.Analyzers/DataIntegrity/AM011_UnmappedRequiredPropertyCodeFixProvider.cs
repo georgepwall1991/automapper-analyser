@@ -22,6 +22,10 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
     /// <inheritdoc />
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
+        // Aggregate "Map all / Ignore all" fixes (registered first so they surface ahead of the
+        // per-property fixes) when 2+ required properties are unmapped on one CreateMap.
+        await RegisterAggregateFixesAsync(context);
+
         await ProcessDiagnosticsAsync(
             context,
             propertyNames: ["PropertyName", "PropertyType"],
@@ -58,7 +62,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
                             cancellationToken =>
                             {
                                 var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                                    invocation, propertyName, $"src.{bestFuzzyMatch.Name}");
+                                    invocation, propertyName, $"src.{CodeFixSyntaxHelper.EscapeIdentifier(bestFuzzyMatch.Name)}");
                                 return ReplaceNodeAsync(ctx.Document, root, invocation, newInvocation);
                             },
                             $"AM011_FuzzyMatch_{propertyName}_{bestFuzzyMatch.Name}"),
@@ -92,5 +96,125 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
                         $"AM011_Ignore_{propertyName}"),
                     diagnostic);
             });
+    }
+
+    private async Task RegisterAggregateFixesAsync(CodeFixContext context)
+    {
+        var operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
+        {
+            return;
+        }
+
+        foreach (DiagnosticInvocationGroup group in GroupDiagnosticsByInvocation(
+                     operationContext.Root, context.Diagnostics, "PropertyName", "PropertyType"))
+        {
+            if (group.PropertyNames.Count < 2)
+            {
+                continue;
+            }
+
+            // Resolve types for the aggregate. For a ReverseMap() diagnostic, group.Invocation is the
+            // ReverseMap() node (which has no generic type args), so walk up to the forward CreateMap and
+            // swap source/destination — the ForMember chain is still folded onto the ReverseMap() node.
+            (ITypeSymbol? sourceType, ITypeSymbol? destType) =
+                ResolveAggregateMapTypes(group.Invocation, operationContext.SemanticModel);
+            if (destType == null)
+            {
+                continue;
+            }
+
+            var flaggedNames = new HashSet<string>(group.PropertyNames);
+            List<IPropertySymbol> orderedProperties = AutoMapperAnalysisHelpers
+                .GetMappableProperties(destType, requireGetter: false, requireSetter: true)
+                .Where(p => flaggedNames.Contains(p.Name))
+                .ToList();
+            if (orderedProperties.Count < 2)
+            {
+                continue;
+            }
+
+            List<IPropertySymbol> sourceProperties = sourceType == null
+                ? new List<IPropertySymbol>()
+                : AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToList();
+
+            int count = orderedProperties.Count;
+            InvocationExpressionSyntax invocation = group.Invocation;
+            SyntaxNode root = operationContext.Root;
+            ImmutableArray<Diagnostic> diagnostics = group.Diagnostics;
+
+            List<PropertyFixSpec> mapSpecs = orderedProperties
+                .Select(property =>
+                {
+                    IPropertySymbol? fuzzyMatch =
+                        FuzzyMatchHelper.FindUniqueBestFuzzyMatch(property.Name, sourceProperties, property.Type);
+                    return fuzzyMatch != null
+                        ? PropertyFixSpec.MapFrom(
+                            property.Name, $"src.{CodeFixSyntaxHelper.EscapeIdentifier(fuzzyMatch.Name)}")
+                        : PropertyFixSpec.MapFrom(
+                            property.Name, TypeConversionHelper.GetDefaultValueForType(property.Type.ToDisplayString()));
+                })
+                .ToList();
+
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    $"Map all {count} unmapped required properties",
+                    _ => ReplaceNodeAsync(
+                        context.Document, root, invocation, FoldAggregateForMembers(invocation, mapSpecs)),
+                    "AM011_MapAll"),
+                diagnostics);
+
+            List<PropertyFixSpec> ignoreSpecs = orderedProperties
+                .Select(property => PropertyFixSpec.Ignore(property.Name))
+                .ToList();
+
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    $"Ignore all {count} unmapped required properties",
+                    _ => ReplaceNodeAsync(
+                        context.Document, root, invocation, FoldAggregateForMembers(invocation, ignoreSpecs)),
+                    "AM011_IgnoreAll"),
+                diagnostics);
+        }
+    }
+
+    private static (ITypeSymbol? sourceType, ITypeSymbol? destinationType) ResolveAggregateMapTypes(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ReverseMap"))
+        {
+            InvocationExpressionSyntax? createMap = FindCreateMapInvocation(invocation, semanticModel);
+            if (createMap == null)
+            {
+                return (null, null);
+            }
+
+            (ITypeSymbol? forwardSource, ITypeSymbol? forwardDestination) =
+                MappingChainAnalysisHelper.GetCreateMapTypeArguments(createMap, semanticModel);
+
+            // Reverse direction: source/destination are swapped.
+            return (forwardDestination, forwardSource);
+        }
+
+        return MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
+    }
+
+    private static InvocationExpressionSyntax? FindCreateMapInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        InvocationExpressionSyntax? current = invocation;
+        while (current != null)
+        {
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(current, semanticModel, "CreateMap"))
+            {
+                return current;
+            }
+
+            current = (current.Expression as MemberAccessExpressionSyntax)?.Expression as InvocationExpressionSyntax;
+        }
+
+        return null;
     }
 }
