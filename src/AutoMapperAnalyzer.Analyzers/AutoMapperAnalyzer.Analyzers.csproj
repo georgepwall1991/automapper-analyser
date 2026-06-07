@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>49</PatchVersion>
+        <PatchVersion>50</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,17 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.49 - AM021 dictionary mapping and AM002 collection element nullability
+        <PackageReleaseNotes>Version 2.30.50 - AM011 aggregate "Map all / Ignore all" code-fix actions
 
             Added:
-            - AM021 decomposes dictionary KeyValuePair element types into key/value axes: it no longer false-positives on Dictionary&lt;K, Foo&gt; to Dictionary&lt;K, FooDto&gt; when a CreateMap&lt;Foo, FooDto&gt; is registered, and offers executable ToDictionary / decomposed element-CreateMap fixes instead of manual-ignore only
-            - AM002 detects collection element nullability loss (e.g. List&lt;string?&gt; to List&lt;string&gt;), scoped to reference-type elements of the same underlying type
+            - AM011 offers aggregate code fixes when 2+ required destination properties are unmapped on one CreateMap: "Map all N unmapped required properties" and "Ignore all N unmapped required properties" each apply a single chained ForMember edit that clears every diagnostic at once, instead of fixing properties one at a time. The single-unmapped-property case keeps the existing per-property scaffold/ignore actions.
 
             Validation:
             - Full solution test suite passing on net10.0
             - Rule catalog and sample diagnostics snapshot checks passing
-            - git diff --check clean
+            - Analyzer and test projects build clean under -warnaserror (the release gate)
 
-            Previous Release: v2.30.48 - AM021 ImmutableArray element conversion fix
+            Previous Release: v2.30.49 - AM021 dictionary mapping + AM002 collection element nullability
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

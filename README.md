@@ -14,23 +14,24 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.49
+## 🎉 Latest Release: v2.30.50
 
-**AM021 dictionary mapping and AM002 collection element nullability**
+**AM011 aggregate "Map all / Ignore all" code-fix actions**
 
 ✅ **Highlights**
 
-- AM021 decomposes dictionary `KeyValuePair` element types into key/value axes: no longer false-positives on `Dictionary<K, Foo>` → `Dictionary<K, FooDto>` when a `CreateMap<Foo, FooDto>` is registered, and offers executable `ToDictionary` / decomposed element-`CreateMap` fixes instead of manual-ignore only.
-- AM002 detects collection element nullability loss (e.g. `List<string?>` → `List<string>`, `string?[]` → `string[]`), scoped to reference-type elements of the same underlying type.
+- AM011 now offers aggregate code fixes when 2+ required destination properties are unmapped on one `CreateMap`: **"Map all N unmapped required properties"** and **"Ignore all N unmapped required properties"** each apply a single chained `.ForMember(...)` edit that clears every diagnostic at once, instead of fixing one property at a time.
+- The single-unmapped-property case is unchanged — it keeps the existing per-property scaffold/ignore actions, so no aggregate clutter is added when there is nothing to batch.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0`.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
-- Premises and generated fixes verified against an AutoMapper 14 runtime probe.
+- Analyzer and test projects build clean under `-warnaserror` (the release gate; the samples project intentionally carries diagnostics).
 
 ### Recent Releases
 
+- **v2.30.50**: AM011 aggregate "Map all / Ignore all" code-fix actions — fix every unmapped required property of a `CreateMap` in a single action.
 - **v2.30.49**: AM021 dictionary key/value decomposition (removes a false positive, adds `ToDictionary`/element-`CreateMap` fixes) and AM002 collection element nullability detection.
 - **v2.30.48**: AM021 simple element-conversion fixes now cover destination `ImmutableArray<T>` collections with fully qualified `ImmutableArray.CreateRange(...)` mappings.
 - **v2.30.47**: AM003 now covers `ImmutableArray<T>` container mismatches and offers `ImmutableArray.CreateRange(...)` for destination immutable arrays.
@@ -216,7 +217,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.49">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.50">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
