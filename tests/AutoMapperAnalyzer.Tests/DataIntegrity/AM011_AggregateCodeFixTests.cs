@@ -258,6 +258,37 @@ public class AM011_AggregateCodeFixTests
     }
 
     [Fact]
+    public async Task AM011_MultipleRequiredProperties_NestPerPropertyFixes_KeepingThreeTopLevelItems()
+    {
+        Document document = CreateDocument(ThreeRequiredSource);
+        ImmutableArray<Diagnostic> diagnostics =
+            await GetDiagnosticsAsync<AM011_UnmappedRequiredPropertyAnalyzer>(document);
+        Assert.Equal(3, diagnostics.Length);
+
+        IReadOnlyList<CodeFixActionInspector.ActionInfo> actions =
+            await CodeFixActionInspector.GetActionsAsync(
+                document,
+                new AM011_UnmappedRequiredPropertyCodeFixProvider(),
+                diagnostics);
+
+        // Map all + Ignore all + a single "Fix individual…" parent = 3 top-level entries (not 2 + 6 flat).
+        Assert.Equal(3, CodeFixActionInspector.TopLevelCount(actions));
+        Assert.Contains(actions, a => a.Depth == 0 && a.EquivalenceKey == "AM011_MapAll");
+        Assert.Contains(actions, a => a.Depth == 0 && a.EquivalenceKey == "AM011_IgnoreAll");
+        Assert.Contains(
+            actions,
+            a => a.Depth == 0 && a.HasChildren && a.Title.Contains("individual", StringComparison.OrdinalIgnoreCase));
+
+        // Per-property fixes are nested under the parent, never duplicated at the top level.
+        Assert.DoesNotContain(
+            actions,
+            a => a.Depth == 0 && a.EquivalenceKey != null && a.EquivalenceKey.StartsWith("AM011_Ignore_", StringComparison.Ordinal));
+        Assert.Contains(actions, a => a.IsNested && a.EquivalenceKey == "AM011_Ignore_Alpha");
+        Assert.Contains(actions, a => a.IsNested && a.EquivalenceKey == "AM011_Ignore_Beta");
+        Assert.Contains(actions, a => a.IsNested && a.EquivalenceKey == "AM011_Ignore_Gamma");
+    }
+
+    [Fact]
     public async Task AM011_SingleRequiredProperty_DoesNotOfferAggregateActions()
     {
         const string singleRequiredSource = """

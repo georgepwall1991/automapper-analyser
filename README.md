@@ -14,14 +14,14 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.50
+## 🎉 Latest Release: v2.30.51
 
-**AM011 aggregate "Map all / Ignore all" code-fix actions**
+**AM011 nested per-property code-fix submenu**
 
 ✅ **Highlights**
 
-- AM011 now offers aggregate code fixes when 2+ required destination properties are unmapped on one `CreateMap`: **"Map all N unmapped required properties"** and **"Ignore all N unmapped required properties"** each apply a single chained `.ForMember(...)` edit that clears every diagnostic at once, instead of fixing one property at a time.
-- The single-unmapped-property case is unchanged — it keeps the existing per-property scaffold/ignore actions, so no aggregate clutter is added when there is nothing to batch.
+- When 2+ required destination properties are unmapped on one `CreateMap`, AM011 now collapses the per-property scaffold/ignore actions under a single **"Fix individual required property…"** submenu (each property grouped under its own entry), shown next to the aggregate **"Map all / Ignore all"** actions — so the lightbulb shows three top-level entries instead of two per property.
+- The single-unmapped-property case is unchanged — it stays a flat scaffold + ignore choice.
 
 🧪 **Validation**
 
@@ -31,6 +31,7 @@ prevention*
 
 ### Recent Releases
 
+- **v2.30.51**: AM011 nested "Fix individual required property…" submenu — keeps the lightbulb short when many required members are unmapped.
 - **v2.30.50**: AM011 aggregate "Map all / Ignore all" code-fix actions — fix every unmapped required property of a `CreateMap` in a single action.
 - **v2.30.49**: AM021 dictionary key/value decomposition (removes a false positive, adds `ToDictionary`/element-`CreateMap` fixes) and AM002 collection element nullability detection.
 - **v2.30.48**: AM021 simple element-conversion fixes now cover destination `ImmutableArray<T>` collections with fully qualified `ImmutableArray.CreateRange(...)` mappings.
@@ -217,7 +218,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.50">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.51">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
