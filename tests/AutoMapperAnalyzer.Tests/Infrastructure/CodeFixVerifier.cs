@@ -90,6 +90,61 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
         await VerifyFixAsync(source, expectedDiagnostics, fixedSource, codeActionIndex, iterations, remainingDiagnostics);
     }
 
+    /// <summary>
+    ///     Applies the single code action whose <see cref="CodeAction.EquivalenceKey"/> matches
+    ///     <paramref name="equivalenceKey"/> and verifies the resulting document equals
+    ///     <paramref name="fixedSource"/>. Selecting by equivalence key (instead of positional index)
+    ///     keeps tests stable as aggregate / nested actions are added by later redesign phases.
+    /// </summary>
+    public static Task VerifyFixByKeyAsync(string source, DiagnosticResult expectedDiagnostic, string fixedSource,
+        string equivalenceKey, DiagnosticResult[]? remainingDiagnostics = null, int? iterations = null)
+    {
+        return VerifyFixByKeyAsync(source, new[] { expectedDiagnostic }, fixedSource, equivalenceKey,
+            remainingDiagnostics, iterations);
+    }
+
+    /// <summary>
+    ///     Applies the single code action selected by <paramref name="equivalenceKey"/> and verifies the
+    ///     resulting document. Useful for asserting that one aggregate action (e.g. an <c>*_IgnoreAll</c>
+    ///     key) clears every diagnostic in a single application (pass <paramref name="iterations"/> = 1).
+    /// </summary>
+    public static async Task VerifyFixByKeyAsync(string source, DiagnosticResult[] expectedDiagnostics,
+        string fixedSource, string equivalenceKey, DiagnosticResult[]? remainingDiagnostics = null,
+        int? iterations = null)
+    {
+        var test = new CSharpCodeFixTest<TAnalyzer, TCodeFix, LineEndingAgnosticVerifier>
+        {
+            TestCode = source,
+            FixedCode = fixedSource,
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            CodeActionEquivalenceKey = equivalenceKey
+        };
+        ConfigureNonLocalDiagnosticSupport(test);
+
+        AddAutoMapperReferences(test.TestState);
+        AddAutoMapperReferences(test.FixedState);
+
+        // Incremental fixes apply ONE action per pass (re-analyzing between), so default to enough
+        // passes to clear every expected diagnostic — matching the index-based helper and fixing
+        // Codex's "only the first diagnostic gets fixed" gap. FixAll batches all same-key diagnostics
+        // in a single pass (selection here is by one equivalence key), so it converges in one pass per
+        // remaining-set. Aggregate-action tests can still opt into iterations: 1 for both.
+        int incrementalDefault = Math.Max(
+            1,
+            Math.Max((remainingDiagnostics?.Length ?? 0) + 1, expectedDiagnostics.Length));
+        int fixAllDefault = Math.Max(1, (remainingDiagnostics?.Length ?? 0) + 1);
+        test.NumberOfIncrementalIterations = iterations ?? incrementalDefault;
+        test.NumberOfFixAllIterations = iterations ?? fixAllDefault;
+        test.ExpectedDiagnostics.AddRange(expectedDiagnostics);
+
+        if (remainingDiagnostics != null)
+        {
+            test.FixedState.ExpectedDiagnostics.AddRange(remainingDiagnostics);
+        }
+
+        await test.RunAsync();
+    }
+
     public static async Task VerifyFixWithIterationsAsync(string source, DiagnosticResult[] expectedDiagnostics,
         string fixedSource, int iterations)
     {
