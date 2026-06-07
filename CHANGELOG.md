@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.51] - 2026-06-07
+
+Second step of the code-fix item-picker redesign: collapse the per-property AM011 fixes under one submenu so the lightbulb stays short when many required properties are unmapped.
+
+### Changed
+
+- **AM011 nested per-property submenu**: when 2+ required destination properties are unmapped on one `CreateMap`, the per-property scaffold/ignore actions are now grouped under a single **"Fix individual required property…"** submenu (each property nested under its own `Required property 'X'` entry), shown alongside the aggregate **"Map all / Ignore all"** actions. The lightbulb now presents three top-level entries instead of two-per-property, directly addressing the "item picker is so long" problem for maps with many required members. The single-unmapped-property case is unchanged — it stays a flat scaffold + ignore choice.
+
+### Validation
+
+- Full solution test suite (`net10.0`) green.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- Analyzer and test projects build clean under `-warnaserror` (the release gate; the samples project intentionally carries diagnostics).
+
 ## [2.30.50] - 2026-06-07
 
 First step of the code-fix item-picker redesign: aggregate code fixes so a CreateMap with many unmapped required properties can be fixed in a single action instead of one property at a time.
