@@ -389,6 +389,50 @@ public class AM031_PerformanceWarningTests
     }
 
     [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_WhenSimpleLinqUsesNonSrcParameterOnReadOnlySourceCollection()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Item
+                                    {
+                                        public bool Active { get; set; }
+                                        public int Score { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<Item> Items { get; } = new();
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Scores { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Scores, opt => opt.MapFrom(source =>
+                                                    source.Items.Where(item => item.Active).Select(item => item.Score).ToList()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM031_ShouldNotReportDiagnostic_WhenMathMinAndMathMaxUsedInsideMapFrom()
     {
         const string testCode = """
