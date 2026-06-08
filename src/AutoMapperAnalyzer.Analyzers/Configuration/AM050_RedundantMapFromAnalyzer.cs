@@ -221,8 +221,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         // Expecting dest => dest.Name or (dest) => dest.Name or (Dest dest) => dest.Name
         if (TryGetLambdaBody(arg, out string? parameterName, out CSharpSyntaxNode? body) &&
             body is MemberAccessExpressionSyntax memberAccess &&
-            memberAccess.Expression is IdentifierNameSyntax identifier &&
-            identifier.Identifier.Text == parameterName)
+            IsLambdaParameterAccess(memberAccess.Expression, parameterName!))
         {
             return memberAccess.Name.Identifier.Text;
         }
@@ -249,8 +248,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         // Expecting src => src.Name or (src) => src.Name or (Source src) => src.Name
         if (TryGetLambdaBody(arg, out string? parameterName, out CSharpSyntaxNode? body) &&
             body is MemberAccessExpressionSyntax memberAccess &&
-            memberAccess.Expression is IdentifierNameSyntax identifier &&
-            identifier.Identifier.Text == parameterName)
+            IsLambdaParameterAccess(memberAccess.Expression, parameterName!))
         {
             return memberAccess.Name.Identifier.Text;
         }
@@ -266,12 +264,12 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         switch (expression)
         {
             case SimpleLambdaExpressionSyntax simpleLambda:
-                parameterName = simpleLambda.Parameter.Identifier.Text;
+                parameterName = simpleLambda.Parameter.Identifier.ValueText;
                 body = simpleLambda.Body;
                 return true;
             case ParenthesizedLambdaExpressionSyntax parenthesizedLambda
                 when parenthesizedLambda.ParameterList.Parameters.Count == 1:
-                parameterName = parenthesizedLambda.ParameterList.Parameters[0].Identifier.Text;
+                parameterName = parenthesizedLambda.ParameterList.Parameters[0].Identifier.ValueText;
                 body = parenthesizedLambda.Body;
                 return true;
             default:
@@ -279,6 +277,18 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
                 body = null;
                 return false;
         }
+    }
+
+    private static bool IsLambdaParameterAccess(ExpressionSyntax expression, string parameterName)
+    {
+        ExpressionSyntax current = expression;
+        while (current is ParenthesizedExpressionSyntax parenthesized)
+        {
+            current = parenthesized.Expression;
+        }
+
+        return current is IdentifierNameSyntax identifier &&
+               string.Equals(identifier.Identifier.ValueText, parameterName, StringComparison.Ordinal);
     }
 
     private static string? GetStringLiteralValue(ExpressionSyntax expression)

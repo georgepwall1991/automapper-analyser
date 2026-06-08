@@ -134,6 +134,58 @@ public class AM050_RedundantMapFromTests
     }
 
     [Fact]
+    public async Task Should_ReportDiagnostic_When_SourceAndDestinationParameterAccessAreParenthesized()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => (d).Name, o => o.MapFrom(s => (s).Name));
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+            .WithLocation(11, 44)
+            .WithArguments("Name");
+
+        await AnalyzerVerifier<AM050_RedundantMapFromAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_When_LambdaParameterUsesEscapedIdentifier()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(@destination => @destination.Name, o => o.MapFrom(@source => @source.Name));
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+            .WithLocation(11, 64)
+            .WithArguments("Name");
+
+        await AnalyzerVerifier<AM050_RedundantMapFromAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
     public async Task Should_NotReportDiagnostic_When_ParenthesizedLambdaMapsDifferentProperty()
     {
         const string testCode = """
