@@ -180,29 +180,30 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
         }
 
         string destinationTypeName = destinationType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        string sourceMemberAccess = $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}";
 
         // Numeric conversions: add cast
         if (IsNumericConversion(sourceType.SpecialType) && IsNumericConversion(destinationType.SpecialType))
         {
-            return $"({destinationTypeName})src.{propertyName}";
+            return $"({destinationTypeName}){sourceMemberAccess}";
         }
 
         // String -> primitive: use parse pattern inside MapFrom
         if (IsString(sourceType) && IsNumericConversion(destinationType.SpecialType))
         {
             return
-                $"src.{propertyName} != null ? {destinationTypeName}.Parse(src.{propertyName}) : {TypeConversionHelper.GetDefaultValueForType(destinationTypeName)}";
+                $"{sourceMemberAccess} != null ? {destinationTypeName}.Parse({sourceMemberAccess}) : {TypeConversionHelper.GetDefaultValueForType(destinationTypeName)}";
         }
 
         // Primitive -> string: use ToString with invariant culture for numeric types
         if (IsNumericConversion(sourceType.SpecialType) && IsString(destinationType))
         {
-            return $"src.{propertyName}.ToString()";
+            return $"{sourceMemberAccess}.ToString()";
         }
 
         if (sourceType.TypeKind == TypeKind.Enum && IsString(destinationType))
         {
-            return $"src.{propertyName}.ToString()";
+            return $"{sourceMemberAccess}.ToString()";
         }
 
         if (IsString(sourceType) && destinationType.TypeKind == TypeKind.Enum)
@@ -210,7 +211,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
             string fullyQualifiedDestinationTypeName =
                 destinationType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             return
-                $"src.{propertyName} != null ? global::System.Enum.Parse<{fullyQualifiedDestinationTypeName}>(src.{propertyName}) : default";
+                $"{sourceMemberAccess} != null ? global::System.Enum.Parse<{fullyQualifiedDestinationTypeName}>({sourceMemberAccess}) : default";
         }
 
         // Nullable source to non-nullable destination where underlying types are compatible.
@@ -224,10 +225,10 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
                 IsNumericConversion(destinationType.SpecialType) &&
                 !SymbolEqualityComparer.Default.Equals(sourceUnderlyingType, destinationType))
             {
-                return $"({destinationTypeName})(src.{propertyName} ?? {fallback})";
+                return $"({destinationTypeName})({sourceMemberAccess} ?? {fallback})";
             }
 
-            return $"src.{propertyName} ?? {fallback}";
+            return $"{sourceMemberAccess} ?? {fallback}";
         }
 
         return null;

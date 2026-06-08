@@ -118,6 +118,8 @@ For enum/string mismatches, AM001 offers direct conversion fixes such as `src.St
 For numeric properties, AM001 follows the C# predefined implicit numeric conversion table: legal widenings
 such as `char` to `int` stay quiet, while conversions that require explicit casts, such as `double` to
 `decimal`, report and receive a cast-based `MapFrom` fix.
+Generated AM001 `MapFrom` expressions escape keyword member names, so a property declared as `@class` is emitted as
+`dest.@class` and `src.@class` in the generated mapping.
 
 #### When to Use
 
