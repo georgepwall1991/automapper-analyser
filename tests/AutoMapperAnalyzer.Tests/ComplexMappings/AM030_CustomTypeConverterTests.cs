@@ -285,6 +285,89 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_ForAbstractConverterBaseMethodWithoutBody()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public abstract class ConverterBase : ITypeConverter<string?, DateTime>
+                                    {
+                                        public abstract DateTime Convert(string? source, DateTime destination, ResolutionContext context);
+                                    }
+
+                                    public class ConcreteConverter : ConverterBase
+                                    {
+                                        public override DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            if (source == null)
+                                            {
+                                                return DateTime.MinValue;
+                                            }
+
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<ConcreteConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldReportDiagnostic_WhenConcreteConverterInheritsNullUnsafeBaseImplementation()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public abstract class ConverterBase : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class ConcreteConverter : ConverterBase
+                                    {
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<ConcreteConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule, 8, 25,
+                "ConverterBase", "String")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldReportDiagnostic_WhenTypeConverterIsUnused()
     {
         const string testCode = """
