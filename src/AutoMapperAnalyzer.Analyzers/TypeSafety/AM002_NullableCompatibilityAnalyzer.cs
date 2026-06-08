@@ -119,7 +119,8 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                     context.SemanticModel,
                     out bool configurationHandlesNullability,
                     out ITypeSymbol? explicitNullableSourceType,
-                    out string? explicitNullableSourceName);
+                    out string? explicitNullableSourceName,
+                    out string? explicitNullableSourceDisplayTypeName);
             if (!hasExplicitNullabilityConfiguration)
             {
                 continue;
@@ -141,7 +142,8 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                     explicitNullableSourceType,
                     sourceType,
                     destinationType,
-                    destinationProperty.Type);
+                    destinationProperty.Type,
+                    sourceDisplayTypeName: explicitNullableSourceDisplayTypeName);
                 explicitlyHandledDestinationProperties.Add(destinationProperty.Name);
             }
         }
@@ -167,7 +169,8 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                         context.SemanticModel,
                         out bool configurationHandlesNullability,
                         out ITypeSymbol? explicitNullableSourceType,
-                        out string? explicitNullableSourceName);
+                        out string? explicitNullableSourceName,
+                        out _);
                 if (hasExplicitNullabilityConfiguration &&
                     configurationHandlesNullability)
                 {
@@ -213,11 +216,13 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         SemanticModel semanticModel,
         out bool handlesNullability,
         out ITypeSymbol? explicitNullableSourceType,
-        out string? explicitNullableSourceName)
+        out string? explicitNullableSourceName,
+        out string? explicitNullableSourceDisplayTypeName)
     {
         handlesNullability = false;
         explicitNullableSourceType = null;
         explicitNullableSourceName = null;
+        explicitNullableSourceDisplayTypeName = null;
         InvocationExpressionSyntax? effectiveMappingCall = null;
         foreach (InvocationExpressionSyntax mappingCall in GetDestinationConfigurationCalls(createMapInvocation, semanticModel))
         {
@@ -260,9 +265,11 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                     destinationPropertyType,
                     semanticModel,
                     out ITypeSymbol? nullableMapFromType,
-                    out string? nullableMapFromName))
+                    out string? nullableMapFromName,
+                    out string? nullableMapFromDisplayTypeName))
             {
                 if (!ExpressionDereferencesNullableReceiver(mapFromBody, semanticModel) &&
+                    !ExpressionDereferencesSuppressedNullableReceiver(mapFromBody, semanticModel) &&
                     ConfigurationCallsSafeNullSubstitute(effectiveMappingCall, destinationPropertyType, semanticModel))
                 {
                     handlesNullability = true;
@@ -271,6 +278,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
 
                 explicitNullableSourceType = nullableMapFromType;
                 explicitNullableSourceName = nullableMapFromName;
+                explicitNullableSourceDisplayTypeName = nullableMapFromDisplayTypeName;
                 return true;
             }
         }
@@ -562,7 +570,14 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        return !ExpressionDereferencesNullableReceiver(mapFromBody, semanticModel) &&
+        return !TryGetNullableSuppressedMapFromSource(
+                   mapFromBody,
+                   destinationPropertyType,
+                   semanticModel,
+                   out _,
+                   out _,
+                   out _) &&
+               !ExpressionDereferencesNullableReceiver(mapFromBody, semanticModel) &&
                !IsNullableType(mappedType) &&
                AreUnderlyingTypesCompatible(
                    AutoMapperAnalysisHelpers.GetUnderlyingType(mappedType),
@@ -578,6 +593,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             .OfType<MemberAccessExpressionSyntax>()
             .Any(memberAccess =>
                 !IsSafeNullableValueMemberAccess(memberAccess) &&
+                !IsGuardedSuppressedNullableReceiverAccess(memberAccess, semanticModel) &&
                 !IsExtensionMethodReceiverAccess(memberAccess, semanticModel) &&
                 IsNullableExpression(memberAccess.Expression, semanticModel));
     }
@@ -605,6 +621,15 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                invocation.Expression == memberAccess;
     }
 
+    private static bool IsGuardedSuppressedNullableReceiverAccess(
+        MemberAccessExpressionSyntax memberAccess,
+        SemanticModel semanticModel)
+    {
+        return memberAccess.Expression is PostfixUnaryExpressionSyntax suppression &&
+               suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression) &&
+               IsSuppressedOperandGuardedByConditional(suppression, semanticModel);
+    }
+
     private static bool IsNullableExpression(
         ExpressionSyntax expression,
         SemanticModel semanticModel)
@@ -619,12 +644,25 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol destinationPropertyType,
         SemanticModel semanticModel,
         out ITypeSymbol? nullableMapFromType,
-        out string? nullableMapFromName)
+        out string? nullableMapFromName,
+        out string? nullableMapFromDisplayTypeName)
     {
         nullableMapFromType = null;
         nullableMapFromName = null;
+        nullableMapFromDisplayTypeName = null;
         TypeInfo typeInfo = semanticModel.GetTypeInfo(mapFromBody);
         ITypeSymbol? mappedType = typeInfo.ConvertedType ?? typeInfo.Type;
+        if (TryGetNullableSuppressedMapFromSource(
+                mapFromBody,
+                destinationPropertyType,
+                semanticModel,
+                out nullableMapFromType,
+                out nullableMapFromName,
+                out nullableMapFromDisplayTypeName))
+        {
+            return true;
+        }
+
         if (TryGetNullableDereferencedReceiver(
                 mapFromBody,
                 destinationPropertyType,
@@ -646,10 +684,1032 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         }
 
         nullableMapFromType = mappedType;
-        nullableMapFromName = TryGetSourceMemberPath(mapFromBody, out string sourceMemberPath)
-            ? sourceMemberPath
-            : null;
+        if (mapFromBody is not ConditionalExpressionSyntax &&
+            mapFromBody is not SwitchExpressionSyntax &&
+            TryGetSourceMemberPath(mapFromBody, out string sourceMemberPath))
+        {
+            nullableMapFromName = sourceMemberPath;
+        }
+        else if (TryGetNullableExpressionDiagnosticDisplay(
+                     mapFromBody,
+                     semanticModel,
+                     out string displayTypeName,
+                     out string displayName))
+        {
+            nullableMapFromName = displayName;
+            nullableMapFromDisplayTypeName = displayTypeName;
+        }
+
         return true;
+    }
+
+    private static bool TryGetNullableSuppressedMapFromSource(
+        ExpressionSyntax expression,
+        ITypeSymbol destinationPropertyType,
+        SemanticModel semanticModel,
+        out ITypeSymbol? nullableSourceType,
+        out string? nullableSourceName,
+        out string? nullableSourceDisplayTypeName)
+    {
+        nullableSourceType = null;
+        nullableSourceName = null;
+        nullableSourceDisplayTypeName = null;
+        ExpressionSyntax directExpression = UnwrapParentheses(expression);
+        foreach (PostfixUnaryExpressionSyntax suppression in expression
+                     .DescendantNodesAndSelf()
+                     .OfType<PostfixUnaryExpressionSyntax>())
+        {
+            if (!suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+            {
+                continue;
+            }
+
+            if (!TryGetNullableSuppressedOperandType(suppression, semanticModel, out ITypeSymbol? operandType) ||
+                operandType == null)
+            {
+                continue;
+            }
+
+            bool mapsSuppressedValueDirectly =
+                (suppression == directExpression ||
+                 SuppressedValueCanFlowToExpressionResult(suppression, directExpression, operandType, semanticModel)) &&
+                !IsNullableType(destinationPropertyType) &&
+                SuppressedValueCanMapToDestination(
+                    suppression,
+                    operandType,
+                    destinationPropertyType,
+                    semanticModel);
+            bool dereferencesSuppressedReceiver =
+                !IsNullableType(destinationPropertyType) &&
+                IsSuppressedNullableReceiverDereferenced(suppression, semanticModel);
+            if (!mapsSuppressedValueDirectly && !dereferencesSuppressedReceiver)
+            {
+                continue;
+            }
+
+            if (TryGetCoalesceExpressionForSuppressedDefaultFallback(
+                    suppression,
+                    out BinaryExpressionSyntax? coalesceExpression))
+            {
+                ITypeSymbol? coalesceLeftType = GetNullableExpressionDeclaredType(coalesceExpression.Left, semanticModel);
+                if (coalesceLeftType == null)
+                {
+                    continue;
+                }
+
+                nullableSourceType = coalesceLeftType;
+                if (TryGetSourceMemberPath(coalesceExpression.Left, out string coalesceLeftSourceMemberPath))
+                {
+                    nullableSourceName = coalesceLeftSourceMemberPath;
+                }
+                else if (TryGetNullableExpressionDiagnosticDisplay(
+                             coalesceExpression.Left,
+                             semanticModel,
+                             out string coalesceLeftDisplayTypeName,
+                             out string coalesceLeftDisplayName))
+                {
+                    nullableSourceName = coalesceLeftDisplayName;
+                    nullableSourceDisplayTypeName = coalesceLeftDisplayTypeName;
+                }
+
+                return true;
+            }
+
+            nullableSourceType = operandType;
+            ExpressionSyntax suppressedOperand = UnwrapParentheses(suppression.Operand);
+            if (suppressedOperand is not ElementAccessExpressionSyntax &&
+                suppressedOperand is not ConditionalExpressionSyntax &&
+                suppressedOperand is not SwitchExpressionSyntax &&
+                TryGetSourceMemberPath(suppression, out string sourceMemberPath))
+            {
+                nullableSourceName = sourceMemberPath;
+            }
+            else if (TryGetNullableExpressionDiagnosticDisplay(
+                         suppressedOperand,
+                         semanticModel,
+                         out string displayTypeName,
+                         out string displayName))
+            {
+                nullableSourceName = displayName;
+                nullableSourceDisplayTypeName = displayTypeName;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool SuppressedValueCanMapToDestination(
+        PostfixUnaryExpressionSyntax suppression,
+        ITypeSymbol operandType,
+        ITypeSymbol destinationPropertyType,
+        SemanticModel semanticModel)
+    {
+        if (AreUnderlyingTypesCompatible(
+                AutoMapperAnalysisHelpers.GetUnderlyingType(operandType),
+                AutoMapperAnalysisHelpers.GetUnderlyingType(destinationPropertyType)))
+        {
+            return true;
+        }
+
+        Conversion conversion = semanticModel.ClassifyConversion(suppression, destinationPropertyType);
+        return conversion.Exists && conversion.IsImplicit;
+    }
+
+    private static bool SuppressedValueCanFlowToExpressionResult(
+        PostfixUnaryExpressionSyntax suppression,
+        ExpressionSyntax expression,
+        ITypeSymbol operandType,
+        SemanticModel semanticModel)
+    {
+        bool suppressedDefaultIsGenericFallback =
+            IsNullOrDefaultExpression(suppression.Operand) &&
+            operandType.TypeKind == TypeKind.TypeParameter;
+        SyntaxNode current = suppression;
+        while (current != expression)
+        {
+            SyntaxNode? parent = current.Parent;
+            switch (parent)
+            {
+                case ParenthesizedExpressionSyntax parenthesizedExpression
+                    when parenthesizedExpression.Expression == current:
+                    current = parenthesizedExpression;
+                    break;
+                case CastExpressionSyntax castExpression
+                    when castExpression.Expression == current:
+                    current = castExpression;
+                    break;
+                case ConditionalExpressionSyntax conditionalExpression
+                    when conditionalExpression.WhenTrue == current || conditionalExpression.WhenFalse == current:
+                    current = conditionalExpression;
+                    break;
+                case SwitchExpressionArmSyntax switchArm
+                    when switchArm.Expression == current:
+                    current = switchArm;
+                    break;
+                case SwitchExpressionSyntax switchExpression
+                    when current is SwitchExpressionArmSyntax arm &&
+                         switchExpression.Arms.Any(candidate => candidate == arm):
+                    current = switchExpression;
+                    break;
+                case BinaryExpressionSyntax coalesceExpression
+                    when coalesceExpression.IsKind(SyntaxKind.CoalesceExpression) &&
+                         coalesceExpression.Right == current:
+                    if (!ExpressionCanProduceNullAt(coalesceExpression.Left, coalesceExpression, semanticModel))
+                    {
+                        return false;
+                    }
+
+                    current = coalesceExpression;
+                    break;
+                case BinaryExpressionSyntax coalesceExpression
+                    when coalesceExpression.IsKind(SyntaxKind.CoalesceExpression) &&
+                         coalesceExpression.Left == current:
+                    return false;
+                default:
+                    return false;
+            }
+        }
+
+        return !suppressedDefaultIsGenericFallback;
+    }
+
+    private static bool TryGetCoalesceExpressionForSuppressedDefaultFallback(
+        PostfixUnaryExpressionSyntax suppression,
+        out BinaryExpressionSyntax coalesceExpression)
+    {
+        coalesceExpression = null!;
+        if (!IsNullOrDefaultExpression(suppression.Operand))
+        {
+            return false;
+        }
+
+        SyntaxNode current = suppression;
+        while (current.Parent is ParenthesizedExpressionSyntax parenthesizedExpression &&
+               parenthesizedExpression.Expression == current)
+        {
+            current = parenthesizedExpression;
+        }
+
+        if (current.Parent is not BinaryExpressionSyntax parentCoalesceExpression ||
+            !parentCoalesceExpression.IsKind(SyntaxKind.CoalesceExpression) ||
+            parentCoalesceExpression.Right != current)
+        {
+            return false;
+        }
+
+        coalesceExpression = parentCoalesceExpression;
+        return true;
+    }
+
+    private static bool ExpressionDereferencesSuppressedNullableReceiver(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        return expression
+            .DescendantNodesAndSelf()
+            .OfType<PostfixUnaryExpressionSyntax>()
+            .Any(suppression =>
+                suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression) &&
+                TryGetNullableSuppressedOperandType(suppression, semanticModel, out _) &&
+                IsSuppressedNullableReceiverDereferenced(suppression, semanticModel));
+    }
+
+    private static bool TryGetNullableSuppressedOperandType(
+        PostfixUnaryExpressionSyntax suppression,
+        SemanticModel semanticModel,
+        out ITypeSymbol? operandType)
+    {
+        operandType = GetNullableExpressionDeclaredType(suppression.Operand, semanticModel);
+        if (operandType == null &&
+            IsNullOrDefaultExpression(suppression.Operand))
+        {
+            operandType = GetNullableSuppressedLiteralType(suppression, semanticModel);
+        }
+
+        if (operandType == null)
+        {
+            return false;
+        }
+
+        if (IsSuppressedOperandGuardedByConditional(suppression, semanticModel))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static ITypeSymbol? GetNullableSuppressedLiteralType(
+        PostfixUnaryExpressionSyntax suppression,
+        SemanticModel semanticModel)
+    {
+        TypeInfo typeInfo = semanticModel.GetTypeInfo(suppression);
+        ITypeSymbol? expressionType = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (expressionType == null &&
+            suppression.Parent is CastExpressionSyntax castExpression &&
+            castExpression.Expression == suppression)
+        {
+            TypeInfo castTypeInfo = semanticModel.GetTypeInfo(castExpression.Type);
+            expressionType = castTypeInfo.Type ?? castTypeInfo.ConvertedType;
+        }
+
+        if (expressionType != null &&
+            IsNullableType(expressionType))
+        {
+            return expressionType;
+        }
+
+        return expressionType?.IsReferenceType == true
+            ? expressionType.WithNullableAnnotation(NullableAnnotation.Annotated)
+            : null;
+    }
+
+    private static bool IsSuppressedOperandGuardedByConditional(
+        PostfixUnaryExpressionSyntax suppression,
+        SemanticModel semanticModel)
+    {
+        ExpressionSyntax operand = UnwrapParentheses(suppression.Operand);
+        return IsExpressionProvenNonNullByContainingFlow(suppression, operand, semanticModel);
+    }
+
+    private static bool ExpressionCanProduceNullAt(
+        ExpressionSyntax expression,
+        SyntaxNode context,
+        SemanticModel semanticModel)
+    {
+        return ExpressionCanProduceNull(expression, semanticModel) &&
+               !IsExpressionProvenNonNullByContainingFlow(context, expression, semanticModel);
+    }
+
+    private static bool IsExpressionProvenNonNullByContainingFlow(
+        SyntaxNode context,
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        expression = UnwrapParentheses(expression);
+        if (IsExpressionGuardedByShortCircuitCondition(context, expression, semanticModel))
+        {
+            return true;
+        }
+
+        for (SyntaxNode? current = context.Parent; current != null; current = current.Parent)
+        {
+            if (current is SwitchExpressionArmSyntax switchArm &&
+                switchArm.Expression.Span.Contains(context.SpanStart) &&
+                switchArm.Parent is SwitchExpressionSyntax switchExpression &&
+                SwitchArmProvesExpressionNonNull(switchExpression, switchArm, expression, semanticModel))
+            {
+                return true;
+            }
+
+            if (current is not ConditionalExpressionSyntax conditionalExpression)
+            {
+                continue;
+            }
+
+            bool isInWhenTrue = conditionalExpression.WhenTrue.Span.Contains(context.SpanStart);
+            bool isInWhenFalse = conditionalExpression.WhenFalse.Span.Contains(context.SpanStart);
+            if ((isInWhenFalse && ConditionProvesOperandNonNullWhenFalse(conditionalExpression.Condition, expression, semanticModel)) ||
+                (isInWhenTrue && ConditionProvesOperandNonNullWhenTrue(conditionalExpression.Condition, expression, semanticModel)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsExpressionGuardedByShortCircuitCondition(
+        SyntaxNode context,
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        for (SyntaxNode? current = context; current?.Parent != null; current = current.Parent)
+        {
+            if (current.Parent is not BinaryExpressionSyntax binaryExpression ||
+                binaryExpression.Right != current)
+            {
+                continue;
+            }
+
+            if (binaryExpression.IsKind(SyntaxKind.LogicalAndExpression) &&
+                ConditionProvesOperandNonNullWhenTrue(binaryExpression.Left, expression, semanticModel))
+            {
+                return true;
+            }
+
+            if (binaryExpression.IsKind(SyntaxKind.LogicalOrExpression) &&
+                ConditionProvesOperandNonNullWhenFalse(binaryExpression.Left, expression, semanticModel))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ConditionProvesOperandNonNullWhenTrue(
+        ExpressionSyntax condition,
+        ExpressionSyntax operand,
+        SemanticModel semanticModel)
+    {
+        condition = UnwrapParentheses(condition);
+        if (ConditionTestsOperandNotNull(condition, operand, semanticModel) ||
+            ConditionComparesOperandToKnownNonNullExpression(condition, operand, SyntaxKind.EqualsExpression, semanticModel))
+        {
+            return true;
+        }
+
+        if (condition is PrefixUnaryExpressionSyntax logicalNot &&
+            logicalNot.IsKind(SyntaxKind.LogicalNotExpression))
+        {
+            return ConditionProvesOperandNonNullWhenFalse(logicalNot.Operand, operand, semanticModel);
+        }
+
+        return condition is BinaryExpressionSyntax binaryExpression &&
+               binaryExpression.IsKind(SyntaxKind.LogicalAndExpression) &&
+               (ConditionProvesOperandNonNullWhenTrue(binaryExpression.Left, operand, semanticModel) ||
+                ConditionProvesOperandNonNullWhenTrue(binaryExpression.Right, operand, semanticModel));
+    }
+
+    private static bool ConditionProvesOperandNonNullWhenFalse(
+        ExpressionSyntax condition,
+        ExpressionSyntax operand,
+        SemanticModel semanticModel)
+    {
+        condition = UnwrapParentheses(condition);
+        if (ConditionTestsOperandNull(condition, operand, semanticModel) ||
+            ConditionComparesOperandToKnownNonNullExpression(condition, operand, SyntaxKind.NotEqualsExpression, semanticModel))
+        {
+            return true;
+        }
+
+        if (condition is PrefixUnaryExpressionSyntax logicalNot &&
+            logicalNot.IsKind(SyntaxKind.LogicalNotExpression))
+        {
+            return ConditionProvesOperandNonNullWhenTrue(logicalNot.Operand, operand, semanticModel);
+        }
+
+        return condition is BinaryExpressionSyntax binaryExpression &&
+               binaryExpression.IsKind(SyntaxKind.LogicalOrExpression) &&
+               (ConditionProvesOperandNonNullWhenFalse(binaryExpression.Left, operand, semanticModel) ||
+                ConditionProvesOperandNonNullWhenFalse(binaryExpression.Right, operand, semanticModel));
+    }
+
+    private static bool ConditionTestsOperandNull(
+        ExpressionSyntax condition,
+        ExpressionSyntax operand,
+        SemanticModel semanticModel)
+    {
+        condition = UnwrapParentheses(condition);
+        return ConditionComparesOperandToNull(condition, operand, SyntaxKind.EqualsExpression, semanticModel) ||
+               condition is IsPatternExpressionSyntax isPatternExpression &&
+               ExpressionsAreEquivalent(isPatternExpression.Expression, operand) &&
+               PatternMatchesNullWhenTrue(isPatternExpression.Pattern, semanticModel);
+    }
+
+    private static bool ConditionTestsOperandNotNull(
+        ExpressionSyntax condition,
+        ExpressionSyntax operand,
+        SemanticModel semanticModel)
+    {
+        condition = UnwrapParentheses(condition);
+        return ConditionComparesOperandToNull(condition, operand, SyntaxKind.NotEqualsExpression, semanticModel) ||
+               condition is IsPatternExpressionSyntax isPatternExpression &&
+               ExpressionsAreEquivalent(isPatternExpression.Expression, operand) &&
+               PatternMatchesNonNullWhenTrue(isPatternExpression.Pattern, semanticModel);
+    }
+
+    private static bool ConditionComparesOperandToNull(
+        ExpressionSyntax condition,
+        ExpressionSyntax operand,
+        SyntaxKind comparisonKind,
+        SemanticModel semanticModel)
+    {
+        condition = UnwrapParentheses(condition);
+        return condition is BinaryExpressionSyntax binaryExpression &&
+               binaryExpression.IsKind(comparisonKind) &&
+               ((ExpressionsAreEquivalent(binaryExpression.Left, operand) &&
+                 IsNullLikeExpression(binaryExpression.Right, semanticModel)) ||
+                (IsNullLikeExpression(binaryExpression.Left, semanticModel) &&
+                 ExpressionsAreEquivalent(binaryExpression.Right, operand)));
+    }
+
+    private static bool ConditionComparesOperandToKnownNonNullExpression(
+        ExpressionSyntax condition,
+        ExpressionSyntax operand,
+        SyntaxKind comparisonKind,
+        SemanticModel semanticModel)
+    {
+        condition = UnwrapParentheses(condition);
+        return condition is BinaryExpressionSyntax binaryExpression &&
+               binaryExpression.IsKind(comparisonKind) &&
+               ((ExpressionsAreEquivalent(binaryExpression.Left, operand) &&
+                 IsKnownNonNullExpression(binaryExpression.Right, semanticModel)) ||
+                (IsKnownNonNullExpression(binaryExpression.Left, semanticModel) &&
+                 ExpressionsAreEquivalent(binaryExpression.Right, operand)));
+    }
+
+    private static bool IsKnownNonNullExpression(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        expression = UnwrapParentheses(expression);
+        if (expression is LiteralExpressionSyntax &&
+            !IsNullOrDefaultExpression(expression))
+        {
+            return true;
+        }
+
+        if (!IsNullOrDefaultExpression(expression))
+        {
+            return false;
+        }
+
+        TypeInfo typeInfo = semanticModel.GetTypeInfo(expression);
+        ITypeSymbol? expressionType = typeInfo.Type ?? typeInfo.ConvertedType;
+        return expressionType != null && IsNonNullableValueType(expressionType);
+    }
+
+    private static bool PatternMatchesNullWhenTrue(PatternSyntax pattern, SemanticModel semanticModel)
+    {
+        pattern = UnwrapParenthesizedPattern(pattern);
+        return pattern switch
+        {
+            ConstantPatternSyntax constantPattern => IsNullLikeExpression(constantPattern.Expression, semanticModel),
+            UnaryPatternSyntax unaryPattern when unaryPattern.IsKind(SyntaxKind.NotPattern) =>
+                PatternMatchesNonNullWhenTrue(unaryPattern.Pattern, semanticModel),
+            BinaryPatternSyntax binaryPattern when binaryPattern.IsKind(SyntaxKind.AndPattern) =>
+                PatternMatchesNullWhenTrue(binaryPattern.Left, semanticModel) &&
+                PatternMatchesNullWhenTrue(binaryPattern.Right, semanticModel),
+            BinaryPatternSyntax binaryPattern when binaryPattern.IsKind(SyntaxKind.OrPattern) =>
+                PatternMatchesNullWhenTrue(binaryPattern.Left, semanticModel) ||
+                PatternMatchesNullWhenTrue(binaryPattern.Right, semanticModel),
+            _ => false
+        };
+    }
+
+    private static bool PatternMatchesNonNullWhenTrue(PatternSyntax pattern, SemanticModel semanticModel)
+    {
+        pattern = UnwrapParenthesizedPattern(pattern);
+        return pattern switch
+        {
+            ConstantPatternSyntax constantPattern => !IsNullLikeExpression(constantPattern.Expression, semanticModel),
+            UnaryPatternSyntax unaryPattern when unaryPattern.IsKind(SyntaxKind.NotPattern) =>
+                PatternMatchesNullWhenTrue(unaryPattern.Pattern, semanticModel),
+            BinaryPatternSyntax binaryPattern when binaryPattern.IsKind(SyntaxKind.AndPattern) =>
+                PatternMatchesNonNullWhenTrue(binaryPattern.Left, semanticModel) ||
+                PatternMatchesNonNullWhenTrue(binaryPattern.Right, semanticModel),
+            BinaryPatternSyntax binaryPattern when binaryPattern.IsKind(SyntaxKind.OrPattern) =>
+                PatternMatchesNonNullWhenTrue(binaryPattern.Left, semanticModel) &&
+                PatternMatchesNonNullWhenTrue(binaryPattern.Right, semanticModel),
+            RecursivePatternSyntax => true,
+            DeclarationPatternSyntax => true,
+            _ => false
+        };
+    }
+
+    private static PatternSyntax UnwrapParenthesizedPattern(PatternSyntax pattern)
+    {
+        while (pattern is ParenthesizedPatternSyntax parenthesizedPattern)
+        {
+            pattern = parenthesizedPattern.Pattern;
+        }
+
+        return pattern;
+    }
+
+    private static bool ExpressionsAreEquivalent(ExpressionSyntax left, ExpressionSyntax right)
+    {
+        ExpressionSyntax unwrappedLeft = UnwrapExpressionForEquivalence(left);
+        ExpressionSyntax unwrappedRight = UnwrapExpressionForEquivalence(right);
+        return IsStableGuardExpression(unwrappedLeft) &&
+               IsStableGuardExpression(unwrappedRight) &&
+               string.Equals(
+                   unwrappedLeft.ToString(),
+                   unwrappedRight.ToString(),
+                   StringComparison.Ordinal);
+    }
+
+    private static bool IsStableGuardExpression(ExpressionSyntax expression)
+    {
+        expression = UnwrapExpressionForEquivalence(expression);
+        return expression switch
+        {
+            IdentifierNameSyntax => true,
+            MemberAccessExpressionSyntax memberAccess => IsStableGuardExpression(memberAccess.Expression),
+            _ => false
+        };
+    }
+
+    private static ExpressionSyntax UnwrapExpressionForEquivalence(ExpressionSyntax expression)
+    {
+        while (true)
+        {
+            expression = UnwrapParentheses(expression);
+            if (expression is PostfixUnaryExpressionSyntax suppression &&
+                suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+            {
+                expression = suppression.Operand;
+                continue;
+            }
+
+            return expression;
+        }
+    }
+
+    private static bool IsNullOrDefaultExpression(ExpressionSyntax expression)
+    {
+        expression = UnwrapParentheses(expression);
+        return expression.IsKind(SyntaxKind.NullLiteralExpression) ||
+               expression.IsKind(SyntaxKind.DefaultLiteralExpression) ||
+               expression is DefaultExpressionSyntax;
+    }
+
+    private static bool IsNullLikeExpression(ExpressionSyntax expression, SemanticModel semanticModel)
+    {
+        expression = UnwrapParentheses(expression);
+        if (expression.IsKind(SyntaxKind.NullLiteralExpression))
+        {
+            return true;
+        }
+
+        if (!expression.IsKind(SyntaxKind.DefaultLiteralExpression) &&
+            expression is not DefaultExpressionSyntax)
+        {
+            return false;
+        }
+
+        ITypeSymbol? expressionType;
+        if (expression is DefaultExpressionSyntax defaultExpression)
+        {
+            TypeInfo defaultTypeInfo = semanticModel.GetTypeInfo(defaultExpression.Type);
+            expressionType = defaultTypeInfo.Type ?? defaultTypeInfo.ConvertedType;
+        }
+        else
+        {
+            TypeInfo typeInfo = semanticModel.GetTypeInfo(expression);
+            expressionType = typeInfo.ConvertedType ?? typeInfo.Type;
+        }
+
+        return expressionType != null && TypeDefaultCanBeNull(expressionType);
+    }
+
+    private static bool TypeDefaultCanBeNull(ITypeSymbol type)
+    {
+        return type.IsReferenceType ||
+               IsNullableType(type) ||
+               type is ITypeParameterSymbol typeParameter && typeParameter.HasReferenceTypeConstraint;
+    }
+
+    private static bool TryGetNullableExpressionDiagnosticDisplay(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel,
+        out string displayTypeName,
+        out string displayName)
+    {
+        displayTypeName = "MapFrom expression";
+        expression = UnwrapParentheses(expression);
+        displayName = expression.ToString();
+        if (expression is ElementAccessExpressionSyntax)
+        {
+            return true;
+        }
+
+        ISymbol? symbol = semanticModel.GetSymbolInfo(expression).Symbol;
+        switch (symbol)
+        {
+            case IFieldSymbol fieldSymbol:
+                displayTypeName = GetContainingTypeDisplayName(fieldSymbol.ContainingType);
+                displayName = fieldSymbol.Name;
+                return true;
+            case IPropertySymbol propertySymbol:
+                displayTypeName = GetContainingTypeDisplayName(propertySymbol.ContainingType);
+                displayName = propertySymbol.Name;
+                return true;
+            case IMethodSymbol methodSymbol:
+                displayTypeName = GetContainingTypeDisplayName(methodSymbol.ContainingType);
+                return !string.IsNullOrWhiteSpace(displayName);
+            case ILocalSymbol localSymbol:
+                displayName = localSymbol.Name;
+                return true;
+            case IParameterSymbol parameterSymbol:
+                displayName = parameterSymbol.Name;
+                return true;
+            default:
+                return !string.IsNullOrWhiteSpace(displayName);
+        }
+    }
+
+    private static string GetContainingTypeDisplayName(INamedTypeSymbol? containingType)
+    {
+        return containingType == null ? "MapFrom expression" : GetDiagnosticTypeName(containingType);
+    }
+
+    private static ITypeSymbol? GetNullableExpressionDeclaredType(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        expression = UnwrapParentheses(expression);
+        if (IsNullOrDefaultExpression(expression))
+        {
+            return GetNullableTypeFromExpressionTypeInfo(expression, semanticModel);
+        }
+
+        if (expression is BinaryExpressionSyntax asExpression &&
+            asExpression.IsKind(SyntaxKind.AsExpression))
+        {
+            return GetNullableTypeFromExpressionTypeInfo(expression, semanticModel);
+        }
+
+        if (expression is BinaryExpressionSyntax coalesceExpression &&
+            coalesceExpression.IsKind(SyntaxKind.CoalesceExpression))
+        {
+            ITypeSymbol? leftType = GetNullableExpressionDeclaredType(coalesceExpression.Left, semanticModel);
+            if (leftType != null &&
+                ExpressionCanProduceNull(coalesceExpression.Right, semanticModel))
+            {
+                return leftType;
+            }
+        }
+
+        if (expression is ConditionalAccessExpressionSyntax)
+        {
+            return GetNullableTypeFromExpressionTypeInfo(expression, semanticModel);
+        }
+
+        if (expression is ConditionalExpressionSyntax conditionalExpression &&
+            (IsNullOrDefaultExpression(conditionalExpression.WhenTrue) ||
+             IsNullOrDefaultExpression(conditionalExpression.WhenFalse)))
+        {
+            return GetNullableTypeFromExpressionTypeInfo(expression, semanticModel);
+        }
+
+        if (expression is ConditionalExpressionSyntax nullableConditionalExpression &&
+            TryGetNullableConditionalBranchType(
+                nullableConditionalExpression,
+                semanticModel,
+                out ITypeSymbol? nullableConditionalType))
+        {
+            return nullableConditionalType;
+        }
+
+        if (expression is SwitchExpressionSyntax switchExpression &&
+            TryGetNullableSwitchArmType(switchExpression, semanticModel, out ITypeSymbol? nullableSwitchArmType))
+        {
+            return nullableSwitchArmType;
+        }
+
+        if (expression is CastExpressionSyntax castExpression)
+        {
+            TypeInfo castTypeInfo = semanticModel.GetTypeInfo(castExpression.Type);
+            ITypeSymbol? castType = castTypeInfo.Type ?? castTypeInfo.ConvertedType;
+            if (castType != null &&
+                (IsNullableType(castType) || castExpression.Type is NullableTypeSyntax))
+            {
+                return castExpression.Type is NullableTypeSyntax
+                    ? castType.WithNullableAnnotation(NullableAnnotation.Annotated)
+                    : castType;
+            }
+        }
+
+        if (expression is ElementAccessExpressionSyntax elementAccess &&
+            TryGetNullableElementAccessType(elementAccess, semanticModel, out ITypeSymbol? nullableElementType))
+        {
+            return nullableElementType;
+        }
+
+        ISymbol? symbol = semanticModel.GetSymbolInfo(expression).Symbol;
+        ITypeSymbol? nullableSymbolType = symbol switch
+        {
+            IPropertySymbol propertySymbol when IsNullableType(propertySymbol.Type) => propertySymbol.Type,
+            IFieldSymbol fieldSymbol when IsNullableType(fieldSymbol.Type) => fieldSymbol.Type,
+            ILocalSymbol localSymbol when IsNullableType(localSymbol.Type) => localSymbol.Type,
+            IParameterSymbol parameterSymbol when IsNullableType(parameterSymbol.Type) => parameterSymbol.Type,
+            IMethodSymbol methodSymbol when IsNullableType(methodSymbol.ReturnType) => methodSymbol.ReturnType,
+            _ => null
+        };
+
+        if (nullableSymbolType != null ||
+            symbol != null)
+        {
+            return nullableSymbolType;
+        }
+
+        return GetNullableAnnotationFromExpressionTypeInfo(expression, semanticModel);
+    }
+
+    private static bool TryGetNullableConditionalBranchType(
+        ConditionalExpressionSyntax conditionalExpression,
+        SemanticModel semanticModel,
+        out ITypeSymbol? nullableBranchType)
+    {
+        nullableBranchType = null;
+        ITypeSymbol? whenTrueType = GetUnguardedNullableBranchType(
+            conditionalExpression.WhenTrue,
+            conditionalExpression.Condition,
+            branchWhenTrue: true,
+            semanticModel);
+        if (whenTrueType != null)
+        {
+            nullableBranchType = whenTrueType;
+            return true;
+        }
+
+        ITypeSymbol? whenFalseType = GetUnguardedNullableBranchType(
+            conditionalExpression.WhenFalse,
+            conditionalExpression.Condition,
+            branchWhenTrue: false,
+            semanticModel);
+        if (whenFalseType != null)
+        {
+            nullableBranchType = whenFalseType;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetNullableSwitchArmType(
+        SwitchExpressionSyntax switchExpression,
+        SemanticModel semanticModel,
+        out ITypeSymbol? nullableArmType)
+    {
+        nullableArmType = null;
+        foreach (SwitchExpressionArmSyntax arm in switchExpression.Arms)
+        {
+            ExpressionSyntax armExpression = UnwrapParentheses(arm.Expression);
+            ITypeSymbol? armType = GetNullableExpressionDeclaredType(armExpression, semanticModel);
+            if (armType == null ||
+                SwitchArmProvesExpressionNonNull(switchExpression, arm, armExpression, semanticModel))
+            {
+                continue;
+            }
+
+            nullableArmType = armType;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool SwitchArmProvesExpressionNonNull(
+        SwitchExpressionSyntax switchExpression,
+        SwitchExpressionArmSyntax arm,
+        ExpressionSyntax armExpression,
+        SemanticModel semanticModel)
+    {
+        if (arm.WhenClause is { Condition: ExpressionSyntax whenCondition } &&
+            ConditionProvesOperandNonNullWhenTrue(whenCondition, armExpression, semanticModel))
+        {
+            return true;
+        }
+
+        if (!ExpressionsAreEquivalent(switchExpression.GoverningExpression, armExpression))
+        {
+            return false;
+        }
+
+        return PatternMatchesNonNullWhenTrue(arm.Pattern, semanticModel) ||
+               PreviousSwitchArmHandlesNull(switchExpression, arm, semanticModel);
+    }
+
+    private static bool PreviousSwitchArmHandlesNull(
+        SwitchExpressionSyntax switchExpression,
+        SwitchExpressionArmSyntax currentArm,
+        SemanticModel semanticModel)
+    {
+        return switchExpression.Arms
+            .TakeWhile(arm => arm != currentArm)
+            .Any(arm => arm.WhenClause == null && PatternMatchesNullWhenTrue(arm.Pattern, semanticModel));
+    }
+
+    private static ITypeSymbol? GetUnguardedNullableBranchType(
+        ExpressionSyntax branch,
+        ExpressionSyntax condition,
+        bool branchWhenTrue,
+        SemanticModel semanticModel)
+    {
+        branch = UnwrapParentheses(branch);
+        ITypeSymbol? branchType = GetNullableExpressionDeclaredType(branch, semanticModel);
+        if (branchType == null)
+        {
+            return null;
+        }
+
+        bool branchIsGuarded = branchWhenTrue
+            ? ConditionProvesOperandNonNullWhenTrue(condition, branch, semanticModel)
+            : ConditionProvesOperandNonNullWhenFalse(condition, branch, semanticModel);
+        return branchIsGuarded ? null : branchType;
+    }
+
+    private static bool TryGetNullableElementAccessType(
+        ElementAccessExpressionSyntax elementAccess,
+        SemanticModel semanticModel,
+        out ITypeSymbol? nullableElementType)
+    {
+        nullableElementType = null;
+        ITypeSymbol? receiverType = semanticModel.GetTypeInfo(elementAccess.Expression).Type;
+        if (receiverType is IArrayTypeSymbol arrayType &&
+            IsNullableType(arrayType.ElementType))
+        {
+            nullableElementType = arrayType.ElementType;
+            return true;
+        }
+
+        ISymbol? elementSymbol = semanticModel.GetSymbolInfo(elementAccess).Symbol;
+        if (elementSymbol is IPropertySymbol indexerProperty &&
+            IsNullableType(indexerProperty.Type))
+        {
+            nullableElementType = indexerProperty.Type;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static ITypeSymbol? GetNullableTypeFromExpressionTypeInfo(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        TypeInfo typeInfo = semanticModel.GetTypeInfo(expression);
+        ITypeSymbol? expressionType = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (expressionType != null && IsNullableType(expressionType))
+        {
+            return expressionType;
+        }
+
+        return expressionType?.IsReferenceType == true
+            ? expressionType.WithNullableAnnotation(NullableAnnotation.Annotated)
+            : null;
+    }
+
+    private static ITypeSymbol? GetNullableAnnotationFromExpressionTypeInfo(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        TypeInfo typeInfo = semanticModel.GetTypeInfo(expression);
+        ITypeSymbol? expressionType = typeInfo.Type ?? typeInfo.ConvertedType;
+        return expressionType != null && IsNullableType(expressionType)
+            ? expressionType
+            : null;
+    }
+
+    private static bool ExpressionCanProduceNull(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        expression = UnwrapParentheses(expression);
+        if (expression.IsKind(SyntaxKind.NullLiteralExpression))
+        {
+            return true;
+        }
+
+        if (expression.IsKind(SyntaxKind.DefaultLiteralExpression))
+        {
+            TypeInfo defaultTypeInfo = semanticModel.GetTypeInfo(expression);
+            ITypeSymbol? defaultType = defaultTypeInfo.ConvertedType ?? defaultTypeInfo.Type;
+            return defaultType == null || !IsNonNullableValueType(defaultType);
+        }
+
+        if (expression is DefaultExpressionSyntax defaultExpression)
+        {
+            TypeInfo defaultTypeInfo = semanticModel.GetTypeInfo(defaultExpression.Type);
+            ITypeSymbol? defaultType = defaultTypeInfo.Type ?? defaultTypeInfo.ConvertedType;
+            return defaultType == null || !IsNonNullableValueType(defaultType);
+        }
+
+        if (expression is PostfixUnaryExpressionSyntax suppression &&
+            suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+        {
+            return TryGetNullableSuppressedOperandType(suppression, semanticModel, out _);
+        }
+
+        return GetNullableExpressionDeclaredType(expression, semanticModel) != null;
+    }
+
+    private static ExpressionSyntax UnwrapParentheses(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesizedExpression)
+        {
+            expression = parenthesizedExpression.Expression;
+        }
+
+        return expression;
+    }
+
+    private static bool IsSuppressedNullableReceiverDereferenced(
+        PostfixUnaryExpressionSyntax suppression,
+        SemanticModel semanticModel)
+    {
+        ExpressionSyntax receiverExpression = suppression;
+        SyntaxNode? parent = receiverExpression.Parent;
+        while (parent != null)
+        {
+            if (parent is ParenthesizedExpressionSyntax parenthesizedExpression &&
+                parenthesizedExpression.Expression == receiverExpression)
+            {
+                receiverExpression = parenthesizedExpression;
+                parent = parenthesizedExpression.Parent;
+                continue;
+            }
+
+            if (parent is CastExpressionSyntax castExpression &&
+                castExpression.Expression == receiverExpression)
+            {
+                receiverExpression = castExpression;
+                parent = castExpression.Parent;
+                continue;
+            }
+
+            if (parent is ConditionalExpressionSyntax conditionalExpression &&
+                (conditionalExpression.WhenTrue == receiverExpression ||
+                 conditionalExpression.WhenFalse == receiverExpression))
+            {
+                receiverExpression = conditionalExpression;
+                parent = conditionalExpression.Parent;
+                continue;
+            }
+
+            if (parent is BinaryExpressionSyntax coalesceExpression &&
+                coalesceExpression.IsKind(SyntaxKind.CoalesceExpression) &&
+                coalesceExpression.Right == receiverExpression)
+            {
+                if (!ExpressionCanProduceNullAt(coalesceExpression.Left, coalesceExpression, semanticModel))
+                {
+                    return false;
+                }
+
+                receiverExpression = coalesceExpression;
+                parent = coalesceExpression.Parent;
+                continue;
+            }
+
+            break;
+        }
+
+        if (parent is ElementAccessExpressionSyntax elementAccess &&
+            elementAccess.Expression == receiverExpression)
+        {
+            return true;
+        }
+
+        if (parent is InvocationExpressionSyntax invocation &&
+            invocation.Expression == receiverExpression)
+        {
+            return true;
+        }
+
+        if (parent is not MemberAccessExpressionSyntax memberAccess ||
+            memberAccess.Expression != receiverExpression)
+        {
+            return false;
+        }
+
+        return !IsSafeNullableValueMemberAccess(memberAccess) &&
+               !IsExtensionMethodReceiverAccess(memberAccess, semanticModel);
     }
 
     private static bool TryGetNullableDereferencedReceiver(
@@ -664,6 +1724,11 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         foreach (MemberAccessExpressionSyntax memberAccess in expression.DescendantNodesAndSelf().OfType<MemberAccessExpressionSyntax>())
         {
             if (IsSafeNullableValueMemberAccess(memberAccess))
+            {
+                continue;
+            }
+
+            if (IsGuardedSuppressedNullableReceiverAccess(memberAccess, semanticModel))
             {
                 continue;
             }
@@ -717,6 +1782,13 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             return TryGetSourceMemberPathFromExpression(invocationMemberAccess.Expression, out sourceMemberPath);
         }
 
+        expression = UnwrapParentheses(expression);
+        if (expression is PostfixUnaryExpressionSyntax suppression &&
+            suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+        {
+            expression = UnwrapParentheses(suppression.Operand);
+        }
+
         if (expression is not MemberAccessExpressionSyntax memberAccess)
         {
             return false;
@@ -724,12 +1796,26 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
 
         var pathSegments = new Stack<string>();
         ExpressionSyntax currentExpression = memberAccess;
-        while (currentExpression is MemberAccessExpressionSyntax currentMemberAccess)
+        while (true)
         {
+            currentExpression = UnwrapParentheses(currentExpression);
+            if (currentExpression is PostfixUnaryExpressionSyntax currentSuppression &&
+                currentSuppression.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+            {
+                currentExpression = currentSuppression.Operand;
+                continue;
+            }
+
+            if (currentExpression is not MemberAccessExpressionSyntax currentMemberAccess)
+            {
+                break;
+            }
+
             pathSegments.Push(currentMemberAccess.Name.Identifier.ValueText);
             currentExpression = currentMemberAccess.Expression;
         }
 
+        currentExpression = UnwrapParentheses(currentExpression);
         if (currentExpression is not IdentifierNameSyntax || pathSegments.Count == 0)
         {
             return false;
@@ -860,7 +1946,8 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType,
         ITypeSymbol destinationPropertyType,
-        bool isElementNullability = false)
+        bool isElementNullability = false,
+        string? sourceDisplayTypeName = null)
     {
         string sourceTypeName = sourcePropertyType.ToDisplayString();
         string destTypeName = destinationPropertyType.ToDisplayString();
@@ -880,7 +1967,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             invocation.GetLocation(),
             properties.ToImmutable(),
             destinationPropertyName,
-            GetDiagnosticTypeName(sourceType),
+            sourceDisplayTypeName ?? GetDiagnosticTypeName(sourceType),
             sourcePropertyName,
             sourceTypeName,
             GetDiagnosticTypeName(destinationType),

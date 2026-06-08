@@ -425,11 +425,151 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
             return false;
         }
 
-        TypeInfo typeInfo = semanticModel.GetTypeInfo(body);
-        ITypeSymbol? bodyType = typeInfo.Type ?? typeInfo.ConvertedType;
-        return bodyType != null &&
-               IsNullableType(bodyType) &&
+        ExpressionSyntax nullableCandidate = GetNullableCoalescingCandidate(body);
+        bool expressionCanProduceNull =
+            ExpressionCanProduceNull(nullableCandidate, semanticModel) ||
+            ExpressionContainsNullForgivingResultRisk(body, semanticModel);
+        return expressionCanProduceNull &&
+               CoalescedExpressionCanAcceptFallback(body, semanticModel) &&
+               !ExpressionDereferencesSuppressedNullableReceiver(body, semanticModel) &&
                !ExpressionDereferencesNullableReceiver(body, semanticModel);
+    }
+
+    private static bool ExpressionContainsNullForgivingResultRisk(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        return expression
+            .DescendantNodesAndSelf()
+            .OfType<PostfixUnaryExpressionSyntax>()
+            .Any(suppression =>
+                suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression) &&
+                ExpressionCanProduceNull(UnwrapParentheses(suppression.Operand), semanticModel) &&
+                SuppressedValueCanFlowToExpressionResult(suppression, expression, semanticModel));
+    }
+
+    private static bool SuppressedValueCanFlowToExpressionResult(
+        PostfixUnaryExpressionSyntax suppression,
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        SyntaxNode current = suppression;
+        while (current != expression)
+        {
+            SyntaxNode? parent = current.Parent;
+            switch (parent)
+            {
+                case ParenthesizedExpressionSyntax parenthesizedExpression
+                    when parenthesizedExpression.Expression == current:
+                    current = parenthesizedExpression;
+                    break;
+                case CastExpressionSyntax castExpression
+                    when castExpression.Expression == current &&
+                         CoalescedExpressionCanAcceptFallback(castExpression, semanticModel):
+                    current = castExpression;
+                    break;
+                case ConditionalExpressionSyntax conditionalExpression
+                    when conditionalExpression.WhenTrue == current || conditionalExpression.WhenFalse == current:
+                    current = conditionalExpression;
+                    break;
+                case SwitchExpressionArmSyntax switchArm
+                    when switchArm.Expression == current:
+                    current = switchArm;
+                    break;
+                case SwitchExpressionSyntax switchExpression
+                    when current is SwitchExpressionArmSyntax arm &&
+                         switchExpression.Arms.Any(candidate => candidate == arm):
+                    current = switchExpression;
+                    break;
+                case BinaryExpressionSyntax coalesceExpression
+                    when coalesceExpression.IsKind(SyntaxKind.CoalesceExpression) &&
+                         coalesceExpression.Right == current:
+                    if (!ExpressionCanProduceNull(coalesceExpression.Left, semanticModel) &&
+                        !ExpressionContainsNullForgivingResultRisk(coalesceExpression.Left, semanticModel))
+                    {
+                        return false;
+                    }
+
+                    current = coalesceExpression;
+                    break;
+                default:
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool CoalescedExpressionCanAcceptFallback(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        TypeInfo typeInfo = semanticModel.GetTypeInfo(expression);
+        ITypeSymbol? expressionType = typeInfo.Type ?? typeInfo.ConvertedType;
+        return expressionType == null || !IsNonNullableValueType(expressionType);
+    }
+
+    private static ExpressionSyntax GetNullableCoalescingCandidate(ExpressionSyntax expression)
+    {
+        expression = UnwrapParentheses(expression);
+
+        return expression is PostfixUnaryExpressionSyntax suppression &&
+               suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression)
+            ? suppression.Operand
+            : expression;
+    }
+
+    private static ExpressionSyntax UnwrapParentheses(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesizedExpression)
+        {
+            expression = parenthesizedExpression.Expression;
+        }
+
+        return expression;
+    }
+
+    private static bool ExpressionCanProduceNull(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        if (expression is DefaultExpressionSyntax defaultExpression)
+        {
+            TypeInfo defaultTypeInfo = semanticModel.GetTypeInfo(defaultExpression.Type);
+            ITypeSymbol? defaultType = defaultTypeInfo.Type ?? defaultTypeInfo.ConvertedType;
+            return defaultType == null || !IsNonNullableValueType(defaultType);
+        }
+
+        if (expression.IsKind(SyntaxKind.DefaultLiteralExpression))
+        {
+            TypeInfo defaultTypeInfo = semanticModel.GetTypeInfo(expression);
+            ITypeSymbol? defaultType = defaultTypeInfo.Type ?? defaultTypeInfo.ConvertedType;
+            return defaultType == null || !IsNonNullableValueType(defaultType);
+        }
+
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(expression);
+        ISymbol? symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
+        ITypeSymbol? symbolType = symbol switch
+        {
+            IPropertySymbol property => property.Type,
+            IFieldSymbol field => field.Type,
+            ILocalSymbol local => local.Type,
+            IParameterSymbol parameter => parameter.Type,
+            _ => null
+        };
+        if (symbolType != null)
+        {
+            return IsNullableType(symbolType);
+        }
+
+        TypeInfo typeInfo = semanticModel.GetTypeInfo(expression);
+        ITypeSymbol? expressionType = typeInfo.Type ?? typeInfo.ConvertedType;
+        return expressionType != null && IsNullableType(expressionType);
+    }
+
+    private static bool IsNonNullableValueType(ITypeSymbol type)
+    {
+        return type.IsValueType && !IsNullableType(type);
     }
 
     private static bool ExpressionDereferencesNullableReceiver(
@@ -443,6 +583,88 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
                 !IsSafeNullableValueMemberAccess(memberAccess) &&
                 !IsExtensionMethodReceiverAccess(memberAccess, semanticModel) &&
                 IsNullableExpression(memberAccess.Expression, semanticModel));
+    }
+
+    private static bool ExpressionDereferencesSuppressedNullableReceiver(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        return expression
+            .DescendantNodesAndSelf()
+            .OfType<PostfixUnaryExpressionSyntax>()
+            .Any(suppression =>
+                suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression) &&
+                IsNullableExpression(suppression.Operand, semanticModel) &&
+                IsSuppressedNullableReceiverDereferenced(suppression, semanticModel));
+    }
+
+    private static bool IsSuppressedNullableReceiverDereferenced(
+        PostfixUnaryExpressionSyntax suppression,
+        SemanticModel semanticModel)
+    {
+        ExpressionSyntax receiverExpression = suppression;
+        SyntaxNode? parent = receiverExpression.Parent;
+        while (parent != null)
+        {
+            if (parent is ParenthesizedExpressionSyntax parenthesizedExpression &&
+                parenthesizedExpression.Expression == receiverExpression)
+            {
+                receiverExpression = parenthesizedExpression;
+                parent = parenthesizedExpression.Parent;
+                continue;
+            }
+
+            if (parent is CastExpressionSyntax castExpression &&
+                castExpression.Expression == receiverExpression)
+            {
+                receiverExpression = castExpression;
+                parent = castExpression.Parent;
+                continue;
+            }
+
+            if (parent is ConditionalExpressionSyntax conditionalExpression &&
+                (conditionalExpression.WhenTrue == receiverExpression ||
+                 conditionalExpression.WhenFalse == receiverExpression))
+            {
+                receiverExpression = conditionalExpression;
+                parent = conditionalExpression.Parent;
+                continue;
+            }
+
+            if (parent is BinaryExpressionSyntax coalesceExpression &&
+                coalesceExpression.IsKind(SyntaxKind.CoalesceExpression) &&
+                coalesceExpression.Right == receiverExpression)
+            {
+                if (!ExpressionCanProduceNull(coalesceExpression.Left, semanticModel) &&
+                    !ExpressionContainsNullForgivingResultRisk(coalesceExpression.Left, semanticModel))
+                {
+                    return false;
+                }
+
+                receiverExpression = coalesceExpression;
+                parent = coalesceExpression.Parent;
+                continue;
+            }
+
+            break;
+        }
+
+        if (parent is ElementAccessExpressionSyntax elementAccess &&
+            elementAccess.Expression == receiverExpression)
+        {
+            return true;
+        }
+
+        if (parent is InvocationExpressionSyntax invocation &&
+            invocation.Expression == receiverExpression)
+        {
+            return true;
+        }
+
+        return parent is MemberAccessExpressionSyntax memberAccess &&
+               memberAccess.Expression == receiverExpression &&
+               !IsSafeNullableValueMemberAccess(memberAccess) &&
+               !IsExtensionMethodReceiverAccess(memberAccess, semanticModel);
     }
 
     private static bool IsExtensionMethodReceiverAccess(
@@ -472,6 +694,22 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
         ExpressionSyntax expression,
         SemanticModel semanticModel)
     {
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(expression);
+        ISymbol? symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
+        ITypeSymbol? symbolType = symbol switch
+        {
+            IPropertySymbol property => property.Type,
+            IFieldSymbol field => field.Type,
+            ILocalSymbol local => local.Type,
+            IParameterSymbol parameter => parameter.Type,
+            IMethodSymbol method => method.ReturnType,
+            _ => null
+        };
+        if (symbolType != null)
+        {
+            return IsNullableType(symbolType);
+        }
+
         TypeInfo typeInfo = semanticModel.GetTypeInfo(expression);
         ITypeSymbol? expressionType = typeInfo.Type ?? typeInfo.ConvertedType;
         return expressionType != null && IsNullableType(expressionType);
@@ -537,8 +775,8 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
 
     private static bool NeedsParenthesesForCoalesce(ExpressionSyntax expression)
     {
-        return expression is AssignmentExpressionSyntax or ConditionalExpressionSyntax ||
-               expression is BinaryExpressionSyntax && !expression.IsKind(SyntaxKind.CoalesceExpression);
+        return expression is AssignmentExpressionSyntax or ConditionalExpressionSyntax or SwitchExpressionSyntax ||
+               expression is BinaryExpressionSyntax;
     }
 
     private static bool TryAppendMapFromExpression(
