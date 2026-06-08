@@ -783,9 +783,9 @@ second reverse diagnostic for the same collection until the forward direction is
 
 If collection containers are incompatible (`HashSet<T>` vs `List<T>`, `Queue<T>` vs `Stack<T>`, etc.), `AM003` owns the diagnostic. AM003 stays quiet when the source collection is already assignable to the destination collection contract.
 
-Dictionary value/key mismatches are treated as `KeyValuePair<TKey, TValue>` element mismatches. For those diagnostics the fixer intentionally offers only the manual ignore action, because adding a `CreateMap<KeyValuePair<...>, KeyValuePair<...>>()` registration is not a reliable executable rewrite.
+Dictionary value/key mismatches are treated as `KeyValuePair<TKey, TValue>` element mismatches. Safe primitive key/value axis conversions receive a `ToDictionary(...)` rewrite; complex or partial dictionary mismatches stay on the manual ignore action because adding a `CreateMap<KeyValuePair<...>, KeyValuePair<...>>()` registration is not a reliable executable rewrite.
 
-For simple element conversions, AM021 generates `global::System.Convert`, `global::System.DateTime`, and `global::System.Guid` calls so the fix remains stable even when the project contains types with the same short names.
+For simple element conversions, AM021 generates `global::System.Convert`, `global::System.DateTime`, and `global::System.Guid` calls so the fix remains stable even when the project contains types with the same short names. Generated `MapFrom` expressions also escape keyword source members, so a source property named `@class` maps as `src.@class`.
 
 #### Solution
 
