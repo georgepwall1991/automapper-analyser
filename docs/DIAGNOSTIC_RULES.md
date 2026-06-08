@@ -1212,7 +1212,7 @@ manual-review action only so the fixer does not change runtime mapping policy.
 
 - ✅ Database queries (EF Core, Dapper, SQL)
 - ✅ File I/O operations
-- ✅ HTTP/API calls
+- ✅ HTTP/API calls through known `System.Net` HTTP APIs; user-defined `HttpClient*` namesakes stay quiet
 - ✅ Reflection operations
 - ✅ Multiple collection enumerations
 - ✅ `DateTime.Now`, `Random`, `Guid.NewGuid()`

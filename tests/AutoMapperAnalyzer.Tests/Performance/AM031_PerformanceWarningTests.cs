@@ -1216,6 +1216,47 @@ public class AM031_PerformanceWarningTests
     }
 
     [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_WhenUserDefinedTypeNameContainsHttpClient()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public static class HttpClientNameFormatter
+                                    {
+                                        public static string Normalize(string name) => name.Trim();
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string ClientName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string DisplayName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.DisplayName, opt => opt.MapFrom(src => HttpClientNameFormatter.Normalize(src.ClientName)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM031_ShouldReportDiagnostic_WhenTaskResultUsedInMapFrom()
     {
         const string testCode = """
