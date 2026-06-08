@@ -238,8 +238,9 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            string? selectedMember =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberName(mappingCall.ArgumentList.Arguments[0].Expression);
+            string? selectedMember = AM020MappingConfigurationHelpers.GetConfiguredDestinationMemberName(
+                mappingCall,
+                semanticModel);
             if (selectedMember == null)
             {
                 continue;

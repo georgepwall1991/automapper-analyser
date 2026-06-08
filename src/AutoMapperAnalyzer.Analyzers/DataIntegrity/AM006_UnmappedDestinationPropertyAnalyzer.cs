@@ -330,9 +330,9 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            ArgumentSyntax destinationArgument = mappingCall.ArgumentList.Arguments[0];
-            string? selectedMember =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberName(destinationArgument.Expression);
+            string? selectedMember = AM020MappingConfigurationHelpers.GetConfiguredDestinationMemberName(
+                mappingCall,
+                semanticModel);
             if (selectedMember == null)
             {
                 continue;

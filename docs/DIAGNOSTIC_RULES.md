@@ -506,7 +506,7 @@ CreateMap<Source, Destination>()
 
 #### Safe Cases
 
-AM006 does not report when the destination member is matched by convention, configured with `ForMember` or `ForPath`, covered by flattening, explicitly initialized in every returned `ConstructUsing` object initializer, or when `ConvertUsing` owns destination object creation.
+AM006 does not report when the destination member is matched by convention, configured with `ForMember` or `ForPath`, covered by flattening, explicitly initialized in every returned `ConstructUsing` object initializer, or when `ConvertUsing` owns destination object creation. String-based `ForMember("Name", ...)` configuration must name the exact top-level destination member; dotted destination paths should use `ForPath`.
 
 #### Configuration
 
@@ -580,7 +580,7 @@ CreateMap<Source, Destination>()
     .ForPath(dest => dest.Email, opt => opt.MapFrom(src => src.ContactEmail));
 ```
 
-`AM011` treats `ForMember`, `ForPath`, and `ForCtorParam` as explicit required-member configuration. It also stays quiet when custom construction or conversion is present because those paths can initialize required members outside ordinary member mapping.
+`AM011` treats `ForMember`, `ForPath`, and `ForCtorParam` as explicit required-member configuration. String-based `ForMember("Name", ...)` configuration must name the exact top-level required member; dotted destination paths should use `ForPath`. It also stays quiet when custom construction or conversion is present because those paths can initialize required members outside ordinary member mapping.
 
 **Option 4: Make Property Optional**
 
