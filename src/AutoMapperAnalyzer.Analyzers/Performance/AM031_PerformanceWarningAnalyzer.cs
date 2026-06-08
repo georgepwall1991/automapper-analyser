@@ -447,7 +447,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             }
 
             // Check for external method calls (not on source properties)
-            if (IsExternalMethodCall(invocation, context.SemanticModel))
+            if (IsExternalMethodCall(invocation, context.SemanticModel, sourceParameterName))
             {
                 if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
                 {
@@ -1003,7 +1003,10 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsExternalMethodCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static bool IsExternalMethodCall(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel,
+        string? sourceParameterName)
     {
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
         {
@@ -1032,7 +1035,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         // Exclude simple LINQ extension methods on the source object
         string[] simpleLinqMethods =
             new[] { "Select", "Where", "OrderBy", "OrderByDescending", "ThenBy", "ThenByDescending" };
-        if (simpleLinqMethods.Contains(methodSymbol.Name) && IsCalledOnSourceProperty(memberAccess))
+        if (simpleLinqMethods.Contains(methodSymbol.Name) &&
+            IsCalledOnSourceProperty(memberAccess, sourceParameterName))
         {
             return false;
         }
@@ -1048,10 +1052,11 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsCalledOnSourceProperty(MemberAccessExpressionSyntax memberAccess)
+    private static bool IsCalledOnSourceProperty(
+        MemberAccessExpressionSyntax memberAccess,
+        string? sourceParameterName)
     {
-        string expression = memberAccess.Expression.ToString();
-        return expression.StartsWith("src.") || expression == "src";
+        return TryGetSourceCollectionPath(memberAccess.Expression, sourceParameterName, out _);
     }
 
     private static bool IsExpensiveComputation(LambdaExpressionSyntax lambda)
