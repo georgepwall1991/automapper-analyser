@@ -369,7 +369,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
     private static string GetConverterKey(INamedTypeSymbol symbol)
     {
-        return symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        return symbol.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
     }
 
     private static void AnalyzeTypeConverterImplementation(

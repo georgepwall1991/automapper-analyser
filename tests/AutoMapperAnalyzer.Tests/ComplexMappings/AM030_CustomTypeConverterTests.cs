@@ -377,6 +377,39 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM033_ShouldNotReportDiagnostic_WhenGenericConverterIsUsedWithConstructedType()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class GenericConverter<T> : ITypeConverter<T, string>
+                                    {
+                                        public string Convert(T source, string destination, ResolutionContext context)
+                                        {
+                                            return source?.ToString() ?? string.Empty;
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<int, string>().ConvertUsing<GenericConverter<int>>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldNotReportDiagnostic_WhenTypeConverterInstanceIsPassedToConvertUsing()
     {
         const string testCode = """
