@@ -495,11 +495,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
         bool hasStringHelperNullCheck = nodes
             .OfType<InvocationExpressionSyntax>()
-            .Any(invocation =>
-                invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-                memberAccess.Name.Identifier.ValueText is "IsNullOrEmpty" or "IsNullOrWhiteSpace" &&
-                IsStringTypeAccess(memberAccess.Expression) &&
-                invocation.ArgumentList.Arguments.Any(arg => IsSourceReference(arg.Expression, sourceParameterName)));
+            .Any(invocation => IsStringHelperNullGuard(invocation, sourceParameterName));
 
         if (hasStringHelperNullCheck)
         {
@@ -569,6 +565,82 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             IdentifierNameSyntax identifierName => identifierName.Identifier.ValueText is "String" or "string",
             _ => false
         };
+    }
+
+    private static bool IsStringHelperNullGuard(InvocationExpressionSyntax invocation, string sourceParameterName)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess ||
+            memberAccess.Name.Identifier.ValueText is not ("IsNullOrEmpty" or "IsNullOrWhiteSpace") ||
+            !IsStringTypeAccess(memberAccess.Expression) ||
+            !invocation.ArgumentList.Arguments.Any(arg => IsSourceReference(arg.Expression, sourceParameterName)))
+        {
+            return false;
+        }
+
+        return IsUsedAsGuardCondition(invocation) ||
+               TryGetLocalGuardName(invocation, out string localName) &&
+               IsLocalUsedAsGuardCondition(invocation, localName);
+    }
+
+    private static bool IsUsedAsGuardCondition(ExpressionSyntax expression)
+    {
+        foreach (SyntaxNode ancestor in expression.Ancestors())
+        {
+            if (ancestor is IfStatementSyntax ifStatement &&
+                ifStatement.Condition.Span.Contains(expression.Span))
+            {
+                return true;
+            }
+
+            if (ancestor is ConditionalExpressionSyntax conditional &&
+                conditional.Condition.Span.Contains(expression.Span))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryGetLocalGuardName(ExpressionSyntax expression, out string localName)
+    {
+        localName = string.Empty;
+        VariableDeclaratorSyntax? variable = expression.FirstAncestorOrSelf<VariableDeclaratorSyntax>();
+        if (variable is { Initializer.Value: { } initializer } &&
+            initializer.Span.Contains(expression.Span))
+        {
+            localName = variable.Identifier.ValueText;
+            return !string.IsNullOrEmpty(localName);
+        }
+
+        AssignmentExpressionSyntax? assignment = expression.FirstAncestorOrSelf<AssignmentExpressionSyntax>();
+        if (assignment is { Left: IdentifierNameSyntax identifier } &&
+            assignment.Right.Span.Contains(expression.Span))
+        {
+            localName = identifier.Identifier.ValueText;
+            return !string.IsNullOrEmpty(localName);
+        }
+
+        return false;
+    }
+
+    private static bool IsLocalUsedAsGuardCondition(ExpressionSyntax expression, string localName)
+    {
+        MethodDeclarationSyntax method = expression.FirstAncestorOrSelf<MethodDeclarationSyntax>()!;
+
+        return method.DescendantNodes()
+            .Any(node =>
+                node is IfStatementSyntax ifStatement &&
+                ContainsIdentifier(ifStatement.Condition, localName) ||
+                node is ConditionalExpressionSyntax conditional &&
+                ContainsIdentifier(conditional.Condition, localName));
+    }
+
+    private static bool ContainsIdentifier(ExpressionSyntax expression, string identifierName)
+    {
+        return expression.DescendantNodesAndSelf()
+            .OfType<IdentifierNameSyntax>()
+            .Any(identifier => string.Equals(identifier.Identifier.ValueText, identifierName, StringComparison.Ordinal));
     }
 
     private static bool TryGetGuardArgument(ArgumentListSyntax argumentList, out ExpressionSyntax guardedExpression)

@@ -82,6 +82,190 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM030_ShouldReportDiagnostic_WhenStringHelperResultIsIgnored()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class IgnoredStringHelperConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            string.IsNullOrWhiteSpace(source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<IgnoredStringHelperConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule, 8, 25,
+                "IgnoredStringHelperConverter", "String")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenStringHelperGuardsConditionalExpression()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class ConditionalGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context) =>
+                                            string.IsNullOrWhiteSpace(source) ? DateTime.MinValue : DateTime.Parse(source);
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<ConditionalGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenStringHelperGuardIsStoredInLocal()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class LocalGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            var missing = string.IsNullOrWhiteSpace(source);
+                                            if (missing)
+                                            {
+                                                return DateTime.MinValue;
+                                            }
+
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<LocalGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenStringHelperGuardIsAssignedToLocal()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class AssignedLocalGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            bool missing;
+                                            missing = string.IsNullOrWhiteSpace(source);
+                                            if (missing)
+                                            {
+                                                return DateTime.MinValue;
+                                            }
+
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<AssignedLocalGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenLocalStringHelperGuardControlsConditionalExpression()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class LocalConditionalGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            var missing = string.IsNullOrWhiteSpace(source);
+                                            return missing ? DateTime.MinValue : DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<LocalConditionalGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldNotReportDiagnostic_WhenConverterUsesArgumentNullExceptionThrowIfNull()
     {
         const string testCode = """
