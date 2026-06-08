@@ -980,6 +980,8 @@ public class StringToIntConverter : ITypeConverter<string, int>
 ```
 
 AM030 is analyzer-only; it does not offer a speculative rewrite for invalid converter implementations.
+Abstract converter declarations without a concrete `Convert` body are not reported by AM030; concrete inherited
+implementations remain auditable.
 
 #### Configuration
 
@@ -999,7 +1001,8 @@ parameter before using it. Detection recognizes `== null`/`!= null`, null patter
 `string.IsNullOrEmpty`/`IsNullOrWhiteSpace`, null-coalescing, conditional access, and modern guard clauses such as
 `ArgumentNullException.ThrowIfNull(source)`, `ArgumentException.ThrowIfNullOrEmpty(source)`, and
 `ArgumentException.ThrowIfNullOrWhiteSpace(source)`. Guard calls whose first argument is unrelated to the source
-parameter still report.
+parameter still report. Abstract converter method declarations without a body are not reported because their concrete
+overrides own the runtime null-handling behaviour; inherited concrete base implementations are still audited.
 
 #### Problem
 

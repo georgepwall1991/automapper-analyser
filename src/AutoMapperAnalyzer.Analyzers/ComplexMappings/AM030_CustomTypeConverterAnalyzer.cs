@@ -410,6 +410,11 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        if (convertMethod.IsAbstract)
+        {
+            return;
+        }
+
         string sourceParameterName = convertMethod.Parameters.FirstOrDefault()?.Name ?? "source";
 
         MethodDeclarationSyntax? convertMethodDeclaration = classDeclaration.Members
