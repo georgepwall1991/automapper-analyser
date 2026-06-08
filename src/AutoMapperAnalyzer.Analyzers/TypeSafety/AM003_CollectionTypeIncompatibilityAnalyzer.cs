@@ -14,6 +14,7 @@ namespace AutoMapperAnalyzer.Analyzers.TypeSafety;
 public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
 {
     internal const string PropertyNamePropertyName = "PropertyName";
+    internal const string DestinationPropertyNamePropertyName = "DestinationPropertyName";
     internal const string SourcePropertyTypePropertyName = "SourcePropertyType";
     internal const string DestinationPropertyTypePropertyName = "DestinationPropertyType";
     internal const string SourceElementTypePropertyName = "SourceElementType";
@@ -172,6 +173,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
             ImmutableDictionary<string, string?>.Builder properties =
                 ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add(PropertyNamePropertyName, sourceProperty.Name);
+            properties.Add(DestinationPropertyNamePropertyName, destinationProperty.Name);
             properties.Add(SourcePropertyTypePropertyName, sourceTypeName);
             properties.Add(DestinationPropertyTypePropertyName, destTypeName);
             properties.Add(SourceElementTypePropertyName, sourceElementType.ToDisplayString());
