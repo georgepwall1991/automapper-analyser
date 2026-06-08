@@ -107,6 +107,77 @@ public class AM003_CodeFixTests
     }
 
     [Fact]
+    public async Task AM003_ShouldEscapeKeywordSourceProperty_WhenApplyingCollectionConversionFix()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public HashSet<string> @class { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<string> Class { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public HashSet<string> @class { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public List<string> Class { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Class, opt => opt.MapFrom(src => src.@class.ToList()));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+            21,
+            13,
+            expectedFixedCode,
+            "class",
+            "Source",
+            "System.Collections.Generic.HashSet<string>",
+            "Destination",
+            "System.Collections.Generic.List<string>");
+    }
+
+    [Fact]
     public async Task AM003_ShouldNotReportDiagnostic_WhenElementTypesAreIncompatible()
     {
         const string testCode = """

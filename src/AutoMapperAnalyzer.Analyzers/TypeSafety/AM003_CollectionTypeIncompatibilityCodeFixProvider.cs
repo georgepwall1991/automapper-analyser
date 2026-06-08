@@ -48,10 +48,16 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         foreach (Diagnostic diagnostic in diagnostics)
         {
             if (!TryGetStringProperty(diagnostic, AM003_CollectionTypeIncompatibilityAnalyzer.PropertyNamePropertyName,
-                    out string? safePropertyName))
+                    out string? safeSourcePropertyName))
             {
                 continue;
             }
+            string? safeDestinationPropertyName = TryGetStringProperty(
+                    diagnostic,
+                    AM003_CollectionTypeIncompatibilityAnalyzer.DestinationPropertyNamePropertyName,
+                    out string? destinationPropertyName)
+                ? destinationPropertyName
+                : safeSourcePropertyName;
 
             InvocationExpressionSyntax? invocation = GetCreateMapInvocation(operationContext.Root, diagnostic);
             if (invocation == null)
@@ -87,7 +93,8 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                 continue;
             }
 
-            string propertyName = safePropertyName!;
+            string sourcePropertyName = safeSourcePropertyName!;
+            string destinationPropertyNameForFix = safeDestinationPropertyName!;
             string sourceCollectionType = safeSourceType!;
             string destinationCollectionType = safeDestType!;
             string sourceElementType = safeSourceElementType!;
@@ -101,13 +108,13 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
             if (diagnostic.Descriptor == AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule)
             {
                 (string Title, string Expression, bool RequiresLinq, string EquivalenceKey)[] fixes =
-                    CreateCollectionFixes(propertyName, sourceCollectionType, destinationCollectionType, sourceElementType,
+                    CreateCollectionFixes(sourcePropertyName, destinationPropertyNameForFix, sourceCollectionType, destinationCollectionType, sourceElementType,
                         destinationElementType, elementImplicitlyConvertible)
                     .ToArray();
 
                 if (fixes.Length == 0)
                 {
-                    RegisterIgnoreFix(context, operationContext.Root, invocation, propertyName, diagnostic);
+                    RegisterIgnoreFix(context, operationContext.Root, invocation, destinationPropertyNameForFix, diagnostic);
                     continue;
                 }
 
@@ -116,13 +123,13 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                     context.RegisterCodeFix(
                         CodeAction.Create(
                             fix.Title,
-                            ct => AddMapFromAsync(context.Document, operationContext.Root, invocation, propertyName,
+                            ct => AddMapFromAsync(context.Document, operationContext.Root, invocation, destinationPropertyNameForFix,
                                 fix.Expression, fix.RequiresLinq, ct),
                             fix.EquivalenceKey),
                         diagnostic);
                 }
 
-                RegisterIgnoreFix(context, operationContext.Root, invocation, propertyName, diagnostic);
+                RegisterIgnoreFix(context, operationContext.Root, invocation, destinationPropertyNameForFix, diagnostic);
             }
             else
             {
@@ -131,20 +138,20 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                 {
                     context.RegisterCodeFix(
                         CodeAction.Create(
-                            $"Convert {propertyName} elements using Select()",
+                            $"Convert {destinationPropertyNameForFix} elements using Select()",
                             ct => AddMapFromAsync(
                                 context.Document,
                                 operationContext.Root,
                                 invocation,
-                                propertyName,
-                                $"src.{propertyName}.Select({conversionLambda})",
+                                destinationPropertyNameForFix,
+                                $"src.{CodeFixSyntaxHelper.EscapeIdentifier(sourcePropertyName)}.Select({conversionLambda})",
                                 true,
                                 ct),
-                            $"AM003_Select_{propertyName}"),
+                            $"AM003_Select_{destinationPropertyNameForFix}"),
                         diagnostic);
                 }
 
-                RegisterIgnoreFix(context, operationContext.Root, invocation, propertyName, diagnostic);
+                RegisterIgnoreFix(context, operationContext.Root, invocation, destinationPropertyNameForFix, diagnostic);
             }
         }
     }
@@ -211,7 +218,8 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
 
     private static IEnumerable<(string Title, string Expression, bool RequiresLinq, string EquivalenceKey)>
         CreateCollectionFixes(
-            string propertyName,
+            string sourcePropertyName,
+            string destinationPropertyName,
             string sourceType,
             string destType,
             string sourceElementType,
@@ -220,6 +228,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
     {
         var fixes = new List<(string Title, string Expression, bool RequiresLinq, string EquivalenceKey)>();
         string simplifiedDestType = SimplifyCollectionType(destType);
+        string sourcePropertyAccess = $"src.{CodeFixSyntaxHelper.EscapeIdentifier(sourcePropertyName)}";
 
         // Determine if element conversion is needed
         string elementConversionLambda = GetElementConversion(sourceElementType, destElementType);
@@ -253,19 +262,20 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                 if (isConstructor)
                 {
                     // new List<T>(src.Prop.Select(x => ...))
-                    return collectionConversion.Replace($"src.{propertyName}",
-                        $"src.{propertyName}.Select({elementConversionLambda})");
+                    return collectionConversion.Replace(sourcePropertyAccess,
+                        $"{sourcePropertyAccess}.Select({elementConversionLambda})");
                 }
 
                 // src.Prop.Select(x => ...).ToList()
-                return $"src.{propertyName}.Select({elementConversionLambda}).{collectionConversion.Split('.').Last()}";
+                return $"{sourcePropertyAccess}.Select({elementConversionLambda}).{collectionConversion.Split('.').Last()}";
             }
 
             return collectionConversion;
         }
 
         if (TryCreateDestinationInterfaceFix(
-                propertyName,
+                destinationPropertyName,
+                sourcePropertyAccess,
                 destType,
                 needsElementConversion,
                 elementConversionLambda,
@@ -278,39 +288,40 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         if (Contains(sourceType, "HashSet") && IsKnownConcreteCollectionType(destType, "List"))
         {
             fixes.Add((
-                $"Convert {propertyName} using ToList()",
-                BuildExpression($"src.{propertyName}.ToList()"),
+                $"Convert {destinationPropertyName} using ToList()",
+                BuildExpression($"{sourcePropertyAccess}.ToList()"),
                 true, // Always true if using ToList or Select
-                $"AM003_ToList_{propertyName}"));
+                $"AM003_ToList_{destinationPropertyName}"));
         }
 
         if (Contains(sourceType, "Queue") && IsKnownConcreteCollectionType(destType, "List"))
         {
-            (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
+            (string title, string expr, _, string key) = CreateConstructorFix(destinationPropertyName, sourcePropertyAccess, simplifiedDestType);
             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         if (Contains(sourceType, "Stack") && IsKnownConcreteCollectionType(destType, "List"))
         {
-            (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
+            (string title, string expr, _, string key) = CreateConstructorFix(destinationPropertyName, sourcePropertyAccess, simplifiedDestType);
             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         if (Contains(sourceType, "List") && IsKnownConcreteCollectionType(destType, "Queue"))
         {
-            (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
+            (string title, string expr, _, string key) = CreateConstructorFix(destinationPropertyName, sourcePropertyAccess, simplifiedDestType);
             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         if (Contains(sourceType, "IEnumerable") &&
             (IsKnownConcreteCollectionType(destType, "Stack") || IsKnownConcreteCollectionType(destType, "HashSet")))
         {
-            (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
+            (string title, string expr, _, string key) = CreateConstructorFix(destinationPropertyName, sourcePropertyAccess, simplifiedDestType);
             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         if (TryCreateImmutableOrFrozenDestinationFix(
-                propertyName,
+                destinationPropertyName,
+                sourcePropertyAccess,
                 destType,
                 needsElementConversion,
                 elementConversionLambda,
@@ -324,37 +335,38 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         {
             // Arrays are IEnumerable, so AsEnumerable is fine, but if we need element conversion, we need Select
             string expr = needsElementConversion
-                ? $"src.{propertyName}.Select({elementConversionLambda})"
-                : $"src.{propertyName}.AsEnumerable()";
+                ? $"{sourcePropertyAccess}.Select({elementConversionLambda})"
+                : $"{sourcePropertyAccess}.AsEnumerable()";
 
             fixes.Add((
-                $"Convert {propertyName} using {(needsElementConversion ? "Select" : "AsEnumerable")}()",
+                $"Convert {destinationPropertyName} using {(needsElementConversion ? "Select" : "AsEnumerable")}()",
                 expr,
                 true,
-                $"AM003_AsEnumerable_{propertyName}"));
+                $"AM003_AsEnumerable_{destinationPropertyName}"));
         }
 
         if (!fixes.Any() && IsKnownConstructibleCollectionType(destType))
         {
-            (string title, string expr, _, string key) = CreateConstructorFix(propertyName, simplifiedDestType);
+            (string title, string expr, _, string key) = CreateConstructorFix(destinationPropertyName, sourcePropertyAccess, simplifiedDestType);
             fixes.Add((title, BuildExpression(expr, true), needsElementConversion, key));
         }
 
         return fixes;
 
         static (string Title, string Expression, bool RequiresLinq, string EquivalenceKey) CreateConstructorFix(
-            string propertyName, string simplifiedDestType)
+            string destinationPropertyName, string sourcePropertyAccess, string simplifiedDestType)
         {
             string targetType = string.IsNullOrWhiteSpace(simplifiedDestType)
                 ? "System.Collections.Generic.List<object>"
                 : simplifiedDestType;
-            return ($"Convert {propertyName} using collection constructor", $"new {targetType}(src.{propertyName})",
-                false, $"AM003_Constructor_{propertyName}");
+            return ($"Convert {destinationPropertyName} using collection constructor", $"new {targetType}({sourcePropertyAccess})",
+                false, $"AM003_Constructor_{destinationPropertyName}");
         }
     }
 
     private static bool TryCreateDestinationInterfaceFix(
-        string propertyName,
+        string destinationPropertyName,
+        string sourcePropertyAccess,
         string destinationType,
         bool needsElementConversion,
         string elementConversionLambda,
@@ -363,26 +375,26 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         if (IsListLikeInterface(destinationType))
         {
             string expression = needsElementConversion
-                ? $"src.{propertyName}.Select({elementConversionLambda}).ToList()"
-                : $"src.{propertyName}.ToList()";
+                ? $"{sourcePropertyAccess}.Select({elementConversionLambda}).ToList()"
+                : $"{sourcePropertyAccess}.ToList()";
             fix = (
-                $"Convert {propertyName} using ToList()",
+                $"Convert {destinationPropertyName} using ToList()",
                 expression,
                 true,
-                $"AM003_ToList_{propertyName}");
+                $"AM003_ToList_{destinationPropertyName}");
             return true;
         }
 
         if (IsSetLikeInterface(destinationType) && TryGetGenericArgument(destinationType, out string? elementType))
         {
             string sourceExpression = needsElementConversion
-                ? $"src.{propertyName}.Select({elementConversionLambda})"
-                : $"src.{propertyName}";
+                ? $"{sourcePropertyAccess}.Select({elementConversionLambda})"
+                : sourcePropertyAccess;
             fix = (
-                $"Convert {propertyName} using HashSet constructor",
+                $"Convert {destinationPropertyName} using HashSet constructor",
                 $"new global::System.Collections.Generic.HashSet<{elementType}>({sourceExpression})",
                 needsElementConversion,
-                $"AM003_HashSet_{propertyName}");
+                $"AM003_HashSet_{destinationPropertyName}");
             return true;
         }
 
@@ -391,53 +403,54 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
     }
 
     private static bool TryCreateImmutableOrFrozenDestinationFix(
-        string propertyName,
+        string destinationPropertyName,
+        string sourcePropertyAccess,
         string destinationType,
         bool needsElementConversion,
         string elementConversionLambda,
         out (string Title, string Expression, bool RequiresLinq, string EquivalenceKey) fix)
     {
         string sourceExpression = needsElementConversion
-            ? $"src.{propertyName}.Select({elementConversionLambda})"
-            : $"src.{propertyName}";
+            ? $"{sourcePropertyAccess}.Select({elementConversionLambda})"
+            : sourcePropertyAccess;
 
         if (IsKnownConcreteCollectionType(destinationType, "ImmutableList", "System.Collections.Immutable."))
         {
             fix = (
-                $"Convert {propertyName} using ImmutableList.CreateRange()",
+                $"Convert {destinationPropertyName} using ImmutableList.CreateRange()",
                 $"global::System.Collections.Immutable.ImmutableList.CreateRange({sourceExpression})",
                 needsElementConversion,
-                $"AM003_ImmutableList_{propertyName}");
+                $"AM003_ImmutableList_{destinationPropertyName}");
             return true;
         }
 
         if (IsKnownConcreteCollectionType(destinationType, "ImmutableArray", "System.Collections.Immutable."))
         {
             fix = (
-                $"Convert {propertyName} using ImmutableArray.CreateRange()",
+                $"Convert {destinationPropertyName} using ImmutableArray.CreateRange()",
                 $"global::System.Collections.Immutable.ImmutableArray.CreateRange({sourceExpression})",
                 needsElementConversion,
-                $"AM003_ImmutableArray_{propertyName}");
+                $"AM003_ImmutableArray_{destinationPropertyName}");
             return true;
         }
 
         if (IsKnownConcreteCollectionType(destinationType, "ImmutableHashSet", "System.Collections.Immutable."))
         {
             fix = (
-                $"Convert {propertyName} using ImmutableHashSet.CreateRange()",
+                $"Convert {destinationPropertyName} using ImmutableHashSet.CreateRange()",
                 $"global::System.Collections.Immutable.ImmutableHashSet.CreateRange({sourceExpression})",
                 needsElementConversion,
-                $"AM003_ImmutableHashSet_{propertyName}");
+                $"AM003_ImmutableHashSet_{destinationPropertyName}");
             return true;
         }
 
         if (IsKnownConcreteCollectionType(destinationType, "FrozenSet", "System.Collections.Frozen."))
         {
             fix = (
-                $"Convert {propertyName} using FrozenSet.ToFrozenSet()",
+                $"Convert {destinationPropertyName} using FrozenSet.ToFrozenSet()",
                 $"global::System.Collections.Frozen.FrozenSet.ToFrozenSet({sourceExpression})",
                 needsElementConversion,
-                $"AM003_FrozenSet_{propertyName}");
+                $"AM003_FrozenSet_{destinationPropertyName}");
             return true;
         }
 

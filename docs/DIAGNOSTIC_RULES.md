@@ -269,6 +269,8 @@ safe collection constructors, such as `SortedSet<T>` and `LinkedList<T>`, still 
 Immutable/frozen destination containers use fully qualified `ImmutableList.CreateRange(...)`,
 `ImmutableArray.CreateRange(...)`, `ImmutableHashSet.CreateRange(...)`, or `FrozenSet.ToFrozenSet(...)` factory calls so
 generated mappings remain executable without depending on user imports.
+When collection member names differ only by case, generated fixes target the actual destination member and escape C#
+keyword source members, for example `dest.Class` with `src.@class.ToList()`.
 
 #### Detected Incompatibilities
 
