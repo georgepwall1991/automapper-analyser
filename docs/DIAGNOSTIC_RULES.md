@@ -429,6 +429,9 @@ CreateMap<Source, Destination>()
     .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.UserName));
 ```
 
+The explicit-mapping code fix also escapes C# keyword source members when needed, for example emitting
+`src.@class` for a source property declared as `public string @class { get; set; }`.
+
 #### Configuration
 
 ```ini

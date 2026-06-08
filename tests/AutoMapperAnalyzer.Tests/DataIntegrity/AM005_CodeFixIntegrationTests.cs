@@ -80,6 +80,69 @@ public class AM005_CodeFixIntegrationTests
     }
 
     [Fact]
+    public async Task AM005_ShouldEscapeKeywordSourceProperty_WhenApplyingExplicitMappingCodeFix()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string @class { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Class { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string @class { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Class { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Class, opt => opt.MapFrom(src => src.@class));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM005_CaseSensitivityMismatchAnalyzer, AM005_CaseSensitivityMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule)
+                    .WithLocation(19, 13)
+                    .WithArguments("class", "Class"),
+                expectedFixedCode,
+                0);
+    }
+
+    [Fact]
     public async Task AM005_ShouldApplyExplicitMappingCodeFix_ForReverseMapDiagnostic()
     {
         const string testCode = """
