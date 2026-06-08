@@ -93,7 +93,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                 typeArguments.sourceType as INamedTypeSymbol,
                 typeArguments.destinationType as INamedTypeSymbol,
                 reverseMapInvocation,
-                createMapRegistry
+                createMapRegistry,
+                context.SemanticModel
             )
         )
         {
@@ -141,7 +142,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol? sourceType,
         INamedTypeSymbol? destinationType,
         InvocationExpressionSyntax? reverseMapInvocation,
-        CreateMapRegistry createMapRegistry
+        CreateMapRegistry createMapRegistry,
+        SemanticModel semanticModel
     )
     {
         if (sourceType == null || destinationType == null)
@@ -149,7 +151,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        HashSet<string> ignoredProperties = GetIgnoredProperties(invocation, reverseMapInvocation);
+        HashSet<string> ignoredProperties = GetIgnoredProperties(invocation, reverseMapInvocation, semanticModel);
         HashSet<string> selfReferencingDestProperties = FindRecursiveDestinationProperties(
             sourceType,
             destinationType,
@@ -192,7 +194,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
 
     private static HashSet<string> GetIgnoredProperties(
         InvocationExpressionSyntax invocation,
-        InvocationExpressionSyntax? reverseMapInvocation
+        InvocationExpressionSyntax? reverseMapInvocation,
+        SemanticModel semanticModel
     )
     {
         var ignoredProperties = new HashSet<string>();
@@ -209,7 +212,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             )
             {
                 // Check if this mapping call has Ignore()
-                if (HasIgnoreConfiguration(chainedCall))
+                if (HasIgnoreConfiguration(chainedCall, semanticModel))
                 {
                     string? propertyName = ExtractPropertyNameFromForMemberOrPath(chainedCall);
                     if (!string.IsNullOrEmpty(propertyName))
@@ -225,15 +228,16 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         return ignoredProperties;
     }
 
-    private static bool HasIgnoreConfiguration(InvocationExpressionSyntax forMemberCall)
+    private static bool HasIgnoreConfiguration(InvocationExpressionSyntax forMemberCall, SemanticModel semanticModel)
     {
         return forMemberCall.ArgumentList.Arguments.Count >= 2
                && forMemberCall.ArgumentList.Arguments[1].Expression
                    .DescendantNodesAndSelf()
                    .OfType<InvocationExpressionSyntax>()
-                   .Any(invocation =>
-                       invocation.Expression is MemberAccessExpressionSyntax memberAccess
-                       && memberAccess.Name.Identifier.ValueText == "Ignore");
+                   .Any(invocation => MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                       invocation,
+                       semanticModel,
+                       "Ignore"));
     }
 
     private static string? ExtractPropertyNameFromForMemberOrPath(
