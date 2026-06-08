@@ -666,9 +666,10 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
     private static bool IsHttpOperation(string containingType)
     {
-        return containingType.Contains("HttpClient") ||
-               containingType.Contains("WebClient") ||
-               containingType.Contains("HttpMessageInvoker");
+        return containingType == "System.Net.Http.HttpClient" ||
+               containingType == "System.Net.Http.HttpMessageInvoker" ||
+               containingType == "System.Net.WebClient" ||
+               containingType == "System.Net.Http.Json.HttpClientJsonExtensions";
     }
 
     private static bool IsReflectionOperation(string containingType, string methodName)
