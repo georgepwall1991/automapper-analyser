@@ -417,7 +417,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             .FirstOrDefault(m =>
                 SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetDeclaredSymbol(m), convertMethod));
 
-        if (convertMethodDeclaration != null && !ContainsNullCheck(convertMethodDeclaration, sourceParameterName))
+        if (convertMethodDeclaration != null &&
+            !ContainsNullCheck(convertMethodDeclaration, sourceParameterName, context.SemanticModel))
         {
             var diagnostic = Diagnostic.Create(
                 ConverterNullHandlingIssueRule,
@@ -464,7 +465,10 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
                namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
     }
 
-    private static bool ContainsNullCheck(MethodDeclarationSyntax method, string sourceParameterName)
+    private static bool ContainsNullCheck(
+        MethodDeclarationSyntax method,
+        string sourceParameterName,
+        SemanticModel semanticModel)
     {
         IEnumerable<SyntaxNode> nodes = method.Body?.DescendantNodesAndSelf() ?? Enumerable.Empty<SyntaxNode>();
         if (method.ExpressionBody != null)
@@ -495,11 +499,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
         bool hasStringHelperNullCheck = nodes
             .OfType<InvocationExpressionSyntax>()
-            .Any(invocation =>
-                invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-                memberAccess.Name.Identifier.ValueText is "IsNullOrEmpty" or "IsNullOrWhiteSpace" &&
-                IsStringTypeAccess(memberAccess.Expression) &&
-                invocation.ArgumentList.Arguments.Any(arg => IsSourceReference(arg.Expression, sourceParameterName)));
+            .Any(invocation => IsStringNullHelperInvocation(invocation, sourceParameterName, semanticModel));
 
         if (hasStringHelperNullCheck)
         {
@@ -561,14 +561,20 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
                string.Equals(identifier.Identifier.ValueText, sourceParameterName, StringComparison.Ordinal);
     }
 
-    private static bool IsStringTypeAccess(ExpressionSyntax expression)
+    private static bool IsStringNullHelperInvocation(
+        InvocationExpressionSyntax invocation,
+        string sourceParameterName,
+        SemanticModel semanticModel)
     {
-        return expression switch
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess ||
+            memberAccess.Name.Identifier.ValueText is not ("IsNullOrEmpty" or "IsNullOrWhiteSpace") ||
+            !invocation.ArgumentList.Arguments.Any(arg => IsSourceReference(arg.Expression, sourceParameterName)))
         {
-            PredefinedTypeSyntax predefinedType => predefinedType.Keyword.IsKind(SyntaxKind.StringKeyword),
-            IdentifierNameSyntax identifierName => identifierName.Identifier.ValueText is "String" or "string",
-            _ => false
-        };
+            return false;
+        }
+
+        return GetCandidateMethodSymbols(semanticModel.GetSymbolInfo(invocation))
+            .Any(methodSymbol => methodSymbol.ContainingType?.SpecialType == SpecialType.System_String);
     }
 
     private static bool TryGetGuardArgument(ArgumentListSyntax argumentList, out ExpressionSyntax guardedExpression)

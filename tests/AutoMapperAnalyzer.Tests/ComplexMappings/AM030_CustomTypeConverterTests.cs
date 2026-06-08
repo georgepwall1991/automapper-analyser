@@ -117,6 +117,45 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenConverterUsesQualifiedStringHelperNullCheck()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class GuardedConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            if (System.String.IsNullOrWhiteSpace(source))
+                                            {
+                                                return DateTime.MinValue;
+                                            }
+
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<GuardedConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldNotReportDiagnostic_WhenConverterUsesArgumentExceptionThrowIfNullOrEmpty()
     {
         const string testCode = """
