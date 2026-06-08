@@ -122,6 +122,47 @@ public class AM011_UnmappedRequiredPropertyTests
     }
 
     [Fact]
+    public async Task AM011_ShouldReportDiagnostic_WhenStringForMemberUsesDottedPath()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                        public string SourceValue { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                        public required string RequiredField { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember("RequiredField.Child", opt => opt.MapFrom(src => src.SourceValue));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 23, 13,
+                "RequiredField")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM011_ShouldNotReportDiagnostic_WhenRequiredPropertyHasConstantValue()
     {
         const string testCode = """

@@ -22,8 +22,7 @@ internal static class AM020MappingConfigurationHelpers
                 continue;
             }
 
-            string? selectedMember =
-                GetSelectedTopLevelMemberName(mappingConfigCall.ArgumentList.Arguments[0].Expression);
+            string? selectedMember = GetConfiguredDestinationMemberName(mappingConfigCall, semanticModel);
             if (string.Equals(selectedMember, destinationPropertyName, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
@@ -31,6 +30,26 @@ internal static class AM020MappingConfigurationHelpers
         }
 
         return false;
+    }
+
+    public static string? GetConfiguredDestinationMemberName(
+        InvocationExpressionSyntax mappingConfigCall,
+        SemanticModel semanticModel)
+    {
+        if (mappingConfigCall.ArgumentList.Arguments.Count == 0)
+        {
+            return null;
+        }
+
+        SyntaxNode destinationExpression = mappingConfigCall.ArgumentList.Arguments[0].Expression;
+        if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingConfigCall, semanticModel, "ForMember"))
+        {
+            return GetSelectedForMemberName(destinationExpression);
+        }
+
+        return MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingConfigCall, semanticModel, "ForPath")
+            ? GetSelectedTopLevelMemberName(destinationExpression)
+            : null;
     }
 
     public static bool HasCustomConstructionOrConversion(
@@ -74,6 +93,20 @@ internal static class AM020MappingConfigurationHelpers
             MemberAccessExpressionSyntax memberAccess => GetTopLevelMemberName(memberAccess),
             LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.StringLiteralExpression) =>
                 GetTopLevelMemberName(literal.Token.ValueText),
+            _ => null
+        };
+    }
+
+    private static string? GetSelectedForMemberName(SyntaxNode expression)
+    {
+        return expression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => GetSelectedForMemberName(simpleLambda.Body),
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda =>
+                GetSelectedForMemberName(parenthesizedLambda.Body),
+            MemberAccessExpressionSyntax memberAccess => GetTopLevelMemberName(memberAccess),
+            LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.StringLiteralExpression) =>
+                string.IsNullOrEmpty(literal.Token.ValueText) ? null : literal.Token.ValueText,
             _ => null
         };
     }
