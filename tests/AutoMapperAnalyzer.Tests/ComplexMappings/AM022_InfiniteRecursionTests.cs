@@ -809,6 +809,50 @@ public class AM022_InfiniteRecursionTests
     }
 
     [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenIgnoreHelperIsNotAutoMapperConfiguration()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson
+                                    {
+                                        public string Name { get; set; }
+                                        public SourcePerson Friend { get; set; }
+                                    }
+
+                                    public class DestPerson
+                                    {
+                                        public string Name { get; set; }
+                                        public DestPerson Friend { get; set; }
+                                    }
+
+                                    public static class IgnoreHelpers
+                                    {
+                                        public static void Ignore() { }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourcePerson, DestPerson>()
+                                                .ForMember(dest => dest.Friend, opt => IgnoreHelpers.Ignore());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule, 26, 13, "SourcePerson",
+                "DestPerson")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM022_ShouldReportDiagnostic_WhenForMemberTargetsPropertyNamedIgnoreButDoesNotIgnore()
     {
         const string testCode = """
