@@ -996,10 +996,10 @@ dotnet_diagnostic.AM030.severity = error
 
 Reports nullable-source converters whose `Convert` implementation does not visibly guard or handle the source
 parameter before using it. Detection recognizes `== null`/`!= null`, null patterns,
-`string.IsNullOrEmpty`/`IsNullOrWhiteSpace`, null-coalescing, conditional access, and modern guard clauses such as
-`ArgumentNullException.ThrowIfNull(source)`, `ArgumentException.ThrowIfNullOrEmpty(source)`, and
-`ArgumentException.ThrowIfNullOrWhiteSpace(source)`. Guard calls whose first argument is unrelated to the source
-parameter still report.
+`string.IsNullOrEmpty`/`IsNullOrWhiteSpace` including qualified `System.String` calls, null-coalescing, conditional
+access, and modern guard clauses such as `ArgumentNullException.ThrowIfNull(source)`,
+`ArgumentException.ThrowIfNullOrEmpty(source)`, and `ArgumentException.ThrowIfNullOrWhiteSpace(source)`. Guard calls
+whose first argument is unrelated to the source parameter still report.
 
 #### Problem
 
