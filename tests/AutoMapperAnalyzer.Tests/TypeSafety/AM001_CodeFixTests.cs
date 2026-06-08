@@ -148,6 +148,67 @@ public class AM001_CodeFixTests
     }
 
     [Fact]
+    public async Task AM001_ShouldEscapeKeywordProperty_WhenApplyingNumericConversionFix()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public double @class { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public float @class { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public double @class { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public float @class { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.@class, opt => opt.MapFrom(src => (float)src.@class));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 13,
+                    "class", "Source", "double", "Destination", "float"),
+                expectedFixedCode);
+    }
+
+    [Fact]
     public async Task AM001_ShouldFixDoubleToDecimalConversionWithCast()
     {
         const string testCode = """
