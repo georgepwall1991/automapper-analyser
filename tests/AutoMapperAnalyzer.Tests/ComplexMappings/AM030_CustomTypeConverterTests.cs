@@ -117,6 +117,47 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM030_ShouldReportDiagnostic_WhenThrowIfNullIsShadowedHelper()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public static class ArgumentNullException
+                                    {
+                                        public static void ThrowIfNull(object value) { }
+                                    }
+
+                                    public class ShadowedGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            ArgumentNullException.ThrowIfNull(source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<ShadowedGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule, 13, 25,
+                "ShadowedGuardConverter", "String")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldNotReportDiagnostic_WhenConverterUsesArgumentExceptionThrowIfNullOrEmpty()
     {
         const string testCode = """
@@ -148,6 +189,51 @@ public class AM030_CustomTypeConverterTests
             .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
             .WithSource(testCode)
             .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldReportDiagnostic_WhenStringNullHelperIsShadowedHelper()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public static class String
+                                    {
+                                        public static bool IsNullOrWhiteSpace(string value) => true;
+                                    }
+
+                                    public class ShadowedStringHelperConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            if (String.IsNullOrWhiteSpace(source))
+                                            {
+                                                return DateTime.MinValue;
+                                            }
+
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<ShadowedStringHelperConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule, 13, 25,
+                "ShadowedStringHelperConverter", "String")
             .RunAsync();
     }
 
