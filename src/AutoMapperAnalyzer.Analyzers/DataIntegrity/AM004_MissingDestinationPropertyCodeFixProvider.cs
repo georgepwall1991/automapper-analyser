@@ -42,69 +42,132 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         }
     }
 
-
     /// <summary>
     ///     Registers code fixes for the specified context.
     /// </summary>
     /// <param name="context">The code fix context.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        await ProcessDiagnosticsAsync(
+        return RegisterGroupedPerPropertyFixesAsync(
             context,
-            propertyNames: ["PropertyName", "PropertyType", "SourceTypeName", "DestinationTypeName", "IsReverseMap"],
-            registerPerPropertyFixes: (ctx, diagnostic, invocation, properties, semanticModel, root) =>
-            {
-                var propertyName = properties["PropertyName"];
-
-                // Try to find best fuzzy match
-                if (TryResolveMappingContext(invocation, semanticModel, out var mappingContext))
-                {
-                    var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(
-                        mappingContext!.DestinationType, requireSetter: true);
-
-                    IPropertySymbol? sourcePropertySymbol = AutoMapperAnalysisHelpers
-                        .GetMappableProperties(mappingContext.SourceType, requireSetter: false)
-                        .FirstOrDefault(p => p.Name == propertyName);
-
-                    if (sourcePropertySymbol != null)
-                    {
-                        var bestMatch = FuzzyMatchHelper.FindFuzzyMatches(propertyName, destProperties, sourcePropertySymbol.Type)
-                            .FirstOrDefault();
-
-                        if (bestMatch != null)
-                        {
-                            string destName = bestMatch.Name;
-                            ctx.RegisterCodeFix(
-                                CodeAction.Create(
-                                    $"Map '{propertyName}' to similar property '{destName}'",
-                                    cancellationToken =>
-                                    {
-                                        var newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
-                                            invocation, destName, $"src.{propertyName}");
-                                        return ReplaceNodeAsync(ctx.Document, root, invocation, newInvocation);
-                                    },
-                                    $"AM004_FuzzyMatch_{propertyName}_{destName}"),
-                                diagnostic);
-                        }
-                    }
-                }
-
-                // Always register ignore option
-                ctx.RegisterCodeFix(
-                    CodeAction.Create(
-                        $"Suppress source validation for '{propertyName}' with DoNotValidate() (manual review)",
-                        cancellationToken =>
-                        {
-                            var newInvocation = CodeFixSyntaxHelper.CreateForSourceMemberWithDoNotValidate(
-                                invocation, propertyName);
-                            return ReplaceNodeAsync(ctx.Document, root, invocation, newInvocation);
-                        },
-                        $"AM004_DoNotValidate_{propertyName}"),
-                    diagnostic);
-            });
+            ["PropertyName", "PropertyType", "SourceTypeName", "DestinationTypeName", "IsReverseMap"],
+            "Fix individual source property…",
+            (operationContext, group, _, properties) =>
+                BuildPerPropertyActions(context, operationContext, group, properties["PropertyName"]),
+            (operationContext, group) => BuildAggregateActions(context, operationContext, group));
     }
 
+    private (string SubMenuTitle, ImmutableArray<CodeAction> Actions)? BuildPerPropertyActions(
+        CodeFixContext context,
+        CodeFixOperationContext operationContext,
+        DiagnosticInvocationGroup group,
+        string propertyName)
+    {
+        InvocationExpressionSyntax invocation = group.Invocation;
+        SyntaxNode root = operationContext.Root;
+        var actions = ImmutableArray.CreateBuilder<CodeAction>();
+
+        if (TryResolveMappingContext(invocation, operationContext.SemanticModel, out MappingAnalysisContext? mappingContext))
+        {
+            IPropertySymbol? bestMatch = FindFuzzyDestinationMatch(mappingContext!, propertyName);
+            if (bestMatch != null)
+            {
+                string destName = bestMatch.Name;
+                string sourceExpression = $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}";
+                actions.Add(CodeAction.Create(
+                    $"Map '{propertyName}' to similar property '{destName}'",
+                    _ => ReplaceNodeAsync(
+                        context.Document, root, invocation,
+                        CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, destName, sourceExpression)),
+                    $"AM004_FuzzyMatch_{propertyName}_{destName}"));
+            }
+        }
+
+        actions.Add(CodeAction.Create(
+            $"Suppress source validation for '{propertyName}' with DoNotValidate() (manual review)",
+            _ => ReplaceNodeAsync(
+                context.Document, root, invocation,
+                CodeFixSyntaxHelper.CreateForSourceMemberWithDoNotValidate(invocation, propertyName)),
+            $"AM004_DoNotValidate_{propertyName}"));
+
+        return ($"Source property '{propertyName}'", actions.ToImmutable());
+    }
+
+    private ImmutableArray<CodeAction> BuildAggregateActions(
+        CodeFixContext context,
+        CodeFixOperationContext operationContext,
+        DiagnosticInvocationGroup group)
+    {
+        if (!TryResolveMappingContext(group.Invocation, operationContext.SemanticModel, out MappingAnalysisContext? mappingContext))
+        {
+            return ImmutableArray<CodeAction>.Empty;
+        }
+
+        var flaggedNames = new HashSet<string>(group.PropertyNames);
+        List<IPropertySymbol> orderedSourceProperties = AutoMapperAnalysisHelpers
+            .GetMappableProperties(mappingContext!.SourceType, requireSetter: false)
+            .Where(p => flaggedNames.Contains(p.Name))
+            .ToList();
+        if (orderedSourceProperties.Count < 2)
+        {
+            return ImmutableArray<CodeAction>.Empty;
+        }
+
+        int count = orderedSourceProperties.Count;
+        InvocationExpressionSyntax invocation = group.Invocation;
+        SyntaxNode root = operationContext.Root;
+        var actions = ImmutableArray.CreateBuilder<CodeAction>();
+
+        // "Map all" only when every flagged source property has a fuzzy destination match.
+        List<IPropertySymbol> destProperties = AutoMapperAnalysisHelpers
+            .GetMappableProperties(mappingContext.DestinationType, requireSetter: true)
+            .ToList();
+        var matches = orderedSourceProperties
+            .Select(p => (Source: p,
+                Match: FuzzyMatchHelper.FindFuzzyMatches(p.Name, destProperties, p.Type).FirstOrDefault()))
+            .ToList();
+
+        if (matches.All(m => m.Match != null))
+        {
+            List<PropertyFixSpec> mapSpecs = matches
+                .Select(m => PropertyFixSpec.MapFrom(
+                    m.Match!.Name, $"src.{CodeFixSyntaxHelper.EscapeIdentifier(m.Source.Name)}"))
+                .ToList();
+            actions.Add(CodeAction.Create(
+                $"Map all {count} to similar destination properties",
+                _ => ReplaceNodeAsync(
+                    context.Document, root, invocation, FoldAggregateForMembers(invocation, mapSpecs)),
+                "AM004_MapAll"));
+        }
+
+        List<PropertyFixSpec> doNotValidateSpecs = orderedSourceProperties
+            .Select(p => PropertyFixSpec.DoNotValidate(p.Name))
+            .ToList();
+        actions.Add(CodeAction.Create(
+            $"Suppress validation for all {count} source properties (DoNotValidate)",
+            _ => ReplaceNodeAsync(
+                context.Document, root, invocation, FoldAggregateForMembers(invocation, doNotValidateSpecs)),
+            "AM004_DoNotValidateAll"));
+
+        return actions.ToImmutable();
+    }
+
+    private static IPropertySymbol? FindFuzzyDestinationMatch(MappingAnalysisContext mappingContext, string propertyName)
+    {
+        IPropertySymbol? sourcePropertySymbol = AutoMapperAnalysisHelpers
+            .GetMappableProperties(mappingContext.SourceType, requireSetter: false)
+            .FirstOrDefault(p => p.Name == propertyName);
+        if (sourcePropertySymbol == null)
+        {
+            return null;
+        }
+
+        var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(
+            mappingContext.DestinationType, requireSetter: true);
+        return FuzzyMatchHelper.FindFuzzyMatches(propertyName, destProperties, sourcePropertySymbol.Type)
+            .FirstOrDefault();
+    }
 
     private static bool TryResolveMappingContext(
         InvocationExpressionSyntax invocation,
@@ -116,7 +179,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         // Reverse-map diagnostic location
         if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ReverseMap"))
         {
-            InvocationExpressionSyntax? createMapInvocation = FindCreateMapInvocation(invocation, semanticModel);
+            InvocationExpressionSyntax? createMapInvocation = FindForwardCreateMapInvocation(invocation, semanticModel);
             if (createMapInvocation == null)
             {
                 return false;
@@ -156,7 +219,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         return false;
     }
 
-    private static InvocationExpressionSyntax? FindCreateMapInvocation(
+    private static InvocationExpressionSyntax? FindForwardCreateMapInvocation(
         InvocationExpressionSyntax invocation,
         SemanticModel semanticModel)
     {
@@ -174,5 +237,4 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
             .OfType<InvocationExpressionSyntax>()
             .FirstOrDefault(node => MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(node, semanticModel, "CreateMap"));
     }
-
 }
