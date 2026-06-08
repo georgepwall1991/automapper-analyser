@@ -20,76 +20,25 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
     public override ImmutableArray<string> FixableDiagnosticIds => ["AM011"];
 
     /// <inheritdoc />
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        var operationContext = await GetOperationContextAsync(context);
-        if (operationContext == null)
-        {
-            return;
-        }
-
-        foreach (DiagnosticInvocationGroup group in GroupDiagnosticsByInvocation(
-                     operationContext.Root, context.Diagnostics, "PropertyName", "PropertyType"))
-        {
-            // A single unmapped required property stays a flat per-property choice; 2+ on one CreateMap
-            // get the aggregate "Map all / Ignore all" actions plus a nested "Fix individual…" submenu so
-            // the lightbulb does not flood with one entry per property.
-            bool isBatch = group.PropertyNames.Count >= 2;
-
-            var perProperty = new List<(string Name, CodeAction Primary, CodeAction Ignore)>();
-            foreach (Diagnostic diagnostic in group.Diagnostics)
+        return RegisterGroupedPerPropertyFixesAsync(
+            context,
+            ["PropertyName", "PropertyType"],
+            "Fix individual required property…",
+            (operationContext, group, _, properties) =>
             {
-                var properties = TryGetDiagnosticProperties(diagnostic, "PropertyName", "PropertyType");
-                if (properties == null)
-                {
-                    continue;
-                }
-
-                string propertyName = properties["PropertyName"];
                 (CodeAction primary, CodeAction ignore) = BuildPerPropertyActions(
                     context.Document,
                     operationContext.Root,
                     operationContext.SemanticModel,
                     group.Invocation,
-                    propertyName,
+                    properties["PropertyName"],
                     properties["PropertyType"]);
 
-                if (isBatch)
-                {
-                    perProperty.Add((propertyName, primary, ignore));
-                }
-                else
-                {
-                    context.RegisterCodeFix(primary, diagnostic);
-                    context.RegisterCodeFix(ignore, diagnostic);
-                }
-            }
-
-            if (!isBatch)
-            {
-                continue;
-            }
-
-            // Aggregate actions first so they surface at the top of the lightbulb.
-            RegisterAggregateForGroup(context, operationContext, group);
-
-            ImmutableArray<CodeAction> perPropertySubMenus = perProperty
-                .Select(entry => CodeAction.Create(
-                    $"Required property '{entry.Name}'",
-                    ImmutableArray.Create(entry.Primary, entry.Ignore),
-                    isInlinable: false))
-                .ToImmutableArray();
-
-            if (!perPropertySubMenus.IsEmpty)
-            {
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        "Fix individual required property…",
-                        perPropertySubMenus,
-                        isInlinable: false),
-                    group.Diagnostics);
-            }
-        }
+                return ($"Required property '{properties["PropertyName"]}'", ImmutableArray.Create(primary, ignore));
+            },
+            (operationContext, group) => BuildAggregateActions(context, operationContext, group));
     }
 
     private (CodeAction Primary, CodeAction Ignore) BuildPerPropertyActions(
@@ -154,7 +103,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         return (primary, ignore);
     }
 
-    private void RegisterAggregateForGroup(
+    private ImmutableArray<CodeAction> BuildAggregateActions(
         CodeFixContext context,
         CodeFixOperationContext operationContext,
         DiagnosticInvocationGroup group)
@@ -163,10 +112,10 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         // ReverseMap() node (which has no generic type args), so walk up to the forward CreateMap and
         // swap source/destination — the ForMember chain is still folded onto the ReverseMap() node.
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            ResolveAggregateMapTypes(group.Invocation, operationContext.SemanticModel);
+            ResolveCreateMapTypesWithReverse(group.Invocation, operationContext.SemanticModel);
         if (destType == null)
         {
-            return;
+            return ImmutableArray<CodeAction>.Empty;
         }
 
         var flaggedNames = new HashSet<string>(group.PropertyNames);
@@ -176,7 +125,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             .ToList();
         if (orderedProperties.Count < 2)
         {
-            return;
+            return ImmutableArray<CodeAction>.Empty;
         }
 
         List<IPropertySymbol> sourceProperties = sourceType == null
@@ -186,7 +135,6 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         int count = orderedProperties.Count;
         InvocationExpressionSyntax invocation = group.Invocation;
         SyntaxNode root = operationContext.Root;
-        ImmutableArray<Diagnostic> diagnostics = group.Diagnostics;
 
         List<PropertyFixSpec> mapSpecs = orderedProperties
             .Select(property =>
@@ -201,64 +149,22 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             })
             .ToList();
 
-        context.RegisterCodeFix(
-            CodeAction.Create(
-                $"Map all {count} unmapped required properties",
-                _ => ReplaceNodeAsync(
-                    context.Document, root, invocation, FoldAggregateForMembers(invocation, mapSpecs)),
-                "AM011_MapAll"),
-            diagnostics);
+        CodeAction mapAll = CodeAction.Create(
+            $"Map all {count} unmapped required properties",
+            _ => ReplaceNodeAsync(
+                context.Document, root, invocation, FoldAggregateForMembers(invocation, mapSpecs)),
+            "AM011_MapAll");
 
         List<PropertyFixSpec> ignoreSpecs = orderedProperties
             .Select(property => PropertyFixSpec.Ignore(property.Name))
             .ToList();
 
-        context.RegisterCodeFix(
-            CodeAction.Create(
-                $"Ignore all {count} unmapped required properties",
-                _ => ReplaceNodeAsync(
-                    context.Document, root, invocation, FoldAggregateForMembers(invocation, ignoreSpecs)),
-                "AM011_IgnoreAll"),
-            diagnostics);
-    }
+        CodeAction ignoreAll = CodeAction.Create(
+            $"Ignore all {count} unmapped required properties",
+            _ => ReplaceNodeAsync(
+                context.Document, root, invocation, FoldAggregateForMembers(invocation, ignoreSpecs)),
+            "AM011_IgnoreAll");
 
-    private static (ITypeSymbol? sourceType, ITypeSymbol? destinationType) ResolveAggregateMapTypes(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
-    {
-        if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ReverseMap"))
-        {
-            InvocationExpressionSyntax? createMap = FindCreateMapInvocation(invocation, semanticModel);
-            if (createMap == null)
-            {
-                return (null, null);
-            }
-
-            (ITypeSymbol? forwardSource, ITypeSymbol? forwardDestination) =
-                MappingChainAnalysisHelper.GetCreateMapTypeArguments(createMap, semanticModel);
-
-            // Reverse direction: source/destination are swapped.
-            return (forwardDestination, forwardSource);
-        }
-
-        return MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
-    }
-
-    private static InvocationExpressionSyntax? FindCreateMapInvocation(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
-    {
-        InvocationExpressionSyntax? current = invocation;
-        while (current != null)
-        {
-            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(current, semanticModel, "CreateMap"))
-            {
-                return current;
-            }
-
-            current = (current.Expression as MemberAccessExpressionSyntax)?.Expression as InvocationExpressionSyntax;
-        }
-
-        return null;
+        return ImmutableArray.Create(mapAll, ignoreAll);
     }
 }

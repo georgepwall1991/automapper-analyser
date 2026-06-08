@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
@@ -326,8 +327,8 @@ public abstract class AutoMapperCodeFixProviderBase : CodeFixProvider
         IEnumerable<Diagnostic> diagnostics,
         params string[] requiredPropertyKeys)
     {
-        var builders = new Dictionary<int, (InvocationExpressionSyntax Invocation, List<Diagnostic> Diagnostics, List<string> Names, HashSet<string> Seen)>();
-        var order = new List<int>();
+        var builders = new Dictionary<TextSpan, (InvocationExpressionSyntax Invocation, List<Diagnostic> Diagnostics, List<string> Names, HashSet<string> Seen)>();
+        var order = new List<TextSpan>();
 
         foreach (Diagnostic diagnostic in diagnostics)
         {
@@ -343,7 +344,10 @@ public abstract class AutoMapperCodeFixProviderBase : CodeFixProvider
                 continue;
             }
 
-            int key = invocation.SpanStart;
+            // Key by full span (start AND length): a forward CreateMap and its chained ReverseMap() share a
+            // start offset, so keying by start alone would merge the two directions into one group and build
+            // reverse fixes against the forward invocation.
+            TextSpan key = invocation.Span;
             if (!builders.TryGetValue(key, out var builder))
             {
                 builder = (invocation, new List<Diagnostic>(), new List<string>(), new HashSet<string>());
@@ -362,5 +366,139 @@ public abstract class AutoMapperCodeFixProviderBase : CodeFixProvider
             .Select(key => builders[key])
             .Select(b => new DiagnosticInvocationGroup(b.Invocation, b.Diagnostics.ToImmutableArray(), b.Names))
             .ToList();
+    }
+
+    /// <summary>
+    ///     Registers per-property code fixes for each CreateMap, collapsing them into a tidy lightbulb when a
+    ///     map has 2+ flagged properties: aggregate actions (from <paramref name="buildAggregateActions"/>)
+    ///     surface first, then a single nested "<paramref name="nestedParentTitle"/>" submenu groups each
+    ///     property's options. A single flagged property stays a flat per-property choice (no aggregate, no
+    ///     nesting). Shared by AM011/AM006/AM004 so the unmapped-property family behaves consistently.
+    /// </summary>
+    /// <param name="context">The code fix context.</param>
+    /// <param name="diagnosticPropertyKeys">Diagnostic property names required to resolve each diagnostic.</param>
+    /// <param name="nestedParentTitle">Title of the nested "fix individual property" parent action.</param>
+    /// <param name="buildPerProperty">
+    ///     Builds the submenu title and ordered actions for one diagnostic, or null to skip it.
+    /// </param>
+    /// <param name="buildAggregateActions">Builds the aggregate actions for a 2+ property group (may be empty).</param>
+    protected async Task RegisterGroupedPerPropertyFixesAsync(
+        CodeFixContext context,
+        string[] diagnosticPropertyKeys,
+        string nestedParentTitle,
+        Func<CodeFixOperationContext, DiagnosticInvocationGroup, Diagnostic, IReadOnlyDictionary<string, string>,
+            (string SubMenuTitle, ImmutableArray<CodeAction> Actions)?> buildPerProperty,
+        Func<CodeFixOperationContext, DiagnosticInvocationGroup, ImmutableArray<CodeAction>> buildAggregateActions)
+    {
+        CodeFixOperationContext? operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
+        {
+            return;
+        }
+
+        foreach (DiagnosticInvocationGroup group in GroupDiagnosticsByInvocation(
+                     operationContext.Root, context.Diagnostics, diagnosticPropertyKeys))
+        {
+            bool isBatch = group.PropertyNames.Count >= 2;
+            var perPropertySubMenus = new List<CodeAction>();
+
+            foreach (Diagnostic diagnostic in group.Diagnostics)
+            {
+                var properties = TryGetDiagnosticProperties(diagnostic, diagnosticPropertyKeys);
+                if (properties == null)
+                {
+                    continue;
+                }
+
+                (string SubMenuTitle, ImmutableArray<CodeAction> Actions)? built =
+                    buildPerProperty(operationContext, group, diagnostic, properties);
+                if (built == null || built.Value.Actions.IsDefaultOrEmpty)
+                {
+                    continue;
+                }
+
+                if (isBatch)
+                {
+                    perPropertySubMenus.Add(
+                        CodeAction.Create(built.Value.SubMenuTitle, built.Value.Actions, isInlinable: false));
+                }
+                else
+                {
+                    foreach (CodeAction action in built.Value.Actions)
+                    {
+                        context.RegisterCodeFix(action, diagnostic);
+                    }
+                }
+            }
+
+            if (!isBatch)
+            {
+                continue;
+            }
+
+            foreach (CodeAction aggregateAction in buildAggregateActions(operationContext, group))
+            {
+                context.RegisterCodeFix(aggregateAction, group.Diagnostics);
+            }
+
+            if (perPropertySubMenus.Count > 0)
+            {
+                context.RegisterCodeFix(
+                    CodeAction.Create(nestedParentTitle, perPropertySubMenus.ToImmutableArray(), isInlinable: false),
+                    group.Diagnostics);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Resolves the (source, destination) types for a CreateMap fix, handling the ReverseMap() case.
+    ///     When <paramref name="invocation"/> is a <c>ReverseMap()</c> call (which has no generic type
+    ///     arguments), walks up the fluent chain to the forward CreateMap and returns its arguments swapped;
+    ///     ForMember/ForSourceMember fixes should still be folded onto <paramref name="invocation"/> itself.
+    /// </summary>
+    /// <param name="invocation">The mapping invocation the diagnostic resolves to.</param>
+    /// <param name="semanticModel">The semantic model.</param>
+    /// <returns>The (source, destination) types for that direction, or (null, null) if unresolved.</returns>
+    protected static (ITypeSymbol? sourceType, ITypeSymbol? destinationType) ResolveCreateMapTypesWithReverse(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ReverseMap"))
+        {
+            InvocationExpressionSyntax? createMap = FindCreateMapInvocation(invocation, semanticModel);
+            if (createMap == null)
+            {
+                return (null, null);
+            }
+
+            (ITypeSymbol? forwardSource, ITypeSymbol? forwardDestination) =
+                MappingChainAnalysisHelper.GetCreateMapTypeArguments(createMap, semanticModel);
+
+            // Reverse direction: source/destination are swapped.
+            return (forwardDestination, forwardSource);
+        }
+
+        return MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
+    }
+
+    /// <summary>
+    ///     Walks up the fluent chain from <paramref name="invocation"/> to the originating CreateMap call.
+    /// </summary>
+    protected static InvocationExpressionSyntax? FindCreateMapInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        InvocationExpressionSyntax? current = invocation;
+        while (current != null)
+        {
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(current, semanticModel, "CreateMap"))
+            {
+                return current;
+            }
+
+            current = (current.Expression as MemberAccessExpressionSyntax)?.Expression as InvocationExpressionSyntax;
+        }
+
+        return null;
     }
 }

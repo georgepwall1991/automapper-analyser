@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.52] - 2026-06-08
+
+Final step of the code-fix item-picker redesign: extend the aggregate + nested submenu pattern to the sibling unmapped-property rules and consolidate the shared logic.
+
+### Changed
+
+- **AM006 & AM004 aggregate + nested code fixes**: extended the AM011 pattern to AM006 (unmapped destination properties) and AM004 (source properties with no destination). When 2+ such properties pile onto one `CreateMap` — the case for compiled/metadata model types (e.g. DTOs from a referenced assembly), where every diagnostic anchors to the `CreateMap` — the lightbulb now offers **"Ignore all" / "DoNotValidate all"**, an optional **"Map all from/to similar properties"** (only when every property has a fuzzy match, so the title is honest), and a nested **"Fix individual…"** submenu, instead of one entry per property. The single-property case is unchanged (flat).
+- The group → flat/nested/aggregate orchestration now lives in `AutoMapperCodeFixProviderBase.RegisterGroupedPerPropertyFixesAsync`, shared by AM011/AM006/AM004; AM011 was refactored onto it with identical behaviour. Fuzzy-matched identifiers interpolated into `MapFrom`/`ForSourceMember` are keyword-escaped on all three rules.
+
+### Validation
+
+- Full solution test suite (`net10.0`) green.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- Analyzer and test projects build clean under `-warnaserror` (the release gate; the samples project intentionally carries diagnostics).
+
 ## [2.30.51] - 2026-06-07
 
 Second step of the code-fix item-picker redesign: collapse the per-property AM011 fixes under one submenu so the lightbulb stays short when many required properties are unmapped.

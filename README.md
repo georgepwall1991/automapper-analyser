@@ -14,14 +14,14 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.51
+## 🎉 Latest Release: v2.30.52
 
-**AM011 nested per-property code-fix submenu**
+**AM006/AM004 aggregate + nested code-fix actions**
 
 ✅ **Highlights**
 
-- When 2+ required destination properties are unmapped on one `CreateMap`, AM011 now collapses the per-property scaffold/ignore actions under a single **"Fix individual required property…"** submenu (each property grouped under its own entry), shown next to the aggregate **"Map all / Ignore all"** actions — so the lightbulb shows three top-level entries instead of two per property.
-- The single-unmapped-property case is unchanged — it stays a flat scaffold + ignore choice.
+- Extended the AM011 aggregate + nested **"Fix individual…"** submenu pattern to **AM006** (unmapped destination properties) and **AM004** (source properties with no destination). When 2+ such properties pile onto one `CreateMap` — the case for compiled/metadata model types (e.g. DTOs from a referenced assembly) — the lightbulb now offers **"Ignore all" / "DoNotValidate all"**, an optional **"Map all from/to similar properties"** (only when every property has a fuzzy match), and a nested per-property submenu, instead of one entry per property.
+- The shared group → flat/nested/aggregate orchestration now lives in the code-fix base class; single-property cases are unchanged.
 
 🧪 **Validation**
 
@@ -31,6 +31,7 @@ prevention*
 
 ### Recent Releases
 
+- **v2.30.52**: AM006/AM004 aggregate + nested "Fix individual…" code-fix actions — keeps the lightbulb short when many properties pile onto one `CreateMap` (metadata model types).
 - **v2.30.51**: AM011 nested "Fix individual required property…" submenu — keeps the lightbulb short when many required members are unmapped.
 - **v2.30.50**: AM011 aggregate "Map all / Ignore all" code-fix actions — fix every unmapped required property of a `CreateMap` in a single action.
 - **v2.30.49**: AM021 dictionary key/value decomposition (removes a false positive, adds `ToDictionary`/element-`CreateMap` fixes) and AM002 collection element nullability detection.
@@ -218,7 +219,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.51">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.52">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
