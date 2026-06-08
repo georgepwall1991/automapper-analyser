@@ -998,8 +998,9 @@ Reports nullable-source converters whose `Convert` implementation does not visib
 parameter before using it. Detection recognizes `== null`/`!= null`, null patterns,
 `string.IsNullOrEmpty`/`IsNullOrWhiteSpace`, null-coalescing, conditional access, and modern guard clauses such as
 `ArgumentNullException.ThrowIfNull(source)`, `ArgumentException.ThrowIfNullOrEmpty(source)`, and
-`ArgumentException.ThrowIfNullOrWhiteSpace(source)`. Guard calls whose first argument is unrelated to the source
-parameter still report.
+`ArgumentException.ThrowIfNullOrWhiteSpace(source)`. Helper calls only count when their receiver resolves to the BCL
+`System.String`, `System.ArgumentNullException`, or `System.ArgumentException` type; shadowed project helper types
+with the same names still report. Guard calls whose first argument is unrelated to the source parameter also report.
 
 #### Problem
 

@@ -417,7 +417,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             .FirstOrDefault(m =>
                 SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetDeclaredSymbol(m), convertMethod));
 
-        if (convertMethodDeclaration != null && !ContainsNullCheck(convertMethodDeclaration, sourceParameterName))
+        if (convertMethodDeclaration != null &&
+            !ContainsNullCheck(convertMethodDeclaration, sourceParameterName, context.SemanticModel))
         {
             var diagnostic = Diagnostic.Create(
                 ConverterNullHandlingIssueRule,
@@ -464,7 +465,10 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
                namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
     }
 
-    private static bool ContainsNullCheck(MethodDeclarationSyntax method, string sourceParameterName)
+    private static bool ContainsNullCheck(
+        MethodDeclarationSyntax method,
+        string sourceParameterName,
+        SemanticModel semanticModel)
     {
         IEnumerable<SyntaxNode> nodes = method.Body?.DescendantNodesAndSelf() ?? Enumerable.Empty<SyntaxNode>();
         if (method.ExpressionBody != null)
@@ -498,7 +502,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             .Any(invocation =>
                 invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
                 memberAccess.Name.Identifier.ValueText is "IsNullOrEmpty" or "IsNullOrWhiteSpace" &&
-                IsStringTypeAccess(memberAccess.Expression) &&
+                IsStringTypeAccess(memberAccess.Expression, semanticModel) &&
                 invocation.ArgumentList.Arguments.Any(arg => IsSourceReference(arg.Expression, sourceParameterName)));
 
         if (hasStringHelperNullCheck)
@@ -511,7 +515,7 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             .Any(invocation =>
                 invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
                 memberAccess.Name.Identifier.ValueText is "ThrowIfNull" or "ThrowIfNullOrEmpty" or "ThrowIfNullOrWhiteSpace" &&
-                IsArgumentExceptionTypeAccess(memberAccess.Expression) &&
+                IsArgumentExceptionTypeAccess(memberAccess.Expression, semanticModel) &&
                 TryGetGuardArgument(invocation.ArgumentList, out ExpressionSyntax guardedExpression) &&
                 IsSourceReference(guardedExpression, sourceParameterName));
 
@@ -561,14 +565,9 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
                string.Equals(identifier.Identifier.ValueText, sourceParameterName, StringComparison.Ordinal);
     }
 
-    private static bool IsStringTypeAccess(ExpressionSyntax expression)
+    private static bool IsStringTypeAccess(ExpressionSyntax expression, SemanticModel semanticModel)
     {
-        return expression switch
-        {
-            PredefinedTypeSyntax predefinedType => predefinedType.Keyword.IsKind(SyntaxKind.StringKeyword),
-            IdentifierNameSyntax identifierName => identifierName.Identifier.ValueText is "String" or "string",
-            _ => false
-        };
+        return semanticModel.GetTypeInfo(expression).Type?.SpecialType == SpecialType.System_String;
     }
 
     private static bool TryGetGuardArgument(ArgumentListSyntax argumentList, out ExpressionSyntax guardedExpression)
@@ -592,18 +591,13 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    private static bool IsArgumentExceptionTypeAccess(ExpressionSyntax expression)
+    private static bool IsArgumentExceptionTypeAccess(ExpressionSyntax expression, SemanticModel semanticModel)
     {
-        return expression switch
+        return semanticModel.GetTypeInfo(expression).Type is INamedTypeSymbol
         {
-            IdentifierNameSyntax identifierName =>
-                identifierName.Identifier.ValueText is "ArgumentNullException" or "ArgumentException",
-            QualifiedNameSyntax qualifiedName =>
-                qualifiedName.Right.Identifier.ValueText is "ArgumentNullException" or "ArgumentException",
-            MemberAccessExpressionSyntax memberAccess =>
-                memberAccess.Name.Identifier.ValueText is "ArgumentNullException" or "ArgumentException",
-            _ => false
-        };
+            Name: "ArgumentNullException" or "ArgumentException"
+        } typeSymbol &&
+               typeSymbol.ContainingNamespace?.ToDisplayString() == "System";
     }
 
     private static ExpressionSyntax UnwrapExpression(ExpressionSyntax expression)
