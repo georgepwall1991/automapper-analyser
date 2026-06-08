@@ -32,10 +32,7 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
         {
             SyntaxNode? node = operationContext.Root.FindNode(diagnostic.Location.SourceSpan);
 
-            // Find the invocation expression (could be CreateMap or ReverseMap)
-            InvocationExpressionSyntax? invocation = node as InvocationExpressionSyntax ??
-                                                     node?.AncestorsAndSelf().OfType<InvocationExpressionSyntax>()
-                                                         .FirstOrDefault();
+            InvocationExpressionSyntax? invocation = FindDuplicateMappingInvocation(node);
 
             if (invocation != null)
             {
@@ -49,9 +46,10 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
                     continue;
                 }
 
-                // Only offer removal when the duplicate registration is a standalone statement we can
-                // safely delete. A CreateMap stored in a variable or passed as an argument has no
-                // ExpressionStatement ancestor, so the removal would silently do nothing — don't offer it.
+                // Only offer removal when the duplicate registration is the standalone statement we can
+                // safely delete, or when the known CreateMap().ReverseMap() shape can be reduced to the
+                // reverse CreateMap. A CreateMap stored in a variable or passed as an argument must not
+                // remove its containing statement.
                 if (!HasRemovableStatement(invocation))
                 {
                     continue;
@@ -72,9 +70,41 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
         }
     }
 
+    private static InvocationExpressionSyntax? FindDuplicateMappingInvocation(SyntaxNode? node)
+    {
+        if (node == null)
+        {
+            return null;
+        }
+
+        return node.DescendantNodesAndSelf()
+                   .OfType<InvocationExpressionSyntax>()
+                   .FirstOrDefault(IsCreateMapOrReverseMapInvocation) ??
+               node.AncestorsAndSelf()
+                   .OfType<InvocationExpressionSyntax>()
+                   .FirstOrDefault(IsCreateMapOrReverseMapInvocation);
+    }
+
+    private static bool IsCreateMapOrReverseMapInvocation(InvocationExpressionSyntax invocation)
+    {
+        return IsReverseMapInvocation(invocation) || TryGetCreateMapGenericName(invocation, out _);
+    }
+
     private static bool HasRemovableStatement(InvocationExpressionSyntax invocation)
     {
-        return invocation.AncestorsAndSelf().OfType<ExpressionStatementSyntax>().FirstOrDefault() != null;
+        ExpressionStatementSyntax? statement =
+            invocation.AncestorsAndSelf().OfType<ExpressionStatementSyntax>().FirstOrDefault();
+        if (statement == null)
+        {
+            return false;
+        }
+
+        if (statement.Expression == invocation)
+        {
+            return true;
+        }
+
+        return TryCreateReverseCreateMapReplacement(invocation, out _, out _);
     }
 
     private static string GetMappingLabel(InvocationExpressionSyntax invocation)

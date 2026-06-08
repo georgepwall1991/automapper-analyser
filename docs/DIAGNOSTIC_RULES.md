@@ -1277,6 +1277,10 @@ The AM041 code fix is intentionally withheld when a duplicate `ReverseMap()` has
 
 The same safety boundary applies to duplicate `CreateMap<TSource, TDestination>()` registrations that carry chained mapping configuration, such as `CreateMap<S, D>().ForMember(...)`, `(CreateMap<S, D>()).ForPath(...)`, or `CreateMap<S, D>().ReverseMap().ForMember(...)`. The fix is withheld because removing the duplicate statement would silently drop the chained policy (for example a `.ForMember(d => d.X, opt => opt.Ignore())` override). The bare `CreateMap<S, D>().ReverseMap()` reversal stays on the safe automatic swap.
 
+AM041 also withholds the removal fix when the duplicate `CreateMap(...)` is nested inside another expression, such as
+`Configure(CreateMap<S, D>())`. The diagnostic still reports, but the fixer only edits standalone mapping registration
+statements so it cannot remove an unrelated containing call.
+
 #### Configuration
 
 ```ini
