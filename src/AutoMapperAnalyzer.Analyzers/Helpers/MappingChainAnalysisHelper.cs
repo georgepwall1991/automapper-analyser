@@ -331,6 +331,8 @@ public static class MappingChainAnalysisHelper
                 when parenthesizedLambda.Body is MemberAccessExpressionSyntax memberAccess =>
                 memberAccess.Name.Identifier.ValueText,
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
+            LiteralExpressionSyntax { Token.Value: string literalValue } =>
+                string.IsNullOrEmpty(literalValue) ? null : literalValue,
             _ => null
         };
     }

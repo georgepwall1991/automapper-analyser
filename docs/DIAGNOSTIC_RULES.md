@@ -357,6 +357,13 @@ CreateMap<Source, Destination>()
     .ForSourceMember(src => src.Email, opt => opt.DoNotValidate());
 ```
 
+The analyzer also recognizes the string overload:
+
+```csharp
+CreateMap<Source, Destination>()
+    .ForSourceMember("Email", opt => opt.DoNotValidate());
+```
+
 Use `DoNotValidate()` only when dropping the source member is intentional.
 
 #### Configuration
