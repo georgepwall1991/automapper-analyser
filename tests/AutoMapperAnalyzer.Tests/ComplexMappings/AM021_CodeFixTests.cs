@@ -81,6 +81,71 @@ public class AM021_CodeFixTests
     }
 
     [Fact]
+    public async Task AM021_ShouldEscapeKeywordSourceProperty_WhenApplyingSimpleElementConversionFix()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> @class { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Class { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public List<string> @class { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public List<int> Class { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Class, opt => opt.MapFrom(src => src.@class.Select(x => global::System.Convert.ToInt32(x)).ToList()));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("class", "Source", "string", "Destination", "Class", "int"),
+                expectedFixedCode);
+    }
+
+    [Fact]
     public async Task AM021_ShouldFixComplexElementMapping_WithNestedMapCall()
     {
         const string testCode = """
@@ -1188,6 +1253,73 @@ public class AM021_CodeFixTests
                     .WithLocation(20, 13)
                     .WithArguments("Data", "Source", "System.Collections.Generic.KeyValuePair<string, int>",
                         "Destination", "Data", "System.Collections.Generic.KeyValuePair<string, string>"),
+                expectedFixedCode,
+                codeActionIndex: 0);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldEscapeKeywordSourceProperty_WhenApplyingDictionaryConversionFix()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Dictionary<string, int> @class { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Dictionary<string, string> Class { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public Dictionary<string, int> @class { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public Dictionary<string, string> Class { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Class, opt => opt.MapFrom(src => src.@class.ToDictionary(kvp => kvp.Key, kvp => global::System.Convert.ToString(kvp.Value))));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("class", "Source", "System.Collections.Generic.KeyValuePair<string, int>",
+                        "Destination", "Class", "System.Collections.Generic.KeyValuePair<string, string>"),
                 expectedFixedCode,
                 codeActionIndex: 0);
     }

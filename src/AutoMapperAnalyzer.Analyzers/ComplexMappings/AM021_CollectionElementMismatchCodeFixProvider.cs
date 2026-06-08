@@ -200,8 +200,9 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             string valueSelector = valueNeedsConversion
                 ? $"{GetConversionMethod(valueDest!)}(kvp.Value)"
                 : "kvp.Value";
+            string sourcePropertyAccess = CodeFixSyntaxHelper.EscapeIdentifier(sourcePropertyName);
             string mapFromExpression =
-                $"src.{sourcePropertyName}.ToDictionary(kvp => {keySelector}, kvp => {valueSelector})";
+                $"src.{sourcePropertyAccess}.ToDictionary(kvp => {keySelector}, kvp => {valueSelector})";
 
             context.RegisterCodeFix(
                 CodeAction.Create(
@@ -428,7 +429,8 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             return null;
         }
 
-        string selectExpression = $"src.{sourcePropertyName}.Select(x => {conversionMethod}(x))";
+        string sourcePropertyAccess = CodeFixSyntaxHelper.EscapeIdentifier(sourcePropertyName);
+        string selectExpression = $"src.{sourcePropertyAccess}.Select(x => {conversionMethod}(x))";
         string destinationTypeName = destProperty.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
         if (destProperty.Type.TypeKind == TypeKind.Array)
