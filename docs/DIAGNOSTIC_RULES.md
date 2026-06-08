@@ -1061,9 +1061,10 @@ dotnet_diagnostic.AM032.severity = warning
 Reports concrete `ITypeConverter<TSource, TDestination>` implementations that are declared but not referenced by any
 supported AutoMapper converter configuration. Usage analysis treats generic, instance, and type-based converter
 configuration as usage, including `ConvertUsing<MyConverter>()`, `ConvertUsing(new MyConverter())`, and
-`ConvertUsing(typeof(MyConverter))`. It also recognizes simple local, field, or property initializers where an
-`ITypeConverter<TSource, TDestination>` variable is initialized with a concrete converter and then passed to
-`ConvertUsing(converter)`.
+`ConvertUsing(typeof(MyConverter))`. Constructed generic converter types, such as
+`ConvertUsing<GenericConverter<int>>()`, count as usage of the generic converter declaration. It also recognizes simple
+local, field, or property initializers where an `ITypeConverter<TSource, TDestination>` variable is initialized with a
+concrete converter and then passed to `ConvertUsing(converter)`.
 
 When any `ConvertUsing(...)` argument resolves to the interface `ITypeConverter<TSource, TDestination>` itself, for
 example through constructor injection (`public TestProfile(ITypeConverter<string, DateTime> converter)`), a
@@ -1088,6 +1089,9 @@ No diagnostic is reported when the converter is referenced through a supported A
 ```csharp
 CreateMap<string, DateTime>()
     .ConvertUsing(typeof(LegacyConverter)); // ✅ counted as usage
+
+CreateMap<int, string>()
+    .ConvertUsing<GenericConverter<int>>(); // ✅ counted as generic converter usage
 
 ITypeConverter<string, DateTime> converter = new LegacyConverter();
 CreateMap<string, DateTime>()
