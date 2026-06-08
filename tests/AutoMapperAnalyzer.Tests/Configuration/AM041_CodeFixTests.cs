@@ -142,6 +142,42 @@ public class AM041_CodeFixTests
     }
 
     [Fact]
+    public async Task Should_NotOfferDestructiveFix_WhenDuplicateCreateMapIsPassedAsArgument()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        Configure(CreateMap<Source, Destination>());
+                                        Configure(CreateMap<Source, Destination>());
+                                    }
+
+                                    private static void Configure(IMappingExpression<Source, Destination> mapping)
+                                    {
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM041", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
     public async Task Should_Remove_ReverseMap_WhenItIsTheDuplicate()
     {
         const string testCode = """
