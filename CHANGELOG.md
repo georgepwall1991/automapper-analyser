@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.53] - 2026-06-09
+
+Tighten AM032 nullable-source converter analysis around conditional access so safe guard shapes stay quiet while unsafe null propagation reports.
+
+### Changed
+
+- **AM032 conditional-access precision**: conditional access no longer suppresses diagnostics when the maybe-null result is passed directly or through a simple local into known null-intolerant APIs or constructors, such as `DateTime.Parse(source?.Trim())`, `int.Parse(source?.Trim())`, `DateTime.Parse(trimmed)`, `new Uri(source?.Trim())`, or target-typed `new(source?.Trim())` in `Uri` converters. Null-tolerant TryParse fallback flows, including success branches that safely reuse `source`, nullable parse provider/style arguments, `string.Concat(...)`, and nullable constructor targets stay quiet, while explicit null coalesce fallbacks, null-forgiven `?? null!` fallbacks, coalesced guards whose null fallback enters an unsafe branch, and null checks that exist only inside nested local functions or lambdas no longer count as guarding the converter body.
+- **AM032 guarded-local coverage**: split-assigned conditional-access locals, boolean guard locals, and null-branch source-free fallback assignments now count when they are guarded before source use, guards that run after an unsafe source dereference no longer suppress AM032, member dereferences on maybe-null conditional-access locals still report, and nullable-destination converters may safely fall back to returning the guarded local on the null path.
+
+### Validation
+
+- Focused AM030/AM032/AM033 test slice (`net10.0`) green: 121 passed.
+- Full solution test suite (`net10.0`) green: 985 passed.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+
 ## [2.30.52] - 2026-06-08
 
 Final step of the code-fix item-picker redesign: extend the aggregate + nested submenu pattern to the sibling unmapped-property rules and consolidate the shared logic.

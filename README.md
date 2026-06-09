@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-859%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-985%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,23 +14,24 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.52
+## 🎉 Latest Release: v2.30.53
 
-**AM006/AM004 aggregate + nested code-fix actions**
+**AM032 conditional-access null-handling precision**
 
 ✅ **Highlights**
 
-- Extended the AM011 aggregate + nested **"Fix individual…"** submenu pattern to **AM006** (unmapped destination properties) and **AM004** (source properties with no destination). When 2+ such properties pile onto one `CreateMap` — the case for compiled/metadata model types (e.g. DTOs from a referenced assembly) — the lightbulb now offers **"Ignore all" / "DoNotValidate all"**, an optional **"Map all from/to similar properties"** (only when every property has a fuzzy match), and a nested per-property submenu, instead of one entry per property.
-- The shared group → flat/nested/aggregate orchestration now lives in the code-fix base class; single-property cases are unchanged.
+- AM032 now reports unsafe conditional-access propagation such as `DateTime.Parse(source?.Trim())`, `int.Parse(source?.Trim())`, `DateTime.Parse(trimmed)`, `new Uri(source?.Trim())`, and target-typed `new(source?.Trim())` in `Uri` converters, plus null-forgiven `?? null!` fallbacks and coalesced guards whose null fallback enters an unsafe branch. Null-tolerant TryParse success/fallback flows, nullable parse provider/style arguments, `string.Concat(...)`, nullable constructors, and boolean switch-statement fallback flows stay quiet.
+- AM032 now preserves safe suppression for split-assigned conditional-access locals, boolean guard locals, source-free fallback assignments, and nullable-destination fallback returns from guarded locals while still reporting member dereferences on maybe-null conditional-access locals.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0`.
+- Full solution test validation passed on `net10.0` with 985 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
 - Analyzer and test projects build clean under `-warnaserror` (the release gate; the samples project intentionally carries diagnostics).
 
 ### Recent Releases
 
+- **v2.30.53**: AM032 conditional-access null-handling precision — unsafe invocation/constructor arguments, primitive parse targets, explicit and target-typed `Uri` constructors, simple-local unsafe arguments, explicit/null-forgiven null coalesce fallbacks, coalesced guards whose null fallback enters unsafe branches, late guarded-local checks after unsafe source use, maybe-null local member dereferences, and nested-helper-only guards report while TryParse success/fallback flows, nullable parse provider/style arguments, null-tolerant argument targets, boolean guard locals, source-free fallback assignments, boolean switch-statement fallbacks, split-assigned guarded locals, and nullable fallback returns stay quiet.
 - **v2.30.52**: AM006/AM004 aggregate + nested "Fix individual…" code-fix actions — keeps the lightbulb short when many properties pile onto one `CreateMap` (metadata model types).
 - **v2.30.51**: AM011 nested "Fix individual required property…" submenu — keeps the lightbulb short when many required members are unmapped.
 - **v2.30.50**: AM011 aggregate "Map all / Ignore all" code-fix actions — fix every unmapped required property of a `CreateMap` in a single action.
@@ -219,7 +220,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.52">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.53">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

@@ -996,10 +996,69 @@ dotnet_diagnostic.AM030.severity = error
 
 Reports nullable-source converters whose `Convert` implementation does not visibly guard or handle the source
 parameter before using it. Detection recognizes `== null`/`!= null`, null patterns,
-`string.IsNullOrEmpty`/`IsNullOrWhiteSpace`, null-coalescing, conditional access, and modern guard clauses such as
+conditional-access guard expressions such as `source?.Length is null`, `source?.Length is > 0`, or
+`if (source?.Length > 0)`,
+`string.IsNullOrEmpty`/`IsNullOrWhiteSpace`, null-coalescing, conditional access with an explicit fallback, and modern guard clauses such as
 `ArgumentNullException.ThrowIfNull(source)`, `ArgumentException.ThrowIfNullOrEmpty(source)`, and
-`ArgumentException.ThrowIfNullOrWhiteSpace(source)`. Guard calls whose first argument is unrelated to the source
-parameter still report.
+`ArgumentException.ThrowIfNullOrWhiteSpace(source)`. A standalone conditional access such as `source?.Length` does not
+count as null handling if the converter later uses `source` unsafely, and passing the maybe-null value into a non-null
+API or constructor such as `DateTime.Parse(source?.Trim())`, `int.Parse(source?.Trim())`, `new Uri(source?.Trim())`, or target-typed
+`new(source?.Trim())` in a `Uri` converter still reports. Nullable provider/style
+arguments to parse overloads stay quiet because AM032 checks the specific null-intolerant argument position. Null-tolerant
+TryParse fallback and success-branch flows stay quiet when the null-source path does not use `source`. Directly returning `source?.Member`, chained
+null-conditionals such as `source?.Member?.Name`, or returning a simple local initialized from that conditional access,
+is accepted when the converter destination type is nullable; returning that possibly-null value to a non-nullable
+destination still reports.
+Returning a destination object through an object initializer whose converter-body source usages are all source-rooted
+conditional access, such as `return new Destination { Name = source?.Name };`, is accepted because the null-source path
+never dereferences `source`; mixed shapes with any direct later source use still report.
+String helper guards also handle source-rooted conditional access, such as `string.IsNullOrWhiteSpace(source?.Trim())`.
+Conditional-access branch, null-comparison, pattern, ternary, switch-expression, and switch-statement guards are accepted
+only when null sources take the fallback path or throw before later unsafe source use; negated forms such as
+`!(source?.Length > 0)` are understood. Null-excluding list patterns such as `source?.Items is [_, ..]` are also
+recognized. Pattern variables bound from conditional access, such as
+`source?.Length is var length && length > 0` and switch arms like `var length when length is null`, are evaluated for the
+null-source path. Switch-statement labels with `when` clauses are accepted when the label pattern itself excludes the
+null-source path.
+Boolean comparisons and patterns around conditional-access guards, such as `(source?.Length > 0) == false` and
+`(source?.Length > 0) is false`, are also understood, as is `.HasValue` on a parenthesized conditional-access result.
+Boolean guard locals such as `var hasText = source?.Length > 0; if (hasText) ...` are accepted when the null-source path
+falls through to a source-free fallback.
+Switch expressions over those boolean guards evaluate the actual false value produced when `source` is null, so
+`(source?.Length > 0) switch { true => DateTime.Parse(source), false => DateTime.MinValue }` is accepted.
+Lifted inequality checks such as `source?.Length != 0`, reversed branches, and switch null arms/cases whose null path still
+uses `source` report.
+The fallback may be a direct return, a guarded assignment that returns a fallback local, an explicit `else` fallback
+assignment, harmless source-free statements before a fallback return, or a local initialized from conditional access and
+later coalesced with a non-null fallback. Explicit null fallbacks such as `source?.Trim() ?? null` still report when
+they feed a null-intolerant API. Split-assigned locals such as `string? trimmed; trimmed = source?.Trim();`
+count the same way as initialized locals once the assignment is guarded before source use. For nullable destinations, a
+positive local guard may also fall back to returning that local on the null path.
+Null branches may also assign the conditional-access local to a source-free, non-null fallback before a later source-free
+terminal return, such as assigning `trimmed = "2000-01-01"` before `return DateTime.Parse(trimmed)`.
+Coalesce fallbacks must be source-free; `source?.Trim() ?? source.Trim()` still reports because the null-source path
+dereferences `source`. Explicit null-forgiven fallbacks such as `source?.Trim() ?? null!` still report when they feed a
+null-intolerant API, and coalesced guards such as `(source?.Length ?? 1) > 0` report when their null fallback can enter an
+unsafe source-using branch. A local initialized from conditional access stops counting as a guard/fallback source once it is
+reassigned before the guard or fallback, and an unsafe reassignment such as `trimmed = source.Trim()` before returning the
+local still reports. Member dereferences on maybe-null locals such as `trimmed.Length` also report because the dereference
+can throw before any fallback branch is selected. Same-name locals from separate nested blocks do not count as the guarded local for a later coalesce
+or return. Direct unsafe source usage after a guarded local has been initialized and before that local is returned also
+reports.
+Guarded switch null arms/cases may fall through to later safe fallback arms/cases when their `when` clause is false, and
+switch sections may `break` to a later safe fallback return. Switch statements with only null-excluding cases may also
+fall through to a later safe fallback return. An earlier `default` label does not hide a later explicit `case null`;
+AM032 follows C# switch selection and treats the explicit null case as the null-source path.
+Simple locals initialized from conditional access may also be null-guarded before use, guarded with modern guard clauses,
+guarded by relational checks such as `length > 0` or `.HasValue`, or returned through converter-body branches when the
+destination type is nullable. Nullable-destination propagation also covers parenthesized, casted, and null-forgiving
+returns of the conditional-access value.
+Modern guard clauses may also guard a conditional-access expression directly, such as
+`ArgumentNullException.ThrowIfNull(source?.Trim())`.
+Guard calls whose first argument is unrelated to the source parameter still report.
+Null checks inside nested local functions or lambdas do not count as guarding the converter body.
+Fallback expressions may use nested lambda/local-function parameters, named-argument labels, or member names that happen to be named `source`;
+those shadowed or name-only occurrences do not count as unsafe use of the converter source parameter.
 
 #### Problem
 
@@ -1421,7 +1480,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.52">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.53">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1460,5 +1519,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.52
+**Version**: 2.30.53
 **Maintainer**: George Wall
