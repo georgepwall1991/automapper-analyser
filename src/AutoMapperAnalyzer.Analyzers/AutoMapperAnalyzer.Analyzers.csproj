@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>52</PatchVersion>
+        <PatchVersion>53</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,17 +32,19 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.52 - AM006/AM004 aggregate + nested code-fix actions
+        <PackageReleaseNotes>Version 2.30.53 - AM032 conditional-access null-handling precision
 
             Changed:
-            - Extended the AM011 aggregate + nested "Fix individual…" submenu pattern to AM006 (unmapped destination properties) and AM004 (source properties with no destination). When 2+ such properties pile onto one CreateMap (the case for compiled/metadata model types), the lightbulb now offers "Ignore all / DoNotValidate all", an optional "Map all from/to similar properties" (only when every property has a fuzzy match), and a nested per-property submenu, instead of one entry per property. The shared orchestration now lives in the code-fix base class. Single-property cases are unchanged.
+            - Hardened AM032 so conditional access only suppresses nullable-source converter diagnostics when it actually handles the null path. Unsafe invocation/constructor arguments such as DateTime.Parse(source?.Trim()), int.Parse(source?.Trim()), DateTime.Parse(trimmed), new Uri(source?.Trim()), or target-typed new(source?.Trim()) in Uri converters, null-forgiven ?? null! fallbacks, coalesced guards whose null fallback enters unsafe branches, maybe-null local member dereferences, and nested-helper-only null checks now report.
+            - Preserved safe AM032 suppression for TryParse success/fallback flows, boolean guard locals, source-free fallback assignments, split-assigned conditional-access locals, nullable parse provider/style arguments, null-tolerant argument targets, boolean switch-statement fallback flows, nullable-destination fallback local returns, and other guarded conditional-access flow shapes while rejecting guards that run after unsafe source dereferences.
 
             Validation:
-            - Full solution test suite passing on net10.0
+            - Focused AM030/AM032/AM033 slice passing on net10.0 (121 tests)
+            - Full solution test suite passing on net10.0 (985 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
             - Analyzer and test projects build clean under -warnaserror (the release gate)
 
-            Previous Release: v2.30.51 - AM011 nested per-property code-fix submenu
+            Previous Release: v2.30.52 - AM006/AM004 aggregate + nested code-fix actions
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
