@@ -138,7 +138,7 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
         string propertyName)
     {
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
+            ResolveCreateMapTypesWithReverse(invocation, semanticModel);
         if (sourceType == null || destType == null)
         {
             return null;

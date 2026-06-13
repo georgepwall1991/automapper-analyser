@@ -693,6 +693,78 @@ public class AM004_CodeFixTests
                 1);
     }
 
+    [Fact]
+    public async Task AM004_FuzzyMatch_ShouldWorkWithReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Emial { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Emial, opt => opt.MapFrom(src => src.Email))
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Email { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Emial { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.Emial, opt => opt.MapFrom(src => src.Email))
+                                                         .ReverseMap().ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Emial));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixByKeyAsync(
+                testCode,
+                Diagnostic(
+                    AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+                    testCode,
+                    "Emial"),
+                expectedFixedCode,
+                "AM004_FuzzyMatch_Emial_Email");
+    }
+
 
 
 

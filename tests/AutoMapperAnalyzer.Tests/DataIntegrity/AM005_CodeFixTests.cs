@@ -27,7 +27,7 @@ public class AM005_CodeFixTests
             .VerifyFixAsync(
                 testCode,
                 new DiagnosticResult(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule)
-                    .WithLocation(19, 13)
+                    .WithLocation(7, 23)
                     .WithArguments(sourceName, destName),
                 fixedCode,
                 0);

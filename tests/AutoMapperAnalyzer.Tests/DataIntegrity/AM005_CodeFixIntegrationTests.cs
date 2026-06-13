@@ -9,8 +9,8 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Tests.DataIntegrity;
 
@@ -73,7 +73,64 @@ public class AM005_CodeFixIntegrationTests
             .VerifyFixAsync(
                 testCode,
                 new DiagnosticResult(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule)
-                    .WithLocation(19, 13)
+                    .WithLocation(7, 23)
+                    .WithArguments("firstName", "FirstName"),
+                expectedFixedCode,
+                0);
+    }
+
+    [Fact]
+    public async Task AM005_ShouldApplyExplicitMappingCodeFix_ForPositionalRecordSourceProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public record Source(string firstName);
+
+                                    public record Destination
+                                    {
+                                        public string FirstName { get; init; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public record Source(string firstName);
+
+                                             public record Destination
+                                             {
+                                                 public string FirstName { get; init; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.FirstName, opt => opt.MapFrom(src => src.firstName));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM005_CaseSensitivityMismatchAnalyzer, AM005_CaseSensitivityMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule)
+                    .WithLocation(5, 33)
                     .WithArguments("firstName", "FirstName"),
                 expectedFixedCode,
                 0);
@@ -140,7 +197,7 @@ public class AM005_CodeFixIntegrationTests
             .VerifyFixAsync(
                 testCode,
                 new DiagnosticResult(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule)
-                    .WithLocation(19, 13)
+                    .WithLocation(12, 23)
                     .WithArguments("name", "Name"),
                 expectedFixedCode,
                 0);

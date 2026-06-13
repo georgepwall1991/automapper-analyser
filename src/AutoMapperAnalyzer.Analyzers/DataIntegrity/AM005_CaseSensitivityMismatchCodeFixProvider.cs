@@ -42,7 +42,7 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : AutoMapperCodeFixPro
                 continue;
             }
 
-            InvocationExpressionSyntax? invocation = GetCreateMapInvocation(operationContext.Root, diagnostic);
+            InvocationExpressionSyntax? invocation = GetCreateMapInvocation(operationContext.Root, diagnostic, properties);
             if (invocation == null)
             {
                 continue;

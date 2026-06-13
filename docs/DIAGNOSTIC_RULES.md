@@ -118,6 +118,10 @@ For enum/string mismatches, AM001 offers direct conversion fixes such as `src.St
 For numeric properties, AM001 follows the C# predefined implicit numeric conversion table: legal widenings
 such as `char` to `int` stay quiet, while conversions that require explicit casts, such as `double` to
 `decimal`, report and receive a cast-based `MapFrom` fix.
+Framework scalar/value-object mismatches such as `System.DateOnly`, `System.TimeOnly`, or `System.Uri` mapped
+to domain types remain AM001 conversion problems. AM020 excludes actual `System` built-ins by namespace-aware
+classification, but user-defined types that merely share framework short names are still analyzed as domain
+types.
 
 #### When to Use
 
@@ -203,7 +207,7 @@ descriptor is analyzer-only and does not offer a code action.
 
 #### Safe Cases
 
-AM002 does not report when the destination member is explicitly configured to handle nulls, such as `MapFrom(src => src.Name ?? "fallback")`, a safe AutoMapper `NullSubstitute("fallback")`, an assignable `NullSubstitute` fallback such as a `string` value for an `object` destination member, a typed value-type default such as `NullSubstitute(default(int))`, guarded nullable dereferences such as `src.Name == null ? string.Empty : src.Name.Trim()`, nullable value defaults such as `src.Count.GetValueOrDefault()`, AutoMapper `Ignore()`, a proven non-null-producing resolver expression that does not dereference a nullable receiver unsafely, a custom resolver form such as `MapFrom<TResolver>()` or `MapFrom<TResolver, TSourceMember>(...)`, or a member-level value converter such as `ConvertUsing<TConverter, TSourceMember>(...)`. Pass-through, unguarded nullable-receiver dereferences, different-member, and generic expression mappings like `MapFrom(src => src.Name)`, `MapFrom(src => src.Name.Trim())`, `MapFrom(src => src.Name.Length)`, `MapFrom(src => src.OtherNullableName)`, and `MapFrom<TSourceMember>(src => src.Name)` still report when the mapped value can come from a nullable source and the destination member is non-nullable, and diagnostics name the actual nullable source member used by the explicit mapping. Unsafe substitutes such as `NullSubstitute(null)`, `NullSubstitute(default)`, and nullable/reference typed defaults still report. Helper methods named `Ignore`, `NullSubstitute`, or `MapFrom` are not treated as AutoMapper null-handling or mapping options unless they are invoked on the AutoMapper options parameter. AM002 also stays quiet when the map uses custom construction/conversion, when nullable reference annotations are disabled or oblivious, or when the nullable source and destination member have incompatible underlying types owned by `AM001`.
+AM002 does not report when the destination member is explicitly configured to handle nulls, such as `MapFrom(src => src.Name ?? "fallback")`, a safe AutoMapper `NullSubstitute("fallback")`, an assignable `NullSubstitute` fallback such as a `string` value for an `object` destination member, a typed value-type default such as `NullSubstitute(default(int))`, guarded nullable dereferences such as `src.Name == null ? string.Empty : src.Name.Trim()`, nullable value defaults such as `src.Count.GetValueOrDefault()`, AutoMapper `Ignore()`, a proven non-null-producing resolver expression that does not dereference a nullable receiver unsafely, a custom resolver form such as `MapFrom<TResolver>()` or `MapFrom<TResolver, TSourceMember>(...)`, or a member-level value converter such as `ConvertUsing<TConverter, TSourceMember>(...)`. Top-level `ForMember` targets may be lambda selectors, string literals, `nameof(...)`, or const string member names. Pass-through, unguarded nullable-receiver dereferences, different-member, and generic expression mappings like `MapFrom(src => src.Name)`, `MapFrom(src => src.Name.Trim())`, `MapFrom(src => src.Name.Length)`, `MapFrom(src => src.OtherNullableName)`, and `MapFrom<TSourceMember>(src => src.Name)` still report when the mapped value can come from a nullable source and the destination member is non-nullable, and diagnostics name the actual nullable source member used by the explicit mapping. Unsafe substitutes such as `NullSubstitute(null)`, `NullSubstitute(default)`, and nullable/reference typed defaults still report. Helper methods named `Ignore`, `NullSubstitute`, or `MapFrom` are not treated as AutoMapper null-handling or mapping options unless they are invoked on the AutoMapper options parameter. AM002 also stays quiet when the map uses custom construction/conversion, when nullable reference annotations are disabled or oblivious, or when the nullable source and destination member have incompatible underlying types owned by `AM001`.
 
 When the same destination member is configured more than once, AM002 evaluates and fixes the later effective configuration. The default-value fixer preserves existing top-level `ForMember` and top-level `ForPath` options when it adds null handling, emits fully qualified framework defaults such as `global::System.DateTime.MinValue`, and uses `default!` for generic/reference fallback defaults where plain `default` would remain nullable, but it does not reuse child `ForPath` mappings as top-level nullable-property fixes and it withholds the default-value action when existing `Condition` or `PreCondition` guards can veto assignment or when an existing `MapFrom` dereferences a nullable receiver before any fallback could run.
 Child-only `ForPath` configuration also does not suppress AM002 for a nullable top-level source member, because it does not construct or default the parent destination object.
@@ -272,7 +276,7 @@ generated mappings remain executable without depending on user imports.
 
 #### Detected Incompatibilities
 
-- ✅ `HashSet` ↔ `List`/`Array`
+- ✅ `HashSet`/`SortedSet`/`LinkedList` ↔ `List`/`Array`
 - ✅ `Queue` ↔ other collections
 - ✅ `Stack` ↔ other collections
 - ✅ Mutable collections → `ImmutableList<T>`, `ImmutableArray<T>`, `ImmutableHashSet<T>`, or `FrozenSet<T>`
@@ -349,6 +353,8 @@ CreateMap<Source, Destination>()
 ```
 
 AM004 offers this when it finds one compatible destination property with a strong fuzzy-name match.
+AM004 stays quiet when source members are explicitly handled by custom member or constructor-parameter
+mapping, `ForSourceMember(...).DoNotValidate()`, or when `ConstructUsing`/`ConvertUsing` owns the map.
 
 **Option 3: Suppress Source Validation (Code Fix, Manual Review)**
 
@@ -388,7 +394,7 @@ Detects property name mismatches due to case sensitivity, which can cause cross-
 ```csharp
 public class Source
 {
-    public string UserName { get; set; }  // PascalCase
+    public string UserName { get; set; }  // ⚠️ AM005: case-only mismatch with Destination.Username
 }
 
 public class Destination
@@ -401,7 +407,6 @@ public class MappingProfile : Profile
     public MappingProfile()
     {
         CreateMap<Source, Destination>();
-        // ⚠️ AM005: Property 'UserName' case mismatch
     }
 }
 ```
@@ -428,6 +433,12 @@ public class Destination
 CreateMap<Source, Destination>()
     .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.UserName));
 ```
+
+AM005 diagnostics are reported on the offending source property identifier so the warning points at the
+member that needs review. The code fix uses mapping metadata to add the explicit `ForMember(...)` call to
+the corresponding `CreateMap(...)` invocation.
+AM005 stays quiet when the destination member or source member is explicitly configured, or when
+`ConstructUsing`/`ConvertUsing` owns destination creation for the map.
 
 #### Configuration
 
@@ -504,9 +515,11 @@ CreateMap<Source, Destination>()
 - Map from similar source property (fuzzy match suggestion)
 - Ignore destination property (`ForMember` + `Ignore`, manual review)
 
+Reverse-map diagnostics resolve the swapped source/destination types before suggesting fuzzy source-member mappings, so fixes are appended to `ReverseMap()` in the correct direction.
+
 #### Safe Cases
 
-AM006 does not report when the destination member is matched by convention, configured with `ForMember` or `ForPath`, covered by flattening, explicitly initialized in every returned `ConstructUsing` object initializer, or when `ConvertUsing` owns destination object creation.
+AM006 does not report when the destination member is matched by convention, configured with `ForMember` or `ForPath` (including string literal, `nameof(...)`, and const string `ForMember` selectors), covered by flattening, explicitly initialized in every returned `ConstructUsing` object initializer, or when `ConvertUsing` owns destination object creation. Framework scalar/value types such as `System.DateOnly` are not treated as flattening sources, so a destination member like `CreatedYear` still reports unless it is explicitly configured.
 
 #### Configuration
 
@@ -538,7 +551,7 @@ public class Destination
 {
     public required int Id { get; set; }
     public required string Name { get; set; }
-    public required string Email { get; set; }  // No source property
+    public required string Email { get; set; }  // ❌ AM011: no source property or explicit mapping
 }
 
 public class MappingProfile : Profile
@@ -546,7 +559,6 @@ public class MappingProfile : Profile
     public MappingProfile()
     {
         CreateMap<Source, Destination>();
-        // ❌ AM011: Required property 'Email' is not mapped
     }
 }
 ```
@@ -580,7 +592,7 @@ CreateMap<Source, Destination>()
     .ForPath(dest => dest.Email, opt => opt.MapFrom(src => src.ContactEmail));
 ```
 
-`AM011` treats `ForMember`, `ForPath`, and `ForCtorParam` as explicit required-member configuration. It also stays quiet when custom construction or conversion is present because those paths can initialize required members outside ordinary member mapping.
+`AM011` treats `ForMember`, `ForPath`, and `ForCtorParam` as explicit required-member configuration, including `nameof(...)` and const-string constructor parameter names. It also stays quiet when custom construction or conversion is present because those paths can initialize required members outside ordinary member mapping. Diagnostics are reported on the required destination property identifier; the code fix keeps mapping metadata so the generated `ForMember(...)` edit still lands on the matching `CreateMap(...)` or `ReverseMap()` invocation. When several required members are missing for the same map, the fixer can still offer aggregate "map all" and "ignore all" actions from a single property diagnostic.
 
 **Option 4: Make Property Optional**
 
@@ -692,7 +704,14 @@ public class PersonProfile : Profile
 
 AM020 also respects compiler-known implicit nested conversions. A nested property mapping such as `SourceAddress` to
 `DestinationAddress` stays quiet when `SourceAddress` defines an implicit conversion to `DestinationAddress`, while an
-explicit-only conversion still reports and requires a nested `CreateMap` or explicit member mapping.
+explicit-only conversion still reports and requires a nested `CreateMap` or explicit member mapping. The automatic
+`CreateMap` fix also skips implicitly convertible nested properties when another property on the same map still needs a
+generated nested map.
+Diagnostics preserve constructed generic type arguments for nested object types, so a missing map such as
+`Wrapper<string>` to `Wrapper<int>` names the actionable closed types instead of only `Wrapper`.
+Built-in framework types such as `System.Guid`, `System.DateOnly`, `System.TimeOnly`, and `System.Uri` are excluded by
+namespace-aware classification; user-defined types with the same short names can still receive generated nested
+`CreateMap` registrations.
 
 #### Internal Property Support
 
@@ -783,7 +802,11 @@ second reverse diagnostic for the same collection until the forward direction is
 
 If collection containers are incompatible (`HashSet<T>` vs `List<T>`, `Queue<T>` vs `Stack<T>`, etc.), `AM003` owns the diagnostic. AM003 stays quiet when the source collection is already assignable to the destination collection contract.
 
-Dictionary value/key mismatches are treated as `KeyValuePair<TKey, TValue>` element mismatches. For those diagnostics the fixer intentionally offers only the manual ignore action, because adding a `CreateMap<KeyValuePair<...>, KeyValuePair<...>>()` registration is not a reliable executable rewrite.
+Dictionary value/key mismatches are treated as `KeyValuePair<TKey, TValue>` element mismatches, but the fixer decomposes
+the key and value axes before offering rewrites. Simple key/value conversions can use an executable `ToDictionary(...)`
+mapping, and complex value-only mismatches can offer a value `CreateMap<TSourceValue, TDestinationValue>()`. The fixer
+does not offer `CreateMap<KeyValuePair<...>, KeyValuePair<...>>()`, because that registration is not a reliable
+executable rewrite.
 
 For simple element conversions, AM021 generates `global::System.Convert`, `global::System.DateTime`, and `global::System.Guid` calls so the fix remains stable even when the project contains types with the same short names.
 
@@ -924,7 +947,9 @@ recursive member path is actually convention-mapped and each indirect nested typ
 that AutoMapper can use for recursion. Ignoring the top-level recursive destination member with
 `ForMember(..., opt => opt.Ignore())` or `ForPath(..., opt => opt.Ignore())` suppresses the diagnostic. Forward
 `MaxDepth`, `PreserveReferences`, and `ConvertUsing` configuration also suppress AM022 because those mapping shapes
-own recursion behavior explicitly.
+own recursion behavior explicitly. Helper methods named `Ignore` are not treated as suppression unless they resolve to
+AutoMapper's member-configuration `Ignore()` method. Built-in framework types such as `System.Guid` stay out of
+graph recursion analysis, but user-defined types with the same short names are still analyzed.
 
 #### Configuration
 
@@ -1120,9 +1145,10 @@ dotnet_diagnostic.AM032.severity = warning
 Reports concrete `ITypeConverter<TSource, TDestination>` implementations that are declared but not referenced by any
 supported AutoMapper converter configuration. Usage analysis treats generic, instance, and type-based converter
 configuration as usage, including `ConvertUsing<MyConverter>()`, `ConvertUsing(new MyConverter())`, and
-`ConvertUsing(typeof(MyConverter))`. It also recognizes simple local, field, or property initializers where an
-`ITypeConverter<TSource, TDestination>` variable is initialized with a concrete converter and then passed to
-`ConvertUsing(converter)`.
+`ConvertUsing(typeof(MyConverter))` even when the `typeof(...)` expression is parenthesized, cast to `Type`, or stored in
+a simple `Type` local/field/property before being passed to `ConvertUsing(...)`. It also
+recognizes simple local, field, or property initializers where an `ITypeConverter<TSource, TDestination>` variable is
+initialized with a concrete converter and then passed to `ConvertUsing(converter)`.
 
 When any `ConvertUsing(...)` argument resolves to the interface `ITypeConverter<TSource, TDestination>` itself, for
 example through constructor injection (`public TestProfile(ITypeConverter<string, DateTime> converter)`), a
@@ -1236,7 +1262,7 @@ CreateMap<Source, Destination>()
         src.DataTask.Result));  // ❌ Synchronous access
 ```
 
-`Task.Wait()` and `GetAwaiter().GetResult()` are reported through the same descriptor.
+`Task.Wait()`, `Task.WaitAll()`, `Task.WaitAny()`, and `GetAwaiter().GetResult()` are reported through the same descriptor.
 
 #### Solutions
 
@@ -1269,14 +1295,28 @@ manual-review action only so the fixer does not change runtime mapping policy.
 
 #### Detected Patterns
 
-- ✅ Database queries (EF Core, Dapper, SQL)
-- ✅ File I/O operations
-- ✅ HTTP/API calls
-- ✅ Reflection operations
+- ✅ Database/query-provider calls (EF Core `DbContext`/`DbSet`/queryable extensions, `Queryable`, `Dapper.SqlMapper`, `NHibernate.ISession`, `System.Data.*`, `Microsoft.Data.SqlClient.SqlConnection`)
+- ✅ File/stream I/O operations (`File`, `Directory`, `FileInfo`, `DirectoryInfo`, filesystem-touching `Path` calls, exact BCL `FileSystemInfo.Delete()`/`Refresh()` inherited operations, archive `ZipFile` operations, exact BCL `FileStream.Flush()`/`SetLength()`/`Lock()`/`Unlock()` calls, file-backed `Stream.CopyTo()` operations, memory-mapped file create/open/view/flush operations, and exact BCL filesystem metadata properties such as `FileInfo.Length`, `FileInfo.Exists`, `DirectoryInfo.Exists`, timestamp, and attribute properties), while in-memory `MemoryStream`, `StringReader`, `StringWriter`, `Stream` locals backed by `MemoryStream`, reader/writer helpers over direct or locally initialized `MemoryStream`, and `TextReader`/`TextWriter` locals backed by `StringReader`/`StringWriter` usage stay quiet
+- ✅ Console I/O operations (`Console.Read*`, `Console.Write*`, standard stream open/set calls)
+- ✅ Framework HTTP/API calls (`HttpClient`, `WebClient`, `HttpMessageInvoker`, `HttpContent` body reads/copies, `System.Net.Http.Json` extension calls, `WebRequest`/`HttpWebRequest` response and request-stream calls)
+- HTTP client control and header-configuration methods such as `CancelPendingRequests()`, `Dispose()`, `DefaultRequestHeaders.Clear()`, and parsed header collection mutators such as `UserAgent.ParseAdd(...)` are intentionally ignored
+- ✅ DNS/network lookup calls (`Dns.GetHostEntry*`, `Dns.GetHostAddresses*`, legacy `Dns.Resolve`/`GetHostBy*`)
+- ✅ Socket/probe network I/O (`TcpClient`, `UdpClient`, `Socket`, `NetworkStream`, `Ping`)
+- ✅ Resource lookups (`System.Resources.ResourceManager.GetString`, `GetObject`, `GetStream`, `GetResourceSet`)
+- ✅ Reflection/runtime activation operations (`object.GetType`, `System.Type`/`System.Reflection` metadata property access including member type metadata, parameter/generic metadata lookup, current-method lookup, runtime/declaration lookup and enumeration, custom-attribute data/static attribute lookup and definition checks, metadata-token/runtime-handle resolution, generic type/member construction, delegate binding, reflection invocation, assembly loading/probing/resource/module lookup including `AssemblyName.GetAssemblyName`, `Assembly.GetSatelliteAssembly`, `Assembly.GetModules`, and `AssemblyLoadContext`, dynamic code generation via `System.Reflection.Emit`, `Activator.CreateInstance`, `Assembly.CreateInstance`, `Expression.Compile`)
+- ✅ Process launch/control/wait operations (`Process.Start`, `Process.Kill`, `Process.CloseMainWindow`, `Process.WaitForExit`, `Process.WaitForInputIdle`, `Environment.Exit`, `Environment.FailFast`)
+- ✅ GC control operations (`GC.Collect`, `GC.WaitForPendingFinalizers`, `GC.TryStartNoGCRegion`, `GC.EndNoGCRegion`, `GC.AddMemoryPressure`, `GC.RemoveMemoryPressure`)
+- ✅ Background work scheduling (`Task.Run`, `TaskFactory.StartNew`, `ThreadPool.QueueUserWorkItem`, `ThreadPool.UnsafeQueueUserWorkItem`, `ThreadPool.RegisterWaitForSingleObject`)
+- ✅ Serialization/deserialization/parsing (`System.Text.Json.JsonSerializer` including node and async-enumerable methods, `System.Xml.Serialization.XmlSerializer`, runtime serializers such as `DataContractSerializer`/`DataContractJsonSerializer`, `JsonDocument.Parse`, `JsonNode.Parse`, `XDocument`/`XElement` `Parse`/`Load`, `XmlDocument.Load`/`LoadXml`)
+- ✅ Compression stream operations (`GZipStream`, `DeflateStream`, `BrotliStream`, `ZLibStream` read/write/copy calls)
+- ✅ Regex operations (`Regex.IsMatch`, `Regex.Match`, `Regex.Matches`, `Regex.Replace`, `Regex.Split`)
+- ✅ Cryptographic hashing, key derivation, public-key, and symmetric transform operations (`HashAlgorithm.ComputeHash`, `SHA256.HashData`, `HMAC*.ComputeHash`, `IncrementalHash.CreateHash`/`CreateHMAC`/`AppendData`/`GetHash*`, `Rfc2898DeriveBytes.GetBytes`, `Rfc2898DeriveBytes.Pbkdf2`, `PasswordDeriveBytes.GetBytes`, `PasswordDeriveBytes.CryptDeriveKey`, `RSA.Encrypt`/`Decrypt`, `RSA`/`ECDsa`/`DSA` sign/verify, `ECDiffieHellman.DeriveKey*`, `SymmetricAlgorithm.CreateEncryptor`/`CreateDecryptor`, `ICryptoTransform.Transform*`)
+- ✅ Blocking thread operations (`Thread.Sleep`, `Thread.SpinWait`, `Thread.Join`, `SpinWait.Spin*`, `WaitHandle.WaitOne`, `Monitor.Wait`, `SemaphoreSlim.Wait`, `ManualResetEventSlim.Wait`, `ReaderWriterLockSlim.Enter*Lock`)
 - ✅ Multiple collection enumerations
-- ✅ `DateTime.Now`, `Random`, `Guid.NewGuid()`
-- ✅ `Task.Result`, `Task.Wait()`, `GetAwaiter().GetResult()`, including Task-valued source properties
+- ✅ `DateTime.Now`/`UtcNow`, `DateTimeOffset.Now`/`UtcNow`, `Random`, `RandomNumberGenerator`, `Stopwatch`, `Guid.NewGuid()`, exact BCL environment state method/property operations
+- ✅ `Task.Result`, `Task.Wait()`, `Task.WaitAll()`, `Task.WaitAny()`, `GetAwaiter().GetResult()`, including Task-valued source properties
 - ✅ Complex LINQ (SelectMany chains)
+- Fast deterministic framework helpers such as `StringComparer`, `EqualityComparer<T>`, `ReferenceEqualityComparer`, and `Comparer<T>` comparison/hash methods are intentionally ignored when the receiver is a known framework comparer singleton, including readonly fields initialized from those singletons or get-only properties initialized from or returning those singletons
 
 #### Configuration
 
@@ -1334,7 +1374,9 @@ public class MyProfile : Profile
 
 The AM041 code fix is intentionally withheld when a duplicate `ReverseMap()` has reverse-side configuration chained after it, such as `.ReverseMap().ForMember(...)` or `(CreateMap<...>().ReverseMap()).ForMember(...)`. Removing that chain automatically could move or drop mapping policy, so those cases require manual review.
 
-The same safety boundary applies to duplicate `CreateMap<TSource, TDestination>()` registrations that carry chained mapping configuration, such as `CreateMap<S, D>().ForMember(...)`, `(CreateMap<S, D>()).ForPath(...)`, or `CreateMap<S, D>().ReverseMap().ForMember(...)`. The fix is withheld because removing the duplicate statement would silently drop the chained policy (for example a `.ForMember(d => d.X, opt => opt.Ignore())` override). The bare `CreateMap<S, D>().ReverseMap()` reversal stays on the safe automatic swap.
+The same safety boundary applies to duplicate `CreateMap<TSource, TDestination>()` registrations that carry chained mapping configuration, such as `CreateMap<S, D>().ForMember(...)`, `(CreateMap<S, D>()).ForPath(...)`, or `CreateMap<S, D>().ReverseMap().ForMember(...)`. The fix is withheld because removing the duplicate statement would silently drop the chained policy (for example a `.ForMember(d => d.X, opt => opt.Ignore())` override). Bare `CreateMap<S, D>().ReverseMap()` reversals, including `(CreateMap<S, D>()).ReverseMap()`, stay on the safe automatic swap.
+
+Duplicate mappings nested inside another expression, such as `Register(CreateMap<S, D>())`, `Register(CreateMap<S, D>().ReverseMap())`, or a variable assignment, still report AM041 but do not receive the automatic removal action. The developer must decide how to preserve the surrounding expression.
 
 #### Configuration
 
@@ -1353,7 +1395,7 @@ dotnet_diagnostic.AM041.severity = warning
 
 Detects explicit `MapFrom` calls where the source and destination properties have the same name. AutoMapper maps these automatically by default.
 
-AM050 only reports when it can prove the source and destination members have the same type, including string-based destination member names such as `ForMember("Name", ...)` and top-level `ForPath(dest => dest.Name, ...)` mappings. Nested `ForPath` destination paths stay outside this cleanup rule because convention mapping equivalence is not guaranteed. It stays quiet when the destination member cannot be resolved or the same-name members have different types. Both source and destination lambda arguments accept simple, parenthesized, and typed shapes — `s => s.Name`, `(s) => s.Name`, and `(Source s) => s.Name` are all recognised. Multi-parameter parenthesized lambdas (such as AutoMapper's `(src, ctx) => ...` `IMemberConfigurationExpression` overload) intentionally stay outside the analyzer's scope.
+AM050 only reports when it can prove the source and destination members have the same type, including string-based destination member names such as `ForMember("Name", ...)` and top-level `ForPath(dest => dest.Name, ...)` mappings. Nested `ForPath` destination paths stay outside this cleanup rule because convention mapping equivalence is not guaranteed. It stays quiet when the destination member cannot be resolved or the same-name members have different types. Both source and destination lambda arguments accept simple, parenthesized, and typed parameter shapes — `s => s.Name`, `(s) => s.Name`, and `(Source s) => s.Name` are all recognised. Parenthesized member bodies such as `s => (s.Name)` and `d => (d.Name)` are normalised before comparison. Multi-parameter parenthesized lambdas (such as AutoMapper's `(src, ctx) => ...` `IMemberConfigurationExpression` overload) intentionally stay outside the analyzer's scope.
 
 #### Problem
 
@@ -1480,7 +1522,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.53">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.54">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1519,5 +1561,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.53
+**Version**: 2.30.54
 **Maintainer**: George Wall

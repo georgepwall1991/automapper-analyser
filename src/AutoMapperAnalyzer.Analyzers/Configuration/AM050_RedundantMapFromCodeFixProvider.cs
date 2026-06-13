@@ -55,7 +55,9 @@ public class AM050_RedundantMapFromCodeFixProvider : AutoMapperCodeFixProviderBa
                 DestinationConfigurationLambdaContainsOnlyTheMapFrom(destinationConfigurationInvocation, mapFromInvocation))
             {
                 string configurationMethodName = GetConfigurationMethodName(destinationConfigurationInvocation) ?? "mapping";
-                string propertyName = GetDestinationPropertyName(destinationConfigurationInvocation) ?? "property";
+                string propertyName = GetDestinationPropertyName(
+                    destinationConfigurationInvocation,
+                    operationContext.SemanticModel) ?? "property";
                 string equivalenceKey = configurationMethodName == "ForMember"
                     ? $"AM050_RemoveRedundantMapping_{propertyName}"
                     : $"AM050_RemoveRedundant{configurationMethodName}_{propertyName}";
@@ -117,7 +119,9 @@ public class AM050_RedundantMapFromCodeFixProvider : AutoMapperCodeFixProviderBa
             : null;
     }
 
-    private static string? GetDestinationPropertyName(InvocationExpressionSyntax destinationConfigurationInvocation)
+    private static string? GetDestinationPropertyName(
+        InvocationExpressionSyntax destinationConfigurationInvocation,
+        SemanticModel semanticModel)
     {
         if (destinationConfigurationInvocation.ArgumentList.Arguments.Count == 0)
         {
@@ -131,9 +135,15 @@ public class AM050_RedundantMapFromCodeFixProvider : AutoMapperCodeFixProviderBa
         }
 
         ExpressionSyntax expression = destinationConfigurationInvocation.ArgumentList.Arguments[0].Expression;
-        return expression is LiteralExpressionSyntax literal &&
-               literal.IsKind(SyntaxKind.StringLiteralExpression)
-            ? literal.Token.ValueText
+        if (expression is LiteralExpressionSyntax literal &&
+            literal.IsKind(SyntaxKind.StringLiteralExpression))
+        {
+            return literal.Token.ValueText;
+        }
+
+        Optional<object?> constantValue = semanticModel.GetConstantValue(expression);
+        return constantValue.HasValue && constantValue.Value is string value
+            ? value
             : null;
     }
 }

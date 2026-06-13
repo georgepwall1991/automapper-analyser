@@ -1,6 +1,6 @@
-using AutoMapper;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using AutoMapper;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Testing;
@@ -236,7 +236,11 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
     private static void ConfigureNonLocalDiagnosticSupport(CSharpCodeFixTest<TAnalyzer, TCodeFix, LineEndingAgnosticVerifier> test)
     {
         string analyzerName = typeof(TAnalyzer).Name;
-        if (analyzerName is "AM004_MissingDestinationPropertyAnalyzer" or "AM006_UnmappedDestinationPropertyAnalyzer")
+        if (analyzerName is
+            "AM004_MissingDestinationPropertyAnalyzer" or
+            "AM005_CaseSensitivityMismatchAnalyzer" or
+            "AM006_UnmappedDestinationPropertyAnalyzer" or
+            "AM011_UnmappedRequiredPropertyAnalyzer")
         {
             test.CodeFixTestBehaviors = CodeFixTestBehaviors.SkipLocalDiagnosticCheck;
         }

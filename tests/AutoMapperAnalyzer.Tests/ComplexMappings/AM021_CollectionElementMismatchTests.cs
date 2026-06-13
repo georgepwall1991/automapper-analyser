@@ -293,6 +293,44 @@ public class AM021_CollectionElementMismatchTests
     }
 
     [Fact]
+    public async Task AM021_ShouldReportReverseMapDiagnostic_WhenOnlyForwardImplicitElementConversionExists()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<int> Scores { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<long> Scores { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule, 20, 13,
+                "Scores", "Destination", "long", "Source", "Scores", "int")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM021_ShouldReportDiagnostic_WhenOnlyUserDefinedExplicitElementConversionExists()
     {
         const string testCode = """
@@ -415,6 +453,45 @@ public class AM021_CollectionElementMismatchTests
                                         {
                                             CreateMap<Source, Destination>()
                                                 .ForMember(dest => dest.Numbers, opt => opt.MapFrom(src =>
+                                                    src.Numbers.Select(x => int.Parse(x)).ToList()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_WhenExplicitConversionUsesNameofDestinationMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(nameof(Destination.Numbers), opt => opt.MapFrom(src =>
                                                     src.Numbers.Select(x => int.Parse(x)).ToList()));
                                         }
                                     }
@@ -890,6 +967,84 @@ public class AM021_CollectionElementMismatchTests
     }
 
     [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_WhenForMemberUsesConstantPropertyName()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private const string NumbersMember = nameof(Destination.Numbers);
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(NumbersMember, opt => opt.Ignore());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_WhenForMemberUsesTypedLambdaParameters()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember((Destination dest) => dest.Numbers,
+                                                    opt => opt.MapFrom((Source src) => src.Numbers.Select(int.Parse).ToList()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM021_ShouldNotReportDiagnostic_WhenForPathConfiguresCollectionProperty()
     {
         const string testCode = """
@@ -916,6 +1071,45 @@ public class AM021_CollectionElementMismatchTests
                                             CreateMap<Source, Destination>()
                                                 .ForPath(dest => dest.Numbers,
                                                     opt => opt.MapFrom(src => src.Numbers.Select(x => int.Parse(x)).ToList()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_WhenTypedForPathConfiguresCollectionProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForPath((Destination dest) => dest.Numbers,
+                                                    opt => opt.MapFrom((Source src) => src.Numbers.Select(x => int.Parse(x)).ToList()));
                                         }
                                     }
                                 }
@@ -1034,6 +1228,47 @@ public class AM021_CollectionElementMismatchTests
                                         {
                                             CreateMap<Source, Destination>()
                                                 .ConvertUsing(src => new Destination
+                                                {
+                                                    Numbers = src.Numbers.Select(x => int.Parse(x)).ToList()
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM021_CollectionElementMismatchAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM021_ShouldNotReportDiagnostic_WhenTypedConvertUsingHandlesForwardMapping()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConvertUsing((Source src) => new Destination
                                                 {
                                                     Numbers = src.Numbers.Select(x => int.Parse(x)).ToList()
                                                 });

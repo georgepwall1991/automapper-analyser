@@ -160,6 +160,62 @@ public class AM006_CodeFixTests
     }
 
     [Fact]
+    public async Task AM006_ShouldIgnorePositionalRecordDestinationProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public record Destination(string Name, string ExtraInfo);
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public record Destination(string Name, string ExtraInfo);
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.ExtraInfo, opt => opt.Ignore());
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
+            10, 60,
+            expectedFixedCode,
+            codeActionIndex: 0,
+            messageArgs: ["ExtraInfo", "Source"]);
+    }
+
+    [Fact]
     public async Task AM006_ShouldNotOfferFix_WhenAllPropertiesMapped()
     {
         const string testCode = """
@@ -338,6 +394,80 @@ public class AM006_CodeFixTests
             expectedFixedCode,
             codeActionIndex: 0,
             messageArgs: ["Email", "Source"]);
+    }
+
+    [Fact]
+    public async Task AM006_ShouldSuggestFuzzyMatch_ForReverseMapDiagnostic()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Emial { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Emial, opt => opt.MapFrom(src => src.Email))
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Email { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Emial { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.Emial, opt => opt.MapFrom(src => src.Email))
+                                                         .ReverseMap().ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Emial));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM006_UnmappedDestinationPropertyAnalyzer, AM006_UnmappedDestinationPropertyCodeFixProvider>
+            .VerifyFixByKeyAsync(
+                testCode,
+                Diagnostic(
+                    AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule,
+                    testCode,
+                    "Email", "Destination"),
+                expectedFixedCode,
+                "AM006_FuzzyMatch_Email_Emial");
     }
 
     [Fact]

@@ -137,15 +137,35 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
             properties.Add("PropertyType", destinationProperty.Type.ToDisplayString());
             properties.Add("SourceTypeName", AutoMapperAnalysisHelpers.GetTypeName(sourceType));
             properties.Add("DestinationTypeName", AutoMapperAnalysisHelpers.GetTypeName(destinationType));
+            properties.Add("MappingInvocationStart", invocation.SpanStart.ToString());
+            properties.Add("MappingInvocationLength", invocation.Span.Length.ToString());
 
             var diagnostic = Diagnostic.Create(
                 UnmappedRequiredPropertyRule,
-                invocation.GetLocation(),
+                GetPropertyLocation(destinationProperty) ?? invocation.GetLocation(),
                 properties.ToImmutable(),
                 destinationProperty.Name);
 
             context.ReportDiagnostic(diagnostic);
         }
+    }
+
+    private static Location? GetPropertyLocation(IPropertySymbol property)
+    {
+        foreach (SyntaxReference syntaxReference in property.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
+            {
+                return propertyDeclaration.Identifier.GetLocation();
+            }
+
+            if (syntaxReference.GetSyntax() is ParameterSyntax parameter)
+            {
+                return parameter.Identifier.GetLocation();
+            }
+        }
+
+        return null;
     }
 
 
@@ -238,8 +258,9 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            string? selectedMember =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberName(mappingCall.ArgumentList.Arguments[0].Expression);
+            string? selectedMember = AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                mappingCall.ArgumentList.Arguments[0].Expression,
+                semanticModel);
             if (selectedMember == null)
             {
                 continue;

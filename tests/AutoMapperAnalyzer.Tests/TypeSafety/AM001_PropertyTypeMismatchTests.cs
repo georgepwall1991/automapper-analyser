@@ -188,6 +188,42 @@ public class AM001_PropertyTypeMismatchTests
     }
 
     [Fact]
+    public async Task AM001_ShouldReportReverseMapDiagnostic_WhenOnlyForwardNumericConversionIsImplicit()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public int Score { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public long Score { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Score",
+                "Destination", "long", "Source", "int"));
+    }
+
+    [Fact]
     public async Task AM001_ShouldNotReportDiagnostic_WhenUserDefinedImplicitConversionExists()
     {
         const string testCode = """
@@ -445,6 +481,107 @@ public class AM001_PropertyTypeMismatchTests
     }
 
     [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenExplicitConversionProvidedWithNameofDestinationMember()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(nameof(Destination.Age), opt => opt.MapFrom(src => int.Parse(src.Age)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenExplicitConversionProvidedWithStringDestinationMember()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember("Age", opt => opt.MapFrom(src => int.Parse(src.Age)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenExplicitConversionProvidedWithConstantDestinationMember()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private const string AgeMember = nameof(Destination.Age);
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(AgeMember, opt => opt.MapFrom(src => int.Parse(src.Age)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
     public async Task AM001_ShouldNotReportDiagnostic_WhenConstructUsingHandlesMismatch()
     {
         const string testCode = """
@@ -557,6 +694,47 @@ public class AM001_PropertyTypeMismatchTests
             testCode,
             CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 21, 13, "CreatedDate",
                 "Source", "System.DateTime", "Destination", "string"));
+    }
+
+    [Fact]
+    public async Task AM001_ShouldReportDiagnostic_WhenDateOnlyMappedToCustomType()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public DateOnly Value { get; set; }
+                                    }
+
+                                    public class CustomDate
+                                    {
+                                        public int Year { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public CustomDate Value { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 26, 13, "Value",
+                "Source", "System.DateOnly", "Destination", "TestNamespace.CustomDate"));
     }
 
     [Fact]
@@ -680,6 +858,72 @@ public class AM001_PropertyTypeMismatchTests
                                         {
                                             CreateMap<Source, Destination>()
                                                 .ForMember((dest) => dest.Age, (opt) => opt.MapFrom((src) => int.Parse(src.Age)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenExplicitConversionProvidedWithTypedLambdaParameters()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember((Destination dest) => dest.Age,
+                                                    opt => opt.MapFrom((Source src) => int.Parse(src.Age)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenExplicitConversionProvidedWithTypedForPath()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForPath((Destination dest) => dest.Age,
+                                                    opt => opt.MapFrom((Source src) => int.Parse(src.Age)));
                                         }
                                     }
                                 }

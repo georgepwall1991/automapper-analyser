@@ -93,6 +93,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                 typeArguments.sourceType as INamedTypeSymbol,
                 typeArguments.destinationType as INamedTypeSymbol,
                 reverseMapInvocation,
+                context.SemanticModel,
                 createMapRegistry
             )
         )
@@ -141,6 +142,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol? sourceType,
         INamedTypeSymbol? destinationType,
         InvocationExpressionSyntax? reverseMapInvocation,
+        SemanticModel semanticModel,
         CreateMapRegistry createMapRegistry
     )
     {
@@ -149,7 +151,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        HashSet<string> ignoredProperties = GetIgnoredProperties(invocation, reverseMapInvocation);
+        HashSet<string> ignoredProperties = GetIgnoredProperties(invocation, reverseMapInvocation, semanticModel);
         HashSet<string> selfReferencingDestProperties = FindRecursiveDestinationProperties(
             sourceType,
             destinationType,
@@ -192,7 +194,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
 
     private static HashSet<string> GetIgnoredProperties(
         InvocationExpressionSyntax invocation,
-        InvocationExpressionSyntax? reverseMapInvocation
+        InvocationExpressionSyntax? reverseMapInvocation,
+        SemanticModel semanticModel
     )
     {
         var ignoredProperties = new HashSet<string>();
@@ -203,15 +206,15 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         {
             if (
                 parent is InvocationExpressionSyntax chainedCall
-                && chainedCall.Expression is MemberAccessExpressionSyntax memberAccess
-                && memberAccess.Name.Identifier.ValueText is "ForMember" or "ForPath"
+                && (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedCall, semanticModel, "ForMember")
+                    || MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedCall, semanticModel, "ForPath"))
                 && AppliesToForwardDirection(chainedCall, reverseMapInvocation)
             )
             {
                 // Check if this mapping call has Ignore()
-                if (HasIgnoreConfiguration(chainedCall))
+                if (HasIgnoreConfiguration(chainedCall, semanticModel))
                 {
-                    string? propertyName = ExtractPropertyNameFromForMemberOrPath(chainedCall);
+                    string? propertyName = ExtractPropertyNameFromForMemberOrPath(chainedCall, semanticModel);
                     if (!string.IsNullOrEmpty(propertyName))
                     {
                         ignoredProperties.Add(propertyName!);
@@ -225,19 +228,21 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         return ignoredProperties;
     }
 
-    private static bool HasIgnoreConfiguration(InvocationExpressionSyntax forMemberCall)
+    private static bool HasIgnoreConfiguration(
+        InvocationExpressionSyntax forMemberCall,
+        SemanticModel semanticModel)
     {
         return forMemberCall.ArgumentList.Arguments.Count >= 2
                && forMemberCall.ArgumentList.Arguments[1].Expression
                    .DescendantNodesAndSelf()
                    .OfType<InvocationExpressionSyntax>()
                    .Any(invocation =>
-                       invocation.Expression is MemberAccessExpressionSyntax memberAccess
-                       && memberAccess.Name.Identifier.ValueText == "Ignore");
+                       MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "Ignore"));
     }
 
     private static string? ExtractPropertyNameFromForMemberOrPath(
-        InvocationExpressionSyntax forMemberCall
+        InvocationExpressionSyntax forMemberCall,
+        SemanticModel semanticModel
     )
     {
         if (forMemberCall.ArgumentList.Arguments.Count == 0)
@@ -245,7 +250,9 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
-        return GetSelectedTopLevelMemberName(forMemberCall.ArgumentList.Arguments[0].Expression);
+        return AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+            forMemberCall.ArgumentList.Arguments[0].Expression,
+            semanticModel);
     }
 
     private static void AnalyzeRecursionRisk(
@@ -482,65 +489,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
 
     private static bool IsSimpleType(ITypeSymbol type)
     {
-        return type.SpecialType != SpecialType.None
-               || type.TypeKind == TypeKind.Enum
-               || IsNumericType(type)
-               || type.Name == "String"
-               || type.Name == "DateTime"
-               || type.Name == "Guid";
-    }
-
-    private static bool IsNumericType(ITypeSymbol type)
-    {
-        return type.SpecialType switch
-        {
-            SpecialType.System_Byte
-                or SpecialType.System_SByte
-                or SpecialType.System_Int16
-                or SpecialType.System_UInt16
-                or SpecialType.System_Int32
-                or SpecialType.System_UInt32
-                or SpecialType.System_Int64
-                or SpecialType.System_UInt64
-                or SpecialType.System_Single
-                or SpecialType.System_Double
-                or SpecialType.System_Decimal => true,
-            _ => false
-        };
-    }
-
-    private static string? GetSelectedTopLevelMemberName(SyntaxNode expression)
-    {
-        return expression switch
-        {
-            SimpleLambdaExpressionSyntax simpleLambda => GetSelectedTopLevelMemberName(simpleLambda.Body),
-            ParenthesizedLambdaExpressionSyntax parenthesizedLambda =>
-                GetSelectedTopLevelMemberName(parenthesizedLambda.Body),
-            MemberAccessExpressionSyntax memberAccess => GetTopLevelMemberName(memberAccess),
-            LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.StringLiteralExpression) =>
-                literal.Token.ValueText,
-            _ => null
-        };
-    }
-
-    private static string? GetTopLevelMemberName(MemberAccessExpressionSyntax memberAccess)
-    {
-        if (memberAccess.Expression is IdentifierNameSyntax)
-        {
-            return memberAccess.Name.Identifier.ValueText;
-        }
-
-        if (memberAccess.Expression is not MemberAccessExpressionSyntax currentAccess)
-        {
-            return null;
-        }
-
-        while (currentAccess.Expression is MemberAccessExpressionSyntax nestedAccess)
-        {
-            currentAccess = nestedAccess;
-        }
-
-        return currentAccess.Expression is IdentifierNameSyntax ? currentAccess.Name.Identifier.ValueText : null;
+        return type.TypeKind == TypeKind.Enum ||
+               AutoMapperAnalysisHelpers.IsBuiltInType(type);
     }
 
     private static bool AppliesToForwardDirection(

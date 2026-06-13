@@ -9,8 +9,8 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Tests.Configuration;
 
@@ -59,6 +59,90 @@ public class AM050_CodeFixTests
     }
 
     [Fact]
+    public async Task Should_Remove_RedundantMapping_WhenLambdaBodiesParenthesizeMatchingMembers()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(d => (d.Name), o => o.MapFrom(s => (s.Name)));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 using AutoMapper;
+
+                                 public class Source { public string Name { get; set; } }
+                                 public class Destination { public string Name { get; set; } }
+
+                                 public class MyProfile : Profile
+                                 {
+                                     public MyProfile()
+                                     {
+                                         CreateMap<Source, Destination>();
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+            .WithLocation(11, 44)
+            .WithArguments("Name");
+
+        await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
+            .VerifyFixAsync(testCode, expected, fixedCode);
+    }
+
+    [Fact]
+    public async Task Should_Remove_RedundantMapping_WhenLambdaParametersAreTyped()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember((Destination d) => d.Name, o => o.MapFrom((Source s) => s.Name));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 using AutoMapper;
+
+                                 public class Source { public string Name { get; set; } }
+                                 public class Destination { public string Name { get; set; } }
+
+                                 public class MyProfile : Profile
+                                 {
+                                     public MyProfile()
+                                     {
+                                         CreateMap<Source, Destination>();
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+            .WithLocation(11, 56)
+            .WithArguments("Name");
+
+        await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
+            .VerifyFixAsync(testCode, expected, fixedCode);
+    }
+
+    [Fact]
     public async Task Should_Remove_RedundantTopLevelForPath_AtEndOfChain()
     {
         const string testCode = """
@@ -94,6 +178,48 @@ public class AM050_CodeFixTests
 
         DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
             .WithLocation(11, 40)
+            .WithArguments("Name");
+
+        await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
+            .VerifyFixAsync(testCode, expected, fixedCode);
+    }
+
+    [Fact]
+    public async Task Should_Remove_RedundantTopLevelForPath_WhenLambdaParametersAreTyped()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForPath((Destination d) => d.Name, o => o.MapFrom((Source s) => s.Name));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 using AutoMapper;
+
+                                 public class Source { public string Name { get; set; } }
+                                 public class Destination { public string Name { get; set; } }
+
+                                 public class MyProfile : Profile
+                                 {
+                                     public MyProfile()
+                                     {
+                                         CreateMap<Source, Destination>();
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+            .WithLocation(11, 54)
             .WithArguments("Name");
 
         await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
@@ -311,6 +437,182 @@ public class AM050_CodeFixTests
 
         DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
             .WithLocation(11, 37)
+            .WithArguments("Name");
+
+        await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
+            .VerifyFixAsync(testCode, expected, fixedCode);
+    }
+
+    [Fact]
+    public async Task Should_Remove_RedundantMapping_WithNameofDestinationMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(nameof(Destination.Name), o => o.MapFrom(s => s.Name));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 using AutoMapper;
+
+                                 public class Source { public string Name { get; set; } }
+                                 public class Destination { public string Name { get; set; } }
+
+                                 public class MyProfile : Profile
+                                 {
+                                     public MyProfile()
+                                     {
+                                         CreateMap<Source, Destination>();
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+            .WithLocation(11, 55)
+            .WithArguments("Name");
+
+        await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
+            .VerifyFixAsync(testCode, expected, fixedCode);
+    }
+
+    [Fact]
+    public async Task Should_Remove_RedundantMapping_WithConstantDestinationMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+                                public static class DestinationMembers { public const string Name = nameof(Destination.Name); }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(DestinationMembers.Name, o => o.MapFrom(s => s.Name));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 using AutoMapper;
+
+                                 public class Source { public string Name { get; set; } }
+                                 public class Destination { public string Name { get; set; } }
+                                 public static class DestinationMembers { public const string Name = nameof(Destination.Name); }
+
+                                 public class MyProfile : Profile
+                                 {
+                                     public MyProfile()
+                                     {
+                                         CreateMap<Source, Destination>();
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+            .WithLocation(12, 54)
+            .WithArguments("Name");
+
+        await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
+            .VerifyFixAsync(testCode, expected, fixedCode);
+    }
+
+    [Fact]
+    public async Task Should_Remove_RedundantReverseMapMapping_WithConstantDestinationMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+                                public static class SourceMembers { public const string Name = nameof(Source.Name); }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ReverseMap()
+                                            .ForMember(SourceMembers.Name, o => o.MapFrom(d => d.Name));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 using AutoMapper;
+
+                                 public class Source { public string Name { get; set; } }
+                                 public class Destination { public string Name { get; set; } }
+                                 public static class SourceMembers { public const string Name = nameof(Source.Name); }
+
+                                 public class MyProfile : Profile
+                                 {
+                                     public MyProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                             .ReverseMap();
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+            .WithLocation(13, 49)
+            .WithArguments("Name");
+
+        await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
+            .VerifyFixAsync(testCode, expected, fixedCode);
+    }
+
+    [Fact]
+    public async Task Should_Remove_RedundantReverseMapMapping_WithNameofDestinationMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ReverseMap()
+                                            .ForMember(nameof(Source.Name), o => o.MapFrom(d => d.Name));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 using AutoMapper;
+
+                                 public class Source { public string Name { get; set; } }
+                                 public class Destination { public string Name { get; set; } }
+
+                                 public class MyProfile : Profile
+                                 {
+                                     public MyProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                             .ReverseMap();
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM050_RedundantMapFromAnalyzer.RedundantMapFromRule)
+            .WithLocation(12, 50)
             .WithArguments("Name");
 
         await CodeFixVerifier<AM050_RedundantMapFromAnalyzer, AM050_RedundantMapFromCodeFixProvider>
@@ -804,6 +1106,42 @@ public class AM050_CodeFixTests
                                     {
                                         CreateMap<Source, Destination>()
                                             .ForMember(d => d.Name, o =>
+                                            {
+                                                o.MapFrom(s => s.Name);
+                                                o.Ignore();
+                                            });
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                ImmutableArray.Create<DiagnosticAnalyzer>(new AM050_RedundantMapFromAnalyzer()))
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM050", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task Should_NotOfferFix_WhenForPathLambdaHasSiblingIgnore()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string Name { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForPath(d => d.Name, o =>
                                             {
                                                 o.MapFrom(s => s.Name);
                                                 o.Ignore();

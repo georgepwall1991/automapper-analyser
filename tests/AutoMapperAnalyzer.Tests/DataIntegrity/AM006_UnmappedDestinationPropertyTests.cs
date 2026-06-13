@@ -115,6 +115,119 @@ public class AM006_UnmappedDestinationPropertyTests
     }
 
     [Fact]
+    public async Task AM006_ShouldNotReportDiagnostic_WhenDestinationPropertyConfiguredWithStringForMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Info { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraInfo { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember("ExtraInfo", opt => opt.MapFrom(src => src.Info));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM006_ShouldNotReportDiagnostic_WhenDestinationPropertyConfiguredWithNameofForMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Info { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraInfo { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(nameof(Destination.ExtraInfo), opt => opt.MapFrom(src => src.Info));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM006_ShouldNotReportDiagnostic_WhenDestinationPropertyConfiguredWithConstantForMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Info { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraInfo { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private const string ExtraInfoMember = nameof(Destination.ExtraInfo);
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(ExtraInfoMember, opt => opt.MapFrom(src => src.Info));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
     public async Task AM006_ShouldNotReportDiagnostic_WhenConstructUsingHandlesDestinationProperty()
     {
         const string testCode = """
@@ -426,6 +539,47 @@ public class AM006_UnmappedDestinationPropertyTests
     }
 
     [Fact]
+    public async Task AM006_ShouldNotReportDiagnostic_WhenTypedConvertUsingHandlesDestinationProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Info { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraInfo { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConvertUsing((Source src) => new Destination
+                                                {
+                                                    Name = src.Name,
+                                                    ExtraInfo = src.Info
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
     public async Task AM006_ShouldNotReportDiagnostic_ForCreateMapLikeApiOutsideAutoMapper()
     {
         const string testCode = """
@@ -520,6 +674,44 @@ public class AM006_UnmappedDestinationPropertyTests
     }
 
     [Fact]
+    public async Task AM006_ShouldNotReportDiagnostic_WhenDestinationPropertyConfiguredWithTypedLambdaForMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Info { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraInfo { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember((Destination dest) => dest.ExtraInfo,
+                                                    opt => opt.MapFrom((Source src) => src.Info));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
     public async Task AM006_ShouldNotReportDiagnostic_WhenDestinationPropertyConfiguredWithForPath()
     {
         const string testCode = """
@@ -553,6 +745,52 @@ public class AM006_UnmappedDestinationPropertyTests
                                         {
                                             CreateMap<Source, Destination>()
                                                 .ForPath(dest => dest.Address.Street, opt => opt.MapFrom(src => src.Customer.Street));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM006_ShouldNotReportDiagnostic_WhenDestinationPropertyConfiguredWithTypedForPath()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceCustomer
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class DestinationAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceCustomer Customer { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestinationAddress Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForPath((Destination dest) => dest.Address.Street,
+                                                    opt => opt.MapFrom((Source src) => src.Customer.Street));
                                         }
                                     }
                                 }
@@ -602,6 +840,43 @@ public class AM006_UnmappedDestinationPropertyTests
             .WithSource(testCode)
             .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 17, 23,
                 "CustomerAge", "Source")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM006_ShouldReportDiagnostic_WhenFrameworkScalarLooksLikeFlatteningSource()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public DateOnly Created { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int CreatedYear { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 13, 20,
+                "CreatedYear", "Source")
             .RunAsync();
     }
 

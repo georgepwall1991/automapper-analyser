@@ -13,7 +13,8 @@ internal static class AnalyzerVerifier<TAnalyzer>
     {
         var test = new CSharpAnalyzerTest<TAnalyzer, DefaultVerifier>
         {
-            TestCode = source, ReferenceAssemblies = ReferenceAssemblies.Net.Net80
+            TestCode = source,
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80
         };
 
         AddAutoMapperReferences(test.TestState);

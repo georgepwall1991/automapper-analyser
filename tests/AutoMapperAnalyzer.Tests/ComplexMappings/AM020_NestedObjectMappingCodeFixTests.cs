@@ -101,6 +101,89 @@ public class AM020_NestedObjectMappingCodeFixTests
     }
 
     [Fact]
+    public async Task AM020_CodeFix_ShouldAddMissingCreateMapForCustomGuidNamedNestedObject()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Guid
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public class GuidDto
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Guid Identifier { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public GuidDto Identifier { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Guid
+                                             {
+                                                 public string Value { get; set; }
+                                             }
+
+                                             public class GuidDto
+                                             {
+                                                 public string Value { get; set; }
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public Guid Identifier { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public GuidDto Identifier { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                     CreateMap<Guid, GuidDto>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(29, 13)
+                    .WithArguments("Identifier", "Guid", "GuidDto"),
+                expectedFixedCode);
+    }
+
+    [Fact]
     public async Task AM020_CodeFix_ShouldPreserveGenericTypeArguments_ForGenericNestedObject()
     {
         // The old fixer emitted only type.Name, dropping <int> and producing CreateMap<SourceWrapper,
@@ -181,7 +264,7 @@ public class AM020_NestedObjectMappingCodeFixTests
                 testCode,
                 new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
                     .WithLocation(29, 13)
-                    .WithArguments("Data", "SourceWrapper", "DestWrapper"),
+                    .WithArguments("Data", "SourceWrapper<int>", "DestWrapper<int>"),
                 expectedFixedCode);
     }
 
@@ -424,6 +507,218 @@ public class AM020_NestedObjectMappingCodeFixTests
                 },
                 expectedFixedCode,
                 1);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldNotAddMappingForImplicitlyConvertibleNestedProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class DestinationAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class SourceValue
+                                    {
+                                        public string Raw { get; set; }
+                                    }
+
+                                    public class DestinationValue
+                                    {
+                                        public string Raw { get; set; }
+
+                                        public static implicit operator DestinationValue(SourceValue source)
+                                        {
+                                            return new DestinationValue { Raw = source.Raw };
+                                        }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceAddress Address { get; set; }
+                                        public SourceValue Value { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestinationAddress Address { get; set; }
+                                        public DestinationValue Value { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class SourceAddress
+                                             {
+                                                 public string Street { get; set; }
+                                             }
+
+                                             public class DestinationAddress
+                                             {
+                                                 public string Street { get; set; }
+                                             }
+
+                                             public class SourceValue
+                                             {
+                                                 public string Raw { get; set; }
+                                             }
+
+                                             public class DestinationValue
+                                             {
+                                                 public string Raw { get; set; }
+
+                                                 public static implicit operator DestinationValue(SourceValue source)
+                                                 {
+                                                     return new DestinationValue { Raw = source.Raw };
+                                                 }
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public SourceAddress Address { get; set; }
+                                                 public SourceValue Value { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public DestinationAddress Address { get; set; }
+                                                 public DestinationValue Value { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                     CreateMap<SourceAddress, DestinationAddress>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(46, 13)
+                    .WithArguments("Address", "SourceAddress", "DestinationAddress"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldAddReverseNestedMap_WhenOnlyForwardImplicitConversionExists()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceValue
+                                    {
+                                        public string Raw { get; set; }
+
+                                        public static implicit operator DestinationValue(SourceValue source)
+                                        {
+                                            return new DestinationValue { Raw = source.Raw };
+                                        }
+                                    }
+
+                                    public class DestinationValue
+                                    {
+                                        public string Raw { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceValue Value { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestinationValue Value { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class SourceValue
+                                             {
+                                                 public string Raw { get; set; }
+
+                                                 public static implicit operator DestinationValue(SourceValue source)
+                                                 {
+                                                     return new DestinationValue { Raw = source.Raw };
+                                                 }
+                                             }
+
+                                             public class DestinationValue
+                                             {
+                                                 public string Raw { get; set; }
+                                             }
+
+                                             public class Source
+                                             {
+                                                 public SourceValue Value { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public DestinationValue Value { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ReverseMap();
+                                                     CreateMap<DestinationValue, SourceValue>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(34, 13)
+                    .WithArguments("Value", "DestinationValue", "SourceValue"),
+                expectedFixedCode);
     }
 
     [Fact]

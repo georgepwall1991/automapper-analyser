@@ -8,8 +8,8 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Tests.ComplexMappings;
 
@@ -77,6 +77,17 @@ public class AM030_CodeFixTests
     [Fact]
     public async Task AM030_ShouldNotRegisterCodeActions_ForInvalidImplementationOrUnusedConverter()
     {
+        var provider = new AM030_CustomTypeConverterCodeFixProvider();
+        Assert.Collection(
+            provider.FixableDiagnosticIds,
+            id => Assert.Equal(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule.Id, id));
+        Assert.DoesNotContain(
+            AM030_CustomTypeConverterAnalyzer.InvalidConverterImplementationRule.Id,
+            provider.FixableDiagnosticIds);
+        Assert.DoesNotContain(
+            AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule.Id,
+            provider.FixableDiagnosticIds);
+
         const string testCode = """
                                 using AutoMapper;
                                 using System;

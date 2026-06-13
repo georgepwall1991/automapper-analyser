@@ -148,6 +148,69 @@ public class AM001_CodeFixTests
     }
 
     [Fact]
+    public async Task AM001_ShouldFixReverseMapNumericConversionWithCast()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public int Score { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public long Score { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public int Score { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public long Score { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ReverseMap().ForMember(dest => dest.Score, opt => opt.MapFrom(src => (int)src.Score));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 13,
+                    "Score", "Destination", "long", "Source", "int"),
+                expectedFixedCode);
+    }
+
+    [Fact]
     public async Task AM001_ShouldFixDoubleToDecimalConversionWithCast()
     {
         const string testCode = """

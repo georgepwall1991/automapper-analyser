@@ -92,16 +92,27 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var reportedMismatches = new HashSet<string>(StringComparer.Ordinal);
+
         // Analyze collection compatibility for property mappings
         AnalyzeCollectionCompatibility(context, invocationExpr, typeArguments.sourceType,
-            typeArguments.destinationType);
+            typeArguments.destinationType, reportedMismatches);
+
+        InvocationExpressionSyntax? reverseMapInvocation =
+            AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocationExpr);
+        if (reverseMapInvocation != null)
+        {
+            AnalyzeCollectionCompatibility(context, reverseMapInvocation, typeArguments.destinationType,
+                typeArguments.sourceType, reportedMismatches);
+        }
     }
 
 
     private static void AnalyzeCollectionCompatibility(SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         ITypeSymbol sourceType,
-        ITypeSymbol destinationType)
+        ITypeSymbol destinationType,
+        HashSet<string> reportedMismatches)
     {
         if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
         {
@@ -139,7 +150,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
                 AutoMapperAnalysisHelpers.IsCollectionType(destinationProperty.Type))
             {
                 AnalyzeCollectionPropertyCompatibility(context, invocation, sourceProperty, destinationProperty,
-                    sourceType, destinationType);
+                    sourceType, destinationType, reportedMismatches);
             }
         }
     }
@@ -150,7 +161,8 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         IPropertySymbol sourceProperty,
         IPropertySymbol destinationProperty,
         ITypeSymbol sourceType,
-        ITypeSymbol destinationType)
+        ITypeSymbol destinationType,
+        HashSet<string> reportedMismatches)
     {
         string sourceTypeName = sourceProperty.Type.ToDisplayString();
         string destTypeName = destinationProperty.Type.ToDisplayString();
@@ -169,6 +181,17 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         if (!IsImplicitlyAssignable(sourceProperty.Type, destinationProperty.Type, context.SemanticModel.Compilation) &&
             AreCollectionTypesIncompatible(sourceProperty.Type, destinationProperty.Type))
         {
+            string mismatchKey = CreateMismatchKey(
+                sourceType,
+                destinationType,
+                sourceProperty.Name,
+                sourceProperty.Type,
+                destinationProperty.Type);
+            if (!reportedMismatches.Add(mismatchKey))
+            {
+                return;
+            }
+
             ImmutableDictionary<string, string?>.Builder properties =
                 ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add(PropertyNamePropertyName, sourceProperty.Name);
@@ -200,6 +223,22 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         }
     }
 
+    private static string CreateMismatchKey(
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType,
+        string propertyName,
+        ITypeSymbol sourcePropertyType,
+        ITypeSymbol destinationPropertyType)
+    {
+        string[] typeNames = [sourceType.ToDisplayString(), destinationType.ToDisplayString()];
+        Array.Sort(typeNames, StringComparer.Ordinal);
+
+        string[] propertyTypeNames = [sourcePropertyType.ToDisplayString(), destinationPropertyType.ToDisplayString()];
+        Array.Sort(propertyTypeNames, StringComparer.Ordinal);
+
+        return $"{typeNames[0]}|{typeNames[1]}::{propertyName}::{propertyTypeNames[0]}|{propertyTypeNames[1]}";
+    }
+
 
     private static bool AreCollectionTypesIncompatible(ITypeSymbol sourceType, ITypeSymbol destType)
     {
@@ -219,6 +258,10 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         bool destIsQueue = IsConstructedFromType(destType, "System.Collections.Generic.Queue<T>");
         bool sourceIsStack = IsConstructedFromType(sourceType, "System.Collections.Generic.Stack<T>");
         bool destIsStack = IsConstructedFromType(destType, "System.Collections.Generic.Stack<T>");
+        bool sourceIsSortedSet = IsConstructedFromType(sourceType, "System.Collections.Generic.SortedSet<T>");
+        bool destIsSortedSet = IsConstructedFromType(destType, "System.Collections.Generic.SortedSet<T>");
+        bool sourceIsLinkedList = IsConstructedFromType(sourceType, "System.Collections.Generic.LinkedList<T>");
+        bool destIsLinkedList = IsConstructedFromType(destType, "System.Collections.Generic.LinkedList<T>");
         bool sourceIsImmutableList =
             IsConstructedFromType(sourceType, "System.Collections.Immutable.ImmutableList<T>");
         bool destIsImmutableList =
@@ -263,6 +306,27 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         }
 
         if (!sourceIsStack && destIsStack)
+        {
+            return true;
+        }
+
+        // SortedSet/LinkedList carry destination container semantics that should be explicit.
+        if (sourceIsSortedSet && !destIsSortedSet)
+        {
+            return true;
+        }
+
+        if (!sourceIsSortedSet && destIsSortedSet)
+        {
+            return true;
+        }
+
+        if (sourceIsLinkedList && !destIsLinkedList)
+        {
+            return true;
+        }
+
+        if (!sourceIsLinkedList && destIsLinkedList)
         {
             return true;
         }

@@ -331,8 +331,9 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
             }
 
             ArgumentSyntax destinationArgument = mappingCall.ArgumentList.Arguments[0];
-            string? selectedMember =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberName(destinationArgument.Expression);
+            string? selectedMember = AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                destinationArgument.Expression,
+                semanticModel);
             if (selectedMember == null)
             {
                 continue;

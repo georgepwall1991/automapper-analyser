@@ -196,6 +196,184 @@ public class AM004_MissingDestinationPropertyTests
     }
 
     [Fact]
+    public async Task AM004_ShouldNotReportDiagnostic_WhenExplicitIgnoreConfiguredWithStringSourceMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                        public string TempData { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForSourceMember("TempData", opt => opt.DoNotValidate());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM004_ShouldNotReportDiagnostic_WhenExplicitIgnoreConfiguredWithNameofSourceMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                        public string TempData { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForSourceMember(nameof(Source.TempData), opt => opt.DoNotValidate());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM004_ShouldNotReportDiagnostic_WhenExplicitIgnoreConfiguredWithConstantSourceMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                        public string TempData { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private const string TempDataMember = nameof(Source.TempData);
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForSourceMember(TempDataMember, opt => opt.DoNotValidate());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM004_ShouldNotReportDiagnostic_WhenExplicitIgnoreConfiguredWithParenthesizedSourceMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                        public string TempData { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForSourceMember((src) => src.TempData, (opt) => opt.DoNotValidate());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM004_ShouldNotReportDiagnostic_WhenExplicitIgnoreConfiguredWithTypedLambdaSourceMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                        public string TempData { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForSourceMember((Source src) => src.TempData,
+                                                    opt => opt.DoNotValidate());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
     public async Task AM004_ShouldNotReportDiagnostic_WhenCustomMappingHandlesProperty()
     {
         const string testCode = """
@@ -715,6 +893,42 @@ public class AM004_MissingDestinationPropertyTests
                                         {
                                             CreateMap<Source, Destination>()
                                                 .ConstructUsing(src => new Destination
+                                                {
+                                                    Name = src.Name + "-" + src.ExtraData
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM004_MissingDestinationPropertyAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM004_ShouldNotReportDiagnostic_WhenConvertUsingConsumesSourceProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string ExtraData { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConvertUsing(src => new Destination
                                                 {
                                                     Name = src.Name + "-" + src.ExtraData
                                                 });

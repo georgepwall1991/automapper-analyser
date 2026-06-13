@@ -121,6 +121,78 @@ public class AM002_CodeFixTests
     }
 
     [Fact]
+    public async Task AM002_ShouldFixReverseMapNullableToNonNullableWithNullCoalescing()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string? Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Name, opt => opt.NullSubstitute("fallback"))
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string? Name { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ForMember(dest => dest.Name, opt => opt.NullSubstitute("fallback"))
+                                                         .ReverseMap().ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? string.Empty));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+            20,
+            13,
+            expectedFixedCode,
+            "Name",
+            "Destination",
+            "string?",
+            "Source",
+            "string");
+    }
+
+    [Fact]
     public async Task AM002_ShouldEscapeKeywordPropertyName_WhenScaffoldingDefaultMapping()
     {
         // A property whose name is a C# keyword must be emitted as a verbatim identifier in both the

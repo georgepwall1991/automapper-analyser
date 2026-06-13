@@ -6,6 +6,7 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Analyzers.Configuration;
 
@@ -30,12 +31,9 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
 
         foreach (Diagnostic? diagnostic in context.Diagnostics)
         {
-            SyntaxNode? node = operationContext.Root.FindNode(diagnostic.Location.SourceSpan);
-
-            // Find the invocation expression (could be CreateMap or ReverseMap)
-            InvocationExpressionSyntax? invocation = node as InvocationExpressionSyntax ??
-                                                     node?.AncestorsAndSelf().OfType<InvocationExpressionSyntax>()
-                                                         .FirstOrDefault();
+            InvocationExpressionSyntax? invocation = FindDuplicateMappingInvocation(
+                operationContext.Root.FindNode(diagnostic.Location.SourceSpan),
+                diagnostic.Location.SourceSpan);
 
             if (invocation != null)
             {
@@ -74,7 +72,45 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
 
     private static bool HasRemovableStatement(InvocationExpressionSyntax invocation)
     {
-        return invocation.AncestorsAndSelf().OfType<ExpressionStatementSyntax>().FirstOrDefault() != null;
+        ExpressionStatementSyntax? statement =
+            invocation.AncestorsAndSelf().OfType<ExpressionStatementSyntax>().FirstOrDefault();
+        if (statement == null)
+        {
+            return false;
+        }
+
+        if (statement.Expression == invocation)
+        {
+            return true;
+        }
+
+        return TryCreateReverseCreateMapReplacement(invocation, out _, out _);
+    }
+
+    private static InvocationExpressionSyntax? FindDuplicateMappingInvocation(
+        SyntaxNode? node,
+        TextSpan diagnosticSpan)
+    {
+        if (node == null)
+        {
+            return null;
+        }
+
+        return node.DescendantNodesAndSelf()
+            .OfType<InvocationExpressionSyntax>()
+            .Concat(node.AncestorsAndSelf().OfType<InvocationExpressionSyntax>())
+            .Where(invocation => IsDuplicateMappingInvocation(invocation) &&
+                                 (invocation.Span.IntersectsWith(diagnosticSpan) ||
+                                  diagnosticSpan.Contains(invocation.Span)))
+            .Distinct()
+            .OrderBy(invocation => invocation.Span.Contains(diagnosticSpan) ? 0 : 1)
+            .ThenBy(invocation => invocation.Span.Length)
+            .FirstOrDefault();
+    }
+
+    private static bool IsDuplicateMappingInvocation(InvocationExpressionSyntax invocation)
+    {
+        return IsReverseMapInvocation(invocation) || TryGetCreateMapGenericName(invocation, out _);
     }
 
     private static string GetMappingLabel(InvocationExpressionSyntax invocation)
@@ -194,7 +230,13 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
             return false;
         }
 
-        if (createMapInvocation.Parent is not MemberAccessExpressionSyntax reverseMapMemberAccess ||
+        SyntaxNode? reverseMapReceiver = createMapInvocation.Parent;
+        while (reverseMapReceiver is ParenthesizedExpressionSyntax parenthesizedReceiver)
+        {
+            reverseMapReceiver = parenthesizedReceiver.Parent;
+        }
+
+        if (reverseMapReceiver is not MemberAccessExpressionSyntax reverseMapMemberAccess ||
             reverseMapMemberAccess.Name.Identifier.Text != "ReverseMap" ||
             reverseMapMemberAccess.Parent is not InvocationExpressionSyntax reverseMapInvocation ||
             reverseMapInvocation.ArgumentList.Arguments.Count != 0 ||

@@ -251,7 +251,7 @@ public class AM011_AggregateCodeFixTests
             await CodeFixActionInspector.GetActionsAsync(
                 document,
                 new AM011_UnmappedRequiredPropertyCodeFixProvider(),
-                diagnostics);
+                diagnostics[0]);
 
         Assert.Contains(actions, a => a.EquivalenceKey == "AM011_MapAll" && a.Depth == 0);
         Assert.Contains(actions, a => a.EquivalenceKey == "AM011_IgnoreAll" && a.Depth == 0);
@@ -269,7 +269,7 @@ public class AM011_AggregateCodeFixTests
             await CodeFixActionInspector.GetActionsAsync(
                 document,
                 new AM011_UnmappedRequiredPropertyCodeFixProvider(),
-                diagnostics);
+                diagnostics[0]);
 
         // Map all + Ignore all + a single "Fix individual…" parent = 3 top-level entries (not 2 + 6 flat).
         Assert.Equal(3, CodeFixActionInspector.TopLevelCount(actions));
@@ -344,7 +344,7 @@ public class AM011_AggregateCodeFixTests
         Document fixedDocument = await CodeFixActionInspector.ApplyActionByKeyAsync(
             document,
             new AM011_UnmappedRequiredPropertyCodeFixProvider(),
-            diagnostics,
+            ImmutableArray.Create(diagnostics[0]),
             equivalenceKey);
 
         string actualFixedCode = (await fixedDocument.GetTextAsync()).ToString();

@@ -21,10 +21,7 @@ public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProvide
     ///     Gets the diagnostic IDs that this code fix provider can fix.
     /// </summary>
     public override ImmutableArray<string> FixableDiagnosticIds =>
-        ImmutableArray.Create(
-            AM030_CustomTypeConverterAnalyzer.InvalidConverterImplementationRule.Id,
-            AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule.Id,
-            AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule.Id);
+        ImmutableArray.Create(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule.Id);
 
     /// <summary>
     ///     Registers code fixes for the specified context.

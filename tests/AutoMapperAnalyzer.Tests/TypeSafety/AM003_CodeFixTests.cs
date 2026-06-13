@@ -107,6 +107,78 @@ public class AM003_CodeFixTests
     }
 
     [Fact]
+    public async Task AM003_ShouldFixReverseMapIEnumerableToHashSetWithConstructor()
+    {
+        const string testCode = """
+
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public HashSet<string> Tags { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public IEnumerable<string> Tags { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public HashSet<string> Tags { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public IEnumerable<string> Tags { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ReverseMap().ForMember(dest => dest.Tags, opt => opt.MapFrom(src => new HashSet<string>(src.Tags)));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+            21,
+            13,
+            expectedFixedCode,
+            "Tags",
+            "Destination",
+            "System.Collections.Generic.IEnumerable<string>",
+            "Source",
+            "System.Collections.Generic.HashSet<string>");
+    }
+
+    [Fact]
     public async Task AM003_ShouldNotReportDiagnostic_WhenElementTypesAreIncompatible()
     {
         const string testCode = """
@@ -918,6 +990,74 @@ public class AM003_CodeFixTests
     }
 
     [Fact]
+    public async Task AM003_ShouldFixListToSortedSetWithConstructor()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<int> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public SortedSet<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public List<int> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public SortedSet<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new SortedSet<int>(src.Values)));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+            20,
+            13,
+            expectedFixedCode,
+            "Values",
+            "Source",
+            "System.Collections.Generic.List<int>",
+            "Destination",
+            "System.Collections.Generic.SortedSet<int>");
+    }
+
+    [Fact]
     public async Task AM003_ShouldFixListToImmutableListWithCreateRange()
     {
         const string testCode = """
@@ -1055,6 +1195,77 @@ public class AM003_CodeFixTests
             "System.Collections.Generic.List<string>",
             "Destination",
             "System.Collections.Immutable.ImmutableArray<string>");
+    }
+
+    [Fact]
+    public async Task AM003_ShouldFixListToImmutableArrayWithElementConversion()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Collections.Immutable;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Values { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public ImmutableArray<int> Values { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Collections.Immutable;
+                                         using System.Linq;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public List<string> Values { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public ImmutableArray<int> Values { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => global::System.Collections.Immutable.ImmutableArray.CreateRange(src.Values.Select(x => int.Parse(x)))));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await VerifyFixAsync(
+            testCode,
+            AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+            21,
+            13,
+            expectedFixedCode,
+            "Values",
+            "Source",
+            "System.Collections.Generic.List<string>",
+            "Destination",
+            "System.Collections.Immutable.ImmutableArray<int>");
     }
 
     [Fact]

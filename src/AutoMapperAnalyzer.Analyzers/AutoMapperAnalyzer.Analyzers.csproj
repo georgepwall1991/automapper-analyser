@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>53</PatchVersion>
+        <PatchVersion>54</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,19 +32,21 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.53 - AM032 conditional-access null-handling precision
+        <PackageReleaseNotes>Version 2.30.54 - Analyzer precision and regression hardening
 
             Changed:
-            - Hardened AM032 so conditional access only suppresses nullable-source converter diagnostics when it actually handles the null path. Unsafe invocation/constructor arguments such as DateTime.Parse(source?.Trim()), int.Parse(source?.Trim()), DateTime.Parse(trimmed), new Uri(source?.Trim()), or target-typed new(source?.Trim()) in Uri converters, null-forgiven ?? null! fallbacks, coalesced guards whose null fallback enters unsafe branches, maybe-null local member dereferences, and nested-helper-only null checks now report.
-            - Preserved safe AM032 suppression for TryParse success/fallback flows, boolean guard locals, source-free fallback assignments, split-assigned conditional-access locals, nullable parse provider/style arguments, null-tolerant argument targets, boolean switch-statement fallback flows, nullable-destination fallback local returns, and other guarded conditional-access flow shapes while rejecting guards that run after unsafe source dereferences.
+            - Hardened cross-rule explicit configuration handling across typed/string/nameof/const ForMember and ForPath selectors, typed ConvertUsing lambdas, constructors, resolvers, converters, and reverse-map boundaries.
+            - Expanded analyzer and code-fix precision across AM001/AM002/AM003/AM004/AM005/AM006/AM011/AM020/AM021/AM022/AM030/AM031/AM032/AM033/AM041/AM050 with stronger false-positive guards, safer automatic fix selection, and broader regression coverage.
+            - Refreshed analyzer-health, rule docs, and release metadata for the current verification baseline.
 
             Validation:
-            - Focused AM030/AM032/AM033 slice passing on net10.0 (121 tests)
-            - Full solution test suite passing on net10.0 (985 tests)
+            - Full solution test suite passing on net10.0 (1352 tests)
+            - Focused affected analyzer slice passing on net10.0 (471 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
             - Analyzer and test projects build clean under -warnaserror (the release gate)
+            - Package smoke passing on net10.0
 
-            Previous Release: v2.30.52 - AM006/AM004 aggregate + nested code-fix actions
+            Previous Release: v2.30.53 - AM032 conditional-access null-handling precision
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

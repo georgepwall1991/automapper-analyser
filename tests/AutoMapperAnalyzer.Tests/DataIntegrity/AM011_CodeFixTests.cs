@@ -73,7 +73,7 @@ public class AM011_CodeFixTests
             .VerifyFixAsync(
                 testCode,
                 new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
-                    .WithLocation(23, 13)
+                    .WithLocation(16, 32)
                     .WithArguments("RequiredField"),
                 expectedFixedCode,
                 0); // Primary fix: default value (no fuzzy match)
@@ -140,7 +140,7 @@ public class AM011_CodeFixTests
             .VerifyFixAsync(
                 testCode,
                 new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
-                    .WithLocation(21, 13)
+                    .WithLocation(14, 29)
                     .WithArguments("RequiredNumber"),
                 expectedFixedCode,
                 0); // Primary fix: default value (0 for int)
@@ -207,7 +207,7 @@ public class AM011_CodeFixTests
             .VerifyFixAsync(
                 testCode,
                 new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
-                    .WithLocation(21, 13)
+                    .WithLocation(14, 32)
                     .WithArguments("RequiredField"),
                 expectedBulkFixedCode,
                 0); // Primary fix: default value
@@ -274,7 +274,7 @@ public class AM011_CodeFixTests
             .VerifyFixAsync(
                 testCode,
                 new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
-                    .WithLocation(21, 13)
+                    .WithLocation(14, 32)
                     .WithArguments("RequiredDescription"),
                 expectedFixedCode,
                 0); // Primary fix: default value
@@ -331,7 +331,7 @@ public class AM011_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredField2, opt => opt.MapFrom(src => string.Empty)).ForMember(dest => dest.RequiredField1, opt => opt.MapFrom(src => string.Empty));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredField1, opt => opt.MapFrom(src => string.Empty)).ForMember(dest => dest.RequiredField2, opt => opt.MapFrom(src => string.Empty));
                                                  }
                                              }
                                          }
@@ -343,14 +343,14 @@ public class AM011_CodeFixTests
                 new[]
                 {
                     new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
-                        .WithLocation(21, 13)
+                        .WithLocation(13, 32)
                         .WithArguments("RequiredField1"),
                     new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
-                        .WithLocation(21, 13)
+                        .WithLocation(14, 32)
                         .WithArguments("RequiredField2")
                 },
                 expectedFixedCode,
-                0, 2); // Primary fix for each diagnostic (2 iterations)
+                0, 1); // Aggregate map-all action keeps destination declaration order.
     }
 
     [Fact]
@@ -412,7 +412,7 @@ public class AM011_CodeFixTests
             .VerifyFixAsync(
                 testCode,
                 new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
-                    .WithLocation(20, 13)
+                    .WithLocation(13, 30)
                     .WithArguments("RequiredFlag"),
                 expectedFixedCode,
                 0); // Primary fix: default value (false for bool)
@@ -477,7 +477,7 @@ public class AM011_CodeFixTests
             .VerifyFixAsync(
                 testCode,
                 new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
-                    .WithLocation(20, 13)
+                    .WithLocation(13, 33)
                     .WithArguments("RequiredPrice"),
                 expectedFixedCode,
                 0); // Primary fix: default value (0m for decimal)
@@ -544,7 +544,7 @@ public class AM011_CodeFixTests
             .VerifyFixAsync(
                 testCode,
                 new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
-                    .WithLocation(21, 13)
+                    .WithLocation(14, 32)
                     .WithArguments("Email"),
                 expectedFixedCode,
                 0);

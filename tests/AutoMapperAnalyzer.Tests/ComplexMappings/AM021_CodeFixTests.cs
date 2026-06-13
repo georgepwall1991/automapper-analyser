@@ -8,8 +8,8 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Tests.ComplexMappings;
 
@@ -1188,6 +1188,73 @@ public class AM021_CodeFixTests
                     .WithLocation(20, 13)
                     .WithArguments("Data", "Source", "System.Collections.Generic.KeyValuePair<string, int>",
                         "Destination", "Data", "System.Collections.Generic.KeyValuePair<string, string>"),
+                expectedFixedCode,
+                codeActionIndex: 0);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldFixDictionaryKeyAndValueConversion_WithToDictionary()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public Dictionary<string, int> Data { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Dictionary<int, string> Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public Dictionary<string, int> Data { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public Dictionary<int, string> Data { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Data, opt => opt.MapFrom(src => src.Data.ToDictionary(kvp => global::System.Convert.ToInt32(kvp.Key), kvp => global::System.Convert.ToString(kvp.Value))));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("Data", "Source", "System.Collections.Generic.KeyValuePair<string, int>",
+                        "Destination", "Data", "System.Collections.Generic.KeyValuePair<int, string>"),
                 expectedFixedCode,
                 codeActionIndex: 0);
     }

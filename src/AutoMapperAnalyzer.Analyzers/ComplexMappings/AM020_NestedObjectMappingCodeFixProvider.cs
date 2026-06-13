@@ -111,13 +111,44 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
     private static (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) GetCreateMapTypeArguments(
         InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
-        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
-        if (symbolInfo.Symbol is IMethodSymbol { IsGenericMethod: true, TypeArguments.Length: 2 } method)
+        if (TryGetDirectCreateMapTypeArguments(invocation, semanticModel, out INamedTypeSymbol? sourceType,
+                out INamedTypeSymbol? destinationType))
         {
-            return (method.TypeArguments[0] as INamedTypeSymbol, method.TypeArguments[1] as INamedTypeSymbol);
+            return (sourceType, destinationType);
+        }
+
+        if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ReverseMap"))
+        {
+            InvocationExpressionSyntax? createMapInvocation = FindCreateMapInvocation(invocation, semanticModel);
+            if (createMapInvocation != null &&
+                TryGetDirectCreateMapTypeArguments(createMapInvocation, semanticModel, out sourceType,
+                    out destinationType))
+            {
+                return (destinationType, sourceType);
+            }
         }
 
         return (null, null);
+    }
+
+    private static bool TryGetDirectCreateMapTypeArguments(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel,
+        out INamedTypeSymbol? sourceType,
+        out INamedTypeSymbol? destinationType)
+    {
+        sourceType = null;
+        destinationType = null;
+
+        SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+        if (symbolInfo.Symbol is IMethodSymbol { IsGenericMethod: true, TypeArguments.Length: 2 } method)
+        {
+            sourceType = method.TypeArguments[0] as INamedTypeSymbol;
+            destinationType = method.TypeArguments[1] as INamedTypeSymbol;
+            return sourceType != null && destinationType != null;
+        }
+
+        return false;
     }
 
     private static List<(INamedTypeSymbol sourceType, INamedTypeSymbol destinationType)> GetMissingNestedMappings(
@@ -142,7 +173,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             IPropertySymbol? destProp = destinationProperties
                 .FirstOrDefault(p => string.Equals(p.Name, sourceProp.Name, StringComparison.OrdinalIgnoreCase));
 
-            if (destProp == null || !RequiresNestedObjectMapping(sourceProp.Type, destProp.Type))
+            if (destProp == null || !RequiresNestedObjectMapping(semanticModel.Compilation, sourceProp.Type, destProp.Type))
             {
                 continue;
             }
@@ -202,7 +233,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         return properties.ToArray();
     }
 
-    private static bool RequiresNestedObjectMapping(ITypeSymbol sourceType, ITypeSymbol destinationType)
+    private static bool RequiresNestedObjectMapping(Compilation compilation, ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
         ITypeSymbol sourceUnderlying = GetUnderlyingType(sourceType);
         ITypeSymbol destUnderlying = GetUnderlyingType(destinationType);
@@ -212,12 +243,19 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             return false;
         }
 
-        if (IsBuiltInType(sourceUnderlying) || IsBuiltInType(destUnderlying))
+        if (AutoMapperAnalysisHelpers.IsBuiltInType(sourceUnderlying) ||
+            AutoMapperAnalysisHelpers.IsBuiltInType(destUnderlying))
         {
             return false;
         }
 
         if (IsCollectionType(sourceUnderlying) || IsCollectionType(destUnderlying))
+        {
+            return false;
+        }
+
+        Conversion conversion = compilation.ClassifyConversion(sourceUnderlying, destUnderlying);
+        if (conversion.Exists && conversion.IsImplicit)
         {
             return false;
         }
@@ -239,12 +277,6 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         }
 
         return type;
-    }
-
-    private static bool IsBuiltInType(ITypeSymbol type)
-    {
-        return type.SpecialType != SpecialType.None ||
-               type.Name is "String" or "DateTime" or "DateTimeOffset" or "TimeSpan" or "Guid" or "Decimal";
     }
 
     private static bool IsCollectionType(ITypeSymbol type)

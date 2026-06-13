@@ -274,6 +274,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         SemanticModel semanticModel,
         HashSet<ISymbol> visitedSymbols)
     {
+        expression = UnwrapConverterReferenceExpression(expression);
+
         if (expression is TypeOfExpressionSyntax typeOfExpression &&
             semanticModel.GetTypeInfo(typeOfExpression.Type).Type is INamedTypeSymbol typeOfArgument &&
             ImplementsTypeConverter(typeOfArgument))
@@ -313,6 +315,24 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         }
     }
 
+    private static ExpressionSyntax UnwrapConverterReferenceExpression(ExpressionSyntax expression)
+    {
+        while (true)
+        {
+            switch (expression)
+            {
+                case ParenthesizedExpressionSyntax parenthesized:
+                    expression = parenthesized.Expression;
+                    continue;
+                case CastExpressionSyntax cast:
+                    expression = cast.Expression;
+                    continue;
+                default:
+                    return expression;
+            }
+        }
+    }
+
     private static IEnumerable<ExpressionSyntax> GetReferencedInitializers(
         ExpressionSyntax expression,
         SemanticModel semanticModel,
@@ -335,6 +355,45 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             else if (declaration is PropertyDeclarationSyntax { Initializer.Value: { } propertyInitializer })
             {
                 yield return propertyInitializer;
+            }
+            else if (declaration is PropertyDeclarationSyntax { ExpressionBody.Expression: { } propertyExpression })
+            {
+                yield return propertyExpression;
+            }
+            else if (declaration is PropertyDeclarationSyntax { AccessorList: { } accessorList })
+            {
+                foreach (AccessorDeclarationSyntax accessor in accessorList.Accessors)
+                {
+                    if (accessor.IsKind(SyntaxKind.GetAccessorDeclaration) &&
+                        accessor.ExpressionBody?.Expression is { } getterExpression)
+                    {
+                        yield return getterExpression;
+                    }
+                }
+            }
+            else if (symbol is IMethodSymbol { Parameters.Length: 0 } &&
+                     declaration is MethodDeclarationSyntax { ExpressionBody.Expression: { } methodExpression })
+            {
+                yield return methodExpression;
+            }
+            else if (symbol is IMethodSymbol { Parameters.Length: 0 } &&
+                     declaration is MethodDeclarationSyntax { Body: { } methodBody } &&
+                     methodBody.Statements.Count == 1 &&
+                     methodBody.Statements[0] is ReturnStatementSyntax { Expression: { } returnExpression })
+            {
+                yield return returnExpression;
+            }
+            else if (symbol is IMethodSymbol { Parameters.Length: 0 } &&
+                     declaration is LocalFunctionStatementSyntax { ExpressionBody.Expression: { } localFunctionExpression })
+            {
+                yield return localFunctionExpression;
+            }
+            else if (symbol is IMethodSymbol { Parameters.Length: 0 } &&
+                     declaration is LocalFunctionStatementSyntax { Body: { } localFunctionBody } &&
+                     localFunctionBody.Statements.Count == 1 &&
+                     localFunctionBody.Statements[0] is ReturnStatementSyntax { Expression: { } localFunctionReturnExpression })
+            {
+                yield return localFunctionReturnExpression;
             }
         }
     }
@@ -1762,9 +1821,9 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         }
 
         return nullBranch is ExpressionStatementSyntax
-               {
-                   Expression: AssignmentExpressionSyntax assignment
-               } &&
+        {
+            Expression: AssignmentExpressionSyntax assignment
+        } &&
                IsIdentifierReference(assignment.Left, localName) &&
                !ExpressionContainsAnyIdentifierUsage(assignment.Right, sourceParameterName, localName) &&
                !IsExplicitNullFallback(assignment.Right);
@@ -3102,6 +3161,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         {
             PredefinedTypeSyntax predefinedType => predefinedType.Keyword.IsKind(SyntaxKind.StringKeyword),
             IdentifierNameSyntax identifierName => identifierName.Identifier.ValueText is "String" or "string",
+            QualifiedNameSyntax qualifiedName => qualifiedName.Right.Identifier.ValueText == "String",
+            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText == "String",
             _ => false
         };
     }

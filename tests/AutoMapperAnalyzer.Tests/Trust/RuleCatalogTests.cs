@@ -29,7 +29,16 @@ public partial class RuleCatalogTests
 
             var fixer = Assert.IsAssignableFrom<CodeFixProvider>(
                 Activator.CreateInstance(rule.CodeFixProviderType));
-            Assert.Contains(rule.RuleId, fixer.FixableDiagnosticIds);
+            bool ruleHasFixableDescriptor =
+                rule.Descriptors.Any(descriptor => rule.GetFixTrustLevel(descriptor) != CodeFixTrustLevel.NoFix);
+            if (ruleHasFixableDescriptor)
+            {
+                Assert.Contains(rule.RuleId, fixer.FixableDiagnosticIds);
+            }
+            else
+            {
+                Assert.DoesNotContain(rule.RuleId, fixer.FixableDiagnosticIds);
+            }
         }
 
         foreach (IGrouping<Type, RuleCatalogEntry> analyzerRules in RuleCatalog.Rules.GroupBy(rule => rule.AnalyzerType))

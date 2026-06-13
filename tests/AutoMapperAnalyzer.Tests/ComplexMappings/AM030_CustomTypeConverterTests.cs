@@ -82,6 +82,80 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM032_ShouldReportDiagnostic_WhenExplicitInterfaceConverterDoesNotHandleNullValues()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class ExplicitNullUnsafeConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        DateTime ITypeConverter<string?, DateTime>.Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<ExplicitNullUnsafeConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule, 8, 52,
+                "ExplicitNullUnsafeConverter", "String")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenExplicitInterfaceConverterHandlesNullValues()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class ExplicitNullSafeConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        DateTime ITypeConverter<string?, DateTime>.Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            if (source is null)
+                                            {
+                                                return DateTime.MinValue;
+                                            }
+
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<ExplicitNullSafeConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldReportDiagnostic_WhenConditionalAccessDoesNotGuardLaterUnsafeUse()
     {
         const string testCode = """
@@ -3561,6 +3635,41 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenConverterUsesFullyQualifiedThrowIfNull()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class FullyQualifiedThrowIfNullConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            global::System.ArgumentNullException.ThrowIfNull(source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<FullyQualifiedThrowIfNullConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldNotReportDiagnostic_WhenConverterUsesArgumentExceptionThrowIfNullOrEmpty()
     {
         const string testCode = """
@@ -3596,6 +3705,368 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenConverterUsesFullyQualifiedThrowIfNullOrEmpty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class FullyQualifiedEmptyGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            global::System.ArgumentException.ThrowIfNullOrEmpty(source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<FullyQualifiedEmptyGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenThrowIfNullOrEmptyUsesNamedArgumentParameterOrder()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class NamedEmptyGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            ArgumentException.ThrowIfNullOrEmpty(paramName: nameof(source), argument: source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<NamedEmptyGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenThrowIfNullOrEmptyUsesNamedArgumentOnly()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class NamedEmptyArgumentOnlyGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            ArgumentException.ThrowIfNullOrEmpty(argument: source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<NamedEmptyArgumentOnlyGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenThrowIfNullOrWhiteSpaceUsesNamedArgumentParameterOrder()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class NamedWhitespaceGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            ArgumentException.ThrowIfNullOrWhiteSpace(paramName: nameof(source), argument: source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<NamedWhitespaceGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenThrowIfNullOrWhiteSpaceUsesNamedArgumentOnly()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class NamedWhitespaceArgumentOnlyGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            ArgumentException.ThrowIfNullOrWhiteSpace(argument: source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<NamedWhitespaceArgumentOnlyGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenConverterUsesArgumentExceptionThrowIfNullOrWhiteSpace()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class WhitespaceGuardedConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            ArgumentException.ThrowIfNullOrWhiteSpace(source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<WhitespaceGuardedConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenConverterUsesFullyQualifiedThrowIfNullOrWhiteSpace()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class FullyQualifiedWhitespaceGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            global::System.ArgumentException.ThrowIfNullOrWhiteSpace(source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<FullyQualifiedWhitespaceGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenConverterUsesFullyQualifiedStringIsNullOrEmpty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class FullyQualifiedStringEmptyGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            if (global::System.String.IsNullOrEmpty(source))
+                                            {
+                                                return default;
+                                            }
+
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<FullyQualifiedStringEmptyGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenConverterUsesQualifiedStringIsNullOrEmpty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class QualifiedStringEmptyGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            if (System.String.IsNullOrEmpty(source))
+                                            {
+                                                return default;
+                                            }
+
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<QualifiedStringEmptyGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenConverterUsesFullyQualifiedStringIsNullOrWhiteSpace()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class FullyQualifiedStringWhitespaceGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            if (global::System.String.IsNullOrWhiteSpace(source))
+                                            {
+                                                return default;
+                                            }
+
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<FullyQualifiedStringWhitespaceGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldNotReportDiagnostic_WhenThrowIfNullUsesNamedArgumentParameterOrder()
     {
         const string testCode = """
@@ -3618,6 +4089,41 @@ public class AM030_CustomTypeConverterTests
                                         public TestProfile()
                                         {
                                             CreateMap<string?, DateTime>().ConvertUsing<NamedGuardConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenThrowIfNullUsesNamedArgumentOnly()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class NamedArgumentOnlyGuardConverter : ITypeConverter<string?, DateTime>
+                                    {
+                                        public DateTime Convert(string? source, DateTime destination, ResolutionContext context)
+                                        {
+                                            ArgumentNullException.ThrowIfNull(argument: source);
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, DateTime>().ConvertUsing<NamedArgumentOnlyGuardConverter>();
                                         }
                                     }
                                 }
@@ -3876,6 +4382,416 @@ public class AM030_CustomTypeConverterTests
                                         public TestProfile()
                                         {
                                             CreateMap<string, DateTime>().ConvertUsing(typeof(TypeBasedConverter));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenParenthesizedTypeConverterTypeIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class ParenthesizedTypeBasedConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string, DateTime>().ConvertUsing((typeof(ParenthesizedTypeBasedConverter)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM030_ShouldNotReportDiagnostic_WhenCastedTypeConverterTypeIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class CastedTypeBasedConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string, DateTime>().ConvertUsing((Type)typeof(CastedTypeBasedConverter));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM033_ShouldNotReportDiagnostic_WhenTypeConverterTypeLocalIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class TypeLocalConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            Type converterType = typeof(TypeLocalConverter);
+                                            CreateMap<string, DateTime>().ConvertUsing(converterType);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM033_ShouldNotReportDiagnostic_WhenImplicitlyTypedConverterTypeLocalIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class VarTypeLocalConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            var converterType = typeof(VarTypeLocalConverter);
+                                            CreateMap<string, DateTime>().ConvertUsing(converterType);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM033_ShouldNotReportDiagnostic_WhenTypeConverterTypeFieldOrPropertyIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class TypeFieldConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TypePropertyConverter : ITypeConverter<int, string>
+                                    {
+                                        public string Convert(int source, string destination, ResolutionContext context)
+                                        {
+                                            return source.ToString();
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private static readonly Type FieldConverterType = typeof(TypeFieldConverter);
+
+                                        private static Type PropertyConverterType { get; } = typeof(TypePropertyConverter);
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string, DateTime>().ConvertUsing(FieldConverterType);
+                                            CreateMap<int, string>().ConvertUsing(PropertyConverterType);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM033_ShouldNotReportDiagnostic_WhenExpressionBodiedTypeConverterPropertyIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class ExpressionBodiedTypePropertyConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private static Type ExpressionBodiedConverterType => typeof(ExpressionBodiedTypePropertyConverter);
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string, DateTime>().ConvertUsing(ExpressionBodiedConverterType);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM033_ShouldNotReportDiagnostic_WhenAccessorBodiedTypeConverterPropertyIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class AccessorBodiedTypePropertyConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private static Type AccessorBodiedConverterType
+                                        {
+                                            get => typeof(AccessorBodiedTypePropertyConverter);
+                                        }
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string, DateTime>().ConvertUsing(AccessorBodiedConverterType);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM033_ShouldNotReportDiagnostic_WhenExpressionBodiedTypeFactoryMethodIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class ExpressionBodiedTypeFactoryConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private static Type GetExpressionBodiedConverterType() => typeof(ExpressionBodiedTypeFactoryConverter);
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string, DateTime>().ConvertUsing(GetExpressionBodiedConverterType());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM033_ShouldNotReportDiagnostic_WhenBlockBodiedTypeFactoryMethodIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class BlockBodiedTypeFactoryConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private static Type GetBlockBodiedConverterType()
+                                        {
+                                            return typeof(BlockBodiedTypeFactoryConverter);
+                                        }
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string, DateTime>().ConvertUsing(GetBlockBodiedConverterType());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM033_ShouldNotReportDiagnostic_WhenExpressionBodiedLocalTypeFactoryIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class ExpressionBodiedLocalTypeFactoryConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            Type GetLocalConverterType() => typeof(ExpressionBodiedLocalTypeFactoryConverter);
+
+                                            CreateMap<string, DateTime>().ConvertUsing(GetLocalConverterType());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM033_ShouldNotReportDiagnostic_WhenBlockBodiedLocalTypeFactoryIsPassedToConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class BlockBodiedLocalTypeFactoryConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            Type GetLocalConverterType()
+                                            {
+                                                return typeof(BlockBodiedLocalTypeFactoryConverter);
+                                            }
+
+                                            CreateMap<string, DateTime>().ConvertUsing(GetLocalConverterType());
                                         }
                                     }
                                 }

@@ -38,7 +38,7 @@ public class AM011_EdgeCaseTests
         await DiagnosticTestFramework
             .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 18, 9, "Name")
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 10, 28, "Name")
             .RunAsync();
     }
 }

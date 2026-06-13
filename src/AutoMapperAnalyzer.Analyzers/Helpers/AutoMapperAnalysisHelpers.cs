@@ -443,11 +443,12 @@ public static class AutoMapperAnalysisHelpers
             return true;
         }
 
-        // DateTimeOffset/TimeSpan/Guid (and the SpecialType-less spellings of the others) are not
-        // SpecialTypes, so match them by name — but only inside the System namespace, so a user-defined
+        // DateTimeOffset/DateOnly/TimeOnly/TimeSpan/Guid/Uri (and the SpecialType-less spellings of the others) are not
+        // SpecialTypes, so match them by name, but only inside the System namespace, so a user-defined
         // type that merely shares the name (e.g. a custom "Guid") is not misclassified as built-in.
         return type.ContainingNamespace?.ToDisplayString() == "System" &&
-               type.Name is "String" or "DateTime" or "DateTimeOffset" or "TimeSpan" or "Guid" or "Decimal";
+               type.Name is "String" or "DateTime" or "DateTimeOffset" or "DateOnly" or "TimeOnly" or "TimeSpan" or
+                   "Guid" or "Uri" or "Decimal";
     }
 
     /// <summary>
@@ -456,7 +457,10 @@ public static class AutoMapperAnalysisHelpers
     public static string GetTypeNameWithoutNullability(ITypeSymbol type)
     {
         ITypeSymbol underlyingType = GetUnderlyingType(type);
-        return underlyingType.Name;
+        return underlyingType.ToDisplayString(new SymbolDisplayFormat(
+            typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameOnly,
+            genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
+            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes));
     }
 
     /// <summary>

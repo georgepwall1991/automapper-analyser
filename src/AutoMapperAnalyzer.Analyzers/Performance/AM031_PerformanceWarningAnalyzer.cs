@@ -43,7 +43,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Performance",
         DiagnosticSeverity.Warning,
         true,
-        "Expensive operations (database queries, API calls, file I/O) should be performed before mapping, not during.");
+        "Expensive operations (database queries, API calls, file I/O, blocking calls) should be performed before mapping, not during.");
 
     /// <summary>
     ///     Diagnostic rule for multiple enumerations of the same collection.
@@ -79,7 +79,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Performance",
         DiagnosticSeverity.Warning,
         true,
-        "Using Task.Result, Task.Wait(), or GetAwaiter().GetResult() in mapping can cause deadlocks and performance issues. Await async operations before mapping.");
+        "Using Task.Result, Task.Wait(), Task.WaitAll(), Task.WaitAny(), or GetAwaiter().GetResult() in mapping can cause deadlocks and performance issues. Await async operations before mapping.");
 
     /// <summary>
     ///     Diagnostic rule for complex LINQ operations.
@@ -103,7 +103,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Performance",
         DiagnosticSeverity.Info,
         true,
-        "Non-deterministic operations (DateTime.Now, Random, Guid.NewGuid) make mappings harder to test. Consider computing before mapping.");
+        "Non-deterministic operations (DateTime.Now/UtcNow, DateTimeOffset.Now/UtcNow, Random, RandomNumberGenerator, Guid.NewGuid, Environment state operations) make mappings harder to test. Consider computing before mapping.");
 
     /// <summary>
     ///     Gets the supported diagnostics for this analyzer.
@@ -338,6 +338,11 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             // Check for database operations
             if (IsDatabaseOperation(containingType))
             {
+                if (IsSourceRootedDbContextMethodCall(invocation, containingType, sourceParameterName))
+                {
+                    continue;
+                }
+
                 if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
                 {
                     ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "database query");
@@ -346,9 +351,24 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
+            if (IsCompressionOperation(invocation, methodSymbol, context.SemanticModel))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "compression operation");
+                }
+
+                continue;
+            }
+
             // Check for file I/O
             if (IsFileIOOperation(containingType, methodName))
             {
+                if (IsInMemoryIOInvocation(invocation, containingType, methodName, context.SemanticModel))
+                {
+                    continue;
+                }
+
                 if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
                 {
                     ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "file I/O operation");
@@ -357,12 +377,62 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
+            if (IsConsoleIOOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "console I/O operation");
+                }
+
+                continue;
+            }
+
             // Check for HTTP requests
-            if (IsHttpOperation(containingType))
+            if (IsHttpOperation(containingType, methodName))
             {
                 if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
                 {
                     ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "HTTP request");
+                }
+
+                continue;
+            }
+
+            if (IsNetworkLookupOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "network lookup");
+                }
+
+                continue;
+            }
+
+            if (IsSocketNetworkIOOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "network I/O operation");
+                }
+
+                continue;
+            }
+
+            if (IsNetworkProbeOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "network I/O operation");
+                }
+
+                continue;
+            }
+
+            if (IsResourceLookupOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "resource lookup");
                 }
 
                 continue;
@@ -374,6 +444,66 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                 if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
                 {
                     ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "reflection operation");
+                }
+
+                continue;
+            }
+
+            if (IsProcessStartOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "process launch");
+                }
+
+                continue;
+            }
+
+            if (IsProcessControlOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "process control operation");
+                }
+
+                continue;
+            }
+
+            if (IsProcessTerminationOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "process termination");
+                }
+
+                continue;
+            }
+
+            if (IsProcessBlockingWaitOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "blocking process operation");
+                }
+
+                continue;
+            }
+
+            if (IsGarbageCollectionOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "GC operation");
+                }
+
+                continue;
+            }
+
+            if (IsThreadBlockingOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "blocking thread operation");
                 }
 
                 continue;
@@ -405,6 +535,56 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                 if (reportedIssueTypes.Add(TaskResultIssueType))
                 {
                     ReportTaskResultDiagnostic(context, lambda, propertyName);
+                }
+
+                continue;
+            }
+
+            if (IsBackgroundWorkSchedulingOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "background work scheduling");
+                }
+
+                continue;
+            }
+
+            if (IsSerializationOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "serialization operation");
+                }
+
+                continue;
+            }
+
+            if (IsParsingOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "parsing operation");
+                }
+
+                continue;
+            }
+
+            if (IsRegexOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "regex operation");
+                }
+
+                continue;
+            }
+
+            if (IsCryptographicOperation(containingType, methodName))
+            {
+                if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                {
+                    ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "cryptographic operation");
                 }
 
                 continue;
@@ -447,7 +627,9 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             }
 
             // Check for external method calls (not on source properties)
-            if (IsExternalMethodCall(invocation, context.SemanticModel))
+            if (IsExternalMethodCall(invocation, context.SemanticModel, sourceParameterName) &&
+                !ContainsNestedParsingOperation(invocation, context.SemanticModel) &&
+                !ContainsNestedReflectionOperation(invocation, context.SemanticModel))
             {
                 if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
                 {
@@ -481,13 +663,46 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                     continue;
                 }
 
-                // Check for DateTime.Now, DateTime.UtcNow
-                if (containingType == "System.DateTime" &&
+                if (IsFileSystemMetadataProperty(containingType, propertyName_member))
+                {
+                    if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                    {
+                        ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "file I/O operation");
+                    }
+
+                    continue;
+                }
+
+                if (IsReflectionMetadataProperty(containingType, propertyName_member))
+                {
+                    if (reportedIssueTypes.Add(ExpensiveOperationIssueType))
+                    {
+                        ReportExpensiveOperationDiagnostic(context, lambda, propertyName, "reflection operation");
+                    }
+
+                    continue;
+                }
+
+                if (IsEnvironmentStateProperty(containingType, propertyName_member, out string environmentOperationType))
+                {
+                    if (reportedIssueTypes.Add(NonDeterministicIssueType))
+                    {
+                        ReportNonDeterministicDiagnostic(context, lambda, propertyName, environmentOperationType);
+                    }
+
+                    continue;
+                }
+
+                // Check for DateTime.Now, DateTime.UtcNow, DateTimeOffset.Now, DateTimeOffset.UtcNow
+                if ((containingType == "System.DateTime" || containingType == "System.DateTimeOffset") &&
                     (propertyName_member == "Now" || propertyName_member == "UtcNow"))
                 {
                     if (reportedIssueTypes.Add(NonDeterministicIssueType))
                     {
-                        string operationType = propertyName_member == "UtcNow" ? "DateTime.UtcNow" : "DateTime.Now";
+                        string typeName = containingType == "System.DateTimeOffset" ? "DateTimeOffset" : "DateTime";
+                        string operationType = propertyName_member == "UtcNow"
+                            ? $"{typeName}.UtcNow"
+                            : $"{typeName}.Now";
                         ReportNonDeterministicDiagnostic(context, lambda, propertyName, operationType);
                     }
                 }
@@ -504,7 +719,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         }
 
         // Check for expensive computations (complex expressions with multiple operations)
-        if (IsExpensiveComputation(lambda) && reportedIssueTypes.Add(ExpensiveComputationIssueType))
+        if (IsExpensiveComputation(lambda, context.SemanticModel) && reportedIssueTypes.Add(ExpensiveComputationIssueType))
         {
             ReportExpensiveComputationDiagnostic(context, lambda, propertyName);
         }
@@ -643,37 +858,436 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     private static bool IsDatabaseOperation(string containingType)
     {
         // Restrict to known data-access namespaces/types to avoid method-name false positives.
-        return containingType.Contains("DbSet", StringComparison.Ordinal) ||
-               containingType.Contains("DbContext", StringComparison.Ordinal) ||
-               containingType.Contains("IQueryable", StringComparison.Ordinal) ||
+        return IsDbSetType(containingType) ||
+               IsDbContextType(containingType) ||
+               IsIQueryableType(containingType) ||
                containingType == "System.Linq.Queryable" ||
-               containingType.Contains("EntityFrameworkQueryableExtensions", StringComparison.Ordinal) ||
-               containingType == "NHibernate.ISession" ||
-               containingType.StartsWith("NHibernate.", StringComparison.Ordinal) ||
-               containingType.Contains("SqlConnection", StringComparison.Ordinal) ||
-               containingType.Contains("System.Data", StringComparison.Ordinal) ||
-               containingType.Contains("Dapper", StringComparison.Ordinal);
+               IsEntityFrameworkQueryableExtensionsType(containingType) ||
+               IsNHibernateOperation(containingType) ||
+               containingType.StartsWith("System.Data.", StringComparison.Ordinal) ||
+               IsSqlConnectionType(containingType) ||
+               IsDapperOperation(containingType);
+    }
+
+    private static bool IsDbSetType(string containingType)
+    {
+        return containingType.StartsWith("Microsoft.EntityFrameworkCore.DbSet<", StringComparison.Ordinal) ||
+               containingType.StartsWith("System.Data.Entity.DbSet<", StringComparison.Ordinal);
+    }
+
+    private static bool IsDbContextType(string containingType)
+    {
+        return containingType == "DbContext" ||
+               containingType.EndsWith("DbContext", StringComparison.Ordinal);
+    }
+
+    private static bool IsSourceRootedDbContextMethodCall(
+        InvocationExpressionSyntax invocation,
+        string containingType,
+        string? sourceParameterName)
+    {
+        if (!IsDbContextType(containingType) ||
+            invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+        {
+            return false;
+        }
+
+        return IsCalledOnSourceExpression(memberAccess, sourceParameterName);
+    }
+
+    private static bool IsIQueryableType(string containingType)
+    {
+        return containingType == "System.Linq.IQueryable" ||
+               containingType.StartsWith("System.Linq.IQueryable<", StringComparison.Ordinal);
+    }
+
+    private static bool IsSqlConnectionType(string containingType)
+    {
+        return containingType == "Microsoft.Data.SqlClient.SqlConnection";
+    }
+
+    private static bool IsEntityFrameworkQueryableExtensionsType(string containingType)
+    {
+        return containingType == "Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions";
+    }
+
+    private static bool IsDapperOperation(string containingType)
+    {
+        return containingType == "Dapper.SqlMapper";
+    }
+
+    private static bool IsNHibernateOperation(string containingType)
+    {
+        return containingType == "NHibernate.ISession";
     }
 
     private static bool IsFileIOOperation(string containingType, string methodName)
     {
+        if (IsInMemoryIOType(containingType))
+        {
+            return false;
+        }
+
         return containingType == "System.IO.File" ||
                containingType == "System.IO.Directory" ||
-               containingType == "System.IO.Path" ||
+               (containingType == "System.IO.Path" && methodName is "Exists" or "GetTempFileName") ||
+               (containingType == "System.IO.Compression.ZipFile" &&
+                methodName is "Open" or "OpenRead" or "CreateFromDirectory" or "ExtractToDirectory") ||
+               (containingType == "System.IO.Compression.ZipFileExtensions" &&
+                methodName is "CreateEntryFromFile" or "ExtractToFile") ||
+               (containingType == "System.IO.MemoryMappedFiles.MemoryMappedFile" &&
+                methodName is "CreateFromFile" or "OpenExisting" or "CreateNew" or "CreateOrOpen" or
+                              "CreateViewAccessor" or "CreateViewStream") ||
+               (containingType == "System.IO.MemoryMappedFiles.MemoryMappedViewAccessor" &&
+                methodName == "Flush") ||
+               (containingType == "System.IO.Stream" &&
+                methodName is "CopyTo" or "CopyToAsync") ||
+               (containingType == "System.IO.FileStream" &&
+                methodName is "Flush" or "SetLength" or "Lock" or "Unlock" or "CopyTo" or "CopyToAsync") ||
+               (containingType == "System.IO.FileSystemInfo" &&
+                methodName is "Delete" or "Refresh") ||
+               (containingType == "System.IO.FileInfo" &&
+                methodName is "Open" or "OpenRead" or "OpenText" or "OpenWrite" or
+                              "Create" or "CreateText" or "AppendText" or "CopyTo" or
+                              "Delete" or "MoveTo" or "Replace" or "Decrypt" or "Encrypt") ||
+               (containingType == "System.IO.DirectoryInfo" &&
+                methodName is "GetFiles" or "EnumerateFiles" or
+                              "GetDirectories" or "EnumerateDirectories" or
+                              "GetFileSystemInfos" or "EnumerateFileSystemInfos" or
+                              "Create" or "CreateSubdirectory" or "Delete" or "MoveTo") ||
                (methodName.Contains("Read") && containingType.Contains("System.IO")) ||
                (methodName.Contains("Write") && containingType.Contains("System.IO"));
     }
 
-    private static bool IsHttpOperation(string containingType)
+    private static bool IsFileSystemMetadataProperty(string containingType, string propertyName)
     {
-        return containingType.Contains("HttpClient") ||
-               containingType.Contains("WebClient") ||
-               containingType.Contains("HttpMessageInvoker");
+        return (containingType == "System.IO.FileInfo" &&
+                propertyName is "Length" or "IsReadOnly") ||
+               IsFileSystemInfoType(containingType) &&
+               propertyName is "Exists" or "Attributes" or
+                               "CreationTime" or "CreationTimeUtc" or
+                               "LastAccessTime" or "LastAccessTimeUtc" or
+                               "LastWriteTime" or "LastWriteTimeUtc";
+    }
+
+    private static bool IsFileSystemInfoType(string containingType)
+    {
+        return containingType is "System.IO.FileSystemInfo" or "System.IO.FileInfo" or "System.IO.DirectoryInfo";
+    }
+
+    private static bool IsInMemoryIOType(string containingType)
+    {
+        return containingType == "System.IO.MemoryStream" ||
+               containingType == "System.IO.StringReader" ||
+               containingType == "System.IO.StringWriter";
+    }
+
+    private static bool IsInMemoryIOInvocation(
+        InvocationExpressionSyntax invocation,
+        string containingType,
+        string methodName,
+        SemanticModel semanticModel)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+        {
+            return false;
+        }
+
+        if (IsMemoryBackedIOHelperMethod(containingType, methodName))
+        {
+            return IsIOHelperOverMemoryStream(memberAccess.Expression, semanticModel);
+        }
+
+        if (IsStringBackedTextHelperMethod(containingType, methodName))
+        {
+            return IsTextHelperOverStringIO(memberAccess.Expression, semanticModel);
+        }
+
+        if (IsMemoryStreamAbstractionMethod(containingType, methodName))
+        {
+            return IsMemoryStreamExpression(memberAccess.Expression, semanticModel);
+        }
+
+        return false;
+    }
+
+    private static bool IsMemoryBackedIOHelperMethod(string containingType, string methodName)
+    {
+        return IsMemoryBackedReaderType(containingType) && methodName.Contains("Read", StringComparison.Ordinal) ||
+               IsMemoryBackedWriterType(containingType) && methodName.Contains("Write", StringComparison.Ordinal);
+    }
+
+    private static bool IsMemoryStreamAbstractionMethod(string containingType, string methodName)
+    {
+        return containingType == "System.IO.Stream" &&
+               (methodName.Contains("Read", StringComparison.Ordinal) ||
+                methodName.Contains("Write", StringComparison.Ordinal) ||
+                methodName is "CopyTo" or "CopyToAsync");
+    }
+
+    private static bool IsStringBackedTextHelperMethod(string containingType, string methodName)
+    {
+        return containingType == "System.IO.TextReader" && methodName.Contains("Read", StringComparison.Ordinal) ||
+               containingType == "System.IO.TextWriter" && methodName.Contains("Write", StringComparison.Ordinal);
+    }
+
+    private static bool IsMemoryBackedReaderType(string containingType)
+    {
+        return containingType is "System.IO.StreamReader" or "System.IO.BinaryReader";
+    }
+
+    private static bool IsMemoryBackedWriterType(string containingType)
+    {
+        return containingType is "System.IO.BinaryWriter" or "System.IO.StreamWriter";
+    }
+
+    private static bool IsMemoryBackedIOHelperType(string containingType)
+    {
+        return IsMemoryBackedReaderType(containingType) || IsMemoryBackedWriterType(containingType);
+    }
+
+    private static bool IsIOHelperOverMemoryStream(
+        ExpressionSyntax receiverExpression,
+        SemanticModel semanticModel)
+    {
+        receiverExpression = RemoveParentheses(receiverExpression);
+        if (IsIOHelperCreationOverMemoryStream(receiverExpression, semanticModel))
+        {
+            return true;
+        }
+
+        if (semanticModel.GetSymbolInfo(receiverExpression).Symbol is ILocalSymbol localSymbol &&
+            TryGetLocalInitializer(localSymbol, out ExpressionSyntax? initializer) &&
+            initializer is not null)
+        {
+            return IsIOHelperCreationOverMemoryStream(initializer, semanticModel);
+        }
+
+        return false;
+    }
+
+    private static bool IsTextHelperOverStringIO(
+        ExpressionSyntax receiverExpression,
+        SemanticModel semanticModel)
+    {
+        receiverExpression = RemoveParentheses(receiverExpression);
+        if (semanticModel.GetSymbolInfo(receiverExpression).Symbol is not ILocalSymbol localSymbol ||
+            !TryGetLocalInitializer(localSymbol, out ExpressionSyntax? initializer) ||
+            initializer is null)
+        {
+            return false;
+        }
+
+        ITypeSymbol? initializerType = semanticModel.GetTypeInfo(RemoveParentheses(initializer)).Type;
+        return initializerType?.ToDisplayString() is "System.IO.StringReader" or "System.IO.StringWriter";
+    }
+
+    private static bool IsIOHelperCreationOverMemoryStream(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        expression = RemoveParentheses(expression);
+        if (expression is not ObjectCreationExpressionSyntax helperCreation ||
+            helperCreation.ArgumentList is not { } argumentList ||
+            argumentList.Arguments.Count < 1)
+        {
+            return false;
+        }
+
+        ITypeSymbol? helperType = semanticModel.GetTypeInfo(helperCreation).Type;
+        string helperTypeName = helperType?.ToDisplayString() ?? "";
+        if (!IsMemoryBackedIOHelperType(helperTypeName))
+        {
+            return false;
+        }
+
+        ExpressionSyntax streamExpression = RemoveParentheses(argumentList.Arguments[0].Expression);
+        return IsMemoryStreamExpression(streamExpression, semanticModel);
+    }
+
+    private static bool IsMemoryStreamExpression(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        expression = RemoveParentheses(expression);
+        ITypeSymbol? streamType = semanticModel.GetTypeInfo(expression).Type;
+        if (streamType?.ToDisplayString() == "System.IO.MemoryStream")
+        {
+            return true;
+        }
+
+        if (semanticModel.GetSymbolInfo(expression).Symbol is ILocalSymbol localSymbol &&
+            TryGetLocalInitializer(localSymbol, out ExpressionSyntax? initializer) &&
+            initializer is not null)
+        {
+            ITypeSymbol? initializerType = semanticModel.GetTypeInfo(RemoveParentheses(initializer)).Type;
+            return initializerType?.ToDisplayString() == "System.IO.MemoryStream";
+        }
+
+        return false;
+    }
+
+    private static bool TryGetLocalInitializer(
+        ILocalSymbol local,
+        out ExpressionSyntax? initializer)
+    {
+        foreach (SyntaxReference syntaxReference in local.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is VariableDeclaratorSyntax { Initializer: not null } declarator)
+            {
+                initializer = declarator.Initializer.Value;
+                return true;
+            }
+        }
+
+        initializer = null;
+        return false;
+    }
+
+    private static bool IsConsoleIOOperation(string containingType, string methodName)
+    {
+        return containingType == "System.Console" &&
+               methodName is "Read" or "ReadKey" or "ReadLine" or "Write" or "WriteLine" or
+                             "OpenStandardInput" or "OpenStandardOutput" or "OpenStandardError" or
+                             "SetIn" or "SetOut" or "SetError";
+    }
+
+    private static bool IsCompressionOperation(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol methodSymbol,
+        SemanticModel semanticModel)
+    {
+        if (methodSymbol.Name is not ("Read" or "ReadAsync" or "ReadByte" or
+            "Write" or "WriteAsync" or "WriteByte" or
+            "CopyTo" or "CopyToAsync"))
+        {
+            return false;
+        }
+
+        string containingType = methodSymbol.ContainingType?.ToDisplayString() ?? "";
+        if (IsCompressionStreamType(containingType))
+        {
+            return true;
+        }
+
+        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+        {
+            string receiverType = semanticModel.GetTypeInfo(memberAccess.Expression).Type?.ToDisplayString() ?? "";
+            return IsCompressionStreamType(receiverType);
+        }
+
+        return false;
+    }
+
+    private static bool IsCompressionStreamType(string typeName)
+    {
+        return typeName is "System.IO.Compression.GZipStream" or
+                           "System.IO.Compression.DeflateStream" or
+                           "System.IO.Compression.BrotliStream" or
+                           "System.IO.Compression.ZLibStream";
+    }
+
+    private static bool IsHttpOperation(string containingType, string methodName)
+    {
+        return (containingType == "System.Net.Http.HttpClient" &&
+                methodName is "Send" or "SendAsync" or
+                              "GetAsync" or "GetByteArrayAsync" or "GetStreamAsync" or "GetStringAsync" or
+                              "PostAsync" or "PutAsync" or "PatchAsync" or "DeleteAsync") ||
+               (containingType == "System.Net.WebClient" &&
+                methodName is "OpenRead" or "OpenReadAsync" or "OpenReadTaskAsync" or
+                              "OpenWrite" or "OpenWriteAsync" or "OpenWriteTaskAsync" or
+                              "DownloadString" or "DownloadStringAsync" or "DownloadStringTaskAsync" or
+                              "DownloadData" or "DownloadDataAsync" or "DownloadDataTaskAsync" or
+                              "DownloadFile" or "DownloadFileAsync" or "DownloadFileTaskAsync" or
+                              "UploadString" or "UploadStringAsync" or "UploadStringTaskAsync" or
+                              "UploadData" or "UploadDataAsync" or "UploadDataTaskAsync" or
+                              "UploadFile" or "UploadFileAsync" or "UploadFileTaskAsync" or
+                              "UploadValues" or "UploadValuesAsync" or "UploadValuesTaskAsync") ||
+               (containingType == "System.Net.Http.HttpMessageInvoker" &&
+                methodName is "Send" or "SendAsync") ||
+               (containingType == "System.Net.Http.HttpContent" &&
+                methodName is "ReadAsStringAsync" or "ReadAsByteArrayAsync" or "ReadAsStreamAsync" or
+                              "LoadIntoBufferAsync" or "CopyToAsync") ||
+               (containingType == "System.Net.Http.Json.HttpClientJsonExtensions" &&
+                methodName is "GetFromJsonAsync" or "PostAsJsonAsync" or "PutAsJsonAsync" or
+                              "PatchAsJsonAsync" or "DeleteFromJsonAsync") ||
+               (containingType == "System.Net.Http.Json.HttpContentJsonExtensions" &&
+                methodName == "ReadFromJsonAsync") ||
+               ((containingType == "System.Net.WebRequest" || containingType == "System.Net.HttpWebRequest") &&
+                methodName is "GetResponse" or "GetResponseAsync" or
+                              "GetRequestStream" or "GetRequestStreamAsync" or
+                              "BeginGetResponse" or "EndGetResponse" or
+                              "BeginGetRequestStream" or "EndGetRequestStream");
+    }
+
+    private static bool IsNetworkLookupOperation(string containingType, string methodName)
+    {
+        return containingType == "System.Net.Dns" &&
+               methodName is "GetHostAddresses" or "GetHostAddressesAsync" or
+                             "GetHostEntry" or "GetHostEntryAsync" or
+                             "BeginGetHostAddresses" or "EndGetHostAddresses" or
+                             "BeginGetHostEntry" or "EndGetHostEntry" or
+                             "Resolve" or "GetHostByName" or "GetHostByAddress";
+    }
+
+    private static bool IsSocketNetworkIOOperation(string containingType, string methodName)
+    {
+        return (containingType == "System.Net.Sockets.TcpClient" &&
+                methodName is "Connect" or "ConnectAsync" or "BeginConnect" or "EndConnect") ||
+               (containingType == "System.Net.Sockets.UdpClient" &&
+                methodName is "Connect" or "Send" or "SendAsync" or "Receive" or "ReceiveAsync" or
+                              "BeginSend" or "EndSend" or "BeginReceive" or "EndReceive") ||
+               (containingType == "System.Net.Sockets.Socket" &&
+                methodName is "Connect" or "ConnectAsync" or "Accept" or "AcceptAsync" or
+                              "Send" or "SendAsync" or "SendTo" or "SendToAsync" or
+                              "Receive" or "ReceiveAsync" or "ReceiveFrom" or "ReceiveFromAsync" or
+                              "BeginConnect" or "EndConnect" or "BeginAccept" or "EndAccept" or
+                              "BeginSend" or "EndSend" or "BeginReceive" or "EndReceive") ||
+               (containingType == "System.Net.Sockets.NetworkStream" &&
+                (methodName.Contains("Read") || methodName.Contains("Write")));
+    }
+
+    private static bool IsNetworkProbeOperation(string containingType, string methodName)
+    {
+        return containingType == "System.Net.NetworkInformation.Ping" &&
+               methodName is "Send" or "SendAsync" or "SendPingAsync";
+    }
+
+    private static bool IsResourceLookupOperation(string containingType, string methodName)
+    {
+        return containingType == "System.Resources.ResourceManager" &&
+               methodName is "GetString" or "GetObject" or "GetStream" or "GetResourceSet";
     }
 
     private static bool IsReflectionOperation(string containingType, string methodName)
     {
         if (methodName == "GetType" && (containingType == "System.Object" || containingType == "object"))
+        {
+            return true;
+        }
+
+        if (containingType == "System.Activator" &&
+            methodName == "CreateInstance")
+        {
+            return true;
+        }
+
+        if ((containingType == "System.Linq.Expressions.LambdaExpression" ||
+             containingType.StartsWith("System.Linq.Expressions.Expression<", StringComparison.Ordinal)) &&
+            methodName is "Compile" or "CompileToMethod")
+        {
+            return true;
+        }
+
+        if (containingType == "System.Attribute" &&
+            methodName is "GetCustomAttribute" or "GetCustomAttributes" or "IsDefined")
+        {
+            return true;
+        }
+
+        if (containingType == "System.Runtime.Loader.AssemblyLoadContext" &&
+            methodName is "LoadFromAssemblyName" or "LoadFromAssemblyPath" or "LoadFromStream" or
+                          "LoadUnmanagedDllFromPath" or "GetLoadContext")
         {
             return true;
         }
@@ -686,11 +1300,149 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        return methodName == "GetMethod" ||
-               methodName == "GetProperty" ||
-               methodName == "GetField" ||
-               methodName == "GetCustomAttributes" ||
-               methodName == "Invoke";
+        if (containingType == "System.Reflection.Assembly" &&
+            methodName is "Load" or "LoadFrom" or "LoadFile" or "UnsafeLoadFrom" or
+                          "ReflectionOnlyLoad" or "ReflectionOnlyLoadFrom" or
+                          "GetAssembly" or "GetCallingAssembly" or "GetEntryAssembly" or "GetExecutingAssembly" or
+                          "CreateInstance" or
+                          "GetName" or "GetReferencedAssemblies" or
+                          "GetManifestResourceNames" or "GetManifestResourceStream" or "GetManifestResourceInfo" or
+                          "GetSatelliteAssembly" or
+                          "GetFile" or "GetFiles" or
+                          "GetModule" or "GetModules" or "GetLoadedModules" or "GetForwardedTypes")
+        {
+            return true;
+        }
+
+        if (containingType == "System.Reflection.AssemblyName" &&
+            methodName == "GetAssemblyName")
+        {
+            return true;
+        }
+
+        if (containingType.StartsWith("System.Reflection.Emit.", StringComparison.Ordinal) &&
+            methodName is "DefineDynamicAssembly" or "DefineDynamicModule" or
+                          "DefineType" or "DefineMethod" or "DefineField" or "DefineProperty" or
+                          "DefineConstructor" or "DefineEvent" or "DefineParameter" or
+                          "DefineGenericParameters" or "CreateType" or "CreateTypeInfo" or
+                          "GetILGenerator" or "Emit" or "EmitCall" or "EmitWriteLine" or
+                          "SetCustomAttribute")
+        {
+            return true;
+        }
+
+        return methodName is "GetType" or "GetTypes" or "GetTypeInfo" or
+               "GetMethod" or "GetMethods" or
+               "GetProperty" or "GetProperties" or
+               "GetField" or "GetFields" or
+               "GetConstructor" or "GetConstructors" or
+               "GetEvent" or "GetEvents" or
+               "GetMember" or "GetMembers" or
+               "GetNestedType" or "GetNestedTypes" or
+               "GetInterface" or "GetInterfaces" or
+               "GetRuntimeMethod" or "GetRuntimeMethods" or
+               "GetRuntimeProperty" or "GetRuntimeProperties" or
+               "GetRuntimeField" or "GetRuntimeFields" or
+               "GetRuntimeEvent" or "GetRuntimeEvents" or
+               "GetRuntimeBaseDefinition" or
+               "GetDeclaredMethod" or "GetDeclaredMethods" or
+               "GetDeclaredProperty" or "GetDeclaredProperties" or
+               "GetDeclaredField" or "GetDeclaredFields" or
+               "GetDeclaredEvent" or "GetDeclaredEvents" or
+               "GetDeclaredNestedType" or "GetDeclaredNestedTypes" or
+               "GetParameters" or
+               "GetGenericArguments" or "GetGenericParameterConstraints" or
+               "GetTypeFromHandle" or "GetMethodFromHandle" or "GetFieldFromHandle" or "GetCurrentMethod" or
+               "GetElementType" or "GetArrayRank" or
+               "MakeGenericType" or "MakeGenericMethod" or
+               "MakeArrayType" or "MakeByRefType" or "MakePointerType" or
+               "CreateDelegate" or
+               "GetCustomAttribute" or "GetCustomAttributes" or "GetCustomAttributesData" or "IsDefined" or
+               "Invoke" or "InvokeMember" or
+               "ResolveType" or "ResolveMethod" or "ResolveField" or "ResolveMember" or
+               "ResolveString" or "ResolveSignature";
+    }
+
+    private static bool IsReflectionMetadataProperty(string containingType, string propertyName)
+    {
+        if (containingType == "System.Type")
+        {
+            return propertyName is "Assembly" or "BaseType" or "DeclaringType" or "ReflectedType" or
+                   "Module" or "TypeHandle" or "GenericTypeArguments";
+        }
+
+        if (containingType == "System.Reflection.TypeInfo")
+        {
+            return propertyName is "DeclaredConstructors" or "DeclaredEvents" or "DeclaredFields" or
+                   "DeclaredMembers" or "DeclaredMethods" or "DeclaredNestedTypes" or "DeclaredProperties" or
+                   "ImplementedInterfaces" or "GenericTypeParameters";
+        }
+
+        if (containingType == "System.Reflection.Assembly")
+        {
+            return propertyName is "DefinedTypes" or "ExportedTypes" or "Modules" or "EntryPoint" or
+                   "FullName" or "Location" or "ImageRuntimeVersion";
+        }
+
+        if (containingType.StartsWith("System.Reflection.", StringComparison.Ordinal))
+        {
+            return propertyName is "CustomAttributes" or "DeclaringType" or "ReflectedType" or
+                   "Module" or "MetadataToken" or "Member" or
+                   "ParameterType" or "PropertyType" or "FieldType" or "ReturnType";
+        }
+
+        return false;
+    }
+
+    private static bool IsProcessStartOperation(string containingType, string methodName)
+    {
+        return containingType == "System.Diagnostics.Process" &&
+               methodName == "Start";
+    }
+
+    private static bool IsProcessControlOperation(string containingType, string methodName)
+    {
+        return containingType == "System.Diagnostics.Process" &&
+               methodName is "Kill" or "CloseMainWindow";
+    }
+
+    private static bool IsProcessTerminationOperation(string containingType, string methodName)
+    {
+        return containingType == "System.Environment" &&
+               methodName is "Exit" or "FailFast";
+    }
+
+    private static bool IsProcessBlockingWaitOperation(string containingType, string methodName)
+    {
+        return containingType == "System.Diagnostics.Process" &&
+               methodName is "WaitForExit" or "WaitForInputIdle";
+    }
+
+    private static bool IsGarbageCollectionOperation(string containingType, string methodName)
+    {
+        return containingType == "System.GC" &&
+               methodName is "Collect" or
+                             "WaitForPendingFinalizers" or
+                             "TryStartNoGCRegion" or "EndNoGCRegion" or
+                             "AddMemoryPressure" or "RemoveMemoryPressure";
+    }
+
+    private static bool IsThreadBlockingOperation(string containingType, string methodName)
+    {
+        return (containingType == "System.Threading.Thread" &&
+                methodName is "Sleep" or "SpinWait" or "Join") ||
+               (containingType == "System.Threading.SpinWait" &&
+                methodName is "SpinOnce" or "SpinUntil") ||
+               (containingType == "System.Threading.WaitHandle" &&
+                methodName == "WaitOne") ||
+               (containingType == "System.Threading.Monitor" &&
+                methodName == "Wait") ||
+               (containingType == "System.Threading.SemaphoreSlim" &&
+                methodName == "Wait") ||
+               (containingType == "System.Threading.ManualResetEventSlim" &&
+                methodName == "Wait") ||
+               (containingType == "System.Threading.ReaderWriterLockSlim" &&
+                methodName is "EnterReadLock" or "EnterWriteLock" or "EnterUpgradeableReadLock");
     }
 
     private static bool IsTaskResultAccess(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
@@ -730,7 +1482,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
     private static bool IsTaskWaitAccess(string containingType, string methodName)
     {
-        return methodName == "Wait" &&
+        return (methodName is "Wait" or "WaitAll" or "WaitAny") &&
                containingType.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal);
     }
 
@@ -743,13 +1495,191 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                 containingType.StartsWith("System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable", StringComparison.Ordinal));
     }
 
+    private static bool IsBackgroundWorkSchedulingOperation(string containingType, string methodName)
+    {
+        return (containingType == "System.Threading.Tasks.Task" &&
+                methodName == "Run") ||
+               (containingType == "System.Threading.Tasks.TaskFactory" &&
+                methodName == "StartNew") ||
+               (containingType == "System.Threading.ThreadPool" &&
+                methodName is "QueueUserWorkItem" or "UnsafeQueueUserWorkItem" or "RegisterWaitForSingleObject");
+    }
+
+    private static bool IsSerializationOperation(string containingType, string methodName)
+    {
+        return (containingType == "System.Text.Json.JsonSerializer" &&
+                methodName is "Serialize" or "Deserialize" or
+                              "SerializeToUtf8Bytes" or "SerializeToDocument" or "SerializeToElement" or
+                              "SerializeToNode" or "SerializeAsync" or "DeserializeAsync" or
+                              "DeserializeAsyncEnumerable") ||
+               (containingType == "System.Xml.Serialization.XmlSerializer" &&
+                methodName is "Serialize" or "Deserialize") ||
+               IsRuntimeSerializationOperation(containingType, methodName);
+    }
+
+    private static bool IsRuntimeSerializationOperation(string containingType, string methodName)
+    {
+        if (methodName is not ("ReadObject" or "WriteObject" or "WriteStartObject" or "WriteObjectContent" or "WriteEndObject"))
+        {
+            return false;
+        }
+
+        return containingType is "System.Runtime.Serialization.XmlObjectSerializer" or
+                                 "System.Runtime.Serialization.DataContractSerializer" or
+                                 "System.Runtime.Serialization.Json.DataContractJsonSerializer";
+    }
+
+    private static bool IsParsingOperation(string containingType, string methodName)
+    {
+        return (containingType == "System.Text.Json.JsonDocument" &&
+                methodName is "Parse" or "ParseAsync" or "ParseValue") ||
+               (containingType == "System.Text.Json.Nodes.JsonNode" &&
+                methodName == "Parse") ||
+               (containingType is "System.Xml.Linq.XDocument" or "System.Xml.Linq.XElement" &&
+                methodName is "Parse" or "Load") ||
+               (containingType == "System.Xml.XmlDocument" &&
+                methodName is "Load" or "LoadXml");
+    }
+
+    private static bool ContainsNestedParsingOperation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        foreach (InvocationExpressionSyntax nestedInvocation in invocation.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            if (semanticModel.GetSymbolInfo(nestedInvocation).Symbol is not IMethodSymbol methodSymbol)
+            {
+                continue;
+            }
+
+            string containingType = methodSymbol.ContainingType?.ToDisplayString() ?? "";
+            if (IsParsingOperation(containingType, methodSymbol.Name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsNestedReflectionOperation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        foreach (InvocationExpressionSyntax nestedInvocation in invocation.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            if (semanticModel.GetSymbolInfo(nestedInvocation).Symbol is not IMethodSymbol methodSymbol)
+            {
+                continue;
+            }
+
+            string containingType = methodSymbol.ContainingType?.ToDisplayString() ?? "";
+            if (IsReflectionOperation(containingType, methodSymbol.Name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsRegexOperation(string containingType, string methodName)
+    {
+        return containingType == "System.Text.RegularExpressions.Regex" &&
+               methodName is "IsMatch" or "Match" or "Matches" or "Replace" or "Split" or "Count";
+    }
+
+    private static bool IsCryptographicOperation(string containingType, string methodName)
+    {
+        if (IsCryptographicIncrementalHashOperation(containingType, methodName))
+        {
+            return true;
+        }
+
+        if (IsCryptographicSymmetricOperation(containingType, methodName))
+        {
+            return true;
+        }
+
+        if (IsCryptographicKeyDerivationOperation(containingType, methodName))
+        {
+            return true;
+        }
+
+        if (IsCryptographicPublicKeyOperation(containingType, methodName))
+        {
+            return true;
+        }
+
+        if (methodName is not ("ComputeHash" or "TryComputeHash" or "HashData" or "TryHashData"))
+        {
+            return false;
+        }
+
+        return containingType == "System.Security.Cryptography.HashAlgorithm" ||
+               containingType == "System.Security.Cryptography.KeyedHashAlgorithm" ||
+               containingType.StartsWith("System.Security.Cryptography.HMAC", StringComparison.Ordinal) ||
+               containingType is "System.Security.Cryptography.MD5" or
+                                  "System.Security.Cryptography.SHA1" or
+                                  "System.Security.Cryptography.SHA256" or
+                                  "System.Security.Cryptography.SHA384" or
+                                  "System.Security.Cryptography.SHA512";
+    }
+
+    private static bool IsCryptographicIncrementalHashOperation(string containingType, string methodName)
+    {
+        return containingType == "System.Security.Cryptography.IncrementalHash" &&
+               methodName is "CreateHash" or "CreateHMAC" or
+                             "AppendData" or
+                             "GetHashAndReset" or "TryGetHashAndReset" or
+                             "GetCurrentHash" or "TryGetCurrentHash";
+    }
+
+    private static bool IsCryptographicKeyDerivationOperation(string containingType, string methodName)
+    {
+        return (containingType == "System.Security.Cryptography.Rfc2898DeriveBytes" &&
+                methodName is "GetBytes" or "Pbkdf2") ||
+               (containingType == "System.Security.Cryptography.PasswordDeriveBytes" &&
+                methodName is "GetBytes" or "CryptDeriveKey");
+    }
+
+    private static bool IsCryptographicSymmetricOperation(string containingType, string methodName)
+    {
+        return (containingType == "System.Security.Cryptography.SymmetricAlgorithm" &&
+                methodName is "CreateEncryptor" or "CreateDecryptor") ||
+               (containingType == "System.Security.Cryptography.ICryptoTransform" &&
+                methodName is "TransformBlock" or "TransformFinalBlock");
+    }
+
+    private static bool IsCryptographicPublicKeyOperation(string containingType, string methodName)
+    {
+        if (containingType == "System.Security.Cryptography.ECDiffieHellman" &&
+            methodName is "DeriveKeyMaterial" or "DeriveKeyFromHash" or "DeriveKeyFromHmac" or "DeriveKeyTls")
+        {
+            return true;
+        }
+
+        if (methodName is not ("Encrypt" or "TryEncrypt" or "Decrypt" or "TryDecrypt" or
+            "SignData" or "TrySignData" or "SignHash" or "TrySignHash" or
+            "VerifyData" or "VerifyHash"))
+        {
+            return false;
+        }
+
+        return containingType is "System.Security.Cryptography.RSA" or
+                                  "System.Security.Cryptography.ECDsa" or
+                                  "System.Security.Cryptography.DSA";
+    }
+
     private static bool IsNonDeterministicOperation(string containingType, string methodName, out string operationType)
     {
         operationType = "";
 
-        if (containingType == "System.DateTime" && (methodName == "get_Now" || methodName == "get_UtcNow"))
+        if ((containingType == "System.DateTime" || containingType == "System.DateTimeOffset") &&
+            (methodName == "get_Now" || methodName == "get_UtcNow"))
         {
-            operationType = methodName == "get_UtcNow" ? "DateTime.UtcNow" : "DateTime.Now";
+            string typeName = containingType == "System.DateTimeOffset" ? "DateTimeOffset" : "DateTime";
+            operationType = methodName == "get_UtcNow" ? $"{typeName}.UtcNow" : $"{typeName}.Now";
             return true;
         }
 
@@ -760,9 +1690,74 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
+        if (containingType == "System.Security.Cryptography.RandomNumberGenerator" &&
+            methodName is "GetBytes" or "GetHexString" or "GetInt32" or "GetItems" or "GetString" or "Fill" or "GetNonZeroBytes")
+        {
+            operationType = "RandomNumberGenerator";
+            return true;
+        }
+
+        if (containingType == "System.Diagnostics.Stopwatch" &&
+            methodName is "GetTimestamp" or "StartNew" or "GetElapsedTime")
+        {
+            operationType = "Stopwatch";
+            return true;
+        }
+
         if (containingType == "System.Guid" && methodName == "NewGuid")
         {
             operationType = "Guid.NewGuid";
+            return true;
+        }
+
+        if (containingType == "System.Environment" &&
+            methodName is "GetCommandLineArgs" or
+                          "GetEnvironmentVariable" or "GetEnvironmentVariables" or
+                          "ExpandEnvironmentVariables" or "GetFolderPath" or
+                          "GetLogicalDrives" or
+                          "SetEnvironmentVariable")
+        {
+            operationType = "Environment";
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsEnvironmentStateProperty(
+        string containingType,
+        string propertyName,
+        out string operationType)
+    {
+        operationType = "";
+        if (containingType != "System.Environment")
+        {
+            return false;
+        }
+
+        if (propertyName is "CommandLine" or
+            "CurrentDirectory" or
+            "CurrentManagedThreadId" or
+            "ExitCode" or
+            "HasShutdownStarted" or
+            "Is64BitOperatingSystem" or
+            "Is64BitProcess" or
+            "MachineName" or
+            "OSVersion" or
+            "ProcessId" or
+            "ProcessPath" or
+            "ProcessorCount" or
+            "StackTrace" or
+            "SystemDirectory" or
+            "TickCount" or
+            "TickCount64" or
+            "UserDomainName" or
+            "UserInteractive" or
+            "UserName" or
+            "Version" or
+            "WorkingSet")
+        {
+            operationType = $"Environment.{propertyName}";
             return true;
         }
 
@@ -1003,7 +1998,10 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsExternalMethodCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static bool IsExternalMethodCall(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel,
+        string? sourceParameterName)
     {
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
         {
@@ -1029,10 +2027,22 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        // Exclude simple LINQ extension methods on the source object
-        string[] simpleLinqMethods =
-            new[] { "Select", "Where", "OrderBy", "OrderByDescending", "ThenBy", "ThenByDescending" };
-        if (simpleLinqMethods.Contains(methodSymbol.Name) && IsCalledOnSourceProperty(memberAccess))
+        if (IsHttpControlOperation(containingType, methodSymbol.Name))
+        {
+            return false;
+        }
+
+        if (IsHttpHeaderConfigurationOperation(containingType, methodSymbol.Name))
+        {
+            return false;
+        }
+
+        if (IsCalledOnSourceExpression(memberAccess, sourceParameterName))
+        {
+            return false;
+        }
+
+        if (IsFastFrameworkHelperOperation(containingType, methodSymbol.Name, memberAccess.Expression, semanticModel))
         {
             return false;
         }
@@ -1048,26 +2058,199 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsCalledOnSourceProperty(MemberAccessExpressionSyntax memberAccess)
+    private static bool IsHttpControlOperation(string containingType, string methodName)
     {
-        string expression = memberAccess.Expression.ToString();
-        return expression.StartsWith("src.") || expression == "src";
+        return (containingType == "System.Net.Http.HttpClient" &&
+                methodName is "CancelPendingRequests" or "Dispose") ||
+               (containingType == "System.Net.WebClient" &&
+                methodName is "CancelAsync" or "Dispose") ||
+               (containingType == "System.Net.Http.HttpMessageInvoker" &&
+                methodName == "Dispose");
     }
 
-    private static bool IsExpensiveComputation(LambdaExpressionSyntax lambda)
+    private static bool IsHttpHeaderConfigurationOperation(string containingType, string methodName)
+    {
+        return containingType.StartsWith("System.Net.Http.Headers.", StringComparison.Ordinal) &&
+               methodName is "Add" or "Clear" or "Remove" or "TryAddWithoutValidation" or
+                             "ParseAdd" or "TryParseAdd";
+    }
+
+    private static bool IsFastFrameworkHelperOperation(
+        string containingType,
+        string methodName,
+        ExpressionSyntax receiverExpression,
+        SemanticModel semanticModel)
+    {
+        return IsFastFrameworkComparerMethod(containingType, methodName) &&
+               IsKnownFrameworkComparerReceiver(receiverExpression, semanticModel);
+    }
+
+    private static bool IsFastFrameworkComparerMethod(string containingType, string methodName)
+    {
+        return (containingType == "System.StringComparer" &&
+                methodName is "Compare" or "Equals" or "GetHashCode") ||
+               (containingType.StartsWith("System.Collections.Generic.EqualityComparer<", StringComparison.Ordinal) &&
+                methodName is "Equals" or "GetHashCode") ||
+               (containingType == "System.Collections.Generic.ReferenceEqualityComparer" &&
+                methodName is "Equals" or "GetHashCode") ||
+               (containingType.StartsWith("System.Collections.Generic.Comparer<", StringComparison.Ordinal) &&
+                methodName == "Compare");
+    }
+
+    private static bool IsKnownFrameworkComparerReceiver(
+        ExpressionSyntax receiverExpression,
+        SemanticModel semanticModel)
+    {
+        receiverExpression = RemoveParentheses(receiverExpression);
+        ISymbol? receiverSymbol = semanticModel.GetSymbolInfo(receiverExpression).Symbol;
+
+        if (receiverSymbol is IPropertySymbol receiverProperty &&
+            IsKnownFrameworkComparerProperty(receiverProperty))
+        {
+            return true;
+        }
+
+        if (receiverSymbol is IFieldSymbol { IsReadOnly: true } receiverField &&
+            TryGetFieldInitializer(receiverField, out EqualsValueClauseSyntax? fieldInitializer))
+        {
+            return fieldInitializer is not null &&
+                   IsKnownFrameworkComparerExpression(fieldInitializer.Value, semanticModel);
+        }
+
+        if (receiverSymbol is IPropertySymbol { SetMethod: null } fieldBackedProperty &&
+            TryGetPropertyFrameworkComparerExpression(fieldBackedProperty, out ExpressionSyntax? propertyExpression))
+        {
+            return propertyExpression is not null &&
+                   IsKnownFrameworkComparerExpression(propertyExpression, semanticModel);
+        }
+
+        return false;
+    }
+
+    private static bool IsKnownFrameworkComparerExpression(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel)
+    {
+        expression = RemoveParentheses(expression);
+        return semanticModel.GetSymbolInfo(expression).Symbol is IPropertySymbol property &&
+               IsKnownFrameworkComparerProperty(property);
+    }
+
+    private static bool IsKnownFrameworkComparerProperty(IPropertySymbol property)
+    {
+        if (!property.IsStatic)
+        {
+            return false;
+        }
+
+        string containingType = property.ContainingType?.ToDisplayString() ?? "";
+        return containingType == "System.StringComparer" &&
+               property.Name is "Ordinal" or "OrdinalIgnoreCase" or
+                                "InvariantCulture" or "InvariantCultureIgnoreCase" ||
+               containingType.StartsWith("System.Collections.Generic.EqualityComparer<", StringComparison.Ordinal) &&
+               property.Name == "Default" ||
+               containingType == "System.Collections.Generic.ReferenceEqualityComparer" &&
+               property.Name == "Instance" ||
+               containingType.StartsWith("System.Collections.Generic.Comparer<", StringComparison.Ordinal) &&
+               property.Name == "Default";
+    }
+
+    private static bool TryGetFieldInitializer(
+        IFieldSymbol field,
+        out EqualsValueClauseSyntax? initializer)
+    {
+        foreach (SyntaxReference syntaxReference in field.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is VariableDeclaratorSyntax { Initializer: not null } declarator)
+            {
+                initializer = declarator.Initializer;
+                return true;
+            }
+        }
+
+        initializer = null;
+        return false;
+    }
+
+    private static bool TryGetPropertyFrameworkComparerExpression(
+        IPropertySymbol property,
+        out ExpressionSyntax? expression)
+    {
+        foreach (SyntaxReference syntaxReference in property.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
+            {
+                if (propertyDeclaration.Initializer is not null)
+                {
+                    expression = propertyDeclaration.Initializer.Value;
+                    return true;
+                }
+
+                if (propertyDeclaration.ExpressionBody is not null)
+                {
+                    expression = propertyDeclaration.ExpressionBody.Expression;
+                    return true;
+                }
+
+                AccessorDeclarationSyntax? getAccessor = propertyDeclaration.AccessorList?.Accessors
+                    .FirstOrDefault(accessor => accessor.Kind() == SyntaxKind.GetAccessorDeclaration);
+                if (getAccessor?.ExpressionBody is not null)
+                {
+                    expression = getAccessor.ExpressionBody.Expression;
+                    return true;
+                }
+            }
+        }
+
+        expression = null;
+        return false;
+    }
+
+    private static ExpressionSyntax RemoveParentheses(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesizedExpression)
+        {
+            expression = parenthesizedExpression.Expression;
+        }
+
+        return expression;
+    }
+
+    private static bool IsCalledOnSourceExpression(
+        MemberAccessExpressionSyntax memberAccess,
+        string? sourceParameterName)
+    {
+        if (string.IsNullOrEmpty(sourceParameterName))
+        {
+            return false;
+        }
+
+        ExpressionSyntax currentExpression = memberAccess.Expression;
+        while (currentExpression is MemberAccessExpressionSyntax currentMemberAccess)
+        {
+            currentExpression = currentMemberAccess.Expression;
+        }
+
+        return currentExpression is IdentifierNameSyntax identifier &&
+               string.Equals(identifier.Identifier.ValueText, sourceParameterName, StringComparison.Ordinal);
+    }
+
+    private static bool IsExpensiveComputation(
+        LambdaExpressionSyntax lambda,
+        SemanticModel semanticModel)
     {
         // Look for Enumerable.Range with complex predicates (like prime checking)
         var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>();
 
         foreach (InvocationExpressionSyntax? invocation in invocations)
         {
-            if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+            if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Name.Identifier.Text == "Range" &&
+                semanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol methodSymbol &&
+                methodSymbol.ContainingType?.ToDisplayString() == "System.Linq.Enumerable")
             {
-                if (memberAccess.Expression.ToString() == "Enumerable" && memberAccess.Name.Identifier.Text == "Range")
-                {
-                    // Found Enumerable.Range - this might be expensive
-                    return true;
-                }
+                // Found System.Linq.Enumerable.Range - this might be expensive
+                return true;
             }
         }
 

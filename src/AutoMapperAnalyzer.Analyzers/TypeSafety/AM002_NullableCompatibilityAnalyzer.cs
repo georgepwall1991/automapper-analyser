@@ -91,6 +91,18 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             sourceType,
             destinationType
         );
+
+        InvocationExpressionSyntax? reverseMapInvocation =
+            AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocationExpr);
+        if (reverseMapInvocation != null)
+        {
+            AnalyzeNullablePropertyMappings(
+                context,
+                reverseMapInvocation,
+                destinationType,
+                sourceType
+            );
+        }
     }
 
     private static void AnalyzeNullablePropertyMappings(
@@ -315,7 +327,9 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingCall, semanticModel, "ForMember"))
         {
             string? selectedMember =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberName(destinationExpression);
+                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                    destinationExpression,
+                    semanticModel);
             return string.Equals(selectedMember, destinationPropertyName, StringComparison.OrdinalIgnoreCase);
         }
 
@@ -555,8 +569,10 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol destinationPropertyType,
         SemanticModel semanticModel)
     {
-        TypeInfo typeInfo = semanticModel.GetTypeInfo(mapFromBody);
-        ITypeSymbol? mappedType = typeInfo.ConvertedType ?? typeInfo.Type;
+        ITypeSymbol? mappedType = GetNullableAwareExpressionType(
+            mapFromBody,
+            semanticModel,
+            includeDeclaredNullability: true);
         if (mappedType == null)
         {
             return false;
@@ -609,9 +625,48 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax expression,
         SemanticModel semanticModel)
     {
+        ITypeSymbol? expressionType = GetNullableAwareExpressionType(expression, semanticModel);
+        return expressionType != null && IsNullableType(expressionType);
+    }
+
+    private static ITypeSymbol? GetNullableAwareExpressionType(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel,
+        bool includeDeclaredNullability = false)
+    {
+        ExpressionSyntax nullableTransparentExpression = RemoveNullForgivingExpression(expression);
         TypeInfo typeInfo = semanticModel.GetTypeInfo(expression);
         ITypeSymbol? expressionType = typeInfo.Type ?? typeInfo.ConvertedType;
-        return expressionType != null && IsNullableType(expressionType);
+        if (expressionType != null && IsNullableType(expressionType))
+        {
+            return expressionType;
+        }
+
+        if (!includeDeclaredNullability && nullableTransparentExpression == expression)
+        {
+            return expressionType;
+        }
+
+        ISymbol? symbol = semanticModel.GetSymbolInfo(nullableTransparentExpression).Symbol;
+        return symbol switch
+        {
+            IPropertySymbol propertySymbol => propertySymbol.Type,
+            IFieldSymbol fieldSymbol => fieldSymbol.Type,
+            ILocalSymbol localSymbol => localSymbol.Type,
+            IParameterSymbol parameterSymbol => parameterSymbol.Type,
+            _ => expressionType
+        };
+    }
+
+    private static ExpressionSyntax RemoveNullForgivingExpression(ExpressionSyntax expression)
+    {
+        while (expression is PostfixUnaryExpressionSyntax postfix &&
+               postfix.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+        {
+            expression = postfix.Operand;
+        }
+
+        return expression;
     }
 
     private static bool TryGetNullableMapFromType(
@@ -623,8 +678,11 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
     {
         nullableMapFromType = null;
         nullableMapFromName = null;
-        TypeInfo typeInfo = semanticModel.GetTypeInfo(mapFromBody);
-        ITypeSymbol? mappedType = typeInfo.ConvertedType ?? typeInfo.Type;
+        ExpressionSyntax nullableTransparentBody = RemoveNullForgivingExpression(mapFromBody);
+        ITypeSymbol? mappedType = GetNullableAwareExpressionType(
+            nullableTransparentBody,
+            semanticModel,
+            includeDeclaredNullability: true);
         if (TryGetNullableDereferencedReceiver(
                 mapFromBody,
                 destinationPropertyType,
@@ -646,7 +704,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         }
 
         nullableMapFromType = mappedType;
-        nullableMapFromName = TryGetSourceMemberPath(mapFromBody, out string sourceMemberPath)
+        nullableMapFromName = TryGetSourceMemberPath(nullableTransparentBody, out string sourceMemberPath)
             ? sourceMemberPath
             : null;
         return true;
@@ -668,8 +726,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            TypeInfo receiverTypeInfo = semanticModel.GetTypeInfo(memberAccess.Expression);
-            ITypeSymbol? receiverType = receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType;
+            ITypeSymbol? receiverType = GetNullableAwareExpressionType(memberAccess.Expression, semanticModel);
             if (receiverType == null ||
                 !IsNullableType(receiverType) ||
                 IsNullableType(destinationPropertyType))

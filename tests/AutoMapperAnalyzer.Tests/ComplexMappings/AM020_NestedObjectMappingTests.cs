@@ -258,6 +258,55 @@ public class AM020_NestedObjectMappingTests
     }
 
     [Fact]
+    public async Task AM020_ShouldNotReportDiagnostic_WhenExplicitlyMappedWithNameofDestinationMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceAddress
+                                    {
+                                        public string Street { get; set; }
+                                        public string City { get; set; }
+                                    }
+
+                                    public class DestAddress
+                                    {
+                                        public string Street { get; set; }
+                                        public string City { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceAddress Address { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public DestAddress Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(nameof(Destination.Address), opt => opt.MapFrom(src => new DestAddress { Street = src.Address.Street, City = src.Address.City }));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
     public async Task AM020_ShouldNotReportDiagnostic_WhenExplicitMappingUsesDifferentCasePropertyName()
     {
         const string testCode = """
@@ -417,6 +466,58 @@ public class AM020_NestedObjectMappingTests
             .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
             .WithSource(testCode)
             .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldReportReverseMapDiagnostic_WhenOnlyForwardImplicitNestedConversionExists()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceValue
+                                    {
+                                        public string Raw { get; set; }
+
+                                        public static implicit operator DestinationValue(SourceValue source)
+                                        {
+                                            return new DestinationValue { Raw = source.Raw };
+                                        }
+                                    }
+
+                                    public class DestinationValue
+                                    {
+                                        public string Raw { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceValue Value { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestinationValue Value { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 34, 13, "Value",
+                "DestinationValue", "SourceValue")
+            .RunAsync();
     }
 
     [Fact]
@@ -724,6 +825,60 @@ public class AM020_NestedObjectMappingTests
                                         public decimal Price { get; set; }
                                         public TimeSpan Duration { get; set; }
                                         public DateTimeOffset Timestamp { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldNotReportDiagnostic_WhenFrameworkScalarsMapToDomainTypes()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class CustomDate
+                                    {
+                                        public int Year { get; set; }
+                                    }
+
+                                    public class CustomTime
+                                    {
+                                        public int Hour { get; set; }
+                                    }
+
+                                    public class CustomLink
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public DateOnly EffectiveDate { get; set; }
+                                        public TimeOnly EffectiveTime { get; set; }
+                                        public Uri Link { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public CustomDate EffectiveDate { get; set; }
+                                        public CustomTime EffectiveTime { get; set; }
+                                        public CustomLink Link { get; set; }
                                     }
 
                                     public class TestProfile : Profile
@@ -1935,12 +2090,55 @@ public class AM020_NestedObjectMappingTests
                                 }
                                 """;
 
-        // Should report diagnostic for generic nested objects (without type arguments in diagnostic message)
+        // Should report diagnostic for generic nested objects with type arguments in the diagnostic message.
         await DiagnosticTestFramework
             .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
             .WithSource(testCode)
             .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 31, 13,
-                "Data", "SourceWrapper", "DestWrapper")
+                "Data", "SourceWrapper<int>", "DestWrapper<int>")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldReportDiagnostic_ForSameGenericTypeWithDifferentTypeArguments()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Wrapper<T>
+                                    {
+                                        public T Value { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public Wrapper<string> Data { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public Wrapper<int> Data { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule, 26, 13,
+                "Data", "Wrapper<string>", "Wrapper<int>")
             .RunAsync();
     }
 
@@ -2238,6 +2436,54 @@ public class AM020_NestedObjectMappingTests
     }
 
     [Fact]
+    public async Task AM020_ShouldNotReportDiagnostic_WhenTypedConvertUsingHandlesForwardMapping()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class DestAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceAddress Address { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestAddress Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConvertUsing((Source src) => new Destination
+                                                {
+                                                    Address = new DestAddress { Street = src.Address.Street }
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
     public async Task AM020_ShouldNotReportDiagnostic_WhenForPathConfiguresNestedProperty()
     {
         const string testCode = """
@@ -2283,6 +2529,52 @@ public class AM020_NestedObjectMappingTests
     }
 
     [Fact]
+    public async Task AM020_ShouldNotReportDiagnostic_WhenTypedForPathConfiguresNestedProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class DestAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceAddress Address { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestAddress Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForPath((Destination dest) => dest.Address.Street,
+                                                    opt => opt.MapFrom((Source src) => src.Address.Street));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
     public async Task AM020_ShouldNotReportDiagnostic_WhenForMemberUsesStringPropertyName()
     {
         const string testCode = """
@@ -2316,6 +2608,144 @@ public class AM020_NestedObjectMappingTests
                                         {
                                             CreateMap<Source, Destination>()
                                                 .ForMember("Address", opt => opt.Ignore());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldNotReportDiagnostic_WhenForMemberUsesNameofPropertyName()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class DestAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceAddress Address { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestAddress Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(nameof(Destination.Address), opt => opt.Ignore());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldNotReportDiagnostic_WhenForMemberUsesConstantPropertyName()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class DestAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceAddress Address { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestAddress Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private const string AddressMember = nameof(Destination.Address);
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(AddressMember, opt => opt.Ignore());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM020_NestedObjectMappingAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM020_ShouldNotReportDiagnostic_WhenExplicitMappingUsesTypedLambdaParameters()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class DestAddress
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public SourceAddress Address { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DestAddress Address { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember((Destination dest) => dest.Address,
+                                                    opt => opt.MapFrom((Source src) => new DestAddress { Street = src.Address.Street }));
                                         }
                                     }
                                 }

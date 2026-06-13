@@ -54,13 +54,29 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var reportedMappings = new HashSet<string>(StringComparer.Ordinal);
+
         // Analyze nested object mapping requirements
         AnalyzeNestedObjectMappingRequirements(
             context,
             invocationExpr,
             typeArguments.sourceType,
-            typeArguments.destinationType
+            typeArguments.destinationType,
+            reportedMappings
         );
+
+        InvocationExpressionSyntax? reverseMapInvocation =
+            AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocationExpr);
+        if (reverseMapInvocation != null)
+        {
+            AnalyzeNestedObjectMappingRequirements(
+                context,
+                reverseMapInvocation,
+                typeArguments.destinationType,
+                typeArguments.sourceType,
+                reportedMappings
+            );
+        }
     }
 
 
@@ -68,7 +84,8 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         ITypeSymbol sourceType,
-        ITypeSymbol destinationType)
+        ITypeSymbol destinationType,
+        HashSet<string> reportedMappings)
     {
         if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
         {
@@ -115,6 +132,16 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
                     continue; // Property is explicitly handled
                 }
 
+                string mappingKey = CreateMappingKey(
+                    sourceNestedType,
+                    destNestedType,
+                    sourceProperty.Name,
+                    destinationProperty.Name);
+                if (!reportedMappings.Add(mappingKey))
+                {
+                    continue;
+                }
+
                 // Report diagnostic for missing nested object mapping
                 var diagnostic = Diagnostic.Create(
                     NestedObjectMappingMissingRule,
@@ -126,6 +153,21 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
                 context.ReportDiagnostic(diagnostic);
             }
         }
+    }
+
+    private static string CreateMappingKey(
+        ITypeSymbol sourceNestedType,
+        ITypeSymbol destinationNestedType,
+        string sourcePropertyName,
+        string destinationPropertyName)
+    {
+        string[] nestedTypeNames = [sourceNestedType.ToDisplayString(), destinationNestedType.ToDisplayString()];
+        Array.Sort(nestedTypeNames, StringComparer.Ordinal);
+
+        string[] propertyNames = [sourcePropertyName.ToUpperInvariant(), destinationPropertyName.ToUpperInvariant()];
+        Array.Sort(propertyNames, StringComparer.Ordinal);
+
+        return $"{nestedTypeNames[0]}|{nestedTypeNames[1]}::{propertyNames[0]}|{propertyNames[1]}";
     }
 
     private static bool RequiresNestedObjectMapping(Compilation compilation, ITypeSymbol sourceType, ITypeSymbol destinationType)

@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace AutoMapperAnalyzer.Analyzers.Helpers;
@@ -209,7 +210,7 @@ public static class MappingChainAnalysisHelper
                 continue;
             }
 
-            if (IsForSourceMemberOfProperty(chainedInvocation, sourcePropertyName) &&
+            if (IsForSourceMemberOfProperty(chainedInvocation, sourcePropertyName, semanticModel) &&
                 HasDoNotValidateCall(chainedInvocation))
             {
                 return true;
@@ -278,14 +279,17 @@ public static class MappingChainAnalysisHelper
     /// </summary>
     public static bool IsForSourceMemberOfProperty(
         InvocationExpressionSyntax forSourceMemberInvocation,
-        string propertyName)
+        string propertyName,
+        SemanticModel? semanticModel = null)
     {
         if (forSourceMemberInvocation.ArgumentList.Arguments.Count == 0)
         {
             return false;
         }
 
-        string? selectedMember = GetSelectedMemberName(forSourceMemberInvocation.ArgumentList.Arguments[0].Expression);
+        string? selectedMember = GetSelectedMemberName(
+            forSourceMemberInvocation.ArgumentList.Arguments[0].Expression,
+            semanticModel);
         return string.Equals(selectedMember, propertyName, StringComparison.Ordinal);
     }
 
@@ -321,18 +325,49 @@ public static class MappingChainAnalysisHelper
     /// <summary>
     ///     Extracts the member name from a lambda or member access expression.
     /// </summary>
-    public static string? GetSelectedMemberName(ExpressionSyntax expression)
+    public static string? GetSelectedMemberName(SyntaxNode expression, SemanticModel? semanticModel = null)
     {
         return expression switch
         {
-            SimpleLambdaExpressionSyntax simpleLambda when simpleLambda.Body is MemberAccessExpressionSyntax memberAccess =>
-                memberAccess.Name.Identifier.ValueText,
+            SimpleLambdaExpressionSyntax simpleLambda => GetSelectedMemberName(simpleLambda.Body, semanticModel),
             ParenthesizedLambdaExpressionSyntax parenthesizedLambda
-                when parenthesizedLambda.Body is MemberAccessExpressionSyntax memberAccess =>
-                memberAccess.Name.Identifier.ValueText,
+                => GetSelectedMemberName(parenthesizedLambda.Body, semanticModel),
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
+            LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.StringLiteralExpression) =>
+                GetTopLevelMemberName(literal.Token.ValueText),
+            ExpressionSyntax expressionSyntax when TryGetStringConstant(
+                expressionSyntax,
+                semanticModel,
+                out string memberPath) => GetTopLevelMemberName(memberPath),
             _ => null
         };
+    }
+
+    private static bool TryGetStringConstant(
+        ExpressionSyntax expression,
+        SemanticModel? semanticModel,
+        out string value)
+    {
+        value = string.Empty;
+        if (semanticModel == null)
+        {
+            return false;
+        }
+
+        Optional<object?> constantValue = semanticModel.GetConstantValue(expression);
+        if (constantValue is { HasValue: true, Value: string stringValue })
+        {
+            value = stringValue;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string? GetTopLevelMemberName(string memberPath)
+    {
+        string topLevelMemberName = memberPath.Split('.')[0].Trim();
+        return string.IsNullOrWhiteSpace(topLevelMemberName) ? null : topLevelMemberName;
     }
 
     private static string? GetTopLevelSourceMemberName(MemberAccessExpressionSyntax memberAccess)

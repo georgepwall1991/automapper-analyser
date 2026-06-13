@@ -379,9 +379,9 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
     private static InvocationExpressionSyntax? GetInvocationWithoutForMember(InvocationExpressionSyntax forMemberToRemove)
     {
         return forMemberToRemove.Expression is MemberAccessExpressionSyntax
-            {
-                Expression: InvocationExpressionSyntax previousInvocation
-            }
+        {
+            Expression: InvocationExpressionSyntax previousInvocation
+        }
             ? previousInvocation
             : null;
     }

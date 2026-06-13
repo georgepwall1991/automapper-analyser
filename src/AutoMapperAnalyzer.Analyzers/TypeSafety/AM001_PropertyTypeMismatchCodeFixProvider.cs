@@ -49,14 +49,12 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
 
             string propertyNameValue = propertyName!;
 
-            SymbolInfo semanticInfo = operationContext.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken);
-            if (semanticInfo.Symbol is not IMethodSymbol methodSymbol || methodSymbol.TypeArguments.Length != 2)
+            (ITypeSymbol? sourceType, ITypeSymbol? destinationType) =
+                ResolveCreateMapTypesWithReverse(invocation, operationContext.SemanticModel);
+            if (sourceType == null || destinationType == null)
             {
                 continue;
             }
-
-            ITypeSymbol sourceType = methodSymbol.TypeArguments[0];
-            ITypeSymbol destinationType = methodSymbol.TypeArguments[1];
 
             IPropertySymbol? sourceProperty = FindProperty(sourceType, propertyNameValue, false);
             IPropertySymbol? destinationProperty = FindProperty(destinationType, propertyNameValue, true);

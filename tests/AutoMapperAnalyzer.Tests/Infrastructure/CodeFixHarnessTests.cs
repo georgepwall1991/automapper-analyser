@@ -104,7 +104,7 @@ public class CodeFixHarnessTests
             .VerifyFixByKeyAsync(
                 FirstNameSource,
                 new DiagnosticResult(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule)
-                    .WithLocation(19, 13)
+                    .WithLocation(7, 23)
                     .WithArguments("firstName", "FirstName"),
                 FirstNameFixed,
                 "AM005_ExplicitMapping_firstName_FirstName");

@@ -118,7 +118,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
         }
 
         (ITypeSymbol? _, ITypeSymbol? destinationMapType) =
-            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+            ResolveCreateMapTypesWithReverse(invocation, semanticModel);
         if (destinationMapType == null)
         {
             return defaultValue;

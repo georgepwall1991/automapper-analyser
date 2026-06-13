@@ -67,7 +67,9 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
             }
 
             // Get destination property name
-            string? destPropName = GetDestinationPropertyName(destinationConfigurationInvocation);
+            string? destPropName = GetDestinationPropertyName(
+                destinationConfigurationInvocation,
+                context.SemanticModel);
             if (destPropName == null)
             {
                 return;
@@ -114,7 +116,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         }
 
         // Check if types are exactly the same (including nullability)
-        return SymbolEqualityComparer.Default.Equals(sourceType, destType);
+        return SymbolEqualityComparer.IncludeNullability.Equals(sourceType, destType);
     }
 
     private static ITypeSymbol? GetSourcePropertyType(
@@ -130,36 +132,13 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
 
         // Expecting src => src.Name or (src) => src.Name or (Source src) => src.Name
         if (TryGetLambdaBody(arg, out _, out CSharpSyntaxNode? body) &&
-            body is MemberAccessExpressionSyntax memberAccess)
+            UnwrapParentheses(body) is MemberAccessExpressionSyntax memberAccess)
         {
             SymbolInfo symbolInfo = context.SemanticModel.GetSymbolInfo(memberAccess);
             if (symbolInfo.Symbol is IPropertySymbol propertySymbol)
             {
                 return propertySymbol.Type;
             }
-        }
-
-        return null;
-    }
-
-    private static InvocationExpressionSyntax? FindCreateMapInvocation(
-        InvocationExpressionSyntax invocation,
-        SemanticModel semanticModel)
-    {
-        ExpressionSyntax? currentExpression = invocation.Expression is MemberAccessExpressionSyntax memberAccess
-            ? memberAccess.Expression
-            : null;
-
-        while (currentExpression is InvocationExpressionSyntax currentInvocation)
-        {
-            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(currentInvocation, semanticModel, "CreateMap"))
-            {
-                return currentInvocation;
-            }
-
-            currentExpression = currentInvocation.Expression is MemberAccessExpressionSyntax currentMemberAccess
-                ? currentMemberAccess.Expression
-                : null;
         }
 
         return null;
@@ -178,7 +157,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
 
         // Expecting dest => dest.Name or (dest) => dest.Name or (Dest dest) => dest.Name
         if (TryGetLambdaBody(arg, out _, out CSharpSyntaxNode? memberAccessBody) &&
-            memberAccessBody is MemberAccessExpressionSyntax memberAccess)
+            UnwrapParentheses(memberAccessBody) is MemberAccessExpressionSyntax memberAccess)
         {
             SymbolInfo symbolInfo = context.SemanticModel.GetSymbolInfo(memberAccess);
             if (symbolInfo.Symbol is IPropertySymbol propertySymbol)
@@ -187,20 +166,13 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        string? destinationPropertyName = GetStringLiteralValue(arg);
+        string? destinationPropertyName = GetStringConstantValue(arg, context.SemanticModel);
         if (destinationPropertyName == null)
         {
             return null;
         }
 
-        InvocationExpressionSyntax? createMapInvocation = FindCreateMapInvocation(forMemberInvocation, context.SemanticModel);
-        if (createMapInvocation == null)
-        {
-            return null;
-        }
-
-        (_, ITypeSymbol? destinationType) =
-            MappingChainAnalysisHelper.GetCreateMapTypeArguments(createMapInvocation, context.SemanticModel);
+        (_, ITypeSymbol? destinationType) = GetEffectiveCreateMapTypes(forMemberInvocation, context.SemanticModel);
 
         return destinationType == null
             ? null
@@ -209,7 +181,39 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
                 ?.Type;
     }
 
-    private static string? GetDestinationPropertyName(InvocationExpressionSyntax forMemberInvocation)
+    private static (ITypeSymbol? sourceType, ITypeSymbol? destinationType) GetEffectiveCreateMapTypes(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        InvocationExpressionSyntax? current = invocation;
+        var isReverseMapSegment = false;
+
+        while (current != null)
+        {
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(current, semanticModel, "ReverseMap"))
+            {
+                isReverseMapSegment = true;
+            }
+
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(current, semanticModel, "CreateMap"))
+            {
+                (ITypeSymbol? sourceType, ITypeSymbol? destinationType) =
+                    MappingChainAnalysisHelper.GetCreateMapTypeArguments(current, semanticModel);
+
+                return isReverseMapSegment
+                    ? (destinationType, sourceType)
+                    : (sourceType, destinationType);
+            }
+
+            current = (current.Expression as MemberAccessExpressionSyntax)?.Expression as InvocationExpressionSyntax;
+        }
+
+        return (null, null);
+    }
+
+    private static string? GetDestinationPropertyName(
+        InvocationExpressionSyntax forMemberInvocation,
+        SemanticModel semanticModel)
     {
         if (forMemberInvocation.ArgumentList.Arguments.Count < 1)
         {
@@ -220,21 +224,15 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
 
         // Expecting dest => dest.Name or (dest) => dest.Name or (Dest dest) => dest.Name
         if (TryGetLambdaBody(arg, out string? parameterName, out CSharpSyntaxNode? body) &&
-            body is MemberAccessExpressionSyntax memberAccess &&
+            UnwrapParentheses(body) is MemberAccessExpressionSyntax memberAccess &&
             memberAccess.Expression is IdentifierNameSyntax identifier &&
             identifier.Identifier.Text == parameterName)
         {
             return memberAccess.Name.Identifier.Text;
         }
 
-        // Handle quoted string "Name"
-        string? literalValue = GetStringLiteralValue(arg);
-        if (literalValue != null)
-        {
-            return literalValue;
-        }
-
-        return null;
+        // Handle string constants such as "Name" or nameof(Destination.Name).
+        return GetStringConstantValue(arg, semanticModel);
     }
 
     private static string? GetMapFromSourcePropertyName(InvocationExpressionSyntax mapFromInvocation)
@@ -248,7 +246,7 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
 
         // Expecting src => src.Name or (src) => src.Name or (Source src) => src.Name
         if (TryGetLambdaBody(arg, out string? parameterName, out CSharpSyntaxNode? body) &&
-            body is MemberAccessExpressionSyntax memberAccess &&
+            UnwrapParentheses(body) is MemberAccessExpressionSyntax memberAccess &&
             memberAccess.Expression is IdentifierNameSyntax identifier &&
             identifier.Identifier.Text == parameterName)
         {
@@ -281,12 +279,28 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static string? GetStringLiteralValue(ExpressionSyntax expression)
+    private static string? GetStringConstantValue(ExpressionSyntax expression, SemanticModel semanticModel)
     {
-        return expression is LiteralExpressionSyntax literal &&
-               literal.IsKind(SyntaxKind.StringLiteralExpression)
-            ? literal.Token.ValueText
+        if (expression is LiteralExpressionSyntax literal &&
+            literal.IsKind(SyntaxKind.StringLiteralExpression))
+        {
+            return literal.Token.ValueText;
+        }
+
+        Optional<object?> constantValue = semanticModel.GetConstantValue(expression);
+        return constantValue.HasValue && constantValue.Value is string value
+            ? value
             : null;
+    }
+
+    private static CSharpSyntaxNode? UnwrapParentheses(CSharpSyntaxNode? node)
+    {
+        while (node is ParenthesizedExpressionSyntax parenthesized)
+        {
+            node = parenthesized.Expression;
+        }
+
+        return node;
     }
 
 }

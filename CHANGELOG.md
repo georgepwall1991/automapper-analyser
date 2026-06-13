@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## [2.30.54] - 2026-06-13
+
+Broad analyzer-health hardening pass across type-safety, data-integrity, complex-mapping, converter, performance, and configuration rules.
+
+### Changed
+
+- **Cross-rule explicit configuration precision**: expanded semantic handling for typed/string/`nameof(...)`/const `ForMember` and `ForPath` selectors, typed `ConvertUsing` lambdas, constructors, resolvers, converters, and reverse-map boundaries so intentional AutoMapper configuration suppresses the owning diagnostic without masking neighboring rules.
+- **Analyzer and fixer safety hardening**: improved false-positive guards, diagnostic placement, metadata routing, and automatic code-fix selection across AM001/AM002/AM003/AM004/AM005/AM006/AM011/AM020/AM021/AM022/AM030/AM031/AM032/AM033/AM041/AM050, including safer manual-review boundaries where a rewrite could drop mapping policy.
+- **Regression baseline expansion**: added focused analyzer/code-fix coverage for typed top-level `ForPath`, typed `ConvertUsing`, qualified converter null guards, reverse-map and duplicate-map boundaries, collection conversion axes, and exact BCL performance heuristics; refreshed `analyzer-health.md` with the current verification counts.
+
+### Validation
+
+- Full solution test suite (`net10.0`) green: 1352 passed.
+- Focused affected analyzer slice (`net10.0`) green: 471 passed.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- Analyzer and test projects build clean under `-warnaserror` (the release gate; the samples project intentionally carries diagnostics).
+- `net10.0` package smoke green: the packed analyzer loads in a temporary consumer and raises AM001 as an error.
+
 ## [2.30.53] - 2026-06-09
 
 Tighten AM032 nullable-source converter analysis around conditional access so safe guard shapes stay quiet while unsafe null propagation reports.

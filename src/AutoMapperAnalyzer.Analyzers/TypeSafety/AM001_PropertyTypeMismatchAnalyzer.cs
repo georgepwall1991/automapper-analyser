@@ -72,20 +72,37 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var reportedMismatches = new HashSet<string>(StringComparer.Ordinal);
+
         // Analyze property mappings between source and destination types
         AnalyzePropertyMappings(
             context,
             invocationExpr,
             sourceType,
-            destinationType
+            destinationType,
+            reportedMismatches
         );
+
+        InvocationExpressionSyntax? reverseMapInvocation =
+            AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocationExpr);
+        if (reverseMapInvocation != null)
+        {
+            AnalyzePropertyMappings(
+                context,
+                reverseMapInvocation,
+                destinationType,
+                sourceType,
+                reportedMismatches
+            );
+        }
     }
 
     private static void AnalyzePropertyMappings(
         SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         ITypeSymbol sourceType,
-        ITypeSymbol destinationType)
+        ITypeSymbol destinationType,
+        HashSet<string> reportedMismatches)
     {
         if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
         {
@@ -123,7 +140,8 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
                 sourceProp,
                 destProp,
                 sourceType,
-                destinationType
+                destinationType,
+                reportedMismatches
             );
         }
     }
@@ -134,7 +152,8 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         IPropertySymbol sourceProperty,
         IPropertySymbol destinationProperty,
         ITypeSymbol sourceType,
-        ITypeSymbol destinationType)
+        ITypeSymbol destinationType,
+        HashSet<string> reportedMismatches)
     {
         string sourceTypeName = sourceProperty.Type.ToDisplayString();
         string destTypeName = destinationProperty.Type.ToDisplayString();
@@ -166,6 +185,16 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         // Check for basic type incompatibilities
         if (!AreTypesCompatible(context.Compilation, sourceProperty.Type, destinationProperty.Type))
         {
+            string mismatchKey = CreateMismatchKey(
+                sourceProperty.Name,
+                destinationProperty.Name,
+                sourceProperty.Type,
+                destinationProperty.Type);
+            if (!reportedMismatches.Add(mismatchKey))
+            {
+                return;
+            }
+
             var properties = ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add(PropertyNamePropertyName, sourceProperty.Name);
             properties.Add(SourcePropertyTypePropertyName, sourceTypeName);
@@ -183,6 +212,21 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
             );
             context.ReportDiagnostic(diagnostic);
         }
+    }
+
+    private static string CreateMismatchKey(
+        string sourcePropertyName,
+        string destinationPropertyName,
+        ITypeSymbol sourcePropertyType,
+        ITypeSymbol destinationPropertyType)
+    {
+        string[] propertyNames = [sourcePropertyName.ToUpperInvariant(), destinationPropertyName.ToUpperInvariant()];
+        Array.Sort(propertyNames, StringComparer.Ordinal);
+
+        string[] typeNames = [sourcePropertyType.ToDisplayString(), destinationPropertyType.ToDisplayString()];
+        Array.Sort(typeNames, StringComparer.Ordinal);
+
+        return $"{propertyNames[0]}|{propertyNames[1]}::{typeNames[0]}|{typeNames[1]}";
     }
 
     private static bool IsNullableCompatibilityIssue(ITypeSymbol sourceType, ITypeSymbol destinationType)
@@ -278,14 +322,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 
     private static bool IsPrimitiveOrFrameworkType(ITypeSymbol type)
     {
-        string typeName = type.ToDisplayString();
-        string[] primitiveAndFrameworkTypes =
-        [
-            "string", "int", "long", "short", "byte", "bool", "char", "float", "double", "decimal",
-            "System.DateTime", "System.DateTimeOffset", "System.TimeSpan", "System.Guid"
-        ];
-
-        return primitiveAndFrameworkTypes.Contains(typeName);
+        return AutoMapperAnalysisHelpers.IsBuiltInType(type);
     }
 
 

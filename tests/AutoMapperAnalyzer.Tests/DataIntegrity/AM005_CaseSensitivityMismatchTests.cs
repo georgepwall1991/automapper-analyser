@@ -47,11 +47,11 @@ public class AM005_CaseSensitivityMismatchTests
 
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "firstName",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 7, 23, "firstName",
                 "FirstName"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "lastName",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 8, 23, "lastName",
                 "LastName"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 23, 13, "userName",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 9, 23, "userName",
                 "UserName"));
     }
 
@@ -87,7 +87,38 @@ public class AM005_CaseSensitivityMismatchTests
 
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 19, 13, "firstName",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 7, 23, "firstName",
+                "FirstName"));
+    }
+
+    [Fact]
+    public async Task AM005_ShouldReportDiagnostic_OnPositionalRecordSourceProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public record Source(string firstName);
+
+                                    public class Destination
+                                    {
+                                        public string FirstName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 5, 33, "firstName",
                 "FirstName"));
     }
 
@@ -195,8 +226,139 @@ public class AM005_CaseSensitivityMismatchTests
         // Only lastName should trigger diagnostic since firstName is explicitly mapped
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "lastName",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 8, 23, "lastName",
                 "LastName"));
+    }
+
+    [Fact]
+    public async Task AM005_ShouldHandleExplicitPropertyMappingWithStringLiteralDestinationMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string firstName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string FirstName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember("FirstName", opt => opt.MapFrom(src => src.firstName));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM005_ShouldHandleExplicitPropertyMappingWithNameofDestinationMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string firstName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string FirstName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(nameof(Destination.FirstName), opt => opt.MapFrom(src => src.firstName));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM005_ShouldHandleExplicitPropertyMappingWithConstantDestinationMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string firstName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string FirstName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private const string FirstNameMember = nameof(Destination.FirstName);
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(FirstNameMember, opt => opt.MapFrom(src => src.firstName));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM005_ShouldHandleExplicitPropertyMappingWithTypedLambdaParameters()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string firstName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string FirstName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember((Destination dest) => dest.FirstName,
+                                                    opt => opt.MapFrom((Source src) => src.firstName));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
     [Fact]
@@ -228,6 +390,44 @@ public class AM005_CaseSensitivityMismatchTests
                                         {
                                             CreateMap<Source, Destination>()
                                                 .ForPath(dest => dest.HomeAddress.Street, opt => opt.MapFrom(src => src.homeAddress.Street));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM005_ShouldNotReportDiagnostic_WhenTypedForPathConfiguresTopLevelProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Address
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public Address homeAddress { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public Address HomeAddress { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForPath((Destination dest) => dest.HomeAddress.Street,
+                                                    opt => opt.MapFrom((Source src) => src.homeAddress.Street));
                                         }
                                     }
                                 }
@@ -272,11 +472,11 @@ public class AM005_CaseSensitivityMismatchTests
 
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "userID", "UserID"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "eMail", "Email"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "phoneNumber",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 7, 23, "userID", "UserID"),
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 8, 23, "eMail", "Email"),
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 9, 23, "phoneNumber",
                 "PhoneNumber"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "HTTPStatus",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 10, 23, "HTTPStatus",
                 "HttpStatus"));
     }
 
@@ -320,9 +520,9 @@ public class AM005_CaseSensitivityMismatchTests
 
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 29, 13, "baseName",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 7, 23, "baseName",
                 "BaseName"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 29, 13, "firstName",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 12, 23, "firstName",
                 "FirstName"));
     }
 
@@ -359,7 +559,7 @@ public class AM005_CaseSensitivityMismatchTests
         // Only instance properties should be analyzed, static properties should be ignored
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 7, 23, "firstName",
                 "FirstName"));
     }
 
@@ -396,7 +596,7 @@ public class AM005_CaseSensitivityMismatchTests
         // Only read-write properties should be analyzed
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 7, 23, "firstName",
                 "FirstName"));
     }
 
@@ -436,11 +636,11 @@ public class AM005_CaseSensitivityMismatchTests
 
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "XMLHttpRequest",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 7, 23, "XMLHttpRequest",
                 "XmlHttpRequest"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "URLPath", "UrlPath"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "iDCard", "IdCard"),
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 25, 13, "aCRONYM",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 8, 23, "URLPath", "UrlPath"),
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 9, 23, "iDCard", "IdCard"),
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 10, 23, "aCRONYM",
                 "Acronym"));
     }
 
@@ -478,7 +678,7 @@ public class AM005_CaseSensitivityMismatchTests
         // ageValue should NOT trigger AM005 because it has type mismatch (would be handled by AM001)
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 21, 13, "firstName",
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 7, 23, "firstName",
                 "FirstName"));
     }
 
@@ -506,6 +706,72 @@ public class AM005_CaseSensitivityMismatchTests
                                         {
                                             CreateMap<Source, Destination>()
                                                 .ForSourceMember(src => src.userName, opt => opt.DoNotValidate());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM005_ShouldNotReportDiagnostic_WhenSourcePropertyIgnoredWithNameofForSourceMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string userName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string UserName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForSourceMember(nameof(Source.userName), opt => opt.DoNotValidate());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM005_ShouldNotReportDiagnostic_WhenSourcePropertyIgnoredWithConstantForSourceMember()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string userName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string UserName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private const string UserNameMember = nameof(Source.userName);
+
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForSourceMember(UserNameMember, opt => opt.DoNotValidate());
                                         }
                                     }
                                 }
@@ -547,6 +813,38 @@ public class AM005_CaseSensitivityMismatchTests
     }
 
     [Fact]
+    public async Task AM005_ShouldNotReportDiagnostic_WhenConvertUsingConfigured()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string firstName { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string FirstName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConvertUsing(src => new Destination { FirstName = src.firstName });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
     public async Task AM005_ShouldReportDiagnostic_ForReverseMapCaseMismatch()
     {
         const string testCode = """
@@ -578,6 +876,6 @@ public class AM005_CaseSensitivityMismatchTests
 
         await AnalyzerVerifier<AM005_CaseSensitivityMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 19, 13, "name", "Name"));
+            Diagnostic(AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule, 12, 23, "name", "Name"));
     }
 }

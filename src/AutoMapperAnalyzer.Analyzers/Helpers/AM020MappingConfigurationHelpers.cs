@@ -22,8 +22,9 @@ internal static class AM020MappingConfigurationHelpers
                 continue;
             }
 
-            string? selectedMember =
-                GetSelectedTopLevelMemberName(mappingConfigCall.ArgumentList.Arguments[0].Expression);
+            string? selectedMember = GetSelectedTopLevelMemberNameCore(
+                mappingConfigCall.ArgumentList.Arguments[0].Expression,
+                semanticModel);
             if (string.Equals(selectedMember, destinationPropertyName, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
@@ -66,16 +67,53 @@ internal static class AM020MappingConfigurationHelpers
 
     public static string? GetSelectedTopLevelMemberName(SyntaxNode expression)
     {
+        return GetSelectedTopLevelMemberNameCore(expression, semanticModel: null);
+    }
+
+    public static string? GetSelectedTopLevelMemberNameWithSemanticModel(
+        SyntaxNode expression,
+        SemanticModel semanticModel)
+    {
+        return GetSelectedTopLevelMemberNameCore(expression, semanticModel);
+    }
+
+    private static string? GetSelectedTopLevelMemberNameCore(SyntaxNode expression, SemanticModel? semanticModel)
+    {
         return expression switch
         {
-            SimpleLambdaExpressionSyntax simpleLambda => GetSelectedTopLevelMemberName(simpleLambda.Body),
+            SimpleLambdaExpressionSyntax simpleLambda => GetSelectedTopLevelMemberNameCore(simpleLambda.Body, semanticModel),
             ParenthesizedLambdaExpressionSyntax parenthesizedLambda =>
-                GetSelectedTopLevelMemberName(parenthesizedLambda.Body),
+                GetSelectedTopLevelMemberNameCore(parenthesizedLambda.Body, semanticModel),
             MemberAccessExpressionSyntax memberAccess => GetTopLevelMemberName(memberAccess),
             LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.StringLiteralExpression) =>
                 GetTopLevelMemberName(literal.Token.ValueText),
+            ExpressionSyntax expressionSyntax when TryGetStringConstant(
+                expressionSyntax,
+                semanticModel,
+                out string memberPath) => GetTopLevelMemberName(memberPath),
             _ => null
         };
+    }
+
+    private static bool TryGetStringConstant(
+        ExpressionSyntax expression,
+        SemanticModel? semanticModel,
+        out string value)
+    {
+        value = string.Empty;
+        if (semanticModel == null)
+        {
+            return false;
+        }
+
+        Optional<object?> constantValue = semanticModel.GetConstantValue(expression);
+        if (constantValue is { HasValue: true, Value: string stringValue })
+        {
+            value = stringValue;
+            return true;
+        }
+
+        return false;
     }
 
     private static string? GetTopLevelMemberName(string memberPath)

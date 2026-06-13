@@ -142,6 +142,106 @@ public class AM041_CodeFixTests
     }
 
     [Fact]
+    public async Task Should_NotOfferDestructiveFix_WhenDuplicateCreateMapIsArgument()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                        Register(CreateMap<Source, Destination>());
+                                    }
+
+                                    private void Register(object mapping) {}
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM041", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task Should_NotOfferDestructiveFix_WhenDuplicateReverseMapIsAssignedToVariable()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Destination, Source>();
+                                        var reverse = CreateMap<Source, Destination>().ReverseMap();
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM041", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task Should_NotOfferDestructiveFix_WhenDuplicateReverseMapIsArgument()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Destination, Source>();
+                                        Register(CreateMap<Source, Destination>().ReverseMap());
+                                    }
+
+                                    private void Register(object mapping) {}
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM041", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
+    }
+
+    [Fact]
     public async Task Should_Remove_ReverseMap_WhenItIsTheDuplicate()
     {
         const string testCode = """
@@ -236,6 +336,49 @@ public class AM041_CodeFixTests
     }
 
     [Fact]
+    public async Task Should_KeepReverseDirection_WhenParenthesizedDuplicateIsCreateMapInsideReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                        (CreateMap<Source, Destination>()).ReverseMap();
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 using AutoMapper;
+
+                                 public class Source {}
+                                 public class Destination {}
+
+                                 public class MyProfile : Profile
+                                 {
+                                     public MyProfile()
+                                     {
+                                         CreateMap<Source, Destination>();
+                                         CreateMap<Destination, Source>();
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(11, 10)
+            .WithArguments("Source", "Destination");
+
+        await CodeFixVerifier<AM041_DuplicateMappingAnalyzer, AM041_DuplicateMappingCodeFixProvider>
+            .VerifyFixAsync(testCode, expected, fixedCode);
+    }
+
+    [Fact]
     public async Task Should_KeepReverseDirection_ForMemberAccessCreateMapPattern()
     {
         const string testCode = """
@@ -266,6 +409,91 @@ public class AM041_CodeFixTests
                                      {
                                          CreateMap<Source, Destination>();
                                          this.CreateMap<Destination, Source>();
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(11, 9)
+            .WithArguments("Source", "Destination");
+
+        await CodeFixVerifier<AM041_DuplicateMappingAnalyzer, AM041_DuplicateMappingCodeFixProvider>
+            .VerifyFixAsync(testCode, expected, fixedCode);
+    }
+
+    [Fact]
+    public async Task Should_Remove_DuplicateBaseCreateMap_Statement()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                        base.CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 using AutoMapper;
+
+                                 public class Source {}
+                                 public class Destination {}
+
+                                 public class MyProfile : Profile
+                                 {
+                                     public MyProfile()
+                                     {
+                                         CreateMap<Source, Destination>();
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(11, 9)
+            .WithArguments("Source", "Destination");
+
+        await CodeFixVerifier<AM041_DuplicateMappingAnalyzer, AM041_DuplicateMappingCodeFixProvider>
+            .VerifyFixAsync(testCode, expected, fixedCode);
+    }
+
+    [Fact]
+    public async Task Should_KeepReverseDirection_ForBaseCreateMapPattern()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                        base.CreateMap<Source, Destination>().ReverseMap();
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 using AutoMapper;
+
+                                 public class Source {}
+                                 public class Destination {}
+
+                                 public class MyProfile : Profile
+                                 {
+                                     public MyProfile()
+                                     {
+                                         CreateMap<Source, Destination>();
+                                         base.CreateMap<Destination, Source>();
                                      }
                                  }
                                  """;
@@ -496,6 +724,40 @@ public class AM041_CodeFixTests
             List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
             Assert.Empty(actions);
         }
+    }
+
+    [Fact]
+    public async Task Should_NotOfferFix_WhenDuplicateCreateMapChainsForPathConfigurationAfterReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } }
+                                public class Destination { public string DisplayName { get; set; } }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Destination, Source>();
+                                        CreateMap<Source, Destination>()
+                                            .ReverseMap()
+                                            .ForPath(src => src.Name, opt => opt.MapFrom(dest => dest.DisplayName));
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = (await compilation.WithAnalyzers(
+                [new AM041_DuplicateMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync())
+            .Single();
+
+        Assert.Equal("AM041", diagnostic.Id);
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+        Assert.Empty(actions);
     }
 
     [Fact]

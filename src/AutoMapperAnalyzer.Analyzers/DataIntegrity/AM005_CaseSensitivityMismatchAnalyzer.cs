@@ -160,10 +160,12 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
             properties.Add("PropertyType", sourceProperty.Type.ToDisplayString());
             properties.Add("SourceTypeName", AutoMapperAnalysisHelpers.GetTypeName(sourceType));
             properties.Add("DestinationTypeName", AutoMapperAnalysisHelpers.GetTypeName(destinationType));
+            properties.Add("MappingInvocationStart", mappingInvocation.SpanStart.ToString());
+            properties.Add("MappingInvocationLength", mappingInvocation.Span.Length.ToString());
 
             var diagnostic = Diagnostic.Create(
                 CaseSensitivityMismatchRule,
-                mappingInvocation.GetLocation(),
+                GetPropertyLocation(sourceProperty) ?? mappingInvocation.GetLocation(),
                 properties.ToImmutable(),
                 sourceProperty.Name,
                 caseInsensitiveMatch.Name);
@@ -185,6 +187,24 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         Array.Sort(propertyNames, StringComparer.Ordinal);
 
         return $"{typeNames[0]}|{typeNames[1]}::{propertyNames[0]}|{propertyNames[1]}";
+    }
+
+    private static Location? GetPropertyLocation(IPropertySymbol property)
+    {
+        foreach (SyntaxReference syntaxReference in property.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
+            {
+                return propertyDeclaration.Identifier.GetLocation();
+            }
+
+            if (syntaxReference.GetSyntax() is ParameterSyntax parameter)
+            {
+                return parameter.Identifier.GetLocation();
+            }
+        }
+
+        return null;
     }
 
     private static bool ShouldStopAtReverseMapBoundary(
