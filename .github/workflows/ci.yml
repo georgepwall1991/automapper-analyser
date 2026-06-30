@@ -54,7 +54,7 @@ jobs:
         run: dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj --configuration Release -- --check-catalog --check-snapshots
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: false
           verbose: true
