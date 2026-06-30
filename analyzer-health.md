@@ -1,6 +1,6 @@
 # Analyzer Health
 
-Reviewed: 2026-05-14
+Reviewed: 2026-06-30 (previous review: 2026-05-14; current shipped version: 2.30.54)
 
 This is a deliberately harsh health audit for the 16 implemented AutoMapper analyzer rule IDs in this repository. Several rule IDs expose multiple diagnostic descriptors, especially `AM002`, `AM022`, and `AM031`; the scorecard rates the public rule ID as the user experiences it.
 
@@ -60,7 +60,7 @@ The next improvement batch should focus on rules where user impact and health ga
 
 ## Prioritized Fix Backlog
 
-The Planning Shortlist above summarises overall rule priority; this backlog is the concrete punch list of specific items surfaced during the 2026-05-14 re-review. Grading: **P0** = release-blocking; **P1** = fix in the next health pass; **P2** = opportunistic when adjacent work is open; **P3** = directional, longer-horizon.
+The Planning Shortlist above summarises overall rule priority; this backlog is the concrete punch list of specific items surfaced during the 2026-05-14 re-review and the 2026-06-13 (v2.30.54) hardening pass. Grading: **P0** = release-blocking; **P1** = fix in the next health pass; **P2** = opportunistic when adjacent work is open; **P3** = directional, longer-horizon.
 
 ### P0 — Release-blocking
 
@@ -151,7 +151,7 @@ The Planning Shortlist above summarises overall rule priority; this backlog is t
 
 Architecture-style coverage currently comes from analyzer/fixer tests, conflict ownership tests, helper tests, sample projects, documentation, the checked-in `RuleCatalog`, generated trust artifacts, package smoke tests, and the deterministic `tools/AnalyzerVerifier` checks.
 
-Current local verification:
+Current local verification (re-run 2026-06-30 against the v2.30.54 release commit; counts unchanged from the 2026-06-13 pass):
 
 - `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM001` passed: 43 passed, 0 skipped, 0 failed.
 - `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM002` passed: 82 passed, 0 skipped, 0 failed.
@@ -176,5 +176,6 @@ Current local verification:
 - `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --configuration Release --no-build --verbosity minimal --collect:"XPlat Code Coverage" --settings coverlet.runsettings` passed: 1352 passed, 0 skipped, 0 failed.
 - PowerShell package-smoke equivalent for `net10.0` passed: packed analyzer raised the expected AM001 diagnostic from the smoke consumer.
 - `git diff --check` passed.
+- `v2.30.54` was confirmed merged to `main` and already tagged/released (NuGet package `AutoMapperAnalyzer.Analyzers.2.30.54.nupkg` published via the `release.yml` workflow) — the release cadence for the prior hardening pass is fully closed out; no untagged work remains on `main`.
 - The trust-first pass removed active skipped tests, added drift validation, and moved intentional analyzer-test warnings into an explicit test-project warning baseline.
 - `/usr/local/share/dotnet/dotnet --list-runtimes` shows only .NET 10 runtimes in this local environment, so broader runtime verification remains blocked by missing .NET 8 and .NET 9 runtimes.
