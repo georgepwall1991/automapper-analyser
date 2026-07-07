@@ -14,25 +14,24 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.54
+## 🎉 Latest Release: v2.30.55
 
-**Analyzer precision and regression hardening**
+**Analyzer health full reanalysis**
 
 ✅ **Highlights**
 
-- Cross-rule explicit configuration handling now covers typed/string/`nameof(...)`/const `ForMember` and `ForPath` selectors, typed `ConvertUsing` lambdas, constructors, resolvers, converters, and reverse-map boundaries more consistently.
-- Analyzer and code-fix safety is tighter across type safety, data integrity, complex mappings, custom converters, performance, and configuration rules, with broader regression coverage and clearer manual-review boundaries for non-trivial rewrites.
+- Full rule+fixer reanalysis of `analyzer-health.md`: refreshed scorecard, Fixer Trust Summary, and promoted three P2 backlog items for the next hardening pass.
+- No analyzer, fixer, or test source changed.
 
 🧪 **Validation**
 
 - Full solution test validation passed on `net10.0` with 1352 tests.
-- Focused affected analyzer slice passed on `net10.0` with 471 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
 - Analyzer and test projects build clean under `-warnaserror` (the release gate; the samples project intentionally carries diagnostics).
-- Package smoke passed for `net10.0`; the packed analyzer loads in a temporary consumer and raises AM001 as an error.
 
 ### Recent Releases
 
+- **v2.30.55**: Analyzer health monitor sweep — doc-only refresh of `analyzer-health.md` confirming every rule remains Low priority with no actionable precision debt; no analyzer, fixer, or test source changed.
 - **v2.30.54**: Analyzer precision and regression hardening — expands typed/string/`nameof(...)`/const explicit configuration handling, typed `ForPath` and `ConvertUsing` coverage, converter guard recognition, duplicate-map and reverse-map boundaries, collection conversion axes, exact BCL performance heuristics, and safer automatic code-fix selection across the implemented rule set.
 - **v2.30.53**: AM032 conditional-access null-handling precision — unsafe invocation/constructor arguments, primitive parse targets, explicit and target-typed `Uri` constructors, simple-local unsafe arguments, explicit/null-forgiven null coalesce fallbacks, coalesced guards whose null fallback enters unsafe branches, late guarded-local checks after unsafe source use, maybe-null local member dereferences, and nested-helper-only guards report while TryParse success/fallback flows, nullable parse provider/style arguments, null-tolerant argument targets, boolean guard locals, source-free fallback assignments, boolean switch-statement fallbacks, split-assigned guarded locals, and nullable fallback returns stay quiet.
 - **v2.30.52**: AM006/AM004 aggregate + nested "Fix individual…" code-fix actions — keeps the lightbulb short when many properties pile onto one `CreateMap` (metadata model types).
@@ -223,7 +222,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.54">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.55">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

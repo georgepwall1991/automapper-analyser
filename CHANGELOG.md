@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.55] - 2026-07-06
+
+Analyzer-health full reanalysis. No analyzer, fixer, or test source changed.
+
+### Changed
+
+- **analyzer-health.md reanalysis**: four parallel rule+fixer audits refreshed scorecard notes, added Fixer Trust Summary and Reanalysis Changelog, and promoted three P3 findings to P2 (AM003/AM004 docs drift, AM001↔AM002 conflict test, AM030 signature-depth tests). Planning Shortlist now has Medium-priority work for the next hardening pass.
+- **Release metadata**: bumped package/docs version references to 2.30.55.
+
+### Validation
+
+- Full solution test suite (`net10.0`) green: 1352 passed.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` passed.
+
 ## [2.30.54] - 2026-06-13
 
 Broad analyzer-health hardening pass across type-safety, data-integrity, complex-mapping, converter, performance, and configuration rules.
