@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>54</PatchVersion>
+        <PatchVersion>55</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,21 +32,18 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.54 - Analyzer precision and regression hardening
+        <PackageReleaseNotes>Version 2.30.55 - Analyzer health full reanalysis
 
             Changed:
-            - Hardened cross-rule explicit configuration handling across typed/string/nameof/const ForMember and ForPath selectors, typed ConvertUsing lambdas, constructors, resolvers, converters, and reverse-map boundaries.
-            - Expanded analyzer and code-fix precision across AM001/AM002/AM003/AM004/AM005/AM006/AM011/AM020/AM021/AM022/AM030/AM031/AM032/AM033/AM041/AM050 with stronger false-positive guards, safer automatic fix selection, and broader regression coverage.
-            - Refreshed analyzer-health, rule docs, and release metadata for the current verification baseline.
+            - Full rule+fixer reanalysis of analyzer-health.md: refreshed scorecard, Fixer Trust Summary, and promoted three P2 backlog items (AM003/AM004 docs drift, AM001↔AM002 conflict test, AM030 signature-depth tests). No analyzer, fixer, or test source changed.
+            - Re-verified the full local test baseline (1352 tests) against the current release commit.
 
             Validation:
             - Full solution test suite passing on net10.0 (1352 tests)
-            - Focused affected analyzer slice passing on net10.0 (471 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
             - Analyzer and test projects build clean under -warnaserror (the release gate)
-            - Package smoke passing on net10.0
 
-            Previous Release: v2.30.53 - AM032 conditional-access null-handling precision
+            Previous Release: v2.30.54 - Analyzer precision and regression hardening
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
