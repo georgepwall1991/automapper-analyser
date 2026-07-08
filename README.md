@@ -14,15 +14,15 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.60
+## 🎉 Latest Release: v2.30.61
 
-**Fixer UX shared infra — AM001 multi-property aggregates, AM022 best-first order**
+**Fixer UX polish — ThrowIfNull, best-first AM031, clearer Convert titles**
 
 ✅ **Highlights**
 
-- **AM001**: Convert-all / Ignore-all + nested Fix individual when multiple type mismatches share a CreateMap.
-- **AM022**: MaxDepth scaffold always first in the lightbulb.
-- **Helpers**: shared `AddUsingIfMissing` for collection/performance fixers.
+- **AM032**: null-guard fix stays net48-compatible classic if-throw (analyzer recognizes ThrowIfNull).
+- **AM031**: Remove redundant convention ForMember appears before Ignore.
+- **AM003/AM021**: keyword-safe generated MapFrom; clearer lightbulb titles.
 
 🧪 **Validation**
 
@@ -30,6 +30,7 @@ prevention*
 
 ### Recent Releases
 
+- **v2.30.61**: Fixer UX Batch 3 — AM031 best-first Remove/Ignore, AM003/AM021 escape + titles, AM032 net48-safe guard emit.
 - **v2.30.60**: Fixer UX Batch 2 — AM001 multi-property Convert-all/Ignore-all, AM022 MaxDepth best-first, shared AddUsingIfMissing.
 - **v2.30.59**: Fixer UX honesty — AM011 Map-all/Scaffold-all honesty, manual-review aggregate titles, no silent no-op lightbulbs for AM020/AM021/AM031, AM022 MaxDepth scaffold title.
 - **v2.30.58**: AM001 ReverseMap direction keys, Nullable scalar reporting, fixer culture/null/keyword/framework conversion hardening.
@@ -226,7 +227,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.60">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.61">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

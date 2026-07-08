@@ -164,13 +164,32 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             return;
         }
 
+        string shortConversion = GetShortConversionLabel(conversionMethod);
         context.RegisterCodeFix(
             CodeAction.Create(
-                $"Add Select with {conversionMethod} for '{destinationPropertyName}'",
+                $"Convert '{destinationPropertyName}' elements with {shortConversion}",
                 cancellationToken =>
                     AddMapFromWithLinqAsync(context.Document, root, invocation, destinationPropertyName, mapFromExpression),
                 $"AM021_SimpleConversion_{destinationPropertyName}"),
             diagnostic);
+    }
+
+    private static string GetShortConversionLabel(string conversionMethod)
+    {
+        // e.g. global::System.Convert.ToInt32 → ToInt32; global::System.DateTime.Parse → DateTime.Parse
+        const string convertPrefix = "global::System.Convert.";
+        if (conversionMethod.StartsWith(convertPrefix, StringComparison.Ordinal))
+        {
+            return conversionMethod.Substring(convertPrefix.Length);
+        }
+
+        const string systemPrefix = "global::System.";
+        if (conversionMethod.StartsWith(systemPrefix, StringComparison.Ordinal))
+        {
+            return conversionMethod.Substring(systemPrefix.Length);
+        }
+
+        return conversionMethod;
     }
 
     private void RegisterDictionaryFixes(
@@ -207,7 +226,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
                 ? $"{GetConversionMethod(valueDest!)}(kvp.Value)"
                 : "kvp.Value";
             string mapFromExpression =
-                $"src.{sourcePropertyName}.ToDictionary(kvp => {keySelector}, kvp => {valueSelector})";
+                $"src.{CodeFixSyntaxHelper.EscapeIdentifier(sourcePropertyName)}.ToDictionary(kvp => {keySelector}, kvp => {valueSelector})";
 
             context.RegisterCodeFix(
                 CodeAction.Create(
@@ -516,7 +535,8 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             return null;
         }
 
-        string selectExpression = $"src.{sourcePropertyName}.Select(x => {conversionMethod}(x))";
+        string selectExpression =
+            $"src.{CodeFixSyntaxHelper.EscapeIdentifier(sourcePropertyName)}.Select(x => {conversionMethod}(x))";
         string destinationTypeName = destProperty.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
         if (destProperty.Type.TypeKind == TypeKind.Array)

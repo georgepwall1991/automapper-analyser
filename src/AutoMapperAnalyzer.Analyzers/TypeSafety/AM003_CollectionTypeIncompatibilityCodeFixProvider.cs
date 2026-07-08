@@ -131,13 +131,13 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                 {
                     context.RegisterCodeFix(
                         CodeAction.Create(
-                            $"Convert {propertyName} elements using Select()",
+                            $"Convert \'{propertyName}\' elements using Select()",
                             ct => AddMapFromAsync(
                                 context.Document,
                                 operationContext.Root,
                                 invocation,
                                 propertyName,
-                                $"src.{propertyName}.Select({conversionLambda})",
+                                $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}.Select({conversionLambda})",
                                 true,
                                 ct),
                             $"AM003_Select_{propertyName}"),
@@ -253,12 +253,12 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
                 if (isConstructor)
                 {
                     // new List<T>(src.Prop.Select(x => ...))
-                    return collectionConversion.Replace($"src.{propertyName}",
-                        $"src.{propertyName}.Select({elementConversionLambda})");
+                    return collectionConversion.Replace($"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}",
+                        $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}.Select({elementConversionLambda})");
                 }
 
                 // src.Prop.Select(x => ...).ToList()
-                return $"src.{propertyName}.Select({elementConversionLambda}).{collectionConversion.Split('.').Last()}";
+                return $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}.Select({elementConversionLambda}).{collectionConversion.Split('.').Last()}";
             }
 
             return collectionConversion;
@@ -278,8 +278,8 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         if (Contains(sourceType, "HashSet") && IsKnownConcreteCollectionType(destType, "List"))
         {
             fixes.Add((
-                $"Convert {propertyName} using ToList()",
-                BuildExpression($"src.{propertyName}.ToList()"),
+                $"Convert \'{propertyName}\' using ToList()",
+                BuildExpression($"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}.ToList()"),
                 true, // Always true if using ToList or Select
                 $"AM003_ToList_{propertyName}"));
         }
@@ -324,11 +324,11 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         {
             // Arrays are IEnumerable, so AsEnumerable is fine, but if we need element conversion, we need Select
             string expr = needsElementConversion
-                ? $"src.{propertyName}.Select({elementConversionLambda})"
-                : $"src.{propertyName}.AsEnumerable()";
+                ? $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}.Select({elementConversionLambda})"
+                : $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}.AsEnumerable()";
 
             fixes.Add((
-                $"Convert {propertyName} using {(needsElementConversion ? "Select" : "AsEnumerable")}()",
+                $"Convert \'{propertyName}\' using {(needsElementConversion ? "Select" : "AsEnumerable")}()",
                 expr,
                 true,
                 $"AM003_AsEnumerable_{propertyName}"));
@@ -348,7 +348,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
             string targetType = string.IsNullOrWhiteSpace(simplifiedDestType)
                 ? "System.Collections.Generic.List<object>"
                 : simplifiedDestType;
-            return ($"Convert {propertyName} using collection constructor", $"new {targetType}(src.{propertyName})",
+            return ($"Convert '{propertyName}' using collection constructor", $"new {targetType}(src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)})",
                 false, $"AM003_Constructor_{propertyName}");
         }
     }
@@ -363,10 +363,10 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         if (IsListLikeInterface(destinationType))
         {
             string expression = needsElementConversion
-                ? $"src.{propertyName}.Select({elementConversionLambda}).ToList()"
-                : $"src.{propertyName}.ToList()";
+                ? $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}.Select({elementConversionLambda}).ToList()"
+                : $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}.ToList()";
             fix = (
-                $"Convert {propertyName} using ToList()",
+                $"Convert \'{propertyName}\' using ToList()",
                 expression,
                 true,
                 $"AM003_ToList_{propertyName}");
@@ -376,10 +376,10 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         if (IsSetLikeInterface(destinationType) && TryGetGenericArgument(destinationType, out string? elementType))
         {
             string sourceExpression = needsElementConversion
-                ? $"src.{propertyName}.Select({elementConversionLambda})"
-                : $"src.{propertyName}";
+                ? $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}.Select({elementConversionLambda})"
+                : $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}";
             fix = (
-                $"Convert {propertyName} using HashSet constructor",
+                $"Convert \'{propertyName}\' using HashSet constructor",
                 $"new global::System.Collections.Generic.HashSet<{elementType}>({sourceExpression})",
                 needsElementConversion,
                 $"AM003_HashSet_{propertyName}");
@@ -398,13 +398,13 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         out (string Title, string Expression, bool RequiresLinq, string EquivalenceKey) fix)
     {
         string sourceExpression = needsElementConversion
-            ? $"src.{propertyName}.Select({elementConversionLambda})"
-            : $"src.{propertyName}";
+            ? $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}.Select({elementConversionLambda})"
+            : $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}";
 
         if (IsKnownConcreteCollectionType(destinationType, "ImmutableList", "System.Collections.Immutable."))
         {
             fix = (
-                $"Convert {propertyName} using ImmutableList.CreateRange()",
+                $"Convert \'{propertyName}\' using ImmutableList.CreateRange()",
                 $"global::System.Collections.Immutable.ImmutableList.CreateRange({sourceExpression})",
                 needsElementConversion,
                 $"AM003_ImmutableList_{propertyName}");
@@ -414,7 +414,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         if (IsKnownConcreteCollectionType(destinationType, "ImmutableArray", "System.Collections.Immutable."))
         {
             fix = (
-                $"Convert {propertyName} using ImmutableArray.CreateRange()",
+                $"Convert \'{propertyName}\' using ImmutableArray.CreateRange()",
                 $"global::System.Collections.Immutable.ImmutableArray.CreateRange({sourceExpression})",
                 needsElementConversion,
                 $"AM003_ImmutableArray_{propertyName}");
@@ -424,7 +424,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         if (IsKnownConcreteCollectionType(destinationType, "ImmutableHashSet", "System.Collections.Immutable."))
         {
             fix = (
-                $"Convert {propertyName} using ImmutableHashSet.CreateRange()",
+                $"Convert \'{propertyName}\' using ImmutableHashSet.CreateRange()",
                 $"global::System.Collections.Immutable.ImmutableHashSet.CreateRange({sourceExpression})",
                 needsElementConversion,
                 $"AM003_ImmutableHashSet_{propertyName}");
@@ -434,7 +434,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         if (IsKnownConcreteCollectionType(destinationType, "FrozenSet", "System.Collections.Frozen."))
         {
             fix = (
-                $"Convert {propertyName} using FrozenSet.ToFrozenSet()",
+                $"Convert \'{propertyName}\' using FrozenSet.ToFrozenSet()",
                 $"global::System.Collections.Frozen.FrozenSet.ToFrozenSet({sourceExpression})",
                 needsElementConversion,
                 $"AM003_FrozenSet_{propertyName}");

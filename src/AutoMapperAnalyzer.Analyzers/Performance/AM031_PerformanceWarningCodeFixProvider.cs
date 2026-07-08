@@ -115,11 +115,9 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
 
         // Ignore/Remove rewrite the ForMember link; only register when the peel target exists
         // so the lightbulb never advertises a silent no-op.
+        // Best-first order: Cache (above) → Remove convention ForMember → Ignore last.
         if (GetInvocationWithoutForMember(destinationConfigurationInvocation) != null)
         {
-            RegisterIgnoreMappingFix(context, operationContext.Root, destinationConfigurationInvocation, propertyName!,
-                relatedDiagnostics);
-
             if (await CanUseConventionMappingAsync(
                     context.Document,
                     destinationConfigurationInvocation,
@@ -130,6 +128,9 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
                     propertyName!,
                     relatedDiagnostics);
             }
+
+            RegisterIgnoreMappingFix(context, operationContext.Root, destinationConfigurationInvocation, propertyName!,
+                relatedDiagnostics);
         }
     }
 

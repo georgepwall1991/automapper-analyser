@@ -306,7 +306,7 @@ public class AM030_CodeFixTests
                                     {
                                         public int Convert(string? source, int destination, ResolutionContext context)
                                         {
-                                            if (source == null) throw new ArgumentNullException(nameof(source));
+                                            if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                             return int.Parse(source);
                                         }
                                     }
