@@ -33,7 +33,7 @@
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
                 <PackageReleaseNotes>Version 2.30.61 - Fixer UX polish (Batch 3)
-- AM032 null-guard fix emits ArgumentNullException.ThrowIfNull
+- AM032 null-guard stays net48-compatible classic if-throw
 - AM031 Remove convention ForMember before Ignore
 - AM003/AM021 keyword-safe MapFrom + clearer conversion titles
 </PackageReleaseNotes>

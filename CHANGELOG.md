@@ -8,7 +8,7 @@ Fixer UX executable polish (Batch 3).
 
 ### Changed
 
-- **AM032**: null-guard code fix emits `ArgumentNullException.ThrowIfNull` (matches modern guard recognition).
+- **AM032**: null-guard remains net48-compatible classic `if-throw` (analyzer still recognizes ThrowIfNull when written by hand).
 - **AM031**: lightbulb order is Cache → Remove convention ForMember → Ignore (manual review).
 - **AM003 / AM021**: keyword-escaped MapFrom sources; humanized conversion titles (quoted property names / short conversion labels).
 

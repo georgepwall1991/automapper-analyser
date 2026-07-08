@@ -75,9 +75,10 @@ public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProvide
         string sourceParameterName,
         CancellationToken cancellationToken)
     {
-        // Prefer modern ThrowIfNull (recognized by AM032 analyzer) over classic if-throw.
+        // Classic if-throw remains the emit form so net48 consumers (documented support matrix)
+        // get compiling code. AM032 analyzer still recognizes ThrowIfNull* when users write it.
         StatementSyntax guardStatement = SyntaxFactory.ParseStatement(
-            $"global::System.ArgumentNullException.ThrowIfNull({sourceParameterName});")
+            $"if ({sourceParameterName} == null) throw new global::System.ArgumentNullException(nameof({sourceParameterName}));")
             .WithTrailingTrivia(SyntaxFactory.ElasticLineFeed);
 
         MethodDeclarationSyntax updatedMethod;

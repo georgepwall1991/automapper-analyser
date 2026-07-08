@@ -20,7 +20,7 @@ prevention*
 
 ✅ **Highlights**
 
-- **AM032**: inserts `ArgumentNullException.ThrowIfNull` for missing converter null guards.
+- **AM032**: null-guard fix stays net48-compatible classic if-throw (analyzer recognizes ThrowIfNull).
 - **AM031**: Remove redundant convention ForMember appears before Ignore.
 - **AM003/AM021**: keyword-safe generated MapFrom; clearer lightbulb titles.
 
@@ -30,7 +30,7 @@ prevention*
 
 ### Recent Releases
 
-- **v2.30.61**: Fixer UX Batch 3 — AM032 ThrowIfNull emit, AM031 best-first Remove/Ignore, AM003/AM021 escape + titles.
+- **v2.30.61**: Fixer UX Batch 3 — AM031 best-first Remove/Ignore, AM003/AM021 escape + titles, AM032 net48-safe guard emit.
 - **v2.30.60**: Fixer UX Batch 2 — AM001 multi-property Convert-all/Ignore-all, AM022 MaxDepth best-first, shared AddUsingIfMissing.
 - **v2.30.59**: Fixer UX honesty — AM011 Map-all/Scaffold-all honesty, manual-review aggregate titles, no silent no-op lightbulbs for AM020/AM021/AM031, AM022 MaxDepth scaffold title.
 - **v2.30.58**: AM001 ReverseMap direction keys, Nullable scalar reporting, fixer culture/null/keyword/framework conversion hardening.

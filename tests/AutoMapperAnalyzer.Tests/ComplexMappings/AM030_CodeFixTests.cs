@@ -50,7 +50,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     global::System.ArgumentNullException.ThrowIfNull(source);
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return int.Parse(source);
                                                  }
                                              }
@@ -162,7 +162,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     global::System.ArgumentNullException.ThrowIfNull(source);
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return int.Parse(source);
                                                  }
                                              }
@@ -223,7 +223,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     global::System.ArgumentNullException.ThrowIfNull(source);
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return int.Parse(source);
                                                  }
                                              }
@@ -306,7 +306,7 @@ public class AM030_CodeFixTests
                                     {
                                         public int Convert(string? source, int destination, ResolutionContext context)
                                         {
-                                            global::System.ArgumentNullException.ThrowIfNull(source);
+                                            if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                             return int.Parse(source);
                                         }
                                     }
@@ -359,7 +359,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public string Convert(int? source, string destination, ResolutionContext context)
                                                  {
-                                                     global::System.ArgumentNullException.ThrowIfNull(source);
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return source.ToString();
                                                  }
                                              }
@@ -418,7 +418,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     global::System.ArgumentNullException.ThrowIfNull(source);
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return int.Parse(source);
                                                  }
                                              }
@@ -483,7 +483,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     global::System.ArgumentNullException.ThrowIfNull(source);
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return int.Parse(source);
                                                  }
                                              }
@@ -546,7 +546,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     global::System.ArgumentNullException.ThrowIfNull(source);
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return source.Contains("test") ? int.Parse(source.Split('-')[0]) : 0;
                                                  }
                                              }
@@ -607,7 +607,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public string Convert(List<string>? source, string destination, ResolutionContext context)
                                                  {
-                                                     global::System.ArgumentNullException.ThrowIfNull(source);
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return string.Join(",", source);
                                                  }
                                              }
@@ -668,7 +668,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     global::System.ArgumentNullException.ThrowIfNull(source);
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return int.Parse(source);
                                                  }
                                              }
@@ -726,7 +726,7 @@ public class AM030_CodeFixTests
                                          {
                                              public int Convert(string? source, int destination, ResolutionContext context)
                                              {
-                                                 global::System.ArgumentNullException.ThrowIfNull(source);
+                                                 if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                  return int.Parse(source);
                                              }
                                          }
@@ -793,7 +793,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public int Convert(string? source, int destination, ResolutionContext context)
                                                  {
-                                                     global::System.ArgumentNullException.ThrowIfNull(source);
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return int.Parse(source);
                                                  }
                                              }
@@ -802,7 +802,7 @@ public class AM030_CodeFixTests
                                              {
                                                  public decimal Convert(string? source, decimal destination, ResolutionContext context)
                                                  {
-                                                     global::System.ArgumentNullException.ThrowIfNull(source);
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
                                                      return decimal.Parse(source);
                                                  }
                                              }
