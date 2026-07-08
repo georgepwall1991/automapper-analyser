@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1386%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1390%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,14 +14,14 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.64
+## 🎉 Latest Release: v2.30.65
 
-**AM001 property-token placement**
+**AM004/AM006 same-document sibling recompute**
 
 ✅ **Highlights**
 
-- **AM001**: type-mismatch diagnostics land on destination property tokens.
-- Convert-all / Ignore-all still work via sibling recompute from one caret.
+- **AM004 / AM006**: aggregates from a single property-token caret.
+- Live unmapped-set recompute matches analyzer ownership.
 
 🧪 **Validation**
 
@@ -29,6 +29,7 @@ prevention*
 
 ### Recent Releases
 
+- **v2.30.65**: AM004/AM006 same-document sibling recompute for aggregates.
 - **v2.30.64**: AM001 property-token diagnostic placement + aggregate sibling recompute.
 - **v2.30.63**: AM022 graph-aware Ignore for multi-type cycles.
 - **v2.30.62**: Split AM031 performance concepts into AM031 + AM034–AM038.
@@ -229,7 +230,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.64">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.65">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

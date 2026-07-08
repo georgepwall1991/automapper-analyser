@@ -589,7 +589,7 @@ public class AM006_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Extra2, opt => opt.Ignore()).ForMember(dest => dest.Extra1, opt => opt.Ignore());
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Extra1, opt => opt.Ignore()).ForMember(dest => dest.Extra2, opt => opt.Ignore());
                                                  }
                                              }
                                          }
@@ -606,7 +606,8 @@ public class AM006_CodeFixTests
 
         await CodeFixVerifier<AM006_UnmappedDestinationPropertyAnalyzer,
                 AM006_UnmappedDestinationPropertyCodeFixProvider>
-            .VerifyFixWithIterationsAsync(testCode, [diag1, diag2], expectedFixedCode, 2);
+            // Sibling recompute: Ignore-all clears both property-token diagnostics in one iteration.
+            .VerifyFixWithIterationsAsync(testCode, [diag1, diag2], expectedFixedCode, 1);
     }
 
     [Fact]
@@ -662,7 +663,7 @@ public class AM006_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Extra2, opt => opt.Ignore()).ForMember(dest => dest.Extra1, opt => opt.Ignore()).ReverseMap();
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Extra1, opt => opt.Ignore()).ForMember(dest => dest.Extra2, opt => opt.Ignore()).ReverseMap();
                                                  }
                                              }
                                          }
@@ -679,7 +680,8 @@ public class AM006_CodeFixTests
 
         await CodeFixVerifier<AM006_UnmappedDestinationPropertyAnalyzer,
                 AM006_UnmappedDestinationPropertyCodeFixProvider>
-            .VerifyFixWithIterationsAsync(testCode, [forwardDiag1, forwardDiag2], expectedFixedCode, 2);
+            // Sibling recompute: Ignore-all clears both forward diagnostics in one iteration.
+            .VerifyFixWithIterationsAsync(testCode, [forwardDiag1, forwardDiag2], expectedFixedCode, 1);
     }
 
     [Fact]

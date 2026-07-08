@@ -311,7 +311,7 @@ public class AM004_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.Extra2, opt => opt.DoNotValidate()).ForSourceMember(src => src.Extra1, opt => opt.DoNotValidate());
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.Extra1, opt => opt.DoNotValidate()).ForSourceMember(src => src.Extra2, opt => opt.DoNotValidate());
                                                  }
                                              }
                                          }
@@ -332,7 +332,8 @@ public class AM004_CodeFixTests
                 testCode,
                 new[] { extra1Diagnostic, extra2Diagnostic },
                 expectedFixedCode,
-                2);
+                // Sibling recompute: DoNotValidate-all clears both property-token diagnostics in one iteration.
+                1);
     }
 
     [Fact]

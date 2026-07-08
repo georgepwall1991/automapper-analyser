@@ -6,7 +6,7 @@ This is a deliberately harsh health audit for the **21** implemented AutoMapper 
 
 Every implemented rule currently has an analyzer and a code fix provider. Scores are 1-5, where `5` means reference-quality and hard to improve, `3` means usable but meaningfully incomplete, and `1` means unreliable or underbuilt.
 
-**Ship status:** production-acceptable. **2.30.64** AM001 property-token placement; **2.30.63** AM022 graph-aware Ignore; **2.30.62** AM031 split multi-concept ID into AM031 + AM034–AM038. Remaining highest residual is **AM022** (FP/Fix min 3). Full suite green; catalog/snapshots current.
+**Ship status:** production-acceptable. **2.30.65** AM004/AM006 sibling recompute; **2.30.64** AM001 property tokens; **2.30.63** AM022; **2.30.62** AM031 split multi-concept ID into AM031 + AM034–AM038. Remaining highest residual is **AM022** (FP/Fix min 3). Full suite green; catalog/snapshots current.
 
 ## Rubric
 
@@ -36,9 +36,9 @@ Priority is a planning signal: `High` means the analyzer is important and has me
 | AM001 | Property type mismatch | Type Safety | Error | 4 | 4 | 5 | 5 | 4 | 5 | Low | Direction-preserving ReverseMap keys; collection-only generic deferral; fixer peels nullables, invariant-culture Parse/ToString, keywords, DateTime/Uri/bool/Guid. **Fix Strategy 5**: Convert-all/Ignore-all + nested Fix individual. **2.30.64**: destination property-token placement + MappingInvocation metadata + sibling recompute for aggregates. |
 | AM002 | Nullable compatibility issue | Type Safety | Error/Info | 4 | 4 | 4 | 5 | 4 | 5 | Low | Descriptor-accurate docs now call out the Error/Info split, reverse-map nullable-to-non-nullable losses report and fix even when forward-side nullability policy is configured before `ReverseMap()`, pass-through and different-member nullable `MapFrom` bodies no longer hide nullable-to-non-nullable errors even when the same-name source member is non-nullable, diagnostics name the actual nullable source member for explicit different-source mappings, constructed generic source/destination labels such as `Source<T>` and `Destination<T>` are preserved, null-forgiving-only generic `MapFrom` bodies now report instead of treating compiler suppression as runtime null handling, semantic string literal/`nameof(...)`/const destination-member selectors and typed-lambda safe mappings are recognized as explicit nullability configuration, helper methods inside member options no longer masquerade as AutoMapper null handlers or mapping configuration, unsafe `NullSubstitute` values still report while assignable fallback values and typed value-type defaults are respected, unguarded nullable receiver dereferences inside `MapFrom` still report even when the final mapped value has a different type, while guarded dereferences and nullable value `GetValueOrDefault()` stay quiet, member-level converter/resolver ownership is respected including generic member-resolver `MapFrom<TResolver, TSourceMember>(...)` forms while generic expression `MapFrom<TSourceMember>(...)` overloads remain analyzable, top-level `ForPath` including typed-lambda paths respects null handling while child-only `ForPath` does not suppress parent nullability, repeated destination-member configuration uses the later effective mapping, the fixer preserves existing member options/source expressions and emits fully qualified framework defaults or `default!` for generic/reference fallback defaults when adding defaults without appending behind `Condition`/`PreCondition`, and catalog trust now marks the Info descriptor as analyzer-only. Remaining opportunities are advanced generic/nullability-flow semantics. |
 | AM003 | Collection type incompatibility | Type Safety | Error | 4 | 4 | 4 | 5 | 4 | 4 | Low | Shared container-incompatibility predicate with AM021 (HashSet/Queue/Stack/SortedSet/LinkedList/Immutable*/FrozenSet). Combined container+element mismatches report AM003 only; CreateRange fixes still convert elements when a named conversion exists. Sample isolates same-element List→HashSet. Custom-collection edge cases remain. |
-| AM004 | Source property has no corresponding destination property | Data Integrity | Warning | 4 | 4 | 4 | 5 | 5 | 5 | Low | Strong source-loss guardrail with unique-best fuzzy, reverse-map, and property-token placement. Aggregate Map-all/DoNotValidate-all still primarily surfaces for metadata pile-up / multi-diagnostic context (not same-document single-property lightbulbs). Catalog `Scaffold` trust remains accurate. |
+| AM004 | Source property has no corresponding destination property | Data Integrity | Warning | 4 | 4 | 5 | 5 | 5 | 5 | Low | Unique-best fuzzy, reverse-map, property-token placement. **Fix Strategy 5 (2.30.65)**: same-document sibling recompute offers Map-all/DoNotValidate-all from one property-token caret. Catalog Scaffold remains accurate. |
 | AM005 | Property names differ only in casing | Data Integrity | Warning | 4 | 4 | 4 | 4 | 4 | 3 | Low | Focused and reasonably conservative with explicit mapping including direct string literal/`nameof(...)`/const destination-member forms and typed-lambda selectors including typed top-level `ForPath`, semantic string/`nameof(...)` source-member ignores, custom construction/conversion suppression, reverse-map, source-property diagnostic placement including positional-record source parameters, metadata-backed fixer routing from property-token diagnostics, executable fixer tests, and rule-prefixed code-action equivalence keys; rule docs now match shipped Warning severity/category metadata and the recommended warning configuration. |
-| AM006 | Destination property is not mapped | Data Integrity | Info | 4 | 4 | 4 | 4 | 4 | 4 | Low | Solid non-required counterpart to AM011; aggregate Map-all/Ignore-all + nested submenu documented. Same metadata-pile-up aggregate constraint as AM004 for same-document property-token lightbulbs. |
+| AM006 | Destination property is not mapped | Data Integrity | Info | 4 | 4 | 5 | 5 | 4 | 4 | Low | Non-required counterpart to AM011. **Fix Strategy 5 (2.30.65)**: same-document sibling recompute for Map-all/Ignore-all from one property-token caret. Shared unmapped-destination helper with analyzer. |
 | AM011 | Required destination property is not mapped | Data Integrity | Error | 4 | 5 | 4 | 5 | 5 | 5 | Low | Important runtime-failure guardrail; per-property fuzzy now resolves ReverseMap types (same as aggregate). Fix Strategy 4: Map-all only when every property has unique fuzzy; mixed/default bulk uses honest Scaffold-all + (manual review); Ignore-all labeled manual review; stale diagnostics withhold. Residual: primary single-property path still scaffolds defaults. |
 | AM020 | Nested object mapping configuration missing | Complex Mappings | Warning | 4 | 4 | 4 | 5 | 5 | 5 | Low | Reference analyzer; fixer now shares public+internal property discovery with the analyzer (internal nested CreateMap fix covered). Catalog trust is `LikelyRewrite` (constructor-body insertion remains a structural limit). |
 | AM021 | Collection element type incompatibility | Complex Mappings | Warning | 4 | 4 | 4 | 5 | 4 | 4 | Low | Defers fully when AM003 owns container incompatibility (shared helper). Same-container element mismatches, dictionary axes, reverse gaps, and implicit element conversions remain AM021. List simple Select rewrites now refuse non-compiling Parse destinations (string-source gate matches dictionaries). |
@@ -71,7 +71,7 @@ Use this table as the hardening queue. Ranking = **Importance × (5 − min(Anal
 
 | Rank | Rule | Signal | Residual (evidence-backed) | Likely score move if closed |
 | --- | --- | --- | --- | --- |
-| 1 | **AM022** | gap=4, min=3 (FP) | Graph-aware Ignore shipped 2.30.63 (Fix 4). Residual: intentional circular DTO false positives / graph heuristics (FP=3). | FP 3→4 needs better intentional-cycle suppressions |
+| 1 | **AM022** | gap=4, min=3 (FP) | Graph-aware Ignore shipped 2.30.63. Residual: intentional circular DTO FP (FP=3). | FP 3→4 needs intentional-cycle suppressions |
 | 2 | **AM001** | gap=4, min=4 | Property-token placement shipped 2.30.64. Residual: advanced conversion modelling only with user repros. | — |
 | 3 | **AM004 / AM006** | gap=5/4 | Aggregate Map-all / DoNotValidate-all / Ignore-all need multi-diagnostic **group** context; same-document single-property lightbulbs do not recompute siblings the way AM011 does. Catalog Scaffold remains correct. | Fix 4→5 if same-document sibling recompute matches AM011 without inventing mappings |
 | 4 | **AM031 / AM034–AM038** | Fix=3 | Shared ForPath analyzer-only + Scaffold policy after ID split. Further smell breadth is diminishing returns. | Fix 3→4 only with ForPath-safe rewrites |
@@ -84,9 +84,9 @@ Use this table as the hardening queue. Ranking = **Importance × (5 − min(Anal
 
 **Recommended next hardening batch:**
 
-1. **AM004/AM006 same-document sibling recompute**
-2. **AM022 intentional-cycle FP**
-3. **AM032 destination-aware null fix**
+1. **AM022 intentional-cycle FP**
+2. **AM032 destination-aware null fix**
+3. **AM031/AM034–AM038 ForPath-safe rewrites** (Fix still 3)
 
 Do **not** open advanced AM001/AM002 conversion/nullability modelling without a filed false-positive/false-negative repro.
 
@@ -108,7 +108,7 @@ Active queue (also summarized in Working Base). Prefer one focus per hardening b
 
 - _AM031 ID split — resolved in 2.30.62._ AM031 multi-enum; AM034–AM038 independent IDs.
 - _AM022 graph-aware Ignore — resolved in 2.30.63._ Multi-type cycle edges offered for Ignore. Residual: intentional circular-DTO FP (FP=3).
-- **AM004 / AM006 same-document sibling recompute.** Match AM011's ability to offer honest aggregates from a single property-token diagnostic without inventing mappings.
+- _AM004 / AM006 same-document sibling recompute — resolved in 2.30.65._
 - **AM001 property-token diagnostic placement.** Still reports on `CreateMap` invocation span; data-integrity rules already land on property tokens.
 - **AM032 destination-aware null fixes.** Emit stays classic net48 `if-throw`; not destination-nullability-aware. Analyzer ThrowIfNull* recognition is already strong.
 
@@ -148,6 +148,12 @@ Still open (do not start without a repro or explicit product decision):
 - **AM022 / AM031 dataflow-grade heuristics.** High effort, diminishing returns until a concrete false-positive pattern is filed (prefer P2 ID-split / graph-Ignore first).
 - **AM020 constructor-body CreateMap insert.** Structural host limit; catalog `LikelyRewrite` already honest.
 
+
+## Reanalysis Changelog (2026-07-08 → 2.30.65 AM004/AM006 sibling recompute)
+
+| Rules | Finding | Change | Score impact |
+| --- | --- | --- | --- |
+| AM004/AM006 | Aggregates required multi-diag pile-up for same-document property tokens | AM011-style live unmapped-set recompute from one caret | Fix Strategy 4→5 |
 
 ## Reanalysis Changelog (2026-07-08 → 2.30.64 AM001 property-token placement)
 
@@ -207,7 +213,7 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 | AM030 | ~5 direct tests in shared 146-test bucket. | Tests 4→3; tightened Notes. | AM030 Tests −1 |
 | AM032 | Null-flow heuristic + throw-only fix policy risk. | False Positives 4→3; tightened Notes. | AM032 False Positives −1 |
 
-## Fixer Trust Summary (v2.30.64)
+## Fixer Trust Summary (v2.30.65)
 
 | Rule | Fixable? | Catalog trust | Notes |
 | --- | --- | --- | --- |

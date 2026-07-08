@@ -6,6 +6,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Analyzers.DataIntegrity;
 
@@ -43,45 +44,149 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
     }
 
     /// <summary>
-    ///     Registers code fixes for the specified context.
+    ///     Registers code fixes. Recomputes all unmapped source properties for the CreateMap so
+    ///     Map-all / DoNotValidate-all work from a single property-token caret (same-document).
     /// </summary>
-    /// <param name="context">The code fix context.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        return RegisterGroupedPerPropertyFixesAsync(
-            context,
-            ["PropertyName", "PropertyType", "SourceTypeName", "DestinationTypeName", "IsReverseMap"],
-            "Fix individual source property…",
-            (operationContext, group, _, properties) =>
-                BuildPerPropertyActions(context, operationContext, group, properties["PropertyName"]),
-            (operationContext, group) => BuildAggregateActions(context, operationContext, group));
+        CodeFixOperationContext? operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
+        {
+            return;
+        }
+
+        var processedInvocations = new HashSet<TextSpan>();
+        foreach (Diagnostic diagnostic in context.Diagnostics)
+        {
+            Dictionary<string, string>? properties = TryGetDiagnosticProperties(
+                diagnostic,
+                "PropertyName",
+                "PropertyType",
+                "SourceTypeName",
+                "DestinationTypeName",
+                "IsReverseMap");
+            if (properties == null)
+            {
+                continue;
+            }
+
+            InvocationExpressionSyntax? invocation =
+                GetCreateMapInvocation(operationContext.Root, diagnostic, properties);
+            if (invocation == null ||
+                !TryResolveMappingContext(invocation, operationContext.SemanticModel, out MappingAnalysisContext? mappingContext))
+            {
+                continue;
+            }
+
+            List<IPropertySymbol> unmapped = FindUnmappedSourceProperties(
+                mappingContext!,
+                operationContext.SemanticModel);
+
+            IPropertySymbol? diagnosticProperty = unmapped.FirstOrDefault(
+                p => string.Equals(p.Name, properties["PropertyName"], StringComparison.Ordinal));
+            if (diagnosticProperty == null)
+            {
+                // Stale diagnostic — withhold rather than inventing a second suppress action.
+                continue;
+            }
+
+            if (unmapped.Count < 2)
+            {
+                (string title, ImmutableArray<CodeAction> actions)? built =
+                    BuildPerPropertyActions(context, operationContext, mappingContext!, diagnosticProperty.Name);
+                if (built == null)
+                {
+                    continue;
+                }
+
+                foreach (CodeAction action in built.Value.actions)
+                {
+                    context.RegisterCodeFix(action, diagnostic);
+                }
+
+                continue;
+            }
+
+            // Multi-property map: register aggregates once per CreateMap, even when several
+            // property-token diagnostics share the same IDE caret context.
+            if (!processedInvocations.Add(invocation.Span))
+            {
+                continue;
+            }
+
+            foreach (CodeAction aggregate in BuildAggregateActions(
+                         context, operationContext, mappingContext!, unmapped))
+            {
+                context.RegisterCodeFix(aggregate, diagnostic);
+            }
+
+            var perPropertySubMenus = new List<CodeAction>();
+            foreach (IPropertySymbol sourceProperty in unmapped)
+            {
+                (string title, ImmutableArray<CodeAction> actions)? built =
+                    BuildPerPropertyActions(context, operationContext, mappingContext!, sourceProperty.Name);
+                if (built == null || built.Value.actions.IsDefaultOrEmpty)
+                {
+                    continue;
+                }
+
+                perPropertySubMenus.Add(
+                    CodeAction.Create(built.Value.title, built.Value.actions, isInlinable: false));
+            }
+
+            if (perPropertySubMenus.Count > 0)
+            {
+                context.RegisterCodeFix(
+                    CodeAction.Create(
+                        "Fix individual source property…",
+                        perPropertySubMenus.ToImmutableArray(),
+                        isInlinable: false),
+                    diagnostic);
+            }
+        }
+    }
+
+    private static List<IPropertySymbol> FindUnmappedSourceProperties(
+        MappingAnalysisContext mappingContext,
+        SemanticModel semanticModel)
+    {
+        if (MappingChainAnalysisHelper.HasCustomConstructionOrConversion(
+                mappingContext.MappingInvocation,
+                semanticModel,
+                mappingContext.StopAtReverseMapBoundary))
+        {
+            return [];
+        }
+
+        return MappingChainAnalysisHelper.GetUnmappedSourceProperties(
+            mappingContext.MappingInvocation,
+            mappingContext.SourceType,
+            mappingContext.DestinationType,
+            semanticModel,
+            mappingContext.StopAtReverseMapBoundary);
     }
 
     private (string SubMenuTitle, ImmutableArray<CodeAction> Actions)? BuildPerPropertyActions(
         CodeFixContext context,
         CodeFixOperationContext operationContext,
-        DiagnosticInvocationGroup group,
+        MappingAnalysisContext mappingContext,
         string propertyName)
     {
-        InvocationExpressionSyntax invocation = group.Invocation;
+        InvocationExpressionSyntax invocation = mappingContext.MappingInvocation;
         SyntaxNode root = operationContext.Root;
         var actions = ImmutableArray.CreateBuilder<CodeAction>();
 
-        if (TryResolveMappingContext(invocation, operationContext.SemanticModel, out MappingAnalysisContext? mappingContext))
+        IPropertySymbol? bestMatch = FindFuzzyDestinationMatch(mappingContext, propertyName);
+        if (bestMatch != null)
         {
-            IPropertySymbol? bestMatch = FindFuzzyDestinationMatch(mappingContext!, propertyName);
-            if (bestMatch != null)
-            {
-                string destName = bestMatch.Name;
-                string sourceExpression = $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}";
-                actions.Add(CodeAction.Create(
-                    $"Map '{propertyName}' to similar property '{destName}'",
-                    _ => ReplaceNodeAsync(
-                        context.Document, root, invocation,
-                        CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, destName, sourceExpression)),
-                    $"AM004_FuzzyMatch_{propertyName}_{destName}"));
-            }
+            string destName = bestMatch.Name;
+            string sourceExpression = $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)}";
+            actions.Add(CodeAction.Create(
+                $"Map '{propertyName}' to similar property '{destName}'",
+                _ => ReplaceNodeAsync(
+                    context.Document, root, invocation,
+                    CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, destName, sourceExpression)),
+                $"AM004_FuzzyMatch_{propertyName}_{destName}"));
         }
 
         actions.Add(CodeAction.Create(
@@ -97,30 +202,19 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
     private ImmutableArray<CodeAction> BuildAggregateActions(
         CodeFixContext context,
         CodeFixOperationContext operationContext,
-        DiagnosticInvocationGroup group)
+        MappingAnalysisContext mappingContext,
+        List<IPropertySymbol> orderedSourceProperties)
     {
-        if (!TryResolveMappingContext(group.Invocation, operationContext.SemanticModel, out MappingAnalysisContext? mappingContext))
-        {
-            return ImmutableArray<CodeAction>.Empty;
-        }
-
-        var flaggedNames = new HashSet<string>(group.PropertyNames);
-        List<IPropertySymbol> orderedSourceProperties = AutoMapperAnalysisHelpers
-            .GetMappableProperties(mappingContext!.SourceType, requireSetter: false)
-            .Where(p => flaggedNames.Contains(p.Name))
-            .ToList();
         if (orderedSourceProperties.Count < 2)
         {
             return ImmutableArray<CodeAction>.Empty;
         }
 
         int count = orderedSourceProperties.Count;
-        InvocationExpressionSyntax invocation = group.Invocation;
+        InvocationExpressionSyntax invocation = mappingContext.MappingInvocation;
         SyntaxNode root = operationContext.Root;
         var actions = ImmutableArray.CreateBuilder<CodeAction>();
 
-        // "Map all" only when every flagged source property has a unique-best fuzzy destination match.
-        // Ties (same Levenshtein distance) withhold the action so aggregate rewrites never invent a mapping.
         List<IPropertySymbol> destProperties = AutoMapperAnalysisHelpers
             .GetMappableProperties(mappingContext.DestinationType, requireSetter: true)
             .ToList();
@@ -166,8 +260,6 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
 
         var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(
             mappingContext.DestinationType, requireSetter: true);
-        // Require a unique lowest-distance destination (same gate as AM006/AM011). First-match
-        // ordering is order-dependent and can map a source property to the wrong destination.
         return FuzzyMatchHelper.FindUniqueBestFuzzyMatch(
             propertyName, destProperties, sourcePropertySymbol.Type);
     }
@@ -179,7 +271,6 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
     {
         mappingContext = null;
 
-        // Reverse-map diagnostic location
         if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ReverseMap"))
         {
             InvocationExpressionSyntax? createMapInvocation = FindForwardCreateMapInvocation(invocation, semanticModel);
@@ -202,7 +293,6 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
             return true;
         }
 
-        // Forward-map diagnostic location
         if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "CreateMap"))
         {
             var forwardTypes = MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
@@ -226,7 +316,6 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         InvocationExpressionSyntax invocation,
         SemanticModel semanticModel)
     {
-        // Walk up the fluent chain to find CreateMap (ancestor direction)
         var current = invocation;
         while (current != null)
         {
@@ -235,7 +324,6 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
             current = (current.Expression as MemberAccessExpressionSyntax)?.Expression as InvocationExpressionSyntax;
         }
 
-        // Also check descendants (for cases where invocation IS the CreateMap chain)
         return invocation.DescendantNodesAndSelf()
             .OfType<InvocationExpressionSyntax>()
             .FirstOrDefault(node => MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(node, semanticModel, "CreateMap"));
