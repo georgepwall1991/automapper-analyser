@@ -165,8 +165,14 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             return missingMappings;
         }
 
-        IPropertySymbol[] sourceProperties = GetMappableProperties(sourceType, requireSetter: false);
-        IPropertySymbol[] destinationProperties = GetMappableProperties(destinationType, false);
+        // Match the analyzer: public + internal members via shared helper (avoids silent no-op fixes
+        // when only internal nested properties need CreateMap registrations).
+        IPropertySymbol[] sourceProperties = AutoMapperAnalysisHelpers
+            .GetMappableProperties(sourceType, requireSetter: false)
+            .ToArray();
+        IPropertySymbol[] destinationProperties = AutoMapperAnalysisHelpers
+            .GetMappableProperties(destinationType, false)
+            .ToArray();
 
         foreach (IPropertySymbol sourceProp in sourceProperties)
         {
@@ -186,8 +192,8 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
                 continue;
             }
 
-            var sourceNestedType = GetUnderlyingType(sourceProp.Type) as INamedTypeSymbol;
-            var destNestedType = GetUnderlyingType(destProp.Type) as INamedTypeSymbol;
+            var sourceNestedType = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceProp.Type) as INamedTypeSymbol;
+            var destNestedType = AutoMapperAnalysisHelpers.GetUnderlyingType(destProp.Type) as INamedTypeSymbol;
 
             if (sourceNestedType != null && destNestedType != null)
             {
@@ -208,35 +214,10 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         return missingMappings;
     }
 
-    private static IPropertySymbol[] GetMappableProperties(
-        INamedTypeSymbol type,
-        bool requireGetter = true,
-        bool requireSetter = true)
-    {
-        var properties = new List<IPropertySymbol>();
-        INamedTypeSymbol? currentType = type;
-
-        while (currentType != null && currentType.SpecialType != SpecialType.System_Object)
-        {
-            properties.AddRange(currentType.GetMembers()
-                .OfType<IPropertySymbol>()
-                .Where(p => p.DeclaredAccessibility == Accessibility.Public &&
-                            p.CanBeReferencedByName &&
-                            !p.IsStatic &&
-                            (!requireGetter || p.GetMethod != null) &&
-                            (!requireSetter || p.SetMethod != null) &&
-                            p.ContainingType.Equals(currentType, SymbolEqualityComparer.Default)));
-
-            currentType = currentType.BaseType;
-        }
-
-        return properties.ToArray();
-    }
-
     private static bool RequiresNestedObjectMapping(Compilation compilation, ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
-        ITypeSymbol sourceUnderlying = GetUnderlyingType(sourceType);
-        ITypeSymbol destUnderlying = GetUnderlyingType(destinationType);
+        ITypeSymbol sourceUnderlying = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceType);
+        ITypeSymbol destUnderlying = AutoMapperAnalysisHelpers.GetUnderlyingType(destinationType);
 
         if (SymbolEqualityComparer.Default.Equals(sourceUnderlying, destUnderlying))
         {
@@ -249,7 +230,8 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             return false;
         }
 
-        if (IsCollectionType(sourceUnderlying) || IsCollectionType(destUnderlying))
+        if (AutoMapperAnalysisHelpers.IsCollectionType(sourceUnderlying) ||
+            AutoMapperAnalysisHelpers.IsCollectionType(destUnderlying))
         {
             return false;
         }
@@ -262,31 +244,6 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
 
         return (sourceUnderlying.TypeKind == TypeKind.Class || sourceUnderlying.TypeKind == TypeKind.Struct || sourceUnderlying.TypeKind == TypeKind.Interface) &&
                (destUnderlying.TypeKind == TypeKind.Class || destUnderlying.TypeKind == TypeKind.Struct || destUnderlying.TypeKind == TypeKind.Interface);
-    }
-
-    private static ITypeSymbol GetUnderlyingType(ITypeSymbol type)
-    {
-        if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } namedType)
-        {
-            return namedType.TypeArguments[0];
-        }
-
-        if (type.CanBeReferencedByName && type.NullableAnnotation == NullableAnnotation.Annotated)
-        {
-            return type.WithNullableAnnotation(NullableAnnotation.NotAnnotated);
-        }
-
-        return type;
-    }
-
-    private static bool IsCollectionType(ITypeSymbol type)
-    {
-        if (type.SpecialType == SpecialType.System_String)
-        {
-            return false;
-        }
-
-        return type.AllInterfaces.Any(i => i.Name is "IEnumerable" or "ICollection" or "IList");
     }
 
     private static ExpressionStatementSyntax CreateCreateMapStatement(INamedTypeSymbol sourceType,

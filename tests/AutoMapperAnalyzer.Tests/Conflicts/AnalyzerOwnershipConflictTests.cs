@@ -345,4 +345,98 @@ public class AnalyzerOwnershipConflictTests
                 "System.Collections.Generic.List<string>")
             .RunAsync();
     }
+
+    [Fact]
+    public async Task ImmutableContainerWithElementMismatch_ReportsOnlyAM003()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Collections.Immutable;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Values { get; set; } = new();
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public ImmutableList<int> Values { get; set; } = ImmutableList<int>.Empty;
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzers(
+                new AM003_CollectionTypeIncompatibilityAnalyzer(),
+                new AM021_CollectionElementMismatchAnalyzer())
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+                21,
+                13,
+                "Values",
+                "Source",
+                "System.Collections.Generic.List<string>",
+                "Destination",
+                "System.Collections.Immutable.ImmutableList<int>")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task FrozenSetContainerWithElementMismatch_ReportsOnlyAM003()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Frozen;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string> Values { get; set; } = new();
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public FrozenSet<int> Values { get; set; } = FrozenSet<int>.Empty;
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzers(
+                new AM003_CollectionTypeIncompatibilityAnalyzer(),
+                new AM021_CollectionElementMismatchAnalyzer())
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule,
+                21,
+                13,
+                "Values",
+                "Source",
+                "System.Collections.Generic.List<string>",
+                "Destination",
+                "System.Collections.Frozen.FrozenSet<int>")
+            .RunAsync();
+    }
 }

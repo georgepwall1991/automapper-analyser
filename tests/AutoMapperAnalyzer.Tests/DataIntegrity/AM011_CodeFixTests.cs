@@ -550,4 +550,69 @@ public class AM011_CodeFixTests
                 0);
     }
 
+    [Fact]
+    public async Task AM011_ShouldFuzzyMap_WhenReverseMapRequiredPropertyHasSimilarSource()
+    {
+        // ReverseMap anchors diagnostics on ReverseMap(); per-property fuzzy must resolve
+        // swapped source/destination types (not GetCreateMapTypeArguments on ReverseMap alone).
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class A
+                                    {
+                                        public required string FullNam { get; set; }
+                                    }
+
+                                    public class B
+                                    {
+                                        public string FullName { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<A, B>().ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class A
+                                             {
+                                                 public required string FullNam { get; set; }
+                                             }
+
+                                             public class B
+                                             {
+                                                 public string FullName { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<A, B>().ReverseMap().ForMember(dest => dest.FullNam, opt => opt.MapFrom(src => src.FullName));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM011_UnmappedRequiredPropertyAnalyzer, AM011_UnmappedRequiredPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule)
+                    .WithLocation(7, 32)
+                    .WithArguments("FullNam"),
+                expectedFixedCode,
+                0);
+    }
+
 }

@@ -146,6 +146,12 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
         Diagnostic diagnostic,
         SemanticModel semanticModel)
     {
+        // Same compile-safety gate as dictionary axes: DateTime/Guid.Parse require a string source.
+        if (!IsSafeAxisConversion(sourceElementType, destElementType))
+        {
+            return;
+        }
+
         string conversionMethod = GetConversionMethod(destElementType);
         string? mapFromExpression = CreateSimpleConversionExpression(
             invocation,

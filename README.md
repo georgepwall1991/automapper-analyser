@@ -14,24 +14,26 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.56
+## 🎉 Latest Release: v2.30.57
 
-**Analyzer hitlist hardening — AM004 unique-best fuzzy, AM032 pass-through, trust tests**
+**Full analyzer+fixer audit hardening — ownership, reverse-map, safe fixes**
 
 ✅ **Highlights**
 
-- **AM004**: fuzzy MapFrom / Map-all require a unique best destination name match (same gate as AM006/AM011); ambiguous ties withhold the automatic map action.
-- **AM032**: pure nullable→nullable source pass-through (`return source` / `=> source`) no longer false-positives.
-- **Trust**: AM003 sample isolation, AM004 aggregate UX docs, AM001↔AM002 ownership tests, AM030 signature-depth regressions.
+- **AM003↔AM021 ownership**: shared container-incompatibility predicate ends double-reporting for immutable/frozen/SortedSet/LinkedList + element mismatch.
+- **AM020 fixer**: public+internal property parity with the analyzer (no silent no-op on internal nested maps).
+- **AM021/AM041/AM011/AM031**: Parse safety for list simple conversions, parenthesized `ReverseMap` registry, reverse per-property fuzzy, multi-collection multi-enum reports.
+- **Docs/trust**: AM001 Parse docs, AM022 Scaffold/`MaxDepth(2)`, AM006 aggregate UX, AM050 sibling withhold, remove fake `AM031.00x` editorconfig IDs.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0` with 1363 tests.
+- Full solution test validation passed on `net10.0` with 1367 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
 - Analyzer and test projects build clean under `-warnaserror` (the release gate; the samples project intentionally carries diagnostics).
 
 ### Recent Releases
 
+- **v2.30.57**: Full analyzer+fixer audit hardening — AM003/AM021 ownership, AM020 internal fixer parity, AM021 Parse gate, AM041 paren reverse, AM011 reverse fuzzy, AM031 multi-enum all keys, docs/trust honesty.
 - **v2.30.56**: Analyzer hitlist hardening — AM004 unique-best fuzzy gate, AM032 nullable pass-through suppression, AM003 sample isolation, AM001↔AM002 ownership tests, AM030 signature-depth regressions.
 - **v2.30.55**: Analyzer health full reanalysis — refreshed scorecard and Fixer Trust Summary; no analyzer/fixer/test source changes.
 - **v2.30.54**: Analyzer precision and regression hardening — expands typed/string/`nameof(...)`/const explicit configuration handling, typed `ForPath` and `ConvertUsing` coverage, converter guard recognition, duplicate-map and reverse-map boundaries, collection conversion axes, exact BCL performance heuristics, and safer automatic code-fix selection across the implemented rule set.
@@ -224,7 +226,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.56">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.57">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

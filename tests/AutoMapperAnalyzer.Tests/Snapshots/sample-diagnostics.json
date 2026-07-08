@@ -811,7 +811,7 @@
     "line": 36,
     "column": 9,
     "message": "Property 'WorkLocation' requires mapping configuration between 'Location' and 'LocationDto'. Consider adding CreateMap<Location, LocationDto>() or explicit ForMember configuration.",
-    "fixTrustLevel": "SafeRewrite"
+    "fixTrustLevel": "LikelyRewrite"
   },
   {
     "ruleId": "AM020",
@@ -822,7 +822,7 @@
     "line": 15,
     "column": 9,
     "message": "Property 'Address' requires mapping configuration between 'NestedAddress' and 'NestedAddressDto'. Consider adding CreateMap<NestedAddress, NestedAddressDto>() or explicit ForMember configuration.",
-    "fixTrustLevel": "SafeRewrite"
+    "fixTrustLevel": "LikelyRewrite"
   },
   {
     "ruleId": "AM020",
@@ -833,7 +833,7 @@
     "line": 105,
     "column": 9,
     "message": "Property 'Headquarters' requires mapping configuration between 'Address' and 'AddressDto'. Consider adding CreateMap<Address, AddressDto>() or explicit ForMember configuration.",
-    "fixTrustLevel": "SafeRewrite"
+    "fixTrustLevel": "LikelyRewrite"
   },
   {
     "ruleId": "AM021",
@@ -866,7 +866,7 @@
     "line": 55,
     "column": 13,
     "message": "Potential infinite recursion detected: Parent to ParentDto mapping may cause stack overflow due to circular references",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM022",
@@ -877,7 +877,7 @@
     "line": 56,
     "column": 13,
     "message": "Potential infinite recursion detected: Child to ChildDto mapping may cause stack overflow due to circular references",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM022",
@@ -888,7 +888,7 @@
     "line": 191,
     "column": 13,
     "message": "Potential infinite recursion detected: Parent to ParentDto mapping may cause stack overflow due to circular references",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM022",
@@ -899,7 +899,7 @@
     "line": 17,
     "column": 9,
     "message": "Self-referencing type detected: SelfReferencingSource contains properties of its own type, which may cause infinite recursion",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM022",
@@ -910,7 +910,7 @@
     "line": 18,
     "column": 9,
     "message": "Potential infinite recursion detected: IndirectSourceA to IndirectDestinationA mapping may cause stack overflow due to circular references",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM022",
@@ -921,7 +921,7 @@
     "line": 19,
     "column": 9,
     "message": "Potential infinite recursion detected: IndirectSourceB to IndirectDestinationB mapping may cause stack overflow due to circular references",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM022",
@@ -932,7 +932,7 @@
     "line": 102,
     "column": 9,
     "message": "Self-referencing type detected: TreeNode contains properties of its own type, which may cause infinite recursion",
-    "fixTrustLevel": "LikelyRewrite"
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM030",

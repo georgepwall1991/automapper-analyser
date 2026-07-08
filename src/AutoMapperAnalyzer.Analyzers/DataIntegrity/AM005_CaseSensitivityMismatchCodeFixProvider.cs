@@ -52,6 +52,8 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : AutoMapperCodeFixPro
             string destinationPropertyName = properties["DestinationPropertyName"];
 
             // Fix 1: Add explicit ForMember mapping to handle case sensitivity.
+            // Destination is escaped by CreateForMemberWithMapFrom; source is interpolated into a parsed expression.
+            string escapedSource = CodeFixSyntaxHelper.EscapeIdentifier(sourcePropertyName);
             var explicitMappingAction = CodeAction.Create(
                 $"Map '{sourcePropertyName}' to '{destinationPropertyName}' explicitly",
                 cancellationToken =>
@@ -59,7 +61,7 @@ public class AM005_CaseSensitivityMismatchCodeFixProvider : AutoMapperCodeFixPro
                     InvocationExpressionSyntax newInvocation = CodeFixSyntaxHelper.CreateForMemberWithMapFrom(
                         invocation,
                         destinationPropertyName,
-                        $"src.{sourcePropertyName}");
+                        $"src.{escapedSource}");
                     return ReplaceNodeAsync(context.Document, operationContext.Root, invocation, newInvocation);
                 },
                 $"AM005_ExplicitMapping_{sourcePropertyName}_{destinationPropertyName}");

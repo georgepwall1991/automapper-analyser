@@ -130,7 +130,7 @@ public static class RuleCatalog
     /// <summary>
     ///     Current package version used by docs/package drift tests.
     /// </summary>
-    public const string CurrentPackageVersion = "2.30.56";
+    public const string CurrentPackageVersion = "2.30.57";
 
     /// <summary>
     ///     Implemented rules, grouped by public diagnostic ID.
@@ -207,7 +207,7 @@ public static class RuleCatalog
             "samples/AutoMapperAnalyzer.Samples/CodeFixDemo.cs",
             typeof(AM020_NestedObjectMappingAnalyzer),
             typeof(AM020_NestedObjectMappingCodeFixProvider),
-            CodeFixTrustLevel.SafeRewrite,
+            CodeFixTrustLevel.LikelyRewrite,
             [AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule]),
         new(
             "AM021",
@@ -223,7 +223,7 @@ public static class RuleCatalog
             "samples/AutoMapperAnalyzer.Samples/ComplexTypes/ComplexTypeMappingExamples.cs",
             typeof(AM022_InfiniteRecursionAnalyzer),
             typeof(AM022_InfiniteRecursionCodeFixProvider),
-            CodeFixTrustLevel.LikelyRewrite,
+            CodeFixTrustLevel.Scaffold,
             [
                 AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule,
                 AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule

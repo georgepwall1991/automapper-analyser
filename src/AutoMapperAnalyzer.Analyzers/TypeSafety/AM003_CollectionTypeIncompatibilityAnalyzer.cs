@@ -179,7 +179,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         // AM003 owns collection container incompatibilities, but should stay quiet
         // when the source collection can already satisfy the destination contract.
         if (!IsImplicitlyAssignable(sourceProperty.Type, destinationProperty.Type, context.SemanticModel.Compilation) &&
-            AreCollectionTypesIncompatible(sourceProperty.Type, destinationProperty.Type))
+            AutoMapperAnalysisHelpers.AreCollectionTypesIncompatible(sourceProperty.Type, destinationProperty.Type))
         {
             string mismatchKey = CreateMismatchKey(
                 sourceType,
@@ -240,163 +240,10 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
     }
 
 
-    private static bool AreCollectionTypesIncompatible(ITypeSymbol sourceType, ITypeSymbol destType)
-    {
-        // Arrays and lists are generally compatible
-        bool sourceIsArray = sourceType.TypeKind == TypeKind.Array;
-        bool destIsArray = destType.TypeKind == TypeKind.Array;
-
-        if (sourceIsArray && destIsArray)
-        {
-            return false; // Arrays to arrays are compatible
-        }
-
-        // Check for specific incompatible combinations
-        bool sourceIsHashSet = IsConstructedFromType(sourceType, "System.Collections.Generic.HashSet<T>");
-        bool destIsHashSet = IsConstructedFromType(destType, "System.Collections.Generic.HashSet<T>");
-        bool sourceIsQueue = IsConstructedFromType(sourceType, "System.Collections.Generic.Queue<T>");
-        bool destIsQueue = IsConstructedFromType(destType, "System.Collections.Generic.Queue<T>");
-        bool sourceIsStack = IsConstructedFromType(sourceType, "System.Collections.Generic.Stack<T>");
-        bool destIsStack = IsConstructedFromType(destType, "System.Collections.Generic.Stack<T>");
-        bool sourceIsSortedSet = IsConstructedFromType(sourceType, "System.Collections.Generic.SortedSet<T>");
-        bool destIsSortedSet = IsConstructedFromType(destType, "System.Collections.Generic.SortedSet<T>");
-        bool sourceIsLinkedList = IsConstructedFromType(sourceType, "System.Collections.Generic.LinkedList<T>");
-        bool destIsLinkedList = IsConstructedFromType(destType, "System.Collections.Generic.LinkedList<T>");
-        bool sourceIsImmutableList =
-            IsConstructedFromType(sourceType, "System.Collections.Immutable.ImmutableList<T>");
-        bool destIsImmutableList =
-            IsConstructedFromType(destType, "System.Collections.Immutable.ImmutableList<T>");
-        bool sourceIsImmutableArray =
-            IsConstructedFromType(sourceType, "System.Collections.Immutable.ImmutableArray<T>");
-        bool destIsImmutableArray =
-            IsConstructedFromType(destType, "System.Collections.Immutable.ImmutableArray<T>");
-        bool sourceIsImmutableHashSet =
-            IsConstructedFromType(sourceType, "System.Collections.Immutable.ImmutableHashSet<T>");
-        bool destIsImmutableHashSet =
-            IsConstructedFromType(destType, "System.Collections.Immutable.ImmutableHashSet<T>");
-        bool sourceIsFrozenSet = IsConstructedFromType(sourceType, "System.Collections.Frozen.FrozenSet<T>");
-        bool destIsFrozenSet = IsConstructedFromType(destType, "System.Collections.Frozen.FrozenSet<T>");
-
-        // HashSet ↔ List/Array/IEnumerable bidirectional incompatibility
-        if (sourceIsHashSet && !destIsHashSet)
-        {
-            return true;
-        }
-
-        if (!sourceIsHashSet && destIsHashSet)
-        {
-            return true;
-        }
-
-        // Queue ↔ other collections bidirectional incompatibility
-        if (sourceIsQueue && !destIsQueue)
-        {
-            return true;
-        }
-
-        if (!sourceIsQueue && destIsQueue)
-        {
-            return true;
-        }
-
-        // Stack ↔ other collections bidirectional incompatibility
-        if (sourceIsStack && !destIsStack)
-        {
-            return true;
-        }
-
-        if (!sourceIsStack && destIsStack)
-        {
-            return true;
-        }
-
-        // SortedSet/LinkedList carry destination container semantics that should be explicit.
-        if (sourceIsSortedSet && !destIsSortedSet)
-        {
-            return true;
-        }
-
-        if (!sourceIsSortedSet && destIsSortedSet)
-        {
-            return true;
-        }
-
-        if (sourceIsLinkedList && !destIsLinkedList)
-        {
-            return true;
-        }
-
-        if (!sourceIsLinkedList && destIsLinkedList)
-        {
-            return true;
-        }
-
-        // Immutable/frozen destination containers require explicit factory conversion.
-        if (sourceIsImmutableList && !destIsImmutableList)
-        {
-            return true;
-        }
-
-        if (!sourceIsImmutableList && destIsImmutableList)
-        {
-            return true;
-        }
-
-        if (sourceIsImmutableArray && !destIsImmutableArray)
-        {
-            return true;
-        }
-
-        if (!sourceIsImmutableArray && destIsImmutableArray)
-        {
-            return true;
-        }
-
-        if (sourceIsImmutableHashSet && !destIsImmutableHashSet)
-        {
-            return true;
-        }
-
-        if (!sourceIsImmutableHashSet && destIsImmutableHashSet)
-        {
-            return true;
-        }
-
-        if (sourceIsFrozenSet && !destIsFrozenSet)
-        {
-            return true;
-        }
-
-        if (!sourceIsFrozenSet && destIsFrozenSet)
-        {
-            return true;
-        }
-
-        // Non-generic to generic collections
-        if (!IsGenericCollection(sourceType) && IsGenericCollection(destType))
-        {
-            return true;
-        }
-
-        return false;
-    }
-
     private static bool IsImplicitlyAssignable(ITypeSymbol sourceType, ITypeSymbol destinationType, Compilation compilation)
     {
         Conversion conversion = compilation.ClassifyConversion(sourceType, destinationType);
         return conversion.Exists && conversion.IsImplicit;
-    }
-
-    private static bool IsGenericCollection(ITypeSymbol type)
-    {
-        return type is INamedTypeSymbol { IsGenericType: true } namedType &&
-               namedType.TypeArguments.Length > 0;
-    }
-
-    private static bool IsConstructedFromType(ITypeSymbol type, string genericDefinitionName)
-    {
-        return type is INamedTypeSymbol namedType &&
-               namedType.OriginalDefinition.ToDisplayString() == genericDefinitionName;
     }
 
     private static bool IsAutoMapperCreateMapInvocation(
