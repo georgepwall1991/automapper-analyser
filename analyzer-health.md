@@ -1,10 +1,12 @@
 # Analyzer Health
 
-Reviewed: 2026-07-08 (previous review: 2026-07-08 hitlist; current shipped version: 2.30.61)
+Reviewed: 2026-07-08 (full re-eval against shipped **2.30.61** @ `7b419dc`; previous same-day reviews: hitlist → 2.30.57 audit → fixer UX batches 2.30.58–2.30.61)
 
 This is a deliberately harsh health audit for the 16 implemented AutoMapper analyzer rule IDs in this repository. Several rule IDs expose multiple diagnostic descriptors, especially `AM002`, `AM022`, and `AM031`; the scorecard rates the public rule ID as the user experiences it.
 
 Every implemented rule currently has an analyzer and a code fix provider. Scores are 1-5, where `5` means reference-quality and hard to improve, `3` means usable but meaningfully incomplete, and `1` means unreliable or underbuilt.
+
+**Ship status (this re-eval):** production-acceptable surface. No P0/P1 correctness gaps. All priorities remain `Low`. Highest residual health gaps are **AM031** and **AM022** (each min health dimension `3`, Importance `4`). Full suite **1381** green; catalog/snapshots current.
 
 ## Rubric
 
@@ -54,9 +56,34 @@ The next improvement batch should focus on rules where user impact and health ga
 
 | Priority | Rules | Work |
 | --- | --- | --- |
-| High | None | No release-blocking gaps after the 2.30.57 audit hardening pass. |
-| Medium | None | 2.30.57 closed the audit P0s (AM003/AM021 ownership, AM020 fixer parity, AM021 Parse gate) and the main P1s (AM041 paren reverse, AM011 reverse fuzzy, AM031 multi-enum, docs/trust). |
-| Low | All shipped rules | Opportunistic: AM004/AM006 same-document sibling recompute, AM022 graph-aware Ignore, AM032 destination-aware null fixes, AM031 ID split, advanced conversion modelling. |
+| High | None | No release-blocking gaps after 2.30.57–2.30.61 (audit ownership/safety + AM001 correctness + fixer UX honesty/polish). |
+| Medium | None | Closed in 2.30.57–2.30.61: AM003/AM021 ownership, AM020 fixer parity, AM021 Parse gate, AM041 paren reverse, AM011 reverse fuzzy / honest Map-all, AM001 ReverseMap+Nullable+Convert-all, AM022 MaxDepth titles/order, AM031 multi-enum + lightbulb order, catalog trust honesty. |
+| Low | See Working Base | Opportunistic residuals only — ranked table below. |
+
+## Working Base — Open Residuals (ranked)
+
+Use this table as the hardening queue. Ranking = **Importance × (5 − min(Analyzer, FP, Fix, Tests, Docs))** from the scorecard (higher = better next target). Only items with concrete code residual or multi-concept product tax are listed; no speculative score moves.
+
+| Rank | Rule | Signal | Residual (evidence-backed) | Likely score move if closed |
+| --- | --- | --- | --- | --- |
+| 1 | **AM031** | gap=8, min=3 | Six descriptors under one public ID (multi-concept tax on Analyzer/Docs). Fixer is `ForMember`-only (`ForPath` analyzer-only); cache rewrite narrow; smell catalog heuristic. ID split is the main product fix; further smell breadth is diminishing returns. | Analyzer/Docs 3→4+ after clean ID split; Fix stays 3 until ForPath-safe rewrites exist |
+| 2 | **AM022** | gap=8, min=3 | Analyzer FP: graph heuristics + intentional circular DTOs (FP=3). Fixer Ignore discovery is **destination self-ref properties only** (`FindSelfReferencingProperties`); multi-type cycles get MaxDepth scaffold only. Catalog `Scaffold` + MaxDepth(2) honesty already matches. | FP and/or Fix 3→4 if graph-aware Ignore + better intentional-cycle suppressions land with tests |
+| 3 | **AM001** | gap=5, min=4 | Diagnostics still land on **CreateMap invocation** (`invocation.GetLocation()`), not property tokens (unlike AM004/005/006/011). Fix Strategy already 5 (Convert-all/Ignore-all + nested individual). | Analyzer/Docs polish only unless placement ships |
+| 4 | **AM004 / AM006** | gap=5/4 | Aggregate Map-all / DoNotValidate-all / Ignore-all need multi-diagnostic **group** context; same-document single-property lightbulbs do not recompute siblings the way AM011 does. Catalog Scaffold remains correct. | Fix 4→5 if same-document sibling recompute matches AM011 without inventing mappings |
+| 5 | **AM011** | gap=5, min=4 | Honest Map-all / Scaffold-all / manual-review Ignore-all landed in 2.30.59. Residual: primary single-property path still scaffolds defaults when fuzzy fails. | Fix stays 4 until single-property path is less scaffold-heavy without lying |
+| 6 | **AM002** | gap=5, min=4 | Frontier is advanced generic/nullability-flow only — wait for real user FP/FN class. | — until evidence |
+| 7 | **AM032** | gap=4, min=4 | Fix always inserts classic net48-safe `if (x == null) throw ArgumentNullException` (not destination-aware, not ThrowIfNull emit). Analyzer still *recognizes* ThrowIfNull*. | Fix 4→5 only if destination-aware / richer null policies are safe |
+| 8 | **AM020 / AM021 / AM003** | gap=5/4 | Residual custom-collection / constructor-body insert structural limits (already `LikelyRewrite`). No open correctness bug. | Opportunistic with adjacent work |
+| 9 | **AM041 / AM050** | gap=4/2 | SafeRewrite rules; residual is intentional-override nuance / low Importance cleanup. | Low ROI |
+| 10 | **AM033 / AM005 / AM030** | gap=2–3 | Importance-limited (cleanup / narrow surface). AM030 analyzer-only by design. | Only if product priority changes |
+
+**Recommended next hardening batch (pick one focus):**
+
+1. **AM031 ID split** (largest product tax; docs/Analyzer scores blocked on multi-concept ID), *or*
+2. **AM022 graph-aware Ignore + intentional-cycle FP** (only min-3 Fix+FP pair besides AM031), *or*
+3. **AM004/AM006 same-document sibling recompute** (parity with AM011; high Importance, concrete UX gap).
+
+Do **not** open advanced AM001/AM002 conversion/nullability modelling without a filed false-positive/false-negative repro.
 
 ## Prioritized Fix Backlog
 
@@ -70,37 +97,67 @@ The Planning Shortlist above summarises overall rule priority; this backlog is t
 
 - _None._ The 2026-05-14 P1 entries (AM030 dead descriptor, AM002 category drift in docs) have all been resolved in 2.30.24 and 2.30.25 respectively. P2/P3 items below remain.
 
-### P2 — Opportunistic, when adjacent work is open
+### P2 — Opportunistic open items (working base)
 
-- _AM003 / AM004 docs drift — resolved in hitlist #2._ AM003 sample isolates same-element container mismatch; AM004 rule docs cover aggregate/nested UX, unique-best fuzzy, and property-token placement.
-- _AM001↔AM002 joint conflict test — resolved in hitlist #3._ Ownership suite covers non-nullable type mismatch (AM001 only), nullable same-type (AM002 only), and nullable incompatible types (AM001 only).
-- _AM030 signature-depth tests — resolved in hitlist #4._ Direct regressions for wrong return type, missing `ResolutionContext`, and non-public `Convert`.
-- _AM004 unique-best fuzzy gate — resolved in hitlist #1._ Per-property and aggregate "Map all" use `FindUniqueBestFuzzyMatch`; ambiguous destination name ties withhold fuzzy map actions.
-- _AM032 nullable pass-through — resolved in hitlist #5._ Pure `return source` / `=> source` to a nullable destination no longer reports AM032.
-- _AM050 sibling-config direct coverage — resolved in 2.30.26._ Direct tests for `PreCondition`, `UseDestinationValue`, and `Ignore` now sit alongside the pre-existing `Condition`/`NullSubstitute` cases, so the generic structural check is locked against future narrowing.
-- _AM041 `ForPath` chained-config test — resolved in 2.30.27._ The duplicate-removal fix withhold for `CreateMap<>().ForPath(...)` shapes now has direct test coverage alongside the pre-existing `ForMember`/parenthesized/`ReverseMap()`-chained cases.
-- _AM031 remove-`ForMember` safety — resolved in 2.30.28._ The automatic removal action now requires a direct convention-equivalent `MapFrom(src => src.Member)` expression; transforms such as `src.Score + 1` and captured same-name properties keep only the manual-review action.
-- _AM004 / AM005 / AM006 / AM011 diagnostic placement — resolved in 2.30.32._ Missing/unmapped, case-only, and required-property diagnostics now land on the offending source/destination property identifiers while preserving mapping invocation span metadata for code-fix routing. AM011 keeps aggregate map-all/ignore-all actions by recomputing sibling required-property targets from a single property diagnostic.
+Active queue (also summarized in Working Base). Prefer one focus per hardening batch:
+
+- **AM031 ID split (product tax).** Six descriptors still share one public rule ID; blocks Analyzer/Docs scores above 3. Prefer split before more smell-catalog breadth.
+- **AM022 graph-aware Ignore + intentional-cycle FP.** Fixer `FindSelfReferencingProperties` is destination self-ref only; multi-type cycles are MaxDepth-only. Analyzer FP remains the intentional circular-DTO / graph-heuristic class.
+- **AM004 / AM006 same-document sibling recompute.** Match AM011's ability to offer honest aggregates from a single property-token diagnostic without inventing mappings.
+- **AM001 property-token diagnostic placement.** Still reports on `CreateMap` invocation span; data-integrity rules already land on property tokens.
+- **AM032 destination-aware null fixes.** Emit stays classic net48 `if-throw`; not destination-nullability-aware. Analyzer ThrowIfNull* recognition is already strong.
+
+Resolved historical P2 (keep for audit trail):
+
+- _AM003 / AM004 docs drift — resolved in hitlist #2._
+- _AM001↔AM002 joint conflict test — resolved in hitlist #3._
+- _AM030 signature-depth tests — resolved in hitlist #4._
+- _AM004 unique-best fuzzy gate — resolved in hitlist #1._
+- _AM032 nullable pass-through — resolved in hitlist #5._
+- _AM050 sibling-config direct coverage — resolved in 2.30.26._
+- _AM041 `ForPath` chained-config test — resolved in 2.30.27._
+- _AM031 remove-`ForMember` safety — resolved in 2.30.28._
+- _AM004 / AM005 / AM006 / AM011 diagnostic placement — resolved in 2.30.32_ (AM001 placement still open above).
+- _AM011 honest Map-all / Scaffold-all — resolved in 2.30.59._
+- _AM001 Convert-all / Ignore-all multi-property UX — resolved in 2.30.60._
+- _AM022 MaxDepth title/order honesty — resolved in 2.30.59–2.30.61._
 
 ### P3 — Directional, longer-horizon
 
-- _Calibrate AM021 / AM022 Tests scores — resolved in 2.30.34._ AM021 now carries Tests=5 alongside AM022. Current coverage is comparable by the audit rubric: AM021 has 29 analyzer test methods plus 20 code-fix test methods, while AM022 has 31 analyzer test methods plus 16 code-fix test methods.
-- _Split AM030 into separate IDs — resolved in 2.30.35._ AM030 now covers invalid converter implementations, AM032 covers nullable-source converter null handling, and AM033 covers unused converter declarations. Each rule carries independent severity, docs, and fixer trust metadata while sharing the same analyzer implementation.
-- _AM003 immutable/frozen container fixes — resolved in 2.30.33._ AM003 now reports immutable/frozen destination container mismatches and emits fully qualified `ImmutableList.CreateRange(...)`, `ImmutableHashSet.CreateRange(...)`, and `FrozenSet.ToFrozenSet(...)` fixes while preserving AM021's element-mismatch ownership.
-- _AM002 generic type-parameter labels/defaults — resolved in 2.30.36._ AM002 now preserves constructed generic type labels in diagnostics and uses `default!` when scaffolding generic/reference fallback defaults where plain `default` remains nullable.
-- _AM001 exact numeric conversion modelling — resolved in 2.30.37._ AM001 now uses the C# predefined implicit numeric conversion table instead of artificial widening levels, so `double`/`float` to `decimal` no longer slip through while legal numeric widenings such as `char` to `int` remain quiet.
-- _AM031 LINQ namesake precision — resolved in 2.30.38._ Complex `SelectMany` performance diagnostics now require real `System.Linq.Enumerable`/`Queryable` calls, so user-defined namesakes with nested selector invocations stay quiet.
-- _AM001 implicit conversion modelling — resolved in 2.30.40._ AM001 now asks Roslyn for compiler-known implicit conversions after its analyzer-specific compatibility checks, so value-object conversions such as `Money` to `decimal` stay quiet while explicit-only conversions still report.
-- _AM021 implicit element conversion modelling — resolved in 2.30.41._ AM021 now asks Roslyn for compiler-known implicit element conversions after its analyzer-specific compatibility checks, so value-object collection elements such as `List<Money>` to `List<decimal>` stay quiet while explicit-only element conversions still report.
-- _AM020 implicit nested conversion modelling — resolved in 2.30.42._ AM020 now asks Roslyn for compiler-known implicit nested conversions after same-type, built-in, and collection ownership checks, so nested value-object/DTO conversions stay quiet while explicit-only nested conversions still report.
-- **AM002 generic / nullability flow semantics.** "Advanced generic/nullability-flow semantics" remains the AM002 frontier — non-trivial work and only worth doing once a real false-positive or false-negative class surfaces in user reports.
-- **AM001 compile-time conversion modelling.** Predefined numeric conversions and compiler-known implicit conversions now match C# semantics; remaining opportunities are explicit/domain conversion guidance, which needs concrete user cases before investing.
-- **AM022 / AM031 heuristic-quality work.** Both Notes flag "intentionally heuristic" graph and performance-smell analysis as the residual risk. Tightening either toward dataflow-grade precision is high effort with diminishing returns until a real false-positive pattern emerges.
+Resolved historical P3 (audit trail):
+
+- _Calibrate AM021 / AM022 Tests scores — resolved in 2.30.34._
+- _Split AM030 into separate IDs — resolved in 2.30.35._
+- _AM003 immutable/frozen container fixes — resolved in 2.30.33._
+- _AM002 generic type-parameter labels/defaults — resolved in 2.30.36._
+- _AM001 exact numeric conversion modelling — resolved in 2.30.37._
+- _AM031 LINQ namesake precision — resolved in 2.30.38._
+- _AM001 implicit conversion modelling — resolved in 2.30.40._
+- _AM021 implicit element conversion modelling — resolved in 2.30.41._
+- _AM020 implicit nested conversion modelling — resolved in 2.30.42._
+
+Still open (do not start without a repro or explicit product decision):
+
+- **AM002 generic / nullability flow semantics.** Advanced generic/nullability-flow only after a real user FP/FN class.
+- **AM001 explicit/domain conversion guidance.** Predefined + compiler-known implicits are done; domain/explicit guidance needs concrete cases.
+- **AM022 / AM031 dataflow-grade heuristics.** High effort, diminishing returns until a concrete false-positive pattern is filed (prefer P2 ID-split / graph-Ignore first).
+- **AM020 constructor-body CreateMap insert.** Structural host limit; catalog `LikelyRewrite` already honest.
 
 
-## Reanalysis Changelog (2026-07-08 full audit → 2.30.57)
+## Reanalysis Changelog (2026-07-08 monitor re-eval @ 2.30.61)
 
-Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety, Data Integrity, Complex Mappings+Converters, Config/Performance) against v2.30.56, with implementation of the resulting hitlist.
+Evidence-only monitor re-eval of shipped `2.30.61` @ `7b419dc` (no analyzer source changes in this pass).
+
+| Rules | Finding | Change | Score impact |
+| --- | --- | --- | --- |
+| Monitor | Verification baseline still cited 2.30.55 / 1352 tests; shortlist frozen at 2.30.57 while 2.30.58–2.30.61 shipped | Refreshed verification (1381 green), Working Base residual table, P2 open queue | No score changes |
+| AM031 / AM022 | Still the only min-health-3 rules (gap=8) | Ranked as next-batch recommendations | Confirmed, not rescaled |
+| AM001 | Fix Strategy 5 + Convert-all remains accurate post-2.30.60; residual is invocation placement | Notes/shortlist already match; placement stays open P2 | No score changes |
+| AM032 | Batch 3 tried ThrowIfNull emit then reverted to net48 classic if-throw | Trust summary already correct; destination-aware fix still open | No score changes |
+
+## Reanalysis Changelog (2026-07-08 full audit → 2.30.57; then UX batches → 2.30.61)
+
+Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety, Data Integrity, Complex Mappings+Converters, Config/Performance) against v2.30.56, with implementation of the resulting hitlist, then same-day fixer UX batches 2.30.58–2.30.61.
 
 | Rules | Finding | Change | Score impact |
 | --- | --- | --- | --- |
@@ -110,7 +167,9 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 | AM041 | Parenthesized ReverseMap not registered | Peel parens in `GetReverseMapInvocation` | Analyzer FN closed |
 | AM011 | Reverse per-property fuzzy used forward-only types | `ResolveCreateMapTypesWithReverse` | Reverse fuzzy works |
 | AM031 | Multi-enum de-dupe dropped second collection; fake docs IDs | Report all keys; delete AM031.00x docs | Analyzer/Docs 4→3 (multi-concept tax) |
-| AM001/AM022/AM004/AM006/AM050 | Docs/trust honesty gaps | Parse docs, MaxDepth(2), aggregate docs, Scaffold catalog | AM001 Fix 4→3; AM022 Fix 4→3 Docs 5→4; AM004 Fix 5→4 |
+| AM001/AM022/AM004/AM006/AM050 | Docs/trust honesty gaps at audit time | Parse docs, MaxDepth(2), aggregate docs, Scaffold catalog | Intermediate Fix dips later recovered for AM001 (→5 in 2.30.60 Convert-all); AM022 Fix stays 3 Scaffold |
+| AM001 (2.30.58) | ReverseMap key + Nullable false negatives; weak conversion emit | Direction-preserving keys; collection-only generic deferral; invariant Parse/ToString recipes | Notes updated; Fix path strengthened |
+| Fixer UX (2.30.59–61) | Scaffold oversell / silent no-ops / lightbulb order | Honest titles, withhold unsafe inserts, AM001 Convert-all, AM031/AM022 order, AM003/AM021 keyword titles | AM001 Fix → 5; others honesty without score inflation |
 
 ## Reanalysis Changelog (2026-07-06)
 
@@ -201,33 +260,17 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 
 Architecture-style coverage currently comes from analyzer/fixer tests, conflict ownership tests, helper tests, sample projects, documentation, the checked-in `RuleCatalog`, generated trust artifacts, package smoke tests, and the deterministic `tools/AnalyzerVerifier` checks.
 
-Current local verification (re-run 2026-07-06 against v2.30.55 at commit `b138fa8`; no analyzer/code changes since the 2026-06-30 monitor sweep):
+Current local verification (**2026-07-08** against shipped **v2.30.61** at commit `7b419dc`):
 
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM001` passed: 43 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM002` passed: 82 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM003` passed: 58 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM004` passed: 85 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter "AM004|AM005|AM006|AM011|DataIntegrityCodeActionUxTests|AM020MappingConfigurationHelpersTests|MappingChainAnalysisHelperTests"` passed: 191 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM006` passed: 43 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM005` passed: 34 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM011` passed: 42 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM020` passed: 96 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM021` passed: 67 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM022` passed: 53 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter "AM030|AM032|AM033"` passed: 146 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM031` passed: 291 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM041` passed: 34 passed, 0 skipped, 0 failed.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter AM050` passed: 48 passed, 0 skipped, 0 failed.
-- `/usr/local/share/dotnet/dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --framework net10.0 --filter RuleCatalogTests` passed: 10 passed, 0 skipped, 0 failed.
-- `dotnet test automapper-analyser.sln --configuration Release --no-build --framework net10.0 --verbosity minimal` passed: 1352 passed, 0 skipped, 0 failed.
-- `/usr/local/share/dotnet/dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj --configuration Release -- --check-catalog --check-snapshots` passed: rule catalog and sample diagnostics snapshot are up to date.
-- `/usr/local/share/dotnet/dotnet build tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --no-restore --configuration Release -warnaserror` passed: 0 warnings, 0 errors.
-- `/usr/local/share/dotnet/dotnet build src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-restore --configuration Release -warnaserror` passed: 0 warnings, 0 errors.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --configuration Release --no-build --verbosity minimal --collect:"XPlat Code Coverage" --settings coverlet.runsettings` passed: 1352 passed, 0 skipped, 0 failed.
-- PowerShell package-smoke equivalent for `net10.0` passed: packed analyzer raised the expected AM001 diagnostic from the smoke consumer.
+- Package version in `src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj`: **2.30.61** (matches tag `v2.30.61` and HEAD).
+- `dotnet build automapper-analyser.sln --configuration Release -warnaserror` passed: 0 warnings, 0 errors.
+- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --configuration Release --no-build --framework net10.0` passed: **1381** passed, 0 skipped, 0 failed (~28 s).
+- `dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj --configuration Release --no-build -- --check-catalog --check-snapshots` passed: rule catalog and sample diagnostics snapshot are up to date.
 - `git diff --check` passed.
-- `v2.30.54` was confirmed merged to `main` and tagged/released; `chore/release-2.30.55` branch carries the next patch bump with no analyzer behavior changes since `b138fa8`.
-- Full-suite re-run 2026-07-06: `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --configuration Release --no-build --framework net10.0` passed: **1352** passed, 0 skipped, 0 failed (52 s).
-- `dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj --configuration Release -- --check-catalog --check-snapshots` passed: rule catalog and sample diagnostics snapshot are up to date.
+- `dotnet format automapper-analyser.sln --verify-no-changes --no-restore` completed without format diffs.
+- Sample project emits AM0xx when analyzers run (`-p:RunAnalyzersDuringBuild=true`); local untracked `Directory.Build.props` (if present) may skip analyzers during CLI builds — unit tests + AnalyzerVerifier remain the verification source of truth.
+- Approximate list-tests name hits (not exclusive filters; for trend only): AM001 57, AM002 83, AM003 61, AM004 87, AM005 34, AM006 43, AM011 45, AM020 97, AM021 64, AM022 53, AM030/32/33 bucket 152, AM031 292, AM041 35, AM050 48, RuleCatalog 10.
+- Tags present through `v2.30.61` on `main`.
+- Historical baseline (2026-07-06 @ `b138fa8` / v2.30.55): **1352** tests green — superseded; do not use for planning.
 - The trust-first pass removed active skipped tests, added drift validation, and moved intentional analyzer-test warnings into an explicit test-project warning baseline.
-- `/usr/local/share/dotnet/dotnet --list-runtimes` shows only .NET 10 runtimes in this local environment, so broader runtime verification remains blocked by missing .NET 8 and .NET 9 runtimes.
+- `/usr/local/share/dotnet/dotnet --list-runtimes` shows only .NET 10 runtimes in this local environment, so broader multi-TFM runtime verification remains blocked by missing .NET 8 and .NET 9 runtimes.
