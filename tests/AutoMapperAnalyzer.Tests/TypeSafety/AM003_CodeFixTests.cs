@@ -940,7 +940,7 @@ public class AM003_CodeFixTests
         List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
 
         Assert.Contains(actions, action =>
-            action.Title == "Convert Values using collection constructor" &&
+            action.Title == "Convert 'Values' using collection constructor" &&
             action.EquivalenceKey == "AM003_Constructor_Values");
         Assert.Contains(actions, action =>
             action.Title == "Ignore property 'Values' (manual review)" &&
@@ -982,7 +982,7 @@ public class AM003_CodeFixTests
         List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
 
         Assert.Contains(actions, action =>
-            action.Title == "Convert Values using collection constructor" &&
+            action.Title == "Convert 'Values' using collection constructor" &&
             action.EquivalenceKey == "AM003_Constructor_Values");
         Assert.Contains(actions, action =>
             action.Title == "Ignore property 'Values' (manual review)" &&
