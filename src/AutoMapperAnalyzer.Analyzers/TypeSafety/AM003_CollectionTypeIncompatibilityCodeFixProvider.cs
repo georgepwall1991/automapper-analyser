@@ -192,7 +192,7 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
 
         if (requiresLinq && newRoot is CompilationUnitSyntax updatedCompilationUnit)
         {
-            newRoot = AddUsingIfMissing(updatedCompilationUnit, "System.Linq");
+            newRoot = CodeFixSyntaxHelper.AddUsingIfMissing(updatedCompilationUnit, "System.Linq");
         }
 
         return await Task.FromResult(document.WithSyntaxRoot(newRoot));
@@ -564,17 +564,4 @@ public class AM003_CollectionTypeIncompatibilityCodeFixProvider : AutoMapperCode
         return typeName;
     }
 
-    private static CompilationUnitSyntax AddUsingIfMissing(CompilationUnitSyntax root, string namespaceName)
-    {
-        if (root.Usings.Any(u =>
-                u.Name != null && string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
-        {
-            return root;
-        }
-
-        UsingDirectiveSyntax usingDirective = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(namespaceName))
-            .WithTrailingTrivia(SyntaxFactory.ElasticLineFeed);
-
-        return root.AddUsings(usingDirective);
-    }
 }

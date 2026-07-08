@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.60] - 2026-07-08
+
+Fixer UX shared infrastructure (Batch 2).
+
+### Changed
+
+- **AM001 multi-property lightbulb**: Convert-all (when every mismatch has a conversion recipe) and Ignore-all with nested "Fix individual type mismatch…".
+- **AM022**: MaxDepth scaffold is always registered before Ignore (single- and multi-property).
+- **Shared** `CodeFixSyntaxHelper.AddUsingIfMissing` used by AM003/AM021/AM031.
+
+### Validation
+
+- Full solution test suite (`net10.0`) green: 1381 passed.
+
 ## [2.30.59] - 2026-07-08
 
 Fixer UX honesty hardening (Batch 1).

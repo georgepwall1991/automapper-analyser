@@ -143,7 +143,7 @@ public class AM022_CodeFixTests
                 new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule)
                     .WithLocation(21, 13)
                     .WithArguments("SourcePerson", "DestPerson"),
-                expectedFixedCode);
+                expectedFixedCode, 1);
     }
 
     [Fact]
@@ -365,7 +365,7 @@ public class AM022_CodeFixTests
                                          }
                                          """;
 
-        // Index 1: MaxDepth (for single property, index 0 is Ignore)
+        // Index 0: MaxDepth first (Ignore second)
         await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
@@ -373,7 +373,7 @@ public class AM022_CodeFixTests
                     .WithLocation(23, 13)
                     .WithArguments("SourceNode", "DestNode"),
                 expectedFixedCode,
-                1);
+                0);
     }
 
     [Fact]
@@ -460,17 +460,7 @@ public class AM022_CodeFixTests
                                                   }
                                                   """;
 
-        // Index 0: Ignore (for single property)
-        await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
-            .VerifyFixAsync(
-                testCode,
-                new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule)
-                    .WithLocation(21, 13)
-                    .WithArguments("SourcePerson", "DestPerson"),
-                expectedFixedCodeIgnore,
-                0);
-
-        // Index 1: MaxDepth
+        // Index 0: MaxDepth (best-first)
         await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
@@ -478,6 +468,16 @@ public class AM022_CodeFixTests
                     .WithLocation(21, 13)
                     .WithArguments("SourcePerson", "DestPerson"),
                 expectedFixedCodeMaxDepth,
+                0);
+
+        // Index 1: Ignore
+        await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule)
+                    .WithLocation(21, 13)
+                    .WithArguments("SourcePerson", "DestPerson"),
+                expectedFixedCodeIgnore,
                 1);
     }
 
@@ -541,7 +541,7 @@ public class AM022_CodeFixTests
                                          """;
 
         // Analyzer reports base type name without generic parameters
-        // Index 1: MaxDepth (for single property, index 0 is Ignore)
+        // Index 0: MaxDepth first (Ignore second)
         await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
@@ -549,7 +549,7 @@ public class AM022_CodeFixTests
                     .WithLocation(22, 13)
                     .WithArguments("SourceNode", "DestNode"),
                 expectedFixedCode,
-                1);
+                0);
     }
 
     [Fact]
@@ -729,7 +729,7 @@ public class AM022_CodeFixTests
                                          }
                                          """;
 
-        // Index 1: MaxDepth (for single property, index 0 is Ignore)
+        // Index 0: MaxDepth first (Ignore second)
         await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
@@ -737,7 +737,7 @@ public class AM022_CodeFixTests
                     .WithLocation(21, 13)
                     .WithArguments("SourceNode", "DestNode"),
                 expectedFixedCode,
-                1);
+                0);
     }
 
     [Fact]
@@ -803,7 +803,7 @@ public class AM022_CodeFixTests
                 new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule)
                     .WithLocation(21, 13)
                     .WithArguments("ISourceNode", "IDestNode"),
-                expectedFixedCode);
+                expectedFixedCode, 1);
     }
 
     [Fact]
@@ -869,7 +869,7 @@ public class AM022_CodeFixTests
                 new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule)
                     .WithLocation(21, 13)
                     .WithArguments("SourceNode", "DestNode"),
-                expectedFixedCode);
+                expectedFixedCode, 1);
     }
 
     [Fact]
@@ -1043,7 +1043,7 @@ public class AM022_CodeFixTests
                 new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule)
                     .WithLocation(21, 13)
                     .WithArguments("SourceNode", "DestNode"),
-                expectedFixedCode);
+                expectedFixedCode, 1);
     }
 
     [Fact]
@@ -1143,7 +1143,7 @@ public class AM022_CodeFixTests
                                          """;
 
         // Generic types with constraints should be detected (analyzer reports base type name)
-        // Index 1: MaxDepth (for single property, index 0 is Ignore)
+        // Index 0: MaxDepth first (Ignore second)
         await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
@@ -1151,6 +1151,6 @@ public class AM022_CodeFixTests
                     .WithLocation(22, 13)
                     .WithArguments("SourceNode", "DestNode"),
                 expectedFixedCode,
-                1);
+                0);
     }
 }

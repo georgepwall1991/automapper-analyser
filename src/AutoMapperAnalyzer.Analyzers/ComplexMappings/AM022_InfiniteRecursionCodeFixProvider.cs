@@ -57,9 +57,17 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
             // - Single property: Ignore first (specific and simple)
             // - Multiple properties or none: MaxDepth first (simpler than ignoring all)
 
+            // Best-first: MaxDepth scaffold first (consistent single- and multi-property), then Ignore.
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    "Add MaxDepth(2) scaffold (review depth)",
+                    cancellationToken =>
+                        AddMaxDepthAsync(context.Document, operationContext.Root, invocation),
+                    "AM022_AddMaxDepth"),
+                diagnostic);
+
             if (selfReferencingProperties.Count == 1)
             {
-                // Single property: offer Ignore first
                 string propertyName = selfReferencingProperties[0];
                 context.RegisterCodeFix(
                     CodeAction.Create(
@@ -68,39 +76,17 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
                             AddIgnoreAsync(context.Document, operationContext.Root, invocation, propertyName),
                         $"AM022_Ignore_{propertyName}"),
                     diagnostic);
-
-                // Offer MaxDepth scaffold as alternative (hard-coded depth 2 — review before keeping)
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        "Add MaxDepth(2) scaffold (review depth)",
-                        cancellationToken =>
-                            AddMaxDepthAsync(context.Document, operationContext.Root, invocation),
-                        "AM022_AddMaxDepth"),
-                    diagnostic);
             }
-            else
+            else if (selfReferencingProperties.Count > 1)
             {
-                // Multiple properties or none: offer MaxDepth scaffold first (simpler)
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        "Add MaxDepth(2) scaffold (review depth)",
+                        $"Ignore all {selfReferencingProperties.Count} self-referencing properties (manual review)",
                         cancellationToken =>
-                            AddMaxDepthAsync(context.Document, operationContext.Root, invocation),
-                        "AM022_AddMaxDepth"),
+                            AddIgnoreMultipleAsync(context.Document, operationContext.Root, invocation,
+                                selfReferencingProperties),
+                        "AM022_IgnoreAll"),
                     diagnostic);
-
-                if (selfReferencingProperties.Count > 1)
-                {
-                    // Offer to ignore all self-referencing properties as alternative
-                    context.RegisterCodeFix(
-                        CodeAction.Create(
-                            $"Ignore all {selfReferencingProperties.Count} self-referencing properties (manual review)",
-                            cancellationToken =>
-                                AddIgnoreMultipleAsync(context.Document, operationContext.Root, invocation,
-                                    selfReferencingProperties),
-                            "AM022_IgnoreAll"),
-                        diagnostic);
-                }
             }
         }
     }

@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>59</PatchVersion>
+        <PatchVersion>60</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.59 - Fixer UX honesty (Batch 1)
-- AM011 Map-all only with full fuzzy coverage; otherwise Scaffold-all (manual review)
-- Aggregate suppress titles include (manual review); stale AM011 diags withhold
-- AM022 MaxDepth scaffold title; AM031/AM020/AM021 no silent no-op lightbulbs
+        <PackageReleaseNotes>Version 2.30.60 - Fixer UX shared infra (Batch 2)
+- AM001 Convert-all / Ignore-all + nested Fix individual for multi-property maps
+- AM022 MaxDepth scaffold always best-first before Ignore
+- Shared AddUsingIfMissing for AM003/AM021/AM031
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1380%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1381%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,25 +14,23 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.59
+## 🎉 Latest Release: v2.30.60
 
-**Fixer UX honesty — no silent no-ops, honest Map-all / Scaffold-all titles**
+**Fixer UX shared infra — AM001 multi-property aggregates, AM022 best-first order**
 
 ✅ **Highlights**
 
-- **AM011**: Map-all only when every required property has a unique fuzzy match; otherwise Scaffold-all with `(manual review)`. Ignore-all labeled; stale diagnostics withhold.
-- **AM004 / AM006**: aggregate DoNotValidate-all / Ignore-all titles include `(manual review)`.
-- **AM022**: MaxDepth title is `Add MaxDepth(2) scaffold (review depth)`.
-- **AM031 / AM020 / AM021**: lightbulbs no longer advertise fixes that apply as no-ops; CreateMap inserts require bare/`this` hosts.
+- **AM001**: Convert-all / Ignore-all + nested Fix individual when multiple type mismatches share a CreateMap.
+- **AM022**: MaxDepth scaffold always first in the lightbulb.
+- **Helpers**: shared `AddUsingIfMissing` for collection/performance fixers.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0` with 1380 tests.
-- Codex review: meaningful UX improvement; receiver-qualified CreateMap inserts withheld.
-- Analyzer and test projects build clean under `-warnaserror` (the release gate; the samples project intentionally carries diagnostics).
+- Full solution test validation passed on `net10.0` with 1381 tests.
 
 ### Recent Releases
 
+- **v2.30.60**: Fixer UX Batch 2 — AM001 multi-property Convert-all/Ignore-all, AM022 MaxDepth best-first, shared AddUsingIfMissing.
 - **v2.30.59**: Fixer UX honesty — AM011 Map-all/Scaffold-all honesty, manual-review aggregate titles, no silent no-op lightbulbs for AM020/AM021/AM031, AM022 MaxDepth scaffold title.
 - **v2.30.58**: AM001 ReverseMap direction keys, Nullable scalar reporting, fixer culture/null/keyword/framework conversion hardening.
 - **v2.30.57**: Full analyzer+fixer audit hardening — AM003/AM021 ownership, AM020 internal fixer parity, AM021 Parse gate, AM041 paren reverse, AM011 reverse fuzzy, AM031 multi-enum all keys, docs/trust honesty.
@@ -228,7 +226,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.59">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.60">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

@@ -23,140 +23,136 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
     public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM001");
 
     /// <summary>
-    ///     Registers code fixes for the diagnostics.
+    ///     Registers code fixes for the diagnostics. Multi-property CreateMaps get Convert-all /
+    ///     Ignore-all aggregates (when every property has a conversion) plus a nested submenu.
     /// </summary>
-    public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public sealed override Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        var operationContext = await GetOperationContextAsync(context);
-        if (operationContext == null)
-        {
-            return;
-        }
-
-        foreach (Diagnostic diagnostic in GetRelevantDiagnostics(context, operationContext.Root))
-        {
-            InvocationExpressionSyntax? invocation = GetCreateMapInvocation(operationContext.Root, diagnostic);
-            if (invocation == null)
-            {
-                continue;
-            }
-
-            string? propertyName = ExtractPropertyNameFromDiagnostic(diagnostic);
-            if (string.IsNullOrEmpty(propertyName))
-            {
-                continue;
-            }
-
-            string propertyNameValue = propertyName!;
-
-            (ITypeSymbol? sourceType, ITypeSymbol? destinationType) =
-                ResolveCreateMapTypesWithReverse(invocation, operationContext.SemanticModel);
-            if (sourceType == null || destinationType == null)
-            {
-                continue;
-            }
-
-            IPropertySymbol? sourceProperty = FindProperty(sourceType, propertyNameValue, false);
-            IPropertySymbol? destinationProperty = FindProperty(destinationType, propertyNameValue, true);
-            if (sourceProperty == null || destinationProperty == null)
-            {
-                continue;
-            }
-
-            ITypeSymbol sourcePropertyType = sourceProperty.Type;
-            ITypeSymbol destinationPropertyType = destinationProperty.Type;
-
-            if (SymbolEqualityComparer.Default.Equals(sourcePropertyType, destinationPropertyType))
-            {
-                continue;
-            }
-
-            string? conversionExpression =
-                CreateConversionExpression(sourcePropertyType, destinationPropertyType, propertyNameValue);
-            // Equivalence keys are property-name scoped so Fix All can batch same-named
-            // mismatches across CreateMap calls; each action still closes over its diagnostic location.
-            if (conversionExpression != null)
-            {
-                context.RegisterCodeFix(
-                    CodeAction.Create(
-                        $"Map '{propertyNameValue}' with conversion",
-                        cancellationToken =>
-                            AddMapFromAsync(context.Document, diagnostic, propertyNameValue, conversionExpression, cancellationToken),
-                        $"AM001_MapWithConversion_{propertyNameValue}"),
-                    diagnostic);
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Ignore property '{propertyNameValue}' (manual review)",
-                    cancellationToken =>
-                        AddIgnoreAsync(context.Document, diagnostic, propertyNameValue, cancellationToken),
-                    $"AM001_Ignore_{propertyNameValue}"),
-                diagnostic);
-        }
+        return RegisterGroupedPerPropertyFixesAsync(
+            context,
+            [AM001_PropertyTypeMismatchAnalyzer.PropertyNamePropertyName],
+            "Fix individual type mismatch…",
+            (operationContext, group, diagnostic, properties) =>
+                BuildPerPropertyActions(context, operationContext, group, diagnostic, properties["PropertyName"]),
+            (operationContext, group) => BuildAggregateActions(context, operationContext, group));
     }
 
-    private static IEnumerable<Diagnostic> GetRelevantDiagnostics(CodeFixContext context, SyntaxNode root)
-    {
-        return context.Diagnostics
-            .Where(diag =>
-                diag.Id == "AM001" &&
-                diag.Location.IsInSource &&
-                diag.Location.SourceTree == root.SyntaxTree &&
-                diag.Location.SourceSpan.IntersectsWith(context.Span))
-            .OrderBy(diag => diag.Location.SourceSpan.Start)
-            .ThenBy(diag => diag.Properties.TryGetValue(
-                    AM001_PropertyTypeMismatchAnalyzer.PropertyNamePropertyName,
-                    out string? propertyName)
-                ? propertyName
-                : diag.GetMessage(), StringComparer.Ordinal);
-    }
-
-    private async Task<Document> AddMapFromAsync(
-        Document document,
+    private (string SubMenuTitle, ImmutableArray<CodeAction> Actions)? BuildPerPropertyActions(
+        CodeFixContext context,
+        CodeFixOperationContext operationContext,
+        DiagnosticInvocationGroup group,
         Diagnostic diagnostic,
-        string propertyName,
-        string conversionExpression,
-        CancellationToken cancellationToken)
+        string propertyName)
     {
-        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null)
+        if (!TryBuildConversion(operationContext, group.Invocation, propertyName, out string? conversionExpression))
         {
-            return document;
+            return null;
         }
 
-        InvocationExpressionSyntax? invocation = GetCreateMapInvocation(root, diagnostic);
-        if (invocation == null)
+        var actions = ImmutableArray.CreateBuilder<CodeAction>();
+        if (conversionExpression != null)
         {
-            return document;
+            string expression = conversionExpression;
+            actions.Add(CodeAction.Create(
+                $"Map '{propertyName}' with conversion",
+                _ => ReplaceNodeAsync(
+                    context.Document,
+                    operationContext.Root,
+                    group.Invocation,
+                    CodeFixSyntaxHelper.CreateForMemberWithMapFrom(group.Invocation, propertyName, expression)),
+                $"AM001_MapWithConversion_{propertyName}"));
         }
 
-        InvocationExpressionSyntax newInvocation =
-            CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName, conversionExpression);
-        return await ReplaceNodeAsync(document, root, invocation, newInvocation);
+        actions.Add(CodeAction.Create(
+            $"Ignore property '{propertyName}' (manual review)",
+            _ => ReplaceNodeAsync(
+                context.Document,
+                operationContext.Root,
+                group.Invocation,
+                CodeFixSyntaxHelper.CreateForMemberWithIgnore(group.Invocation, propertyName)),
+            $"AM001_Ignore_{propertyName}"));
+
+        return ($"Property '{propertyName}'", actions.ToImmutable());
     }
 
-    private async Task<Document> AddIgnoreAsync(
-        Document document,
-        Diagnostic diagnostic,
-        string propertyName,
-        CancellationToken cancellationToken)
+    private ImmutableArray<CodeAction> BuildAggregateActions(
+        CodeFixContext context,
+        CodeFixOperationContext operationContext,
+        DiagnosticInvocationGroup group)
     {
-        SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        if (root == null)
+        if (group.PropertyNames.Count < 2)
         {
-            return document;
+            return ImmutableArray<CodeAction>.Empty;
         }
 
-        InvocationExpressionSyntax? invocation = GetCreateMapInvocation(root, diagnostic);
-        if (invocation == null)
+        InvocationExpressionSyntax invocation = group.Invocation;
+        SyntaxNode root = operationContext.Root;
+        int count = group.PropertyNames.Count;
+        var actions = ImmutableArray.CreateBuilder<CodeAction>();
+
+        var conversions = group.PropertyNames
+            .Select(name =>
+            {
+                TryBuildConversion(operationContext, invocation, name, out string? expression);
+                return (Name: name, Expression: expression);
+            })
+            .ToList();
+
+        // Convert-all only when every flagged property has a known conversion recipe (honest title).
+        if (conversions.All(c => c.Expression != null))
         {
-            return document;
+            List<PropertyFixSpec> mapSpecs = conversions
+                .Select(c => PropertyFixSpec.MapFrom(c.Name, c.Expression!))
+                .ToList();
+            actions.Add(CodeAction.Create(
+                $"Convert all {count} type mismatches",
+                _ => ReplaceNodeAsync(
+                    context.Document, root, invocation, FoldAggregateForMembers(invocation, mapSpecs)),
+                "AM001_ConvertAll"));
         }
 
-        InvocationExpressionSyntax newInvocation =
-            CodeFixSyntaxHelper.CreateForMemberWithIgnore(invocation, propertyName);
-        return await ReplaceNodeAsync(document, root, invocation, newInvocation);
+        List<PropertyFixSpec> ignoreSpecs = group.PropertyNames
+            .Select(PropertyFixSpec.Ignore)
+            .ToList();
+        actions.Add(CodeAction.Create(
+            $"Ignore all {count} type mismatches (manual review)",
+            _ => ReplaceNodeAsync(
+                context.Document, root, invocation, FoldAggregateForMembers(invocation, ignoreSpecs)),
+            "AM001_IgnoreAll"));
+
+        return actions.ToImmutable();
+    }
+
+    private static bool TryBuildConversion(
+        CodeFixOperationContext operationContext,
+        InvocationExpressionSyntax invocation,
+        string propertyName,
+        out string? conversionExpression)
+    {
+        conversionExpression = null;
+        (ITypeSymbol? sourceType, ITypeSymbol? destinationType) =
+            ResolveCreateMapTypesWithReverse(invocation, operationContext.SemanticModel);
+        if (sourceType == null || destinationType == null)
+        {
+            return false;
+        }
+
+        IPropertySymbol? sourceProperty = FindProperty(sourceType, propertyName, false);
+        IPropertySymbol? destinationProperty = FindProperty(destinationType, propertyName, true);
+        if (sourceProperty == null || destinationProperty == null)
+        {
+            return false;
+        }
+
+        if (SymbolEqualityComparer.Default.Equals(sourceProperty.Type, destinationProperty.Type))
+        {
+            return false;
+        }
+
+        conversionExpression =
+            CreateConversionExpression(sourceProperty.Type, destinationProperty.Type, propertyName);
+        // Still offer Ignore even when no conversion is known.
+        return true;
     }
 
     private static IPropertySymbol? FindProperty(ITypeSymbol typeSymbol, string name, bool expectSetter)
