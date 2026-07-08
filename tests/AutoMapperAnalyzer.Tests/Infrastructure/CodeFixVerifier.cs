@@ -237,6 +237,7 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
     {
         string analyzerName = typeof(TAnalyzer).Name;
         if (analyzerName is
+            "AM001_PropertyTypeMismatchAnalyzer" or
             "AM004_MissingDestinationPropertyAnalyzer" or
             "AM005_CaseSensitivityMismatchAnalyzer" or
             "AM006_UnmappedDestinationPropertyAnalyzer" or

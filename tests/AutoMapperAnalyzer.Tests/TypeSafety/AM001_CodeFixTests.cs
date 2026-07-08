@@ -81,7 +81,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 23,
                     "Age", "Source", "int", "Destination", "string"),
                 expectedFixedCode);
     }
@@ -142,7 +142,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 12, 22,
                     "Score", "Source", "double", "Destination", "float"),
                 expectedFixedCode);
     }
@@ -205,7 +205,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 7, 20,
                     "Score", "Destination", "long", "Source", "int"),
                 expectedFixedCode);
     }
@@ -266,7 +266,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 12, 24,
                     "Amount", "Source", "double", "Destination", "decimal"),
                 expectedFixedCode);
     }
@@ -327,7 +327,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 12, 20,
                     "Value", "Source", "string", "Destination", "int"),
                 expectedFixedCode);
     }
@@ -364,7 +364,9 @@ public class AM001_CodeFixTests
 
         Document document = CreateDocument(testCode);
         ImmutableArray<Diagnostic> diagnostics = await GetDiagnosticsAsync(document);
-        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostics);
+        Assert.Equal(2, diagnostics.Length);
+        // Property-token diags cannot share a CodeFixContext span; one caret recomputes siblings.
+        List<CodeAction> actions = await RegisterActionsAsync(document, ImmutableArray.Create(diagnostics[0]));
 
         // Multi-property: aggregate Convert-all / Ignore-all + nested "Fix individual…".
         Assert.Contains(actions, a => a.EquivalenceKey == "AM001_ConvertAll");
@@ -411,23 +413,72 @@ public class AM001_CodeFixTests
 
         Document document = CreateDocument(testCode);
         ImmutableArray<Diagnostic> diagnostics = await GetDiagnosticsAsync(document);
+        Assert.Equal(2, diagnostics.Length);
+        // One property-token caret; sibling recompute still exposes Score under Fix individual.
         IReadOnlyList<CodeFixActionInspector.ActionInfo> flattened =
             await CodeFixActionInspector.GetActionsAsync(
                 document,
                 new AM001_PropertyTypeMismatchCodeFixProvider(),
-                diagnostics);
+                diagnostics[0]);
 
         Assert.Contains(flattened, a => a.EquivalenceKey == "AM001_MapWithConversion_Score");
         Document fixedDoc = await CodeFixActionInspector.ApplyActionByKeyAsync(
             document,
             new AM001_PropertyTypeMismatchCodeFixProvider(),
-            diagnostics,
+            ImmutableArray.Create(diagnostics[0]),
             "AM001_MapWithConversion_Score");
         string updatedCode = (await fixedDoc.GetTextAsync()).ToString();
 
         Assert.Contains(".ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score.ToString(global::System.Globalization.CultureInfo.InvariantCulture)))", updatedCode,
             StringComparison.Ordinal);
         Assert.DoesNotContain("dest => dest.Age", updatedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AM001_ConvertAll_DoesNotTouchAm002OwnedNullableSibling()
+    {
+        // string→int is AM001; string?→string is AM002-owned and must not join Convert-all.
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Age { get; set; }
+                                        public string? Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        ImmutableArray<Diagnostic> am001Diagnostics = await GetDiagnosticsAsync(document);
+        Assert.Single(am001Diagnostics);
+
+        Document fixedDocument = await CodeFixActionInspector.ApplyActionByKeyAsync(
+            document,
+            new AM001_PropertyTypeMismatchCodeFixProvider(),
+            am001Diagnostics,
+            "AM001_MapWithConversion_Age");
+
+        string updatedCode = (await fixedDocument.GetTextAsync()).ToString();
+        Assert.Contains("dest => dest.Age", updatedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("dest => dest.Name", updatedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -464,10 +515,11 @@ public class AM001_CodeFixTests
         ImmutableArray<Diagnostic> diagnostics = await GetDiagnosticsAsync(document);
         Assert.Equal(2, diagnostics.Length);
 
+        // Single property-token context; Convert-all recomputes siblings.
         Document fixedDocument = await CodeFixActionInspector.ApplyActionByKeyAsync(
             document,
             new AM001_PropertyTypeMismatchCodeFixProvider(),
-            diagnostics,
+            ImmutableArray.Create(diagnostics[0]),
             "AM001_ConvertAll");
 
         string updatedCode = (await fixedDocument.GetTextAsync()).ToString();
@@ -527,7 +579,7 @@ public class AM001_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score.ToString(global::System.Globalization.CultureInfo.InvariantCulture))).ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString(global::System.Globalization.CultureInfo.InvariantCulture)));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString(global::System.Globalization.CultureInfo.InvariantCulture))).ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score.ToString(global::System.Globalization.CultureInfo.InvariantCulture)));
                                                  }
                                              }
                                          }
@@ -535,15 +587,15 @@ public class AM001_CodeFixTests
 
         DiagnosticResult[] diagnostics =
         [
-            Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 21, 13,
+            Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 23,
                 "Age", "Source", "int", "Destination", "string"),
-            Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 21, 13,
+            Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 14, 23,
                 "Score", "Source", "double", "Destination", "string")
         ];
 
-        // Iterative Fix All still applies one conversion per diagnostic (2 iterations).
+        // Convert-all sibling recompute can clear both mismatches in one Fix All iteration.
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
-            .VerifyFixWithIterationsAsync(testCode, diagnostics, expectedFixedCode, iterations: 2);
+            .VerifyFixWithIterationsAsync(testCode, diagnostics, expectedFixedCode, iterations: 1);
     }
 
     [Fact]
@@ -596,9 +648,9 @@ public class AM001_CodeFixTests
 
         DiagnosticResult[] diagnostics =
         [
-            Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 14, 13,
+            Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 6, 40,
                 "Age", "Source1", "int", "Dest1", "string"),
-            Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 15, 13,
+            Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 8, 40,
                 "Age", "Source2", "int", "Dest2", "string")
         ];
 
@@ -666,7 +718,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 20,
                     "Value", "Source", "string?", "Destination", "int"),
                 expectedFixedCode);
     }
@@ -739,7 +791,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 25, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 18, 23,
                     "Status", "Source", "TestNamespace.OrderStatus", "Destination", "string"),
                 expectedFixedCode);
     }
@@ -812,7 +864,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 25, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 18, 28,
                     "Status", "Source", "string", "Destination", "TestNamespace.OrderStatus"),
                 expectedFixedCode);
     }
@@ -887,7 +939,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 26, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 28,
                     "Status", "Source", "string?", "Destination", "TestNamespace.OrderStatus"),
                 expectedFixedCode);
     }
@@ -992,7 +1044,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 23,
                     "Website", "Source", "System.Uri", "Destination", "string"),
                 expectedFixedCode);
     }
@@ -1055,7 +1107,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 23,
                     "Age", "Source", "int?", "Destination", "string"),
                 expectedFixedCode);
     }
@@ -1118,7 +1170,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 23,
                     "CreatedDate", "Source", "System.DateTime", "Destination", "string"),
                 expectedFixedCode);
     }
@@ -1179,7 +1231,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 12, 23,
                     "class", "Source", "int", "Destination", "string"),
                 expectedFixedCode);
     }
@@ -1293,7 +1345,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 23,
                     "Duration", "Source", "System.TimeSpan", "Destination", "string"),
                 expectedFixedCode);
     }
@@ -1356,7 +1408,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 21,
                     "Value", "Source", "string?", "Destination", "int?"),
                 expectedFixedCode);
     }
@@ -1418,7 +1470,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 12, 24,
                     "Amount", "Source", "double?", "Destination", "decimal"),
                 expectedFixedCode);
     }
@@ -1481,7 +1533,7 @@ public class AM001_CodeFixTests
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 25,
                     "CreatedDate", "Source", "string", "Destination", "System.DateTime"),
                 expectedFixedCode);
     }
@@ -1529,10 +1581,12 @@ public class AM001_CodeFixTests
         var actions = new List<CodeAction>();
         var provider = new AM001_PropertyTypeMismatchCodeFixProvider();
 
+        // CodeFixContext requires identical spans — property-token multi-diag uses one caret.
+        Diagnostic primary = diagnostics[0];
         var context = new CodeFixContext(
             document,
-            diagnostics[0].Location.SourceSpan,
-            diagnostics,
+            primary.Location.SourceSpan,
+            ImmutableArray.Create(primary),
             (action, _) => actions.Add(action),
             CancellationToken.None);
 

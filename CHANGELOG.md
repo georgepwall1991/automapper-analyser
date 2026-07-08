@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## [2.30.64] - 2026-07-08
+
+AM001 property-token diagnostic placement with aggregate-preserving sibling recompute.
+
+### Changed
+
+- **AM001**: diagnostics land on the **destination property identifier** (not CreateMap), with `MappingInvocationStart/Length` for code-fix routing.
+- **AM001 fixer**: recomputes all type mismatches on the map so Convert-all / Ignore-all still work from a single property-token caret (CodeFixContext same-span rule).
+
+### Validation
+
+- Full suite on `net10.0`: **1386** passed.
+
 ## [2.30.63] - 2026-07-08
 
 AM022 graph-aware Ignore for multi-type circular maps.

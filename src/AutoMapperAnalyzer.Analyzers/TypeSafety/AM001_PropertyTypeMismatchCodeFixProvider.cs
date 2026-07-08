@@ -25,23 +25,126 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
     /// <summary>
     ///     Registers code fixes for the diagnostics. Multi-property CreateMaps get Convert-all /
     ///     Ignore-all aggregates (when every property has a conversion) plus a nested submenu.
+    ///     Sibling mismatches are recomputed from the CreateMap (AM011-style) so property-token
+    ///     diagnostics still offer aggregates when the IDE context holds only one diagnostic.
     /// </summary>
-    public sealed override Task RegisterCodeFixesAsync(CodeFixContext context)
+    public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        return RegisterGroupedPerPropertyFixesAsync(
-            context,
-            [AM001_PropertyTypeMismatchAnalyzer.PropertyNamePropertyName],
-            "Fix individual type mismatch…",
-            (operationContext, group, diagnostic, properties) =>
-                BuildPerPropertyActions(context, operationContext, group, diagnostic, properties["PropertyName"]),
-            (operationContext, group) => BuildAggregateActions(context, operationContext, group));
+        CodeFixOperationContext? operationContext = await GetOperationContextAsync(context);
+        if (operationContext == null)
+        {
+            return;
+        }
+
+        foreach (DiagnosticInvocationGroup group in GroupDiagnosticsByInvocation(
+                     operationContext.Root,
+                     context.Diagnostics,
+                     AM001_PropertyTypeMismatchAnalyzer.PropertyNamePropertyName))
+        {
+            // Expand to every convention type-mismatch on this map (not only diags in the caret context).
+            List<string> allMismatched = GetMismatchedPropertyNames(operationContext, group.Invocation);
+            if (allMismatched.Count == 0)
+            {
+                allMismatched = group.PropertyNames.ToList();
+            }
+
+            var expandedGroup = new DiagnosticInvocationGroup(
+                group.Invocation,
+                group.Diagnostics,
+                allMismatched);
+
+            bool isBatch = expandedGroup.PropertyNames.Count >= 2;
+            var perPropertySubMenus = new List<CodeAction>();
+
+            foreach (string propertyName in expandedGroup.PropertyNames)
+            {
+                (string SubMenuTitle, ImmutableArray<CodeAction> Actions)? built =
+                    BuildPerPropertyActions(context, operationContext, expandedGroup, propertyName);
+                if (built == null || built.Value.Actions.IsDefaultOrEmpty)
+                {
+                    continue;
+                }
+
+                if (isBatch)
+                {
+                    perPropertySubMenus.Add(
+                        CodeAction.Create(built.Value.SubMenuTitle, built.Value.Actions, isInlinable: false));
+                }
+                else
+                {
+                    foreach (CodeAction action in built.Value.Actions)
+                    {
+                        // Register against every diagnostic in the context (typically one property token).
+                        context.RegisterCodeFix(action, group.Diagnostics);
+                    }
+                }
+            }
+
+            if (!isBatch)
+            {
+                continue;
+            }
+
+            foreach (CodeAction aggregateAction in BuildAggregateActions(context, operationContext, expandedGroup))
+            {
+                context.RegisterCodeFix(aggregateAction, group.Diagnostics);
+            }
+
+            if (perPropertySubMenus.Count > 0)
+            {
+                context.RegisterCodeFix(
+                    CodeAction.Create(
+                        "Fix individual type mismatch…",
+                        perPropertySubMenus.ToImmutableArray(),
+                        isInlinable: false),
+                    group.Diagnostics);
+            }
+        }
+    }
+
+    private static List<string> GetMismatchedPropertyNames(
+        CodeFixOperationContext operationContext,
+        InvocationExpressionSyntax invocation)
+    {
+        (ITypeSymbol? sourceType, ITypeSymbol? destinationType) =
+            ResolveCreateMapTypesWithReverse(invocation, operationContext.SemanticModel);
+        if (sourceType == null || destinationType == null)
+        {
+            return [];
+        }
+
+        var names = new List<string>();
+        foreach (IPropertySymbol sourceProperty in
+                 AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false))
+        {
+            IPropertySymbol? destProperty = FindProperty(destinationType, sourceProperty.Name, true);
+            if (destProperty == null)
+            {
+                continue;
+            }
+
+            if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+                    invocation, destProperty.Name, operationContext.SemanticModel))
+            {
+                continue;
+            }
+
+            if (AM001_PropertyTypeMismatchAnalyzer.WouldReportPropertyTypeMismatch(
+                    operationContext.SemanticModel.Compilation,
+                    sourceProperty.Type,
+                    destProperty.Type))
+            {
+                names.Add(sourceProperty.Name);
+            }
+        }
+
+        return names;
     }
 
     private (string SubMenuTitle, ImmutableArray<CodeAction> Actions)? BuildPerPropertyActions(
         CodeFixContext context,
         CodeFixOperationContext operationContext,
         DiagnosticInvocationGroup group,
-        Diagnostic diagnostic,
         string propertyName)
     {
         if (!TryBuildConversion(operationContext, group.Invocation, propertyName, out string? conversionExpression))
