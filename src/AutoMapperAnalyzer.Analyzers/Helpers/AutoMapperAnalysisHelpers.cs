@@ -473,27 +473,198 @@ public static class AutoMapperAnalysisHelpers
 
     /// <summary>
     ///     Gets the ReverseMap invocation from the chain, if it exists.
+    ///     Walks through parenthesized expressions so <c>(CreateMap&lt;S,D&gt;()).ReverseMap()</c>
+    ///     is recognized the same way as the unparenthesized form.
     /// </summary>
     public static InvocationExpressionSyntax? GetReverseMapInvocation(InvocationExpressionSyntax createMapInvocation)
     {
         SyntaxNode? current = createMapInvocation;
 
-        // Traverse up the fluent chain
-        // Structure: Invocation -> MemberAccess -> Invocation -> MemberAccess -> ...
-
-        while (current.Parent is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Expression == current &&
-               memberAccess.Parent is InvocationExpressionSyntax parentInvocation)
+        // Traverse up the fluent chain, peeling parentheses between steps.
+        // Structure: Invocation -> (parens)* -> MemberAccess -> Invocation -> ...
+        while (current != null)
         {
-            if (memberAccess.Name.Identifier.Text == "ReverseMap")
+            while (current.Parent is ParenthesizedExpressionSyntax parenthesized &&
+                   parenthesized.Expression == current)
             {
-                return parentInvocation;
+                current = parenthesized;
             }
 
-            current = parentInvocation;
+            if (current.Parent is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Expression == current &&
+                memberAccess.Parent is InvocationExpressionSyntax parentInvocation)
+            {
+                if (memberAccess.Name.Identifier.Text == "ReverseMap")
+                {
+                    return parentInvocation;
+                }
+
+                current = parentInvocation;
+                continue;
+            }
+
+            return null;
         }
 
         return null;
+    }
+
+    /// <summary>
+    ///     Determines whether two collection container types are incompatible under AutoMapper convention
+    ///     mapping (HashSet/Queue/Stack/SortedSet/LinkedList/immutable/frozen mismatches, non-generic to
+    ///     generic). Shared by AM003 (owner) and AM021 (defers when this returns true).
+    /// </summary>
+    public static bool AreCollectionTypesIncompatible(ITypeSymbol sourceType, ITypeSymbol destType)
+    {
+        // Arrays and lists are generally compatible
+        bool sourceIsArray = sourceType.TypeKind == TypeKind.Array;
+        bool destIsArray = destType.TypeKind == TypeKind.Array;
+
+        if (sourceIsArray && destIsArray)
+        {
+            return false; // Arrays to arrays are compatible
+        }
+
+        // Check for specific incompatible combinations
+        bool sourceIsHashSet = IsConstructedFromGenericDefinition(sourceType, "System.Collections.Generic.HashSet<T>");
+        bool destIsHashSet = IsConstructedFromGenericDefinition(destType, "System.Collections.Generic.HashSet<T>");
+        bool sourceIsQueue = IsConstructedFromGenericDefinition(sourceType, "System.Collections.Generic.Queue<T>");
+        bool destIsQueue = IsConstructedFromGenericDefinition(destType, "System.Collections.Generic.Queue<T>");
+        bool sourceIsStack = IsConstructedFromGenericDefinition(sourceType, "System.Collections.Generic.Stack<T>");
+        bool destIsStack = IsConstructedFromGenericDefinition(destType, "System.Collections.Generic.Stack<T>");
+        bool sourceIsSortedSet = IsConstructedFromGenericDefinition(sourceType, "System.Collections.Generic.SortedSet<T>");
+        bool destIsSortedSet = IsConstructedFromGenericDefinition(destType, "System.Collections.Generic.SortedSet<T>");
+        bool sourceIsLinkedList = IsConstructedFromGenericDefinition(sourceType, "System.Collections.Generic.LinkedList<T>");
+        bool destIsLinkedList = IsConstructedFromGenericDefinition(destType, "System.Collections.Generic.LinkedList<T>");
+        bool sourceIsImmutableList =
+            IsConstructedFromGenericDefinition(sourceType, "System.Collections.Immutable.ImmutableList<T>");
+        bool destIsImmutableList =
+            IsConstructedFromGenericDefinition(destType, "System.Collections.Immutable.ImmutableList<T>");
+        bool sourceIsImmutableArray =
+            IsConstructedFromGenericDefinition(sourceType, "System.Collections.Immutable.ImmutableArray<T>");
+        bool destIsImmutableArray =
+            IsConstructedFromGenericDefinition(destType, "System.Collections.Immutable.ImmutableArray<T>");
+        bool sourceIsImmutableHashSet =
+            IsConstructedFromGenericDefinition(sourceType, "System.Collections.Immutable.ImmutableHashSet<T>");
+        bool destIsImmutableHashSet =
+            IsConstructedFromGenericDefinition(destType, "System.Collections.Immutable.ImmutableHashSet<T>");
+        bool sourceIsFrozenSet = IsConstructedFromGenericDefinition(sourceType, "System.Collections.Frozen.FrozenSet<T>");
+        bool destIsFrozenSet = IsConstructedFromGenericDefinition(destType, "System.Collections.Frozen.FrozenSet<T>");
+
+        // HashSet ↔ List/Array/IEnumerable bidirectional incompatibility
+        if (sourceIsHashSet && !destIsHashSet)
+        {
+            return true;
+        }
+
+        if (!sourceIsHashSet && destIsHashSet)
+        {
+            return true;
+        }
+
+        // Queue ↔ other collections bidirectional incompatibility
+        if (sourceIsQueue && !destIsQueue)
+        {
+            return true;
+        }
+
+        if (!sourceIsQueue && destIsQueue)
+        {
+            return true;
+        }
+
+        // Stack ↔ other collections bidirectional incompatibility
+        if (sourceIsStack && !destIsStack)
+        {
+            return true;
+        }
+
+        if (!sourceIsStack && destIsStack)
+        {
+            return true;
+        }
+
+        // SortedSet/LinkedList carry destination container semantics that should be explicit.
+        if (sourceIsSortedSet && !destIsSortedSet)
+        {
+            return true;
+        }
+
+        if (!sourceIsSortedSet && destIsSortedSet)
+        {
+            return true;
+        }
+
+        if (sourceIsLinkedList && !destIsLinkedList)
+        {
+            return true;
+        }
+
+        if (!sourceIsLinkedList && destIsLinkedList)
+        {
+            return true;
+        }
+
+        // Immutable/frozen destination containers require explicit factory conversion.
+        if (sourceIsImmutableList && !destIsImmutableList)
+        {
+            return true;
+        }
+
+        if (!sourceIsImmutableList && destIsImmutableList)
+        {
+            return true;
+        }
+
+        if (sourceIsImmutableArray && !destIsImmutableArray)
+        {
+            return true;
+        }
+
+        if (!sourceIsImmutableArray && destIsImmutableArray)
+        {
+            return true;
+        }
+
+        if (sourceIsImmutableHashSet && !destIsImmutableHashSet)
+        {
+            return true;
+        }
+
+        if (!sourceIsImmutableHashSet && destIsImmutableHashSet)
+        {
+            return true;
+        }
+
+        if (sourceIsFrozenSet && !destIsFrozenSet)
+        {
+            return true;
+        }
+
+        if (!sourceIsFrozenSet && destIsFrozenSet)
+        {
+            return true;
+        }
+
+        // Non-generic to generic collections
+        if (!IsGenericCollectionType(sourceType) && IsGenericCollectionType(destType))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsGenericCollectionType(ITypeSymbol type)
+    {
+        return type is INamedTypeSymbol { IsGenericType: true } namedType &&
+               namedType.TypeArguments.Length > 0;
+    }
+
+    private static bool IsConstructedFromGenericDefinition(ITypeSymbol type, string genericDefinitionName)
+    {
+        return type is INamedTypeSymbol namedType &&
+               namedType.OriginalDefinition.ToDisplayString() == genericDefinitionName;
     }
 
     /// <summary>

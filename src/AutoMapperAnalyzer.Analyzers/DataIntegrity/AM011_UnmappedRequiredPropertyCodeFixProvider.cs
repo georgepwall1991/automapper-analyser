@@ -120,10 +120,11 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         string propertyName,
         string propertyType)
     {
-        // Try to find best fuzzy match (forward-map types only, matching the original per-property behaviour).
+        // Resolve types through ReverseMap the same way aggregate fixes do, so reverse-direction
+        // per-property fuzzy suggestions work when the diagnostic anchors on ReverseMap().
         IPropertySymbol? bestFuzzyMatch = null;
         (ITypeSymbol? sourceType, ITypeSymbol? destType) =
-            MappingChainAnalysisHelper.GetCreateMapTypeArguments(invocation, semanticModel);
+            ResolveCreateMapTypesWithReverse(invocation, semanticModel);
         if (sourceType != null)
         {
             var sourceProperties = AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false);

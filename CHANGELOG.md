@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## [2.30.57] - 2026-07-08
+
+Full analyzer+fixer reanalysis hardening from four parallel domain audits against v2.30.56.
+
+### Changed
+
+- **AM003/AM021 container ownership**: shared `AutoMapperAnalysisHelpers.AreCollectionTypesIncompatible` covers HashSet/Queue/Stack/SortedSet/LinkedList/Immutable*/FrozenSet so combined container+element mismatches report AM003 only (with element-aware CreateRange fixes).
+- **AM020 fixer parity**: uses shared public+internal `GetMappableProperties` and namespace-aware `IsCollectionType` so internal nested map diagnostics receive a real CreateMap fix.
+- **AM021 simple conversion safety**: list/array/set Select rewrites apply the same string-source gate as dictionary axes for `DateTime`/`Guid.Parse`.
+- **AM041 parenthesized ReverseMap**: `GetReverseMapInvocation` peels parentheses so `(CreateMap<S,D>()).ReverseMap()` registers reverse duplicates.
+- **AM011 reverse fuzzy**: per-property fixes resolve types via `ResolveCreateMapTypesWithReverse` (same as aggregate).
+- **AM031 multi-enum**: reports every multiply-enumerated source-rooted collection in a lambda (no longer first-key only).
+- **AM005 keyword escape**: MapFrom source identifiers use `EscapeIdentifier`.
+- **Catalog trust**: AM020 `LikelyRewrite`, AM022 `Scaffold`; docs for AM001 Parse, AM022 MaxDepth(2), AM006 aggregate UX, AM050 sibling withhold; remove fake `AM031.00x` editorconfig IDs.
+- **Release metadata**: bumped package/docs version references to 2.30.57.
+
+### Validation
+
+- Full solution test suite (`net10.0`) green: 1367 passed.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` passed.
+
 ## [2.30.56] - 2026-07-08
 
 Analyzer hitlist hardening from the 2026-07-08 improvement plan.

@@ -147,8 +147,9 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // AM003 owns collection container incompatibilities.
-        if (AreCollectionTypesIncompatible(sourceProperty.Type, destinationProperty.Type))
+        // AM003 owns collection container incompatibilities (HashSet/Queue/Stack/SortedSet/LinkedList/
+        // immutable/frozen). Defer entirely so combined container+element mismatches do not double-report.
+        if (AutoMapperAnalysisHelpers.AreCollectionTypesIncompatible(sourceProperty.Type, destinationProperty.Type))
         {
             return;
         }
@@ -273,60 +274,6 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
                registry.Contains(sourceType, destType);
     }
 
-    private static bool AreCollectionTypesIncompatible(ITypeSymbol sourceType, ITypeSymbol destType)
-    {
-        bool sourceIsArray = sourceType.TypeKind == TypeKind.Array;
-        bool destIsArray = destType.TypeKind == TypeKind.Array;
-        if (sourceIsArray && destIsArray)
-        {
-            return false;
-        }
-
-        bool sourceIsHashSet = IsConstructedFromType(sourceType, "System.Collections.Generic.HashSet<T>");
-        bool destIsHashSet = IsConstructedFromType(destType, "System.Collections.Generic.HashSet<T>");
-        bool sourceIsQueue = IsConstructedFromType(sourceType, "System.Collections.Generic.Queue<T>");
-        bool destIsQueue = IsConstructedFromType(destType, "System.Collections.Generic.Queue<T>");
-        bool sourceIsStack = IsConstructedFromType(sourceType, "System.Collections.Generic.Stack<T>");
-        bool destIsStack = IsConstructedFromType(destType, "System.Collections.Generic.Stack<T>");
-
-        if (sourceIsHashSet && !destIsHashSet)
-        {
-            return true;
-        }
-
-        if (!sourceIsHashSet && destIsHashSet)
-        {
-            return true;
-        }
-
-        if (sourceIsQueue && !destIsQueue)
-        {
-            return true;
-        }
-
-        if (!sourceIsQueue && destIsQueue)
-        {
-            return true;
-        }
-
-        if (sourceIsStack && !destIsStack)
-        {
-            return true;
-        }
-
-        if (!sourceIsStack && destIsStack)
-        {
-            return true;
-        }
-
-        if (!IsGenericCollection(sourceType) && IsGenericCollection(destType))
-        {
-            return true;
-        }
-
-        return false;
-    }
-
     private static bool AreElementTypesCompatible(Compilation compilation, ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
         if (AutoMapperAnalysisHelpers.AreTypesCompatible(sourceType, destinationType))
@@ -336,17 +283,5 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
 
         Conversion conversion = compilation.ClassifyConversion(sourceType, destinationType);
         return conversion.Exists && conversion.IsImplicit;
-    }
-
-    private static bool IsGenericCollection(ITypeSymbol type)
-    {
-        return type is INamedTypeSymbol { IsGenericType: true } namedType &&
-               namedType.TypeArguments.Length > 0;
-    }
-
-    private static bool IsConstructedFromType(ITypeSymbol type, string genericDefinitionName)
-    {
-        return type is INamedTypeSymbol namedType &&
-               namedType.OriginalDefinition.ToDisplayString() == genericDefinitionName;
     }
 }

@@ -2525,6 +2525,49 @@ public class AM031_PerformanceWarningTests
             .RunAsync();
     }
 
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenTwoCollectionsAreEachMultiplyEnumerated()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<int> Numbers { get; set; }
+                                        public List<int> Scores { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Total { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Total, opt => opt.MapFrom(src => src.Numbers.Sum() + src.Numbers.Average() + src.Scores.Sum() + src.Scores.Average()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule, 23, 67,
+                "Total", "Numbers")
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule, 23, 67,
+                "Total", "Scores")
+            .RunAsync();
+    }
+
     [Fact]
     public async Task AM031_ShouldReportDiagnostic_WhenChainedWhereTerminalsEnumerateSameSourceCollection()
     {

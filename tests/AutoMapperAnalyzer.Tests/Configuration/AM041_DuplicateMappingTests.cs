@@ -120,4 +120,31 @@ public class AM041_DuplicateMappingTests
 
         await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
+    [Fact]
+    public async Task Should_ReportDiagnostic_When_ParenthesizedCreateMapReverseMapDuplicates()
+    {
+        // (CreateMap<S,D>()).ReverseMap() must register the reverse D→S so a later
+        // CreateMap<D,S>() is detected as a duplicate.
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        (CreateMap<Source, Destination>()).ReverseMap();
+                                        CreateMap<Destination, Source>();
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(11, 9)
+            .WithArguments("Destination", "Source");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
 }

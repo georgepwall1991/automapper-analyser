@@ -101,6 +101,89 @@ public class AM020_NestedObjectMappingCodeFixTests
     }
 
     [Fact]
+    public async Task AM020_CodeFix_ShouldAddMissingCreateMapForInternalNestedObject()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    internal class Address
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    internal class AddressDto
+                                    {
+                                        public string Street { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        internal Address HomeAddress { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        internal AddressDto HomeAddress { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             internal class Address
+                                             {
+                                                 public string Street { get; set; }
+                                             }
+
+                                             internal class AddressDto
+                                             {
+                                                 public string Street { get; set; }
+                                             }
+
+                                             public class Source
+                                             {
+                                                 internal Address HomeAddress { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 internal AddressDto HomeAddress { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>();
+                                                     CreateMap<Address, AddressDto>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(29, 13)
+                    .WithArguments("HomeAddress", "Address", "AddressDto"),
+                expectedFixedCode);
+    }
+
+    [Fact]
     public async Task AM020_CodeFix_ShouldAddMissingCreateMapForCustomGuidNamedNestedObject()
     {
         const string testCode = """

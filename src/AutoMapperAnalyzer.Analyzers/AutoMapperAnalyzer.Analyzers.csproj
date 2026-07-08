@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>56</PatchVersion>
+        <PatchVersion>57</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,19 +32,20 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.56 - Analyzer hitlist hardening
+        <PackageReleaseNotes>Version 2.30.57 - Full analyzer+fixer audit hardening
 
             Changed:
-            - AM004 unique-best fuzzy gate: per-property and aggregate Map-all use FindUniqueBestFuzzyMatch (same as AM006/AM011); name-distance ties withhold fuzzy map actions.
-            - AM032 nullable pass-through: pure return source / expression-bodied source to a nullable destination no longer reports AM032.
-            - AM003 sample isolation, AM004 aggregate UX docs, AM001↔AM002 ownership tests, AM030 signature-depth regressions.
+            - Shared AM003/AM021 collection-container incompatibility predicate so immutable/frozen/SortedSet/LinkedList container mismatches no longer double-report.
+            - AM020 fixer uses shared public+internal property discovery (no silent no-op on internal nested maps).
+            - AM021 list simple conversions gate Parse destinations to string sources; AM041 parenthesized ReverseMap registration; AM011 reverse per-property fuzzy; AM031 multi-collection multi-enum reports; catalog trust honesty (AM020 LikelyRewrite, AM022 Scaffold).
+            - Docs: AM001 Parse vs TryParse, AM022 MaxDepth(2), AM006 aggregate UX, AM050 sibling withhold, remove fake AM031.00x IDs.
 
             Validation:
-            - Full solution test suite passing on net10.0 (1363 tests)
+            - Full solution test suite passing on net10.0 (1367 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
             - Analyzer and test projects build clean under -warnaserror (the release gate)
 
-            Previous Release: v2.30.55 - Analyzer health full reanalysis
+            Previous Release: v2.30.56 - Analyzer hitlist hardening
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

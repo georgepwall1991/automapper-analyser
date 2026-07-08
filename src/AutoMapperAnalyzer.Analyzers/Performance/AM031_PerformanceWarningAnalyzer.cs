@@ -709,10 +709,11 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        // Check for multiple enumerations
+        // Check for multiple enumerations — report every source-rooted collection that is enumerated
+        // more than once in this lambda (do not de-dupe to a single collection key).
         foreach (KeyValuePair<string, int> kvp in collectionAccesses)
         {
-            if (kvp.Value > 1 && reportedIssueTypes.Add(MultipleEnumerationIssueType))
+            if (kvp.Value > 1)
             {
                 ReportMultipleEnumerationDiagnostic(context, lambda, propertyName, kvp.Key);
             }

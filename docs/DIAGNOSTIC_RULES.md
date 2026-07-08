@@ -108,6 +108,12 @@ public class MappingProfile : Profile
 **Code Fix: Add ForMember with Conversion**
 
 ```csharp
+// Shipped code fix (throws FormatException on bad input — review before accepting):
+CreateMap<Source, Destination>()
+    .ForMember(dest => dest.Age, opt => opt.MapFrom(src =>
+        src.Age != null ? int.Parse(src.Age) : 0));
+
+// Manual alternative when you prefer a non-throwing fallback:
 CreateMap<Source, Destination>()
     .ForMember(dest => dest.Age, opt => opt.MapFrom(src =>
         int.TryParse(src.Age, out var age) ? age : 0));
@@ -521,8 +527,13 @@ CreateMap<Source, Destination>()
 #### Code Fixes
 
 **Per-property fixes:**
-- Map from similar source property (fuzzy match suggestion)
+- Map from similar source property (unique-best fuzzy match suggestion)
 - Ignore destination property (`ForMember` + `Ignore`, manual review)
+
+When 2+ destination properties pile onto one `CreateMap` (typical for metadata/compiled model types where every diagnostic falls back to the mapping invocation), the lightbulb also offers:
+- **Map all N from similar source properties** — only when every flagged property has a unique-best fuzzy match
+- **Ignore all N destination properties**
+- Nested **"Fix individual destination property…"** submenu for per-property choices
 
 Reverse-map diagnostics resolve the swapped source/destination types before suggesting fuzzy source-member mappings, so fixes are appended to `ReverseMap()` in the correct direction.
 
@@ -892,7 +903,7 @@ public class MappingProfile : Profile
 
 ```csharp
 CreateMap<SourcePerson, DestinationPerson>()
-    .MaxDepth(3);  // ✅ Limits recursion depth
+    .MaxDepth(2);  // ✅ Starter scaffold from the code fix — review depth for your graph
 ```
 
 **Option 2: Preserve References**
@@ -1331,13 +1342,10 @@ manual-review action only so the fixer does not change runtime mapping policy.
 #### Configuration
 
 ```ini
+# All AM031 descriptors share the single public ID "AM031" (expensive, multi-enum,
+# sync-over-async, non-deterministic, complex LINQ, expensive computation). Severity
+# is all-or-nothing — there are no shipped AM031.00x sub-rule IDs.
 dotnet_diagnostic.AM031.severity = warning
-
-# Specific sub-rules
-dotnet_diagnostic.AM031.001.severity = error  # Expensive operations
-dotnet_diagnostic.AM031.002.severity = warning  # Multiple enumerations
-dotnet_diagnostic.AM031.003.severity = error  # Sync-over-async deadlock
-dotnet_diagnostic.AM031.004.severity = warning  # Non-deterministic
 ```
 
 ---
@@ -1425,6 +1433,8 @@ CreateMap<Source, Destination>();
 
 Top-level redundant `ForPath(dest => dest.Name, opt => opt.MapFrom(src => src.Name))` configurations receive the same removal action. Nested paths keep no automatic cleanup action.
 
+The automatic removal action is **withheld** when the options lambda carries sibling configuration besides the redundant `MapFrom` (for example `Condition`, `NullSubstitute`, `PreCondition`, `UseDestinationValue`, or `Ignore`). The diagnostic still fires so you can remove the redundant `MapFrom` manually without losing policy overrides. Simple MapFrom-only shapes still receive the automatic action.
+
 #### Configuration
 
 ```ini
@@ -1464,7 +1474,7 @@ dotnet_diagnostic.AM033.severity = info
 
 # Performance - Treat expensive operations as errors
 dotnet_diagnostic.AM031.severity = warning
-dotnet_diagnostic.AM031.001.severity = error
+dotnet_diagnostic.AM031.severity = warning
 ```
 
 ### Project-Level Configuration
@@ -1532,7 +1542,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.56">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.57">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1571,5 +1581,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.56
+**Version**: 2.30.57
 **Maintainer**: George Wall
