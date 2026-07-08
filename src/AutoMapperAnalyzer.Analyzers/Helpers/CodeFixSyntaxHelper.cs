@@ -33,12 +33,8 @@ public static class CodeFixSyntaxHelper
                 SyntaxFactory.ArgumentList(
                     SyntaxFactory.SeparatedList(new[]
                     {
-                        // First argument: dest => dest.PropertyName
-                        SyntaxFactory.Argument(
-                            CreatePropertySelectorLambda("dest", propertyName)),
-                        // Second argument: opt => opt.MapFrom(src => expression)
-                        SyntaxFactory.Argument(
-                            CreateMapFromLambda(mapFromExpression))
+                        SyntaxFactory.Argument(CreatePropertySelectorLambda("dest", propertyName)),
+                        SyntaxFactory.Argument(CreateMapFromLambda(mapFromExpression))
                     })));
     }
 
@@ -62,10 +58,7 @@ public static class CodeFixSyntaxHelper
                 SyntaxFactory.ArgumentList(
                     SyntaxFactory.SeparatedList(new[]
                     {
-                        // First argument: dest => dest.PropertyName
-                        SyntaxFactory.Argument(
-                            CreatePropertySelectorLambda("dest", propertyName)),
-                        // Second argument: opt => opt.Ignore()
+                        SyntaxFactory.Argument(CreatePropertySelectorLambda("dest", propertyName)),
                         SyntaxFactory.Argument(
                             SyntaxFactory.SimpleLambdaExpression(
                                 SyntaxFactory.Parameter(SyntaxFactory.Identifier("opt")),
@@ -97,10 +90,7 @@ public static class CodeFixSyntaxHelper
                 SyntaxFactory.ArgumentList(
                     SyntaxFactory.SeparatedList(new[]
                     {
-                        // First argument: src => src.PropertyName
-                        SyntaxFactory.Argument(
-                            CreatePropertySelectorLambda("src", propertyName)),
-                        // Second argument: opt => opt.DoNotValidate()
+                        SyntaxFactory.Argument(CreatePropertySelectorLambda("src", propertyName)),
                         SyntaxFactory.Argument(
                             SyntaxFactory.SimpleLambdaExpression(
                                 SyntaxFactory.Parameter(SyntaxFactory.Identifier("opt")),
@@ -110,6 +100,24 @@ public static class CodeFixSyntaxHelper
                                         SyntaxFactory.IdentifierName("opt"),
                                         SyntaxFactory.IdentifierName("DoNotValidate")))))
                     })));
+    }
+
+    /// <summary>
+    ///     Adds a <c>using</c> directive for <paramref name="namespaceName"/> when missing.
+    ///     Shared by collection/performance fixers that inject LINQ helpers.
+    /// </summary>
+    public static CompilationUnitSyntax AddUsingIfMissing(CompilationUnitSyntax root, string namespaceName)
+    {
+        if (root.Usings.Any(u =>
+                u.Name != null && string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
+        {
+            return root;
+        }
+
+        UsingDirectiveSyntax usingDirective = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(namespaceName))
+            .WithTrailingTrivia(SyntaxFactory.ElasticLineFeed);
+
+        return root.AddUsings(usingDirective);
     }
 
     /// <summary>

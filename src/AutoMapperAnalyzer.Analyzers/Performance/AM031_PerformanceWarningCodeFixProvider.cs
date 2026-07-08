@@ -378,7 +378,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
 
         if (newRoot is CompilationUnitSyntax compilationUnit)
         {
-            newRoot = AddUsingIfMissing(compilationUnit, "System.Linq");
+            newRoot = CodeFixSyntaxHelper.AddUsingIfMissing(compilationUnit, "System.Linq");
         }
 
         return Task.FromResult(document.WithSyntaxRoot(newRoot));
@@ -563,21 +563,6 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
 
         collectionPath = string.Join(".", pathSegments);
         return true;
-    }
-
-    private static CompilationUnitSyntax AddUsingIfMissing(CompilationUnitSyntax root, string namespaceName)
-    {
-        if (root.Usings.Any(u =>
-                u.Name != null &&
-                string.Equals(u.Name.ToString(), namespaceName, StringComparison.Ordinal)))
-        {
-            return root;
-        }
-
-        UsingDirectiveSyntax usingDirective = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(namespaceName))
-            .WithTrailingTrivia(SyntaxFactory.ElasticLineFeed);
-
-        return root.AddUsings(usingDirective);
     }
 
     private static string InferIssueTypeFromDescriptor(DiagnosticDescriptor descriptor)

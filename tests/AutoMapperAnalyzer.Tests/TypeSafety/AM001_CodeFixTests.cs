@@ -366,17 +366,17 @@ public class AM001_CodeFixTests
         ImmutableArray<Diagnostic> diagnostics = await GetDiagnosticsAsync(document);
         List<CodeAction> actions = await RegisterActionsAsync(document, diagnostics);
 
-        Assert.Collection(
-            actions.Select(action => action.Title),
-            title => Assert.Equal("Map 'Age' with conversion", title),
-            title => Assert.Equal("Ignore property 'Age' (manual review)", title),
-            title => Assert.Equal("Map 'Score' with conversion", title),
-            title => Assert.Equal("Ignore property 'Score' (manual review)", title));
+        // Multi-property: aggregate Convert-all / Ignore-all + nested "Fix individual…".
+        Assert.Contains(actions, a => a.EquivalenceKey == "AM001_ConvertAll");
+        Assert.Contains(actions, a => a.EquivalenceKey == "AM001_IgnoreAll");
+        Assert.Contains(
+            actions,
+            a => a.Title.Contains("individual", StringComparison.OrdinalIgnoreCase));
 
-        string updatedCode = await ApplyActionAsync(actions[0], document);
-        Assert.Contains(".ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString(global::System.Globalization.CultureInfo.InvariantCulture)))", updatedCode,
-            StringComparison.Ordinal);
-        Assert.DoesNotContain("dest => dest.Score", updatedCode, StringComparison.Ordinal);
+        CodeAction convertAll = Assert.Single(actions, a => a.EquivalenceKey == "AM001_ConvertAll");
+        string updatedCode = await ApplyActionAsync(convertAll, document);
+        Assert.Contains("dest => dest.Age", updatedCode, StringComparison.Ordinal);
+        Assert.Contains("dest => dest.Score", updatedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -411,16 +411,69 @@ public class AM001_CodeFixTests
 
         Document document = CreateDocument(testCode);
         ImmutableArray<Diagnostic> diagnostics = await GetDiagnosticsAsync(document);
-        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostics);
+        IReadOnlyList<CodeFixActionInspector.ActionInfo> flattened =
+            await CodeFixActionInspector.GetActionsAsync(
+                document,
+                new AM001_PropertyTypeMismatchCodeFixProvider(),
+                diagnostics);
 
-        CodeAction scoreAction = Assert.Single(
-            actions,
-            action => action.Title == "Map 'Score' with conversion");
-        string updatedCode = await ApplyActionAsync(scoreAction, document);
+        Assert.Contains(flattened, a => a.EquivalenceKey == "AM001_MapWithConversion_Score");
+        Document fixedDoc = await CodeFixActionInspector.ApplyActionByKeyAsync(
+            document,
+            new AM001_PropertyTypeMismatchCodeFixProvider(),
+            diagnostics,
+            "AM001_MapWithConversion_Score");
+        string updatedCode = (await fixedDoc.GetTextAsync()).ToString();
 
         Assert.Contains(".ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score.ToString(global::System.Globalization.CultureInfo.InvariantCulture)))", updatedCode,
             StringComparison.Ordinal);
         Assert.DoesNotContain("dest => dest.Age", updatedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AM001_ConvertAll_ConvertsEveryMismatch_InOneEdit()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public int Age { get; set; }
+                                        public double Score { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Age { get; set; }
+                                        public string Score { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        ImmutableArray<Diagnostic> diagnostics = await GetDiagnosticsAsync(document);
+        Assert.Equal(2, diagnostics.Length);
+
+        Document fixedDocument = await CodeFixActionInspector.ApplyActionByKeyAsync(
+            document,
+            new AM001_PropertyTypeMismatchCodeFixProvider(),
+            diagnostics,
+            "AM001_ConvertAll");
+
+        string updatedCode = (await fixedDocument.GetTextAsync()).ToString();
+        Assert.Contains("dest => dest.Age", updatedCode, StringComparison.Ordinal);
+        Assert.Contains("dest => dest.Score", updatedCode, StringComparison.Ordinal);
+        Assert.Empty(await GetDiagnosticsAsync(fixedDocument));
     }
 
     [Fact]
@@ -488,6 +541,7 @@ public class AM001_CodeFixTests
                 "Score", "Source", "double", "Destination", "string")
         ];
 
+        // Iterative Fix All still applies one conversion per diagnostic (2 iterations).
         await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
             .VerifyFixWithIterationsAsync(testCode, diagnostics, expectedFixedCode, iterations: 2);
     }
