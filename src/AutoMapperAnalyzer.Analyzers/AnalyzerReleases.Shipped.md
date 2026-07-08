@@ -10,12 +10,6 @@ AM036 | AutoMapper.Performance | Warning | Sync-over-async access in mapping (sp
 AM037 | AutoMapper.Performance | Warning | Complex LINQ in mapping (split from AM031)
 AM038 | AutoMapper.Performance | Info | Non-deterministic operation in mapping (split from AM031)
 
-### Changed Rules
-
-Rule ID | Category | Severity | Notes
---------|----------|----------|------
-AM031 | AutoMapper.Performance | Warning | Now only multiple-enumeration (siblings moved to AM034–AM038)
-
 ### Removed Rules
 
 Rule ID | Category | Severity | Notes
