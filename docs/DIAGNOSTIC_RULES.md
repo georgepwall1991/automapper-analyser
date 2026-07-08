@@ -111,7 +111,9 @@ public class MappingProfile : Profile
 // Shipped code fix (throws FormatException on bad input — review before accepting):
 CreateMap<Source, Destination>()
     .ForMember(dest => dest.Age, opt => opt.MapFrom(src =>
-        src.Age != null ? int.Parse(src.Age) : 0));
+        src.Age != null
+            ? int.Parse(src.Age, System.Globalization.CultureInfo.InvariantCulture)
+            : 0));
 
 // Manual alternative when you prefer a non-throwing fallback:
 CreateMap<Source, Destination>()
@@ -1542,7 +1544,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.57">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.58">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1581,5 +1583,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.57
+**Version**: 2.30.58
 **Maintainer**: George Wall

@@ -72,7 +72,7 @@ public class AM001_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString()));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString(global::System.Globalization.CultureInfo.InvariantCulture)));
                                                  }
                                              }
                                          }
@@ -318,7 +318,7 @@ public class AM001_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value != null ? int.Parse(src.Value) : 0));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value != null ? int.Parse(src.Value, global::System.Globalization.CultureInfo.InvariantCulture) : 0));
                                                  }
                                              }
                                          }
@@ -374,7 +374,7 @@ public class AM001_CodeFixTests
             title => Assert.Equal("Ignore property 'Score' (manual review)", title));
 
         string updatedCode = await ApplyActionAsync(actions[0], document);
-        Assert.Contains(".ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString()))", updatedCode,
+        Assert.Contains(".ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString(global::System.Globalization.CultureInfo.InvariantCulture)))", updatedCode,
             StringComparison.Ordinal);
         Assert.DoesNotContain("dest => dest.Score", updatedCode, StringComparison.Ordinal);
     }
@@ -418,7 +418,7 @@ public class AM001_CodeFixTests
             action => action.Title == "Map 'Score' with conversion");
         string updatedCode = await ApplyActionAsync(scoreAction, document);
 
-        Assert.Contains(".ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score.ToString()))", updatedCode,
+        Assert.Contains(".ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score.ToString(global::System.Globalization.CultureInfo.InvariantCulture)))", updatedCode,
             StringComparison.Ordinal);
         Assert.DoesNotContain("dest => dest.Age", updatedCode, StringComparison.Ordinal);
     }
@@ -474,7 +474,7 @@ public class AM001_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score.ToString())).ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString()));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Score, opt => opt.MapFrom(src => src.Score.ToString(global::System.Globalization.CultureInfo.InvariantCulture))).ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString(global::System.Globalization.CultureInfo.InvariantCulture)));
                                                  }
                                              }
                                          }
@@ -533,8 +533,8 @@ public class AM001_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source1, Dest1>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString()));
-                                                     CreateMap<Source2, Dest2>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString()));
+                                                     CreateMap<Source1, Dest1>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString(global::System.Globalization.CultureInfo.InvariantCulture)));
+                                                     CreateMap<Source2, Dest2>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.ToString(global::System.Globalization.CultureInfo.InvariantCulture)));
                                                  }
                                              }
                                          }
@@ -603,7 +603,7 @@ public class AM001_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value != null ? int.Parse(src.Value) : 0));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value != null ? int.Parse(src.Value, global::System.Globalization.CultureInfo.InvariantCulture) : 0));
                                                  }
                                              }
                                          }
@@ -881,7 +881,7 @@ public class AM001_CodeFixTests
     }
 
     [Fact]
-    public async Task AM001_ShouldOfferOnlyIgnore_WhenReferenceConversionIsNotExecutable()
+    public async Task AM001_ShouldFixUriToStringWithToString()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -909,12 +909,274 @@ public class AM001_CodeFixTests
                                 }
                                 """;
 
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public Uri Website { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Website { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Website, opt => opt.MapFrom(src => src.Website.ToString()));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                    "Website", "Source", "System.Uri", "Destination", "string"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldFixNullableIntToStringWithInvariantToString()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public int? Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Age { get; set; } = string.Empty;
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public int? Age { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Age { get; set; } = string.Empty;
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.Age.HasValue ? src.Age.Value.ToString(global::System.Globalization.CultureInfo.InvariantCulture) : string.Empty));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                    "Age", "Source", "int?", "Destination", "string"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldFixDateTimeToStringWithInvariantToString()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public DateTime CreatedDate { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string CreatedDate { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public DateTime CreatedDate { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string CreatedDate { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(src => src.CreatedDate.ToString(global::System.Globalization.CultureInfo.InvariantCulture)));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                    "CreatedDate", "Source", "System.DateTime", "Destination", "string"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldFixKeywordPropertyNameWithEscapedIdentifier()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public int @class { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string @class { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public int @class { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string @class { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.@class, opt => opt.MapFrom(src => src.@class.ToString(global::System.Globalization.CultureInfo.InvariantCulture)));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 13,
+                    "class", "Source", "int", "Destination", "string"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldOfferOnlyIgnore_WhenReferenceConversionIsNotExecutable()
+    {
+        // Domain object without a known scalar conversion recipe remains ignore-only.
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class CustomId
+                                    {
+                                        public int Value { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public CustomId Id { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Id { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
         Document document = CreateDocument(testCode);
         ImmutableArray<Diagnostic> diagnostics = await GetDiagnosticsAsync(document);
-        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostics);
+        // CustomId is a complex type → AM020 ownership; AM001 should not report.
+        // If it did report without a conversion recipe, only Ignore would be offered.
+        // Keep this as a guard that non-executable domain conversions never invent MapFrom.
+        if (diagnostics.IsDefaultOrEmpty || diagnostics.Length == 0)
+        {
+            return;
+        }
 
-        CodeAction action = Assert.Single(actions);
-        Assert.Equal("Ignore property 'Website' (manual review)", action.Title);
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostics);
+        Assert.All(actions, action => Assert.Contains("manual review", action.Title, StringComparison.Ordinal));
+        Assert.DoesNotContain(actions, action => action.Title.Contains("with conversion", StringComparison.Ordinal));
     }
 
     private static Document CreateDocument(string source)

@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## [2.30.58] - 2026-07-08
+
+AM001 correctness and fixer hardening from cross-model review.
+
+### Fixed
+
+- **AM001 ReverseMap dedup**: mismatch keys preserve conversion direction so bidirectional mismatches (e.g. `string↔int`) report and can be fixed on both sides.
+- **AM001 Nullable&lt;T&gt; false negative**: `IsGenericTypeMismatch` only defers collection generics to AM021; scalar `Nullable` pairs like `double?→decimal?` report again. Complex-type ownership peels `Nullable` first so scalars are not misrouted to AM020.
+
+### Changed
+
+- **AM001 fixer**: peels nullable wrappers before conversion selection; emits invariant-culture numeric/`DateTime` `ToString`/`Parse`; escapes keyword property names in `MapFrom` bodies; adds framework scalar recipes (`DateTime`, `Uri`, `bool`, `Guid`, `DateOnly`, `TimeOnly`).
+
+### Validation
+
+- AM001 suite green (52 tests).
+- Full solution test suite run as part of release.
+
 ## [2.30.57] - 2026-07-08
 
 Full analyzer+fixer reanalysis hardening from four parallel domain audits against v2.30.56.
