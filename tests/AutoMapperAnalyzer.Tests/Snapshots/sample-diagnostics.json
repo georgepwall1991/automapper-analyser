@@ -948,89 +948,12 @@
   {
     "ruleId": "AM031",
     "severity": "Warning",
-    "title": "Expensive operation in mapping expression",
-    "category": "AutoMapper.Performance",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
-    "line": 75,
-    "column": 40,
-    "message": "Property 'Content' mapping contains file I/O operation that should be performed before mapping to avoid performance issues",
-    "fixTrustLevel": "Scaffold"
-  },
-  {
-    "ruleId": "AM031",
-    "severity": "Warning",
     "title": "Multiple enumeration of collection in mapping",
     "category": "AutoMapper.Performance",
     "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
     "line": 95,
     "column": 40,
     "message": "Property 'TotalWithAverage' mapping enumerates collection 'Numbers' multiple times. Consider caching the result with ToList() or ToArray().",
-    "fixTrustLevel": "Scaffold"
-  },
-  {
-    "ruleId": "AM031",
-    "severity": "Warning",
-    "title": "Expensive computation in mapping expression",
-    "category": "AutoMapper.Performance",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
-    "line": 123,
-    "column": 40,
-    "message": "Property 'IsPrime' mapping contains expensive computation that may impact performance. Consider computing before mapping.",
-    "fixTrustLevel": "Scaffold"
-  },
-  {
-    "ruleId": "AM031",
-    "severity": "Warning",
-    "title": "Synchronous access of async operation in mapping",
-    "category": "AutoMapper.Performance",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
-    "line": 147,
-    "column": 40,
-    "message": "Property 'ExternalData' mapping synchronously waits on an async operation, which can cause deadlocks. Perform async operations before mapping.",
-    "fixTrustLevel": "Scaffold"
-  },
-  {
-    "ruleId": "AM031",
-    "severity": "Warning",
-    "title": "Non-deterministic operation in mapping",
-    "category": "AutoMapper.Performance",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
-    "line": 172,
-    "column": 40,
-    "message": "Property 'DaysOld' mapping uses DateTime.Now which produces non-deterministic results. Consider computing before mapping for testability.",
-    "fixTrustLevel": "Scaffold"
-  },
-  {
-    "ruleId": "AM031",
-    "severity": "Warning",
-    "title": "Expensive operation in mapping expression",
-    "category": "AutoMapper.Performance",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
-    "line": 197,
-    "column": 40,
-    "message": "Property 'TypeName' mapping contains reflection operation that should be performed before mapping to avoid performance issues",
-    "fixTrustLevel": "Scaffold"
-  },
-  {
-    "ruleId": "AM031",
-    "severity": "Warning",
-    "title": "Expensive operation in mapping expression",
-    "category": "AutoMapper.Performance",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
-    "line": 219,
-    "column": 40,
-    "message": "Property 'ApiResponse' mapping contains HTTP request that should be performed before mapping to avoid performance issues",
-    "fixTrustLevel": "Scaffold"
-  },
-  {
-    "ruleId": "AM031",
-    "severity": "Warning",
-    "title": "Complex LINQ operation in mapping",
-    "category": "AutoMapper.Performance",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
-    "line": 239,
-    "column": 40,
-    "message": "Property 'FilteredCount' mapping contains complex LINQ operation that may impact performance. Consider simplifying or computing before mapping.",
     "fixTrustLevel": "Scaffold"
   },
   {
@@ -1098,6 +1021,83 @@
     "column": 14,
     "message": "Type converter 'SafeStringToDateTimeConverter' is defined but not used in any CreateMap configuration",
     "fixTrustLevel": "NoFix"
+  },
+  {
+    "ruleId": "AM034",
+    "severity": "Warning",
+    "title": "Expensive operation in mapping expression",
+    "category": "AutoMapper.Performance",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
+    "line": 75,
+    "column": 40,
+    "message": "Property 'Content' mapping contains file I/O operation that should be performed before mapping to avoid performance issues",
+    "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM034",
+    "severity": "Warning",
+    "title": "Expensive operation in mapping expression",
+    "category": "AutoMapper.Performance",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
+    "line": 197,
+    "column": 40,
+    "message": "Property 'TypeName' mapping contains reflection operation that should be performed before mapping to avoid performance issues",
+    "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM034",
+    "severity": "Warning",
+    "title": "Expensive operation in mapping expression",
+    "category": "AutoMapper.Performance",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
+    "line": 219,
+    "column": 40,
+    "message": "Property 'ApiResponse' mapping contains HTTP request that should be performed before mapping to avoid performance issues",
+    "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM035",
+    "severity": "Warning",
+    "title": "Expensive computation in mapping expression",
+    "category": "AutoMapper.Performance",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
+    "line": 123,
+    "column": 40,
+    "message": "Property 'IsPrime' mapping contains expensive computation that may impact performance. Consider computing before mapping.",
+    "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM036",
+    "severity": "Warning",
+    "title": "Synchronous access of async operation in mapping",
+    "category": "AutoMapper.Performance",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
+    "line": 147,
+    "column": 40,
+    "message": "Property 'ExternalData' mapping synchronously waits on an async operation, which can cause deadlocks. Perform async operations before mapping.",
+    "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM037",
+    "severity": "Warning",
+    "title": "Complex LINQ operation in mapping",
+    "category": "AutoMapper.Performance",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
+    "line": 239,
+    "column": 40,
+    "message": "Property 'FilteredCount' mapping contains complex LINQ operation that may impact performance. Consider simplifying or computing before mapping.",
+    "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM038",
+    "severity": "Info",
+    "title": "Non-deterministic operation in mapping",
+    "category": "AutoMapper.Performance",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
+    "line": 172,
+    "column": 40,
+    "message": "Property 'DaysOld' mapping uses DateTime.Now which produces non-deterministic results. Consider computing before mapping for testability.",
+    "fixTrustLevel": "Scaffold"
   },
   {
     "ruleId": "AM041",

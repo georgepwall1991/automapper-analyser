@@ -7,6 +7,7 @@ using System.Xml.Linq;
 using AutoMapperAnalyzer.Analyzers;
 using AutoMapperAnalyzer.Analyzers.ComplexMappings;
 using AutoMapperAnalyzer.Analyzers.DataIntegrity;
+using AutoMapperAnalyzer.Analyzers.Performance;
 using AutoMapperAnalyzer.Analyzers.TypeSafety;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -87,6 +88,24 @@ public partial class RuleCatalogTests
         Assert.Equal(
             CodeFixTrustLevel.NoFix,
             am033.GetFixTrustLevel(AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule));
+    }
+
+    [Fact]
+    public void PerformanceRules_ShouldUseIndependentPublicIds()
+    {
+        Assert.Equal("AM031", AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule.Id);
+        Assert.Equal("AM034", AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule.Id);
+        Assert.Equal("AM035", AM031_PerformanceWarningAnalyzer.ExpensiveComputationRule.Id);
+        Assert.Equal("AM036", AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule.Id);
+        Assert.Equal("AM037", AM031_PerformanceWarningAnalyzer.ComplexLinqOperationRule.Id);
+        Assert.Equal("AM038", AM031_PerformanceWarningAnalyzer.NonDeterministicOperationRule.Id);
+
+        foreach (string ruleId in new[] { "AM031", "AM034", "AM035", "AM036", "AM037", "AM038" })
+        {
+            RuleCatalogEntry entry = Assert.Single(RuleCatalog.Rules, rule => rule.RuleId == ruleId);
+            Assert.All(entry.Descriptors, d => Assert.Equal(ruleId, d.Id));
+            Assert.Single(entry.Descriptors);
+        }
     }
 
     [Fact]

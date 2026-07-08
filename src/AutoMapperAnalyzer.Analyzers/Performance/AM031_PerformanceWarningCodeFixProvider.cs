@@ -12,7 +12,7 @@ using Microsoft.CodeAnalysis.Text;
 namespace AutoMapperAnalyzer.Analyzers.Performance;
 
 /// <summary>
-///     Code fix provider for AM031 Performance Warning diagnostics.
+///     Code fix provider for performance mapping diagnostics (AM031, AM034–AM038).
 ///     Prefers safe, executable fixes over cross-file speculative rewrites.
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AM031_PerformanceWarningCodeFixProvider))]
@@ -30,10 +30,23 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
     private const string ComplexLinqIssueType = "ComplexLinq";
     private const string ExpensiveOperationIssueType = "ExpensiveOperation";
 
+    private static readonly ImmutableArray<string> SupportedIds =
+    [
+        "AM031",
+        "AM034",
+        "AM035",
+        "AM036",
+        "AM037",
+        "AM038"
+    ];
+
+    private static readonly ImmutableHashSet<string> SupportedIdSet =
+        SupportedIds.ToImmutableHashSet(StringComparer.Ordinal);
+
     /// <summary>
     ///     Gets the diagnostic IDs that this provider can fix.
     /// </summary>
-    public sealed override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("AM031");
+    public sealed override ImmutableArray<string> FixableDiagnosticIds => SupportedIds;
 
     /// <summary>
     ///     Registers code fixes for the diagnostics.
@@ -49,7 +62,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         SyntaxTree documentTree = operationContext.Root.SyntaxTree;
         ImmutableArray<Diagnostic> relatedDiagnostics = context.Diagnostics
             .Where(diag =>
-            diag.Id == "AM031" &&
+            SupportedIdSet.Contains(diag.Id) &&
             diag.Location.IsInSource &&
             diag.Location.SourceTree == documentTree &&
             diag.Location.SourceSpan.IntersectsWith(context.Span))

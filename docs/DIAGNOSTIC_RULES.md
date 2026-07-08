@@ -9,7 +9,7 @@ Complete reference guide for all AutoMapper Analyzer diagnostic rules, including
 - [Data Integrity Rules (AM004-AM006, AM011)](#data-integrity-rules)
 - [Complex Mapping Rules (AM020-AM022)](#complex-mapping-rules)
 - [Custom Conversion Rules (AM030, AM032-AM033)](#custom-conversion-rules)
-- [Performance Rules (AM031)](#performance-rules)
+- [Performance Rules (AM031, AM034–AM038)](#performance-rules)
 - [Configuration](#configuration)
 - [Suppression](#suppression)
 
@@ -25,7 +25,7 @@ Complete reference guide for all AutoMapper Analyzer diagnostic rules, including
 | **Data Integrity** | AM004-AM006, AM011 | Ensure complete data mapping |
 | **Complex Mappings** | AM020-AM022 | Handle nested objects and collections |
 | **Custom Conversions** | AM030, AM032-AM033 | Validate custom type converters |
-| **Performance** | AM031 | Detect expensive operations in mappings |
+| **Performance** | AM031, AM034–AM038 | Multiple enumeration, expensive ops, computation, sync-over-async, complex LINQ, non-determinism |
 
 ### Severity Levels
 
@@ -1217,75 +1217,26 @@ dotnet_diagnostic.AM033.severity = info
 
 ## Performance Rules
 
-### AM031: Performance Warning
+### AM031: Multiple Enumeration
 
-**Severity**: Warning 🟡 / Info 🔵
+**Severity**: Warning 🟡
 **Category**: AutoMapper.Performance
 
 #### Description
 
-Detects expensive operations inside mapping expressions that should be performed before mapping.
-AM031 analyzes both `ForMember(... MapFrom(...))` and `ForPath(... MapFrom(...))`; nested destination paths are reported as paths such as `Stats.Total`. Multiple-enumeration tracking covers the commonly used terminal LINQ operators — `ToList`, `ToArray`, `ToHashSet`, `ToDictionary`, `ToLookup`, `Sum`, `Average`, `Min`, `Max`, `Aggregate`, `Count`, `LongCount`, `First`/`FirstOrDefault`, `Last`/`LastOrDefault`, `Single`/`SingleOrDefault`, `Any`, `All`, `Contains`, `ElementAt`/`ElementAtOrDefault`, and `SequenceEqual`. Static `Enumerable`/`Queryable` terminal calls are keyed to their source sequence arguments instead of the `Enumerable`/`Queryable` type name. Lazy/intermediate operators such as `Where`, `Select`, `OrderBy`, `GroupBy`, and `Distinct` intentionally do not count toward the enumeration count.
+Reports when a mapping expression enumerates the same source-rooted collection more than once.
+AM031 analyzes both `ForMember(... MapFrom(...))` and `ForPath(... MapFrom(...))`; nested destination paths are reported as paths such as `Stats.Total`. Terminal LINQ operators covered include `ToList`, `ToArray`, `ToHashSet`, `ToDictionary`, `ToLookup`, `Sum`, `Average`, `Min`, `Max`, `Aggregate`, `Count`, `LongCount`, `First`/`FirstOrDefault`, `Last`/`LastOrDefault`, `Single`/`SingleOrDefault`, `Any`, `All`, `Contains`, `ElementAt`/`ElementAtOrDefault`, and `SequenceEqual`. Static `Enumerable`/`Queryable` terminal calls are keyed to their source sequence arguments. Lazy/intermediate operators such as `Where`, `Select`, `OrderBy`, `GroupBy`, and `Distinct` intentionally do not count toward the enumeration count.
 
-#### Problem 1: Database Query in Mapping
+Sibling performance concepts use independent rule IDs: **AM034** expensive operations, **AM035** expensive computation, **AM036** sync-over-async, **AM037** complex LINQ, **AM038** non-deterministic operations.
 
-```csharp
-public class MappingProfile : Profile
-{
-    private readonly DbContext _db;
-
-    public MappingProfile(DbContext db)
-    {
-        _db = db;
-
-        CreateMap<Source, Destination>()
-            .ForMember(dest => dest.OrderCount, opt => opt.MapFrom(src =>
-                _db.Orders.Count(o => o.UserId == src.Id)));  // ❌ Database query
-        // ⚠️ AM031: Expensive database operation detected
-    }
-}
-```
-
-**Runtime Impact**: Database query executes **for every mapped object**, causing N+1 query problem.
-
-#### Problem 2: Multiple Enumeration
+#### Problem
 
 ```csharp
 CreateMap<Source, Destination>()
     .ForMember(dest => dest.Total, opt => opt.MapFrom(src =>
         src.Numbers.Sum() + src.Numbers.Average()));  // ❌ Enumerates twice
-// ⚠️ AM031: Multiple enumeration of collection
+// ⚠️ AM031: Multiple enumeration of collection 'Numbers'
 ```
-
-#### Problem 3: Non-Deterministic Operations
-
-```csharp
-CreateMap<Source, Destination>()
-    .ForMember(dest => dest.DaysOld, opt => opt.MapFrom(src =>
-        (DateTime.Now - src.CreatedDate).Days));  // ❌ DateTime.Now
-// ⚠️ AM031: Non-deterministic operation (DateTime.Now)
-```
-
-**Issue**: Mapping same object twice produces different results, breaks unit tests, and causes caching issues.
-
-#### Problem 4: Sync-over-async Deadlock Risk
-
-```csharp
-CreateMap<Source, Destination>()
-    .ForMember(dest => dest.Data, opt => opt.MapFrom(src =>
-        _service.GetDataAsync(src.Id).Result));  // ❌ Synchronous access
-// ⚠️ AM031: Synchronously waiting on async work can cause deadlocks
-```
-
-Task-valued source members are also detected:
-
-```csharp
-CreateMap<Source, Destination>()
-    .ForMember(dest => dest.Data, opt => opt.MapFrom(src =>
-        src.DataTask.Result));  // ❌ Synchronous access
-```
-
-`Task.Wait()`, `Task.WaitAll()`, `Task.WaitAny()`, and `GetAwaiter().GetResult()` are reported through the same descriptor.
 
 #### Solutions
 
@@ -1302,52 +1253,149 @@ CreateMap<Source, Destination>()
     }));
 ```
 
-**Code Fix 2: Ignore Mapping for the Expensive Property**
+**Code Fix 2: Ignore / Remove ForMember**
 
-```csharp
-CreateMap<Source, Destination>()
-    .ForMember(dest => dest.OrderCount, opt => opt.Ignore());
-```
-
-**Code Fix 3: Remove Redundant ForMember (when convention mapping is equivalent)**
-
-If source/destination have compatible same-name members and the existing mapping is already the direct convention shape
-(`MapFrom(src => src.Member)`), AM031 can remove the redundant `ForMember(...)` and let AutoMapper convention mapping
-apply. Transforms such as `src.Score + 1`, captured values, service calls, and other non-equivalent expressions keep the
-manual-review action only so the fixer does not change runtime mapping policy.
-
-#### Detected Patterns
-
-- ✅ Database/query-provider calls (EF Core `DbContext`/`DbSet`/queryable extensions, `Queryable`, `Dapper.SqlMapper`, `NHibernate.ISession`, `System.Data.*`, `Microsoft.Data.SqlClient.SqlConnection`)
-- ✅ File/stream I/O operations (`File`, `Directory`, `FileInfo`, `DirectoryInfo`, filesystem-touching `Path` calls, exact BCL `FileSystemInfo.Delete()`/`Refresh()` inherited operations, archive `ZipFile` operations, exact BCL `FileStream.Flush()`/`SetLength()`/`Lock()`/`Unlock()` calls, file-backed `Stream.CopyTo()` operations, memory-mapped file create/open/view/flush operations, and exact BCL filesystem metadata properties such as `FileInfo.Length`, `FileInfo.Exists`, `DirectoryInfo.Exists`, timestamp, and attribute properties), while in-memory `MemoryStream`, `StringReader`, `StringWriter`, `Stream` locals backed by `MemoryStream`, reader/writer helpers over direct or locally initialized `MemoryStream`, and `TextReader`/`TextWriter` locals backed by `StringReader`/`StringWriter` usage stay quiet
-- ✅ Console I/O operations (`Console.Read*`, `Console.Write*`, standard stream open/set calls)
-- ✅ Framework HTTP/API calls (`HttpClient`, `WebClient`, `HttpMessageInvoker`, `HttpContent` body reads/copies, `System.Net.Http.Json` extension calls, `WebRequest`/`HttpWebRequest` response and request-stream calls)
-- HTTP client control and header-configuration methods such as `CancelPendingRequests()`, `Dispose()`, `DefaultRequestHeaders.Clear()`, and parsed header collection mutators such as `UserAgent.ParseAdd(...)` are intentionally ignored
-- ✅ DNS/network lookup calls (`Dns.GetHostEntry*`, `Dns.GetHostAddresses*`, legacy `Dns.Resolve`/`GetHostBy*`)
-- ✅ Socket/probe network I/O (`TcpClient`, `UdpClient`, `Socket`, `NetworkStream`, `Ping`)
-- ✅ Resource lookups (`System.Resources.ResourceManager.GetString`, `GetObject`, `GetStream`, `GetResourceSet`)
-- ✅ Reflection/runtime activation operations (`object.GetType`, `System.Type`/`System.Reflection` metadata property access including member type metadata, parameter/generic metadata lookup, current-method lookup, runtime/declaration lookup and enumeration, custom-attribute data/static attribute lookup and definition checks, metadata-token/runtime-handle resolution, generic type/member construction, delegate binding, reflection invocation, assembly loading/probing/resource/module lookup including `AssemblyName.GetAssemblyName`, `Assembly.GetSatelliteAssembly`, `Assembly.GetModules`, and `AssemblyLoadContext`, dynamic code generation via `System.Reflection.Emit`, `Activator.CreateInstance`, `Assembly.CreateInstance`, `Expression.Compile`)
-- ✅ Process launch/control/wait operations (`Process.Start`, `Process.Kill`, `Process.CloseMainWindow`, `Process.WaitForExit`, `Process.WaitForInputIdle`, `Environment.Exit`, `Environment.FailFast`)
-- ✅ GC control operations (`GC.Collect`, `GC.WaitForPendingFinalizers`, `GC.TryStartNoGCRegion`, `GC.EndNoGCRegion`, `GC.AddMemoryPressure`, `GC.RemoveMemoryPressure`)
-- ✅ Background work scheduling (`Task.Run`, `TaskFactory.StartNew`, `ThreadPool.QueueUserWorkItem`, `ThreadPool.UnsafeQueueUserWorkItem`, `ThreadPool.RegisterWaitForSingleObject`)
-- ✅ Serialization/deserialization/parsing (`System.Text.Json.JsonSerializer` including node and async-enumerable methods, `System.Xml.Serialization.XmlSerializer`, runtime serializers such as `DataContractSerializer`/`DataContractJsonSerializer`, `JsonDocument.Parse`, `JsonNode.Parse`, `XDocument`/`XElement` `Parse`/`Load`, `XmlDocument.Load`/`LoadXml`)
-- ✅ Compression stream operations (`GZipStream`, `DeflateStream`, `BrotliStream`, `ZLibStream` read/write/copy calls)
-- ✅ Regex operations (`Regex.IsMatch`, `Regex.Match`, `Regex.Matches`, `Regex.Replace`, `Regex.Split`)
-- ✅ Cryptographic hashing, key derivation, public-key, and symmetric transform operations (`HashAlgorithm.ComputeHash`, `SHA256.HashData`, `HMAC*.ComputeHash`, `IncrementalHash.CreateHash`/`CreateHMAC`/`AppendData`/`GetHash*`, `Rfc2898DeriveBytes.GetBytes`, `Rfc2898DeriveBytes.Pbkdf2`, `PasswordDeriveBytes.GetBytes`, `PasswordDeriveBytes.CryptDeriveKey`, `RSA.Encrypt`/`Decrypt`, `RSA`/`ECDsa`/`DSA` sign/verify, `ECDiffieHellman.DeriveKey*`, `SymmetricAlgorithm.CreateEncryptor`/`CreateDecryptor`, `ICryptoTransform.Transform*`)
-- ✅ Blocking thread operations (`Thread.Sleep`, `Thread.SpinWait`, `Thread.Join`, `SpinWait.Spin*`, `WaitHandle.WaitOne`, `Monitor.Wait`, `SemaphoreSlim.Wait`, `ManualResetEventSlim.Wait`, `ReaderWriterLockSlim.Enter*Lock`)
-- ✅ Multiple collection enumerations
-- ✅ `DateTime.Now`/`UtcNow`, `DateTimeOffset.Now`/`UtcNow`, `Random`, `RandomNumberGenerator`, `Stopwatch`, `Guid.NewGuid()`, exact BCL environment state method/property operations
-- ✅ `Task.Result`, `Task.Wait()`, `Task.WaitAll()`, `Task.WaitAny()`, `GetAwaiter().GetResult()`, including Task-valued source properties
-- ✅ Complex LINQ (SelectMany chains)
-- Fast deterministic framework helpers such as `StringComparer`, `EqualityComparer<T>`, `ReferenceEqualityComparer`, and `Comparer<T>` comparison/hash methods are intentionally ignored when the receiver is a known framework comparer singleton, including readonly fields initialized from those singletons or get-only properties initialized from or returning those singletons
+Shared scaffold actions (Ignore with manual review, Remove when convention-equivalent) are available on `ForMember` only.
 
 #### Configuration
 
 ```ini
-# All AM031 descriptors share the single public ID "AM031" (expensive, multi-enum,
-# sync-over-async, non-deterministic, complex LINQ, expensive computation). Severity
-# is all-or-nothing — there are no shipped AM031.00x sub-rule IDs.
 dotnet_diagnostic.AM031.severity = warning
+```
+
+---
+
+### AM034: Expensive Operation
+
+**Severity**: Warning 🟡
+**Category**: AutoMapper.Performance
+
+#### Description
+
+Detects expensive side-effecting operations inside mapping expressions that should run before mapping (database/query providers, file/network I/O, HTTP, reflection/activation, crypto, process/GC/thread control, serialization, and similar BCL work). Analyzes `ForMember` and `ForPath` MapFrom bodies.
+
+#### Problem
+
+```csharp
+public class MappingProfile : Profile
+{
+    private readonly DbContext _db;
+
+    public MappingProfile(DbContext db)
+    {
+        _db = db;
+
+        CreateMap<Source, Destination>()
+            .ForMember(dest => dest.OrderCount, opt => opt.MapFrom(src =>
+                _db.Orders.Count(o => o.UserId == src.Id)));  // ❌ Database query
+        // ⚠️ AM034: Expensive database operation detected
+    }
+}
+```
+
+**Runtime Impact**: The expensive call executes **for every mapped object** (for example N+1 queries).
+
+#### Solutions
+
+Prefer precomputing outside the map. Automatic actions on `ForMember` are scaffold-level: Ignore (manual review) or Remove when the MapFrom is a direct convention-equivalent member pass-through. `ForPath` is analyzer-only.
+
+#### Detected Patterns (summary)
+
+- Database/query-provider calls (EF Core, Dapper, NHibernate, `System.Data.*`, SQL client)
+- File/stream I/O, archives, memory-mapped files (in-memory `MemoryStream`/`StringReader`/`StringWriter` stay quiet)
+- HTTP/DNS/socket I/O, resource lookups, reflection/activation, process/GC/thread control
+- Serialization, compression streams, regex, cryptography, blocking waits
+
+#### Configuration
+
+```ini
+dotnet_diagnostic.AM034.severity = warning
+```
+
+---
+
+### AM035: Expensive Computation
+
+**Severity**: Warning 🟡
+**Category**: AutoMapper.Performance
+
+#### Description
+
+Flags heavy in-lambda computation (for example large `Enumerable.Range` work) that should be precomputed before mapping.
+
+#### Configuration
+
+```ini
+dotnet_diagnostic.AM035.severity = warning
+```
+
+---
+
+### AM036: Sync-Over-Async
+
+**Severity**: Warning 🟡
+**Category**: AutoMapper.Performance
+
+#### Description
+
+Reports synchronous waits on async work inside mapping expressions: `Task.Result`, `Task.Wait()`, `Task.WaitAll()`, `Task.WaitAny()`, and `GetAwaiter().GetResult()`, including Task-valued source members.
+
+#### Problem
+
+```csharp
+CreateMap<Source, Destination>()
+    .ForMember(dest => dest.Data, opt => opt.MapFrom(src =>
+        _service.GetDataAsync(src.Id).Result));  // ❌ Synchronous access
+// ⚠️ AM036: Synchronously waiting on async work can cause deadlocks
+```
+
+#### Configuration
+
+```ini
+dotnet_diagnostic.AM036.severity = warning
+```
+
+---
+
+### AM037: Complex LINQ
+
+**Severity**: Warning 🟡
+**Category**: AutoMapper.Performance
+
+#### Description
+
+Reports complex LINQ shapes (notably real `System.Linq.Enumerable`/`Queryable` `SelectMany` chains) inside mapping expressions that may be better precomputed.
+
+#### Configuration
+
+```ini
+dotnet_diagnostic.AM037.severity = warning
+```
+
+---
+
+### AM038: Non-Deterministic Operation
+
+**Severity**: Info 🔵
+**Category**: AutoMapper.Performance
+
+#### Description
+
+Info-level guidance when mapping uses non-deterministic operations such as `DateTime.Now`/`UtcNow`, `DateTimeOffset.Now`/`UtcNow`, `Random`, `RandomNumberGenerator`, `Guid.NewGuid()`, and exact BCL `Environment` state methods/properties. Prefer computing those values before mapping for testability.
+
+#### Problem
+
+```csharp
+CreateMap<Source, Destination>()
+    .ForMember(dest => dest.DaysOld, opt => opt.MapFrom(src =>
+        (DateTime.Now - src.CreatedDate).Days));  // ❌ DateTime.Now
+// ℹ️ AM038: Non-deterministic operation (DateTime.Now)
+```
+
+#### Configuration
+
+```ini
+dotnet_diagnostic.AM038.severity = suggestion
 ```
 
 ---
@@ -1474,9 +1522,13 @@ dotnet_diagnostic.AM030.severity = error
 dotnet_diagnostic.AM032.severity = warning
 dotnet_diagnostic.AM033.severity = info
 
-# Performance - Treat expensive operations as errors
+# Performance — independent IDs after 2.30.62 split
 dotnet_diagnostic.AM031.severity = warning
-dotnet_diagnostic.AM031.severity = warning
+dotnet_diagnostic.AM034.severity = warning
+dotnet_diagnostic.AM035.severity = warning
+dotnet_diagnostic.AM036.severity = warning
+dotnet_diagnostic.AM037.severity = warning
+dotnet_diagnostic.AM038.severity = suggestion
 ```
 
 ### Project-Level Configuration
@@ -1544,7 +1596,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.61">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.62">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1583,5 +1635,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.61
+**Version**: 2.30.62
 **Maintainer**: George Wall

@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1381%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1382%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,22 +14,23 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.61
+## 🎉 Latest Release: v2.30.62
 
-**Fixer UX polish — ThrowIfNull, best-first AM031, clearer Convert titles**
+**Performance rule ID split — AM031 multi-enum + AM034–AM038**
 
 ✅ **Highlights**
 
-- **AM032**: null-guard fix stays net48-compatible classic if-throw (analyzer recognizes ThrowIfNull).
-- **AM031**: Remove redundant convention ForMember appears before Ignore.
-- **AM003/AM021**: keyword-safe generated MapFrom; clearer lightbulb titles.
+- **AM031**: multiple enumeration only (cache rewrite retained).
+- **AM034–AM038**: expensive op, expensive computation, sync-over-async, complex LINQ, non-deterministic — independent IDs.
+- Independent severity configuration per performance concept.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0` with 1381 tests.
+- Full solution test validation on `net10.0`.
 
 ### Recent Releases
 
+- **v2.30.62**: Split AM031 performance concepts into AM031 + AM034–AM038.
 - **v2.30.61**: Fixer UX Batch 3 — AM031 best-first Remove/Ignore, AM003/AM021 escape + titles, AM032 net48-safe guard emit.
 - **v2.30.60**: Fixer UX Batch 2 — AM001 multi-property Convert-all/Ignore-all, AM022 MaxDepth best-first, shared AddUsingIfMissing.
 - **v2.30.59**: Fixer UX honesty — AM011 Map-all/Scaffold-all honesty, manual-review aggregate titles, no silent no-op lightbulbs for AM020/AM021/AM031, AM022 MaxDepth scaffold title.
@@ -227,7 +228,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.61">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.62">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -358,13 +359,17 @@ public void ConfigureSafeUserMapping() { }
 | AM032                   | Type Converter Null Handling   | ✅        | ✅        | Warning  |
 | AM033                   | Unused Type Converter          | ✅        | —        | Info     |
 | **⚡ Performance**       |                                |          |          |
-| AM031                   | Performance Warnings           | ✅        | ✅        | Warning / Info |
+| AM031                   | Multiple Enumeration           | ✅        | ✅        | Warning  |
+| AM034                   | Expensive Operation            | ✅        | ✅        | Warning  |
+| AM035                   | Expensive Computation          | ✅        | ✅        | Warning  |
+| AM036                   | Sync-Over-Async                | ✅        | ✅        | Warning  |
+| AM037                   | Complex LINQ                   | ✅        | ✅        | Warning  |
+| AM038                   | Non-Deterministic Operation    | ✅        | ✅        | Info     |
 | **⚙️ Configuration**    |                                |          |          |
 | AM041                   | Duplicate Mapping Registration | ✅        | ✅        | Warning  |
 | AM050                   | Redundant MapFrom              | ✅        | ✅        | Info     |
 | **🚀 Future**           |                                |          |          |
-| AM034+                  | Advanced Null Propagation      | 🔮       | 🔮       | -        |
-| AM040+                  | Configuration Rules            | 🔮       | 🔮       | -        |
+| AM040+                  | Additional configuration rules | 🔮       | 🔮       | -        |
 | AM050+                  | Advanced Optimizations         | 🔮       | 🔮       | -        |
 
 ---
@@ -445,13 +450,13 @@ This isn't just another analyzer—it's built for **enterprise-grade reliability
 - **v2.28.0**: Analyzer logic fixes and performance improvements
 - **v2.27.0**: AM050 nullable safety fix and expanded regression coverage
 
-### Phase 5B: Enhanced Analysis (Upcoming)
+### Phase 5B: Performance split (shipped in v2.30.62)
 
-- **AM034**: Advanced null propagation patterns with smart fixes
+- **AM031 / AM034–AM038**: Independent performance rule IDs (multiple enumeration, expensive ops, computation, sync-over-async, complex LINQ, non-determinism)
 
 ### Phase 6: Configuration & Profile Analysis
 
-- **AM040**: Profile registration analysis and auto-registration fixes
+- **AM040+**: Additional profile/configuration analysis
 
 ### Beyond Code Analysis
 

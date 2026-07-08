@@ -130,7 +130,7 @@ public static class RuleCatalog
     /// <summary>
     ///     Current package version used by docs/package drift tests.
     /// </summary>
-    public const string CurrentPackageVersion = "2.30.61";
+    public const string CurrentPackageVersion = "2.30.62";
 
     /// <summary>
     ///     Implemented rules, grouped by public diagnostic ID.
@@ -260,19 +260,52 @@ public static class RuleCatalog
             ]),
         new(
             "AM031",
-            "### AM031: Performance Warning",
+            "### AM031: Multiple Enumeration",
             "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
             typeof(AM031_PerformanceWarningAnalyzer),
             typeof(AM031_PerformanceWarningCodeFixProvider),
             CodeFixTrustLevel.Scaffold,
-            [
-                AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule,
-                AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule,
-                AM031_PerformanceWarningAnalyzer.ExpensiveComputationRule,
-                AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule,
-                AM031_PerformanceWarningAnalyzer.ComplexLinqOperationRule,
-                AM031_PerformanceWarningAnalyzer.NonDeterministicOperationRule
-            ]),
+            [AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule]),
+        new(
+            "AM034",
+            "### AM034: Expensive Operation",
+            "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
+            typeof(AM031_PerformanceWarningAnalyzer),
+            typeof(AM031_PerformanceWarningCodeFixProvider),
+            CodeFixTrustLevel.Scaffold,
+            [AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule]),
+        new(
+            "AM035",
+            "### AM035: Expensive Computation",
+            "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
+            typeof(AM031_PerformanceWarningAnalyzer),
+            typeof(AM031_PerformanceWarningCodeFixProvider),
+            CodeFixTrustLevel.Scaffold,
+            [AM031_PerformanceWarningAnalyzer.ExpensiveComputationRule]),
+        new(
+            "AM036",
+            "### AM036: Sync-Over-Async",
+            "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
+            typeof(AM031_PerformanceWarningAnalyzer),
+            typeof(AM031_PerformanceWarningCodeFixProvider),
+            CodeFixTrustLevel.Scaffold,
+            [AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule]),
+        new(
+            "AM037",
+            "### AM037: Complex LINQ",
+            "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
+            typeof(AM031_PerformanceWarningAnalyzer),
+            typeof(AM031_PerformanceWarningCodeFixProvider),
+            CodeFixTrustLevel.Scaffold,
+            [AM031_PerformanceWarningAnalyzer.ComplexLinqOperationRule]),
+        new(
+            "AM038",
+            "### AM038: Non-Deterministic Operation",
+            "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
+            typeof(AM031_PerformanceWarningAnalyzer),
+            typeof(AM031_PerformanceWarningCodeFixProvider),
+            CodeFixTrustLevel.Scaffold,
+            [AM031_PerformanceWarningAnalyzer.NonDeterministicOperationRule]),
         new(
             "AM041",
             "### AM041: Duplicate Mapping Registration",

@@ -3,13 +3,13 @@ using AutoMapper;
 namespace AutoMapperAnalyzer.Samples.Performance;
 
 /// <summary>
-///     Examples of AM031 performance warnings that the analyzer will detect
+///     Examples of performance diagnostics (AM031, AM034–AM038) that the analyzer will detect
 /// </summary>
 public class AM031_PerformanceExamples
 {
     /// <summary>
-    ///     AM031: Database Call in MapFrom
-    ///     This should trigger AM031 diagnostic
+    ///     AM034: Database Call in MapFrom
+    ///     This should trigger AM034 diagnostic
     /// </summary>
     public void DatabaseCallInMappingExample()
     {
@@ -18,7 +18,7 @@ public class AM031_PerformanceExamples
         var config = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<UserEntity, UserDto>()
-                // ❌ AM031: Database query in mapping - perform before mapping
+                // ❌ AM034: Database query in mapping - perform before mapping
                 .ForMember(dest => dest.OrderCount,
                     opt => opt.MapFrom(src => dbContext.Orders.Count(o => o.UserId == src.Id)));
         });
@@ -35,8 +35,8 @@ public class AM031_PerformanceExamples
     }
 
     /// <summary>
-    ///     AM031: External Method Call in MapFrom
-    ///     This should trigger AM031 diagnostic
+    ///     AM034: External Method Call in MapFrom
+    ///     This should trigger AM034 diagnostic
     /// </summary>
     public void ExternalMethodCallExample()
     {
@@ -45,7 +45,7 @@ public class AM031_PerformanceExamples
         var config = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<Product, ProductDto>()
-                // ❌ AM031: External service call in mapping
+                // ❌ AM034: External service call in mapping
                 .ForMember(dest => dest.EnrichedData,
                     opt => opt.MapFrom(src => externalService.EnrichProductData(src.Id)));
         });
@@ -62,15 +62,15 @@ public class AM031_PerformanceExamples
     }
 
     /// <summary>
-    ///     AM031: File I/O in MapFrom
-    ///     This should trigger AM031 diagnostic
+    ///     AM034: File I/O in MapFrom
+    ///     This should trigger AM034 diagnostic
     /// </summary>
     public void FileIOInMappingExample()
     {
         var config = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<Document, DocumentDto>()
-                // ❌ AM031: File I/O operation in mapping
+                // ❌ AM034: File I/O operation in mapping
                 .ForMember(dest => dest.Content,
                     opt => opt.MapFrom(src => File.Exists(src.FilePath) ? File.ReadAllText(src.FilePath) : ""));
         });
@@ -110,15 +110,15 @@ public class AM031_PerformanceExamples
     }
 
     /// <summary>
-    ///     AM031: Expensive Computation in MapFrom
-    ///     This should trigger the expensive-computation AM031 descriptor
+    ///     AM035: Expensive Computation in MapFrom
+    ///     This should trigger the expensive-computation AM035 descriptor
     /// </summary>
     public void ExpensiveComputationExample()
     {
         var config = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<PrimeCandidate, PrimeCandidateDto>()
-                // ❌ AM031: Prime checking does too much work inside mapping
+                // ❌ AM035: Prime checking does too much work inside mapping
                 .ForMember(dest => dest.IsPrime,
                     opt => opt.MapFrom(src =>
                         src.Number > 1 && !Enumerable.Range(2, (int)Math.Sqrt(src.Number) - 1)
@@ -132,8 +132,8 @@ public class AM031_PerformanceExamples
     }
 
     /// <summary>
-    ///     AM031: Sync-over-async Access
-    ///     This should trigger AM031 diagnostic
+    ///     AM036: Sync-over-async Access
+    ///     This should trigger AM036 diagnostic
     /// </summary>
     public void TaskResultExample()
     {
@@ -142,7 +142,7 @@ public class AM031_PerformanceExamples
         var config = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<AM031Customer, AM031CustomerDto>()
-                // ❌ AM031: synchronously waiting on async work can cause deadlocks
+                // ❌ AM036: synchronously waiting on async work can cause deadlocks
                 .ForMember(dest => dest.ExternalData,
                     opt => opt.MapFrom(src => asyncService.GetDataAsync(src.Id).Result));
         });
@@ -159,15 +159,15 @@ public class AM031_PerformanceExamples
     }
 
     /// <summary>
-    ///     AM031: DateTime.Now in MapFrom
-    ///     This should trigger AM031 diagnostic
+    ///     AM038: DateTime.Now in MapFrom
+    ///     This should trigger AM038 diagnostic
     /// </summary>
     public void DateTimeNowExample()
     {
         var config = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<BlogPost, BlogPostDto>()
-                // ❌ AM031: DateTime.Now is non-deterministic
+                // ❌ AM038: DateTime.Now is non-deterministic
                 .ForMember(dest => dest.DaysOld,
                     opt => opt.MapFrom(src => (DateTime.Now - src.CreatedDate).Days));
         });
@@ -184,15 +184,15 @@ public class AM031_PerformanceExamples
     }
 
     /// <summary>
-    ///     AM031: Reflection in MapFrom
-    ///     This should trigger AM031 diagnostic
+    ///     AM034: Reflection in MapFrom
+    ///     This should trigger AM034 diagnostic
     /// </summary>
     public void ReflectionExample()
     {
         var config = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<DynamicEntity, DynamicEntityDto>()
-                // ❌ AM031: Reflection is expensive
+                // ❌ AM034: Reflection is expensive
                 .ForMember(dest => dest.TypeName,
                     opt => opt.MapFrom(src => src.Data != null ? src.Data.GetType().Name : "Unknown"));
         });
@@ -204,8 +204,8 @@ public class AM031_PerformanceExamples
     }
 
     /// <summary>
-    ///     AM031: HTTP Request in MapFrom
-    ///     This should trigger AM031 diagnostic
+    ///     AM034: HTTP Request in MapFrom
+    ///     This should trigger AM034 diagnostic
     /// </summary>
     public void HttpRequestExample()
     {
@@ -214,7 +214,7 @@ public class AM031_PerformanceExamples
         var config = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ApiReference, ApiReferenceDto>()
-                // ❌ AM031: HTTP request in mapping
+                // ❌ AM034: HTTP request in mapping
                 .ForMember(dest => dest.ApiResponse,
                     opt => opt.MapFrom(src => httpClient.GetStringAsync(src.ApiUrl).Result));
         });
@@ -226,15 +226,15 @@ public class AM031_PerformanceExamples
     }
 
     /// <summary>
-    ///     AM031: Complex LINQ Operation
-    ///     This should trigger AM031 diagnostic
+    ///     AM037: Complex LINQ Operation
+    ///     This should trigger AM037 diagnostic
     /// </summary>
     public void ComplexLinqExample()
     {
         var config = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<DataContainer, DataContainerDto>()
-                // ❌ AM031: Complex SelectMany with nested operations
+                // ❌ AM037: Complex SelectMany with nested operations
                 .ForMember(dest => dest.FilteredCount,
                     opt => opt.MapFrom(src => src.NestedData
                         .SelectMany(list => list.Where(item => item.Length > 5))
@@ -256,7 +256,7 @@ public class AM031_PerformanceExamples
     }
 }
 
-// Supporting classes for AM031 examples
+// Supporting classes for performance examples
 
 public class SampleDbContext
 {

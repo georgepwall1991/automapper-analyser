@@ -8,8 +8,10 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace AutoMapperAnalyzer.Analyzers.Performance;
 
 /// <summary>
-///     Analyzer for AM031: Performance warnings in AutoMapper configurations.
-///     Detects expensive operations in mapping expressions that should be performed before mapping.
+///     Analyzer for performance warnings in AutoMapper mapping expressions.
+///     Public rule IDs: AM031 (multiple enumeration), AM034 (expensive operation),
+///     AM035 (expensive computation), AM036 (sync-over-async), AM037 (complex LINQ),
+///     AM038 (non-deterministic).
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
@@ -34,10 +36,10 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     private const string NonDeterministicIssueType = "NonDeterministic";
 
     /// <summary>
-    ///     Diagnostic rule for expensive operations in MapFrom expressions.
+    ///     Diagnostic rule for expensive operations in MapFrom expressions (AM034).
     /// </summary>
     public static readonly DiagnosticDescriptor ExpensiveOperationInMapFromRule = new(
-        "AM031",
+        "AM034",
         "Expensive operation in mapping expression",
         "Property '{0}' mapping contains {1} that should be performed before mapping to avoid performance issues",
         "AutoMapper.Performance",
@@ -46,7 +48,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "Expensive operations (database queries, API calls, file I/O, blocking calls) should be performed before mapping, not during.");
 
     /// <summary>
-    ///     Diagnostic rule for multiple enumerations of the same collection.
+    ///     Diagnostic rule for multiple enumerations of the same collection (AM031).
     /// </summary>
     public static readonly DiagnosticDescriptor MultipleEnumerationRule = new(
         "AM031",
@@ -58,10 +60,10 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "Multiple enumerations of IEnumerable can cause performance issues. Cache the result before multiple operations.");
 
     /// <summary>
-    ///     Diagnostic rule for expensive computations in mapping.
+    ///     Diagnostic rule for expensive computations in mapping (AM035).
     /// </summary>
     public static readonly DiagnosticDescriptor ExpensiveComputationRule = new(
-        "AM031",
+        "AM035",
         "Expensive computation in mapping expression",
         "Property '{0}' mapping contains expensive computation that may impact performance. Consider computing before mapping.",
         "AutoMapper.Performance",
@@ -70,10 +72,10 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "Complex computations in mapping expressions can impact performance. Consider computing values before mapping.");
 
     /// <summary>
-    ///     Diagnostic rule for synchronous access of async operations.
+    ///     Diagnostic rule for synchronous access of async operations (AM036).
     /// </summary>
     public static readonly DiagnosticDescriptor TaskResultSynchronousAccessRule = new(
-        "AM031",
+        "AM036",
         "Synchronous access of async operation in mapping",
         "Property '{0}' mapping synchronously waits on an async operation, which can cause deadlocks. Perform async operations before mapping.",
         "AutoMapper.Performance",
@@ -82,10 +84,10 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "Using Task.Result, Task.Wait(), Task.WaitAll(), Task.WaitAny(), or GetAwaiter().GetResult() in mapping can cause deadlocks and performance issues. Await async operations before mapping.");
 
     /// <summary>
-    ///     Diagnostic rule for complex LINQ operations.
+    ///     Diagnostic rule for complex LINQ operations (AM037).
     /// </summary>
     public static readonly DiagnosticDescriptor ComplexLinqOperationRule = new(
-        "AM031",
+        "AM037",
         "Complex LINQ operation in mapping",
         "Property '{0}' mapping contains complex LINQ operation that may impact performance. Consider simplifying or computing before mapping.",
         "AutoMapper.Performance",
@@ -94,10 +96,10 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "Complex LINQ operations with SelectMany, multiple Where clauses, or nested queries can impact performance.");
 
     /// <summary>
-    ///     Diagnostic rule for non-deterministic operations in mapping.
+    ///     Diagnostic rule for non-deterministic operations in mapping (AM038).
     /// </summary>
     public static readonly DiagnosticDescriptor NonDeterministicOperationRule = new(
-        "AM031",
+        "AM038",
         "Non-deterministic operation in mapping",
         "Property '{0}' mapping uses {1} which produces non-deterministic results. Consider computing before mapping for testability.",
         "AutoMapper.Performance",
@@ -110,8 +112,9 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
     /// </summary>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
     [
-        ExpensiveOperationInMapFromRule,
+        // Order matches RuleCatalog entry order (public ID sequence).
         MultipleEnumerationRule,
+        ExpensiveOperationInMapFromRule,
         ExpensiveComputationRule,
         TaskResultSynchronousAccessRule,
         ComplexLinqOperationRule,

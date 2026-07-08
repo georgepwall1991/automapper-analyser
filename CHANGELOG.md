@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.62] - 2026-07-08
+
+Split multi-concept AM031 performance diagnostics into independent public rule IDs.
+
+### Changed
+
+- **AM031**: public ID now covers **multiple enumeration** only (cache rewrite + scaffold actions unchanged).
+- **AM034–AM038**: expensive operation, expensive computation, sync-over-async, complex LINQ, and non-deterministic operations each get their own ID, severity, docs anchor, and catalog entry (shared analyzer/fixer implementation).
+- **Migration**: suppressions / `.editorconfig` entries for the old umbrella `AM031` now only silence **multiple enumeration**. Configure `AM034`–`AM038` explicitly for expensive ops, computation, sync-over-async, complex LINQ, and non-determinism.
+
+### Validation
+
+- Full suite on `net10.0`: **1382** passed.
+- AnalyzerVerifier catalog/snapshots updated.
+
 ## [2.30.61] - 2026-07-08
 
 Fixer UX executable polish (Batch 3).
