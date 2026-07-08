@@ -318,7 +318,12 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static HashSet<string> FindRecursiveDestinationProperties(
+    /// <summary>
+    ///     Destination properties on a CreateMap pair whose convention-mapped path participates
+    ///     in a configured circular graph (self-ref or multi-type). Used by the analyzer for
+    ///     Ignore suppression and by the code fix for graph-aware Ignore actions.
+    /// </summary>
+    internal static HashSet<string> FindRecursiveDestinationProperties(
         INamedTypeSymbol sourceType,
         INamedTypeSymbol destinationType,
         CreateMapRegistry createMapRegistry

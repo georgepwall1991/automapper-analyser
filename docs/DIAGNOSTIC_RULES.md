@@ -915,7 +915,10 @@ CreateMap<SourcePerson, DestinationPerson>()
     .PreserveReferences();  // ✅ Reuses already-mapped references
 ```
 
-**Option 3: Ignore Circular Property**
+**Option 3: Ignore Circular Property (Code Fix)**
+
+The lightbulb offers Ignore for destination **self-references** and for **graph cycle edges** on multi-type chains
+(e.g. `A.BReference` in an A→B→C→A map). MaxDepth scaffold remains the first action.
 
 ```csharp
 CreateMap<SourcePerson, DestinationPerson>()
@@ -1596,7 +1599,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.62">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.63">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1635,5 +1638,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.62
+**Version**: 2.30.63
 **Maintainer**: George Wall

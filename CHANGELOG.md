@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## [2.30.63] - 2026-07-08
+
+AM022 graph-aware Ignore for multi-type circular maps.
+
+### Changed
+
+- **AM022**: code fix Ignore actions use the analyzer's recursive destination-property graph when the destination has no same-type self-reference, so multi-type cycles (A→B→C→A) offer Ignore on the cycle edge (e.g. `BReference`) instead of MaxDepth-only.
+- Lightbulb titles use "circular property" (covers self-ref and graph edges). MaxDepth(2) scaffold remains best-first.
+
+### Validation
+
+- AM022 suite + full solution tests on `net10.0`.
+
 ## [2.30.62] - 2026-07-08
 
 Split multi-concept AM031 performance diagnostics into independent public rule IDs.
@@ -14,7 +27,7 @@ Split multi-concept AM031 performance diagnostics into independent public rule I
 
 ### Validation
 
-- Full suite on `net10.0`: **1382** passed.
+- Full suite on `net10.0`: **1384** passed.
 - AnalyzerVerifier catalog/snapshots updated.
 
 ## [2.30.61] - 2026-07-08
