@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## [2.30.59] - 2026-07-08
+
+Fixer UX honesty hardening (Batch 1).
+
 ### Changed
 
 - **Fixer UX honesty (Batch 1)**: code actions no longer oversell scaffolds or advertise silent no-ops.
@@ -10,6 +14,11 @@
   - **AM022**: MaxDepth action title is `Add MaxDepth(2) scaffold (review depth)` to match catalog Scaffold trust.
   - **AM031**: Ignore/Remove only register when the `ForMember` peel target exists (no silent no-op apply).
   - **AM020 / AM021**: CreateMap-insert actions only register when a constructor or method block statement list can host the insert; method/ctor hosts require bare/`this` CreateMap (not `cfg.CreateMap`) so inserts stay compile-safe.
+
+### Validation
+
+- Full solution test suite (`net10.0`) green: 1380 passed.
+- Codex review: meaningful UX improvement; receiver-qualified CreateMap insert withheld.
 
 ## [2.30.58] - 2026-07-08
 

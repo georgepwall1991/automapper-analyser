@@ -1,6 +1,6 @@
 # Analyzer Health
 
-Reviewed: 2026-07-08 (previous review: 2026-07-08 hitlist; current shipped version: 2.30.58)
+Reviewed: 2026-07-08 (previous review: 2026-07-08 hitlist; current shipped version: 2.30.59)
 
 This is a deliberately harsh health audit for the 16 implemented AutoMapper analyzer rule IDs in this repository. Several rule IDs expose multiple diagnostic descriptors, especially `AM002`, `AM022`, and `AM031`; the scorecard rates the public rule ID as the user experiences it.
 
@@ -125,7 +125,7 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 | AM030 | ~5 direct tests in shared 146-test bucket. | Tests 4→3; tightened Notes. | AM030 Tests −1 |
 | AM032 | Null-flow heuristic + throw-only fix policy risk. | False Positives 4→3; tightened Notes. | AM032 False Positives −1 |
 
-## Fixer Trust Summary (v2.30.58)
+## Fixer Trust Summary (v2.30.59)
 
 | Rule | Fixable? | Catalog trust | Notes |
 | --- | --- | --- | --- |
