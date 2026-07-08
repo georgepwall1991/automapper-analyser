@@ -6,7 +6,7 @@ This is a deliberately harsh health audit for the **21** implemented AutoMapper 
 
 Every implemented rule currently has an analyzer and a code fix provider. Scores are 1-5, where `5` means reference-quality and hard to improve, `3` means usable but meaningfully incomplete, and `1` means unreliable or underbuilt.
 
-**Ship status:** production-acceptable. **2.30.62** splits AM031 multi-concept ID into AM031 + AM034–AM038. Remaining highest residual is **AM022** (FP/Fix min 3). Full suite green; catalog/snapshots current.
+**Ship status:** production-acceptable. **2.30.63** AM022 graph-aware Ignore; **2.30.62** splits AM031 multi-concept ID into AM031 + AM034–AM038. Remaining highest residual is **AM022** (FP/Fix min 3). Full suite green; catalog/snapshots current.
 
 ## Rubric
 
@@ -42,7 +42,7 @@ Priority is a planning signal: `High` means the analyzer is important and has me
 | AM011 | Required destination property is not mapped | Data Integrity | Error | 4 | 5 | 4 | 5 | 5 | 5 | Low | Important runtime-failure guardrail; per-property fuzzy now resolves ReverseMap types (same as aggregate). Fix Strategy 4: Map-all only when every property has unique fuzzy; mixed/default bulk uses honest Scaffold-all + (manual review); Ignore-all labeled manual review; stale diagnostics withhold. Residual: primary single-property path still scaffolds defaults. |
 | AM020 | Nested object mapping configuration missing | Complex Mappings | Warning | 4 | 4 | 4 | 5 | 5 | 5 | Low | Reference analyzer; fixer now shares public+internal property discovery with the analyzer (internal nested CreateMap fix covered). Catalog trust is `LikelyRewrite` (constructor-body insertion remains a structural limit). |
 | AM021 | Collection element type incompatibility | Complex Mappings | Warning | 4 | 4 | 4 | 5 | 4 | 4 | Low | Defers fully when AM003 owns container incompatibility (shared helper). Same-container element mismatches, dictionary axes, reverse gaps, and implicit element conversions remain AM021. List simple Select rewrites now refuse non-compiling Parse destinations (string-source gate matches dictionaries). |
-| AM022 | Infinite recursion risk | Complex Mappings | Warning | 4 | 3 | 3 | 5 | 4 | 4 | Low | Requires configured nested CreateMap chains for indirect cycles; strong suppressions. Catalog `Scaffold` matches hard-coded `MaxDepth(2)` policy; lightbulb title now says scaffold (review depth). Residual: fixer Ignore discovery is direct self-ref only (multi-type cycles MaxDepth-only); intentional circular DTOs and graph heuristics. |
+| AM022 | Infinite recursion risk | Complex Mappings | Warning | 4 | 3 | 4 | 5 | 4 | 4 | Low | Requires configured nested CreateMap chains for indirect cycles; strong suppressions. Catalog `Scaffold` matches hard-coded `MaxDepth(2)` policy; lightbulb title now says scaffold (review depth). **Fix Strategy 4** (2.30.63): Ignore uses analyzer graph edges for multi-type cycles. Residual: intentional circular DTOs and analyzer graph FP heuristics (FP still 3). |
 | AM030 | Invalid type converter implementation | Custom Conversions | Error | 4 | 4 | 4 | 4 | 4 | 3 | Low | Analyzer-only by design; AM001/AM020/AM021 own missing-converter mapping. Split from AM032/AM033 is clean in catalog and trust tests. Direct AM030 coverage includes empty implementation, wrong return type, missing `ResolutionContext`, and non-public `Convert` (each paired with the matching compiler error). |
 | AM032 | Type converter null handling | Custom Conversions | Warning | 4 | 4 | 4 | 5 | 4 | 4 | Low | Best-in-class null-guard detection with catalog `LikelyRewrite` trust. Recognizes `ThrowIfNull*`, switch/pattern/coalesce/conditional-access guards, and pure nullable→nullable source pass-through (`return source` / `=> source`). Residual: heuristic null-flow edge cases; the auto-fix still inserts `ArgumentNullException` (appropriate when a diagnostic fires for non-nullable destinations without intentional null handling). |
 | AM033 | Unused type converter | Custom Conversions | Info | 4 | 4 | 4 | 4 | 4 | 2 | Low | Unused-converter diagnostics now have their own Info rule ID and remain analyzer-only, and the shared converter code-fix provider no longer advertises AM033 as fixable. Usage analysis recognizes generic, instance, type-based including parenthesized/casted `typeof(...)` and simple explicit or implicit `Type` locals/fields/properties initialized from, expression-bodied to, or getter-bodied to `typeof(...)`, parameterless `Type` factory methods and local functions that expression-body or return `typeof(...)`, simple interface-typed locals/fields/properties, and DI/service-provider interface handles passed to `ConvertUsing(...)`. Product importance is intentionally lower because this is cleanup guidance. |
@@ -71,7 +71,7 @@ Use this table as the hardening queue. Ranking = **Importance × (5 − min(Anal
 
 | Rank | Rule | Signal | Residual (evidence-backed) | Likely score move if closed |
 | --- | --- | --- | --- | --- |
-| 1 | **AM022** | gap=8, min=3 | Analyzer FP: graph heuristics + intentional circular DTOs (FP=3). Fixer Ignore discovery is **destination self-ref properties only** (`FindSelfReferencingProperties`); multi-type cycles get MaxDepth scaffold only. Catalog `Scaffold` + MaxDepth(2) honesty already matches. | FP and/or Fix 3→4 if graph-aware Ignore + better intentional-cycle suppressions land with tests |
+| 1 | **AM022** | gap=4, min=3 (FP) | Graph-aware Ignore shipped 2.30.63 (Fix 4). Residual: intentional circular DTO false positives / graph heuristics (FP=3). | FP 3→4 needs better intentional-cycle suppressions |
 | 2 | **AM001** | gap=5, min=4 | Diagnostics still land on **CreateMap invocation** (`invocation.GetLocation()`), not property tokens (unlike AM004/005/006/011). Fix Strategy already 5 (Convert-all/Ignore-all + nested individual). | Analyzer/Docs polish only unless placement ships |
 | 3 | **AM004 / AM006** | gap=5/4 | Aggregate Map-all / DoNotValidate-all / Ignore-all need multi-diagnostic **group** context; same-document single-property lightbulbs do not recompute siblings the way AM011 does. Catalog Scaffold remains correct. | Fix 4→5 if same-document sibling recompute matches AM011 without inventing mappings |
 | 4 | **AM031 / AM034–AM038** | Fix=3 | Shared ForPath analyzer-only + Scaffold policy after ID split. Further smell breadth is diminishing returns. | Fix 3→4 only with ForPath-safe rewrites |
@@ -84,9 +84,9 @@ Use this table as the hardening queue. Ranking = **Importance × (5 − min(Anal
 
 **Recommended next hardening batch:**
 
-1. **AM022 graph-aware Ignore + intentional-cycle FP**
-2. **AM004/AM006 same-document sibling recompute**
-3. **AM001 property-token placement**
+1. **AM004/AM006 same-document sibling recompute**
+2. **AM001 property-token placement**
+3. **AM022 intentional-cycle FP** (remaining after graph-aware Ignore)
 
 Do **not** open advanced AM001/AM002 conversion/nullability modelling without a filed false-positive/false-negative repro.
 
@@ -107,7 +107,7 @@ The Planning Shortlist above summarises overall rule priority; this backlog is t
 Active queue (also summarized in Working Base). Prefer one focus per hardening batch:
 
 - _AM031 ID split — resolved in 2.30.62._ AM031 multi-enum; AM034–AM038 independent IDs.
-- **AM022 graph-aware Ignore + intentional-cycle FP.** Fixer `FindSelfReferencingProperties` is destination self-ref only; multi-type cycles are MaxDepth-only. Analyzer FP remains the intentional circular-DTO / graph-heuristic class.
+- _AM022 graph-aware Ignore — resolved in 2.30.63._ Multi-type cycle edges offered for Ignore. Residual: intentional circular-DTO FP (FP=3).
 - **AM004 / AM006 same-document sibling recompute.** Match AM011's ability to offer honest aggregates from a single property-token diagnostic without inventing mappings.
 - **AM001 property-token diagnostic placement.** Still reports on `CreateMap` invocation span; data-integrity rules already land on property tokens.
 - **AM032 destination-aware null fixes.** Emit stays classic net48 `if-throw`; not destination-nullability-aware. Analyzer ThrowIfNull* recognition is already strong.
@@ -148,6 +148,12 @@ Still open (do not start without a repro or explicit product decision):
 - **AM022 / AM031 dataflow-grade heuristics.** High effort, diminishing returns until a concrete false-positive pattern is filed (prefer P2 ID-split / graph-Ignore first).
 - **AM020 constructor-body CreateMap insert.** Structural host limit; catalog `LikelyRewrite` already honest.
 
+
+## Reanalysis Changelog (2026-07-08 → 2.30.63 AM022 graph-aware Ignore)
+
+| Rules | Finding | Change | Score impact |
+| --- | --- | --- | --- |
+| AM022 | Multi-type cycles MaxDepth-only (Ignore was dest self-ref only) | Fixer reuses `FindRecursiveDestinationProperties` for cycle-edge Ignore | Fix Strategy 3→4 |
 
 ## Reanalysis Changelog (2026-07-08 → 2.30.62 AM031 ID split)
 
@@ -195,7 +201,7 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 | AM030 | ~5 direct tests in shared 146-test bucket. | Tests 4→3; tightened Notes. | AM030 Tests −1 |
 | AM032 | Null-flow heuristic + throw-only fix policy risk. | False Positives 4→3; tightened Notes. | AM032 False Positives −1 |
 
-## Fixer Trust Summary (v2.30.62)
+## Fixer Trust Summary (v2.30.63)
 
 | Rule | Fixable? | Catalog trust | Notes |
 | --- | --- | --- | --- |
@@ -206,7 +212,7 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 | AM005 | Yes | LikelyRewrite | Single explicit `ForMember` rewrite; keyword-escaped source |
 | AM020 | Yes | LikelyRewrite | Adds missing `CreateMap<,>()` pairs; public+internal property parity |
 | AM021 | Yes | LikelyRewrite | Executable `ToDictionary`/Select rewrites; Parse gated to string sources |
-| AM022 | Yes | Scaffold | `MaxDepth(2)` policy scaffold + ignore (manual review) |
+| AM022 | Yes | Scaffold | `MaxDepth(2)` + graph-aware Ignore on cycle edges (manual review) |
 | AM030, AM033 | No | NoFix | Analyzer-only by design |
 | AM032 | Yes | LikelyRewrite | Inserts `ArgumentNullException` guard |
 | AM031 | Yes | Scaffold | Multiple enumeration; cache rewrite + Ignore/Remove on ForMember; ForPath analyzer-only |

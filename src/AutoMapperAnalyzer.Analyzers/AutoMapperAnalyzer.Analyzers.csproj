@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>62</PatchVersion>
+        <PatchVersion>63</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,9 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.62 - Split AM031 performance concepts into independent rule IDs
-- AM031 multiple enumeration (kept)
-- AM034 expensive operation, AM035 expensive computation, AM036 sync-over-async, AM037 complex LINQ, AM038 non-deterministic
-- Independent severity/docs/catalog entries; shared analyzer + code fix provider
+                <PackageReleaseNotes>Version 2.30.63 - AM022 graph-aware Ignore for multi-type cycles
+- Ignore lightbulb now offers cycle-edge properties from the analyzer graph walk (not only destination self-refs)
+- Titles say circular property; MaxDepth scaffold remains best-first
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

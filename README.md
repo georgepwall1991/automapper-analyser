@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1382%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1384%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,15 +14,14 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.62
+## 🎉 Latest Release: v2.30.63
 
-**Performance rule ID split — AM031 multi-enum + AM034–AM038**
+**AM022 graph-aware Ignore for multi-type cycles**
 
 ✅ **Highlights**
 
-- **AM031**: multiple enumeration only (cache rewrite retained).
-- **AM034–AM038**: expensive op, expensive computation, sync-over-async, complex LINQ, non-deterministic — independent IDs.
-- Independent severity configuration per performance concept.
+- **AM022**: Ignore lightbulb uses analyzer graph edges (not only destination self-refs).
+- MaxDepth scaffold remains best-first; titles say "circular property".
 
 🧪 **Validation**
 
@@ -30,6 +29,7 @@ prevention*
 
 ### Recent Releases
 
+- **v2.30.63**: AM022 graph-aware Ignore for multi-type cycles.
 - **v2.30.62**: Split AM031 performance concepts into AM031 + AM034–AM038.
 - **v2.30.61**: Fixer UX Batch 3 — AM031 best-first Remove/Ignore, AM003/AM021 escape + titles, AM032 net48-safe guard emit.
 - **v2.30.60**: Fixer UX Batch 2 — AM001 multi-property Convert-all/Ignore-all, AM022 MaxDepth best-first, shared AddUsingIfMissing.
@@ -228,7 +228,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.62">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.63">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

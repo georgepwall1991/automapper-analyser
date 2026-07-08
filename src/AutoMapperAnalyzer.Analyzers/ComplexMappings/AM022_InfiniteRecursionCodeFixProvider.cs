@@ -42,7 +42,7 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
                 continue;
             }
 
-            // Get the type arguments to identify self-referencing properties
+            // Get the type arguments to identify cycle-breaking properties
             (ITypeSymbol? sourceType, ITypeSymbol? destType) createMapTypes =
                 AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, operationContext.SemanticModel);
             if (createMapTypes.Item1 == null || createMapTypes.Item2 == null)
@@ -50,12 +50,11 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
                 continue;
             }
 
-            // Find all self-referencing properties
-            ImmutableList<string> selfReferencingProperties = FindSelfReferencingProperties(createMapTypes.Item2);
-
-            // Register fixes based on complexity:
-            // - Single property: Ignore first (specific and simple)
-            // - Multiple properties or none: MaxDepth first (simpler than ignoring all)
+            // Analyzer graph edges (includes self-ref + multi-type cycle properties).
+            ImmutableList<string> cycleProperties = FindCycleBreakingProperties(
+                createMapTypes.Item1,
+                createMapTypes.Item2,
+                operationContext.SemanticModel);
 
             // Best-first: MaxDepth scaffold first (consistent single- and multi-property), then Ignore.
             context.RegisterCodeFix(
@@ -66,34 +65,56 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
                     "AM022_AddMaxDepth"),
                 diagnostic);
 
-            if (selfReferencingProperties.Count == 1)
+            if (cycleProperties.Count == 1)
             {
-                string propertyName = selfReferencingProperties[0];
+                string propertyName = cycleProperties[0];
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        $"Ignore self-referencing property '{propertyName}' (manual review)",
+                        $"Ignore circular property '{propertyName}' (manual review)",
                         cancellationToken =>
                             AddIgnoreAsync(context.Document, operationContext.Root, invocation, propertyName),
                         $"AM022_Ignore_{propertyName}"),
                     diagnostic);
             }
-            else if (selfReferencingProperties.Count > 1)
+            else if (cycleProperties.Count > 1)
             {
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        $"Ignore all {selfReferencingProperties.Count} self-referencing properties (manual review)",
+                        $"Ignore all {cycleProperties.Count} circular properties (manual review)",
                         cancellationToken =>
                             AddIgnoreMultipleAsync(context.Document, operationContext.Root, invocation,
-                                selfReferencingProperties),
+                                cycleProperties),
                         "AM022_IgnoreAll"),
                     diagnostic);
             }
         }
     }
 
+    private static ImmutableList<string> FindCycleBreakingProperties(
+        ITypeSymbol sourceType,
+        ITypeSymbol destType,
+        SemanticModel semanticModel)
+    {
+        // Prefer the same graph edges the analyzer uses for Ignore suppression so the lightbulb
+        // cannot suggest a self-ref Ignore that leaves a multi-type cycle diagnostic alive.
+        if (sourceType is INamedTypeSymbol namedSource && destType is INamedTypeSymbol namedDest)
+        {
+            CreateMapRegistry registry = CreateMapRegistry.FromCompilation(semanticModel.Compilation);
+            HashSet<string> recursive = AM022_InfiniteRecursionAnalyzer
+                .FindRecursiveDestinationProperties(namedSource, namedDest, registry);
+            if (recursive.Count > 0)
+            {
+                return recursive.OrderBy(name => name, StringComparer.Ordinal).ToImmutableList();
+            }
+        }
+
+        // Fallback: destination same-type self-references when the graph walk is empty.
+        return FindSelfReferencingProperties(destType);
+    }
+
     private static ImmutableList<string> FindSelfReferencingProperties(ITypeSymbol destType)
     {
-        var selfReferencingProps = new HashSet<string>();
+        var selfReferencingProps = new HashSet<string>(StringComparer.Ordinal);
         IEnumerable<IPropertySymbol> destinationProperties =
             AutoMapperAnalysisHelpers.GetMappableProperties(destType, requireSetter: false);
 
@@ -112,7 +133,7 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
             }
         }
 
-        return selfReferencingProps.ToImmutableList();
+        return selfReferencingProps.OrderBy(name => name, StringComparer.Ordinal).ToImmutableList();
     }
 
     private Task<Document> AddMaxDepthAsync(

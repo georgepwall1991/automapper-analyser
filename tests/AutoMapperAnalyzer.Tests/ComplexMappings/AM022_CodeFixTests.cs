@@ -673,6 +673,230 @@ public class AM022_CodeFixTests
     }
 
     [Fact]
+    public async Task AM022_ShouldOfferIgnoreForGraphCycleEdge_ThreeTypes()
+    {
+        // Multi-type A→B→C→A has no destination self-ref; Ignore must use graph-aware edges.
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceB BReference { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public string Data { get; set; }
+                                        public SourceC CReference { get; set; }
+                                    }
+
+                                    public class SourceC
+                                    {
+                                        public int Value { get; set; }
+                                        public SourceA AReference { get; set; }
+                                    }
+
+                                    public class DestA
+                                    {
+                                        public string Name { get; set; }
+                                        public DestB BReference { get; set; }
+                                    }
+
+                                    public class DestB
+                                    {
+                                        public string Data { get; set; }
+                                        public DestC CReference { get; set; }
+                                    }
+
+                                    public class DestC
+                                    {
+                                        public int Value { get; set; }
+                                        public DestA AReference { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            // B/C already scaffolded so only A reports — isolates graph-aware Ignore.
+                                            CreateMap<SourceA, DestA>();
+                                            CreateMap<SourceB, DestB>().MaxDepth(2);
+                                            CreateMap<SourceC, DestC>().MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class SourceA
+                                             {
+                                                 public string Name { get; set; }
+                                                 public SourceB BReference { get; set; }
+                                             }
+
+                                             public class SourceB
+                                             {
+                                                 public string Data { get; set; }
+                                                 public SourceC CReference { get; set; }
+                                             }
+
+                                             public class SourceC
+                                             {
+                                                 public int Value { get; set; }
+                                                 public SourceA AReference { get; set; }
+                                             }
+
+                                             public class DestA
+                                             {
+                                                 public string Name { get; set; }
+                                                 public DestB BReference { get; set; }
+                                             }
+
+                                             public class DestB
+                                             {
+                                                 public string Data { get; set; }
+                                                 public DestC CReference { get; set; }
+                                             }
+
+                                             public class DestC
+                                             {
+                                                 public int Value { get; set; }
+                                                 public DestA AReference { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     // B/C already scaffolded so only A reports — isolates graph-aware Ignore.
+                                                     CreateMap<SourceA, DestA>().ForMember(dest => dest.BReference, opt => opt.Ignore());
+                                                     CreateMap<SourceB, DestB>().MaxDepth(2);
+                                                     CreateMap<SourceC, DestC>().MaxDepth(2);
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        // Index 0 MaxDepth, index 1 Ignore graph edge BReference (not a dest self-ref).
+        await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                    .WithLocation(46, 13)
+                    .WithArguments("SourceA", "DestA"),
+                expectedFixedCode,
+                1);
+    }
+
+    [Fact]
+    public async Task AM022_ShouldIgnoreAllGraphEdges_WhenSelfRefAndMultiTypeCycleBothPresent()
+    {
+        // DestA has Parent: DestA (self-ref) and BReference: DestB (multi-type edge).
+        // Self-ref-only discovery would Ignore Parent alone and leave the B↔A cycle live.
+        // Graph-aware discovery offers Ignore-all of both cycle-breaking edges.
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceA Parent { get; set; }
+                                        public SourceB BReference { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public string Data { get; set; }
+                                        public SourceA AReference { get; set; }
+                                    }
+
+                                    public class DestA
+                                    {
+                                        public string Name { get; set; }
+                                        public DestA Parent { get; set; }
+                                        public DestB BReference { get; set; }
+                                    }
+
+                                    public class DestB
+                                    {
+                                        public string Data { get; set; }
+                                        public DestA AReference { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestA>();
+                                            CreateMap<SourceB, DestB>().MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class SourceA
+                                             {
+                                                 public string Name { get; set; }
+                                                 public SourceA Parent { get; set; }
+                                                 public SourceB BReference { get; set; }
+                                             }
+
+                                             public class SourceB
+                                             {
+                                                 public string Data { get; set; }
+                                                 public SourceA AReference { get; set; }
+                                             }
+
+                                             public class DestA
+                                             {
+                                                 public string Name { get; set; }
+                                                 public DestA Parent { get; set; }
+                                                 public DestB BReference { get; set; }
+                                             }
+
+                                             public class DestB
+                                             {
+                                                 public string Data { get; set; }
+                                                 public DestA AReference { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<SourceA, DestA>().ForMember(dest => dest.BReference, opt => opt.Ignore()).ForMember(dest => dest.Parent, opt => opt.Ignore());
+                                                     CreateMap<SourceB, DestB>().MaxDepth(2);
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        // Index 0 MaxDepth; index 1 Ignore-all graph edges (BReference, Parent — ordinal order).
+        await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule)
+                    .WithLocation(35, 13)
+                    .WithArguments("SourceA", "DestA"),
+                expectedFixedCode,
+                1);
+    }
+
+    [Fact]
     public async Task AM022_ShouldHandleReverseMapWithRecursion()
     {
         const string testCode = """
