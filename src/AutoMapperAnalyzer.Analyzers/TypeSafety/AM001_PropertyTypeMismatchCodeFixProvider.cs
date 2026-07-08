@@ -226,7 +226,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
         // String -> numeric: Parse with invariant culture.
         if (IsString(sourceUnderlying) && IsNumericConversion(destinationUnderlying.SpecialType))
         {
-            string fallback = TypeConversionHelper.GetDefaultValueForType(destinationTypeName);
+            string fallback = GetNullSourceFallback(destinationTypeName, destinationIsNullable);
             return
                 $"{srcMember} != null ? {destinationTypeName}.Parse({srcMember}, {invariantCulture}) : {fallback}";
         }
@@ -258,8 +258,11 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
         {
             string fullyQualifiedDestinationTypeName =
                 destinationUnderlying.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            string fallback = destinationIsNullable
+                ? $"default({fullyQualifiedDestinationTypeName}?)"
+                : "default";
             return
-                $"{srcMember} != null ? global::System.Enum.Parse<{fullyQualifiedDestinationTypeName}>({srcMember}) : default";
+                $"{srcMember} != null ? global::System.Enum.Parse<{fullyQualifiedDestinationTypeName}>({srcMember}) : {fallback}";
         }
 
         // bool <-> string
@@ -275,7 +278,8 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
 
         if (IsString(sourceUnderlying) && destinationUnderlying.SpecialType == SpecialType.System_Boolean)
         {
-            return $"{srcMember} != null ? bool.Parse({srcMember}) : false";
+            string fallback = GetNullSourceFallback("bool", destinationIsNullable);
+            return $"{srcMember} != null ? bool.Parse({srcMember}) : {fallback}";
         }
 
         // char -> string
@@ -295,6 +299,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
                 destinationUnderlying,
                 srcMember,
                 sourceIsNullable,
+                destinationIsNullable,
                 out string? frameworkConversion))
         {
             return frameworkConversion;
@@ -317,6 +322,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
         ITypeSymbol destinationUnderlying,
         string srcMember,
         bool sourceIsNullable,
+        bool destinationIsNullable,
         out string? expression)
     {
         expression = null;
@@ -327,9 +333,22 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
             const string invariantCulture = "global::System.Globalization.CultureInfo.InvariantCulture";
             if (sourceIsNullable)
             {
-                expression = needsInvariant
-                    ? $"{srcMember}.HasValue ? {srcMember}.Value.ToString({invariantCulture}) : string.Empty"
-                    : $"{srcMember} != null ? {srcMember}.ToString() : string.Empty";
+                // TimeSpan/Guid/Uri value types use HasValue; reference Uri uses null check via IsNullableType.
+                bool isNullableValueType = sourceUnderlying.IsValueType;
+                if (needsInvariant && isNullableValueType)
+                {
+                    expression =
+                        $"{srcMember}.HasValue ? {srcMember}.Value.ToString({invariantCulture}) : string.Empty";
+                }
+                else if (isNullableValueType)
+                {
+                    expression =
+                        $"{srcMember}.HasValue ? {srcMember}.Value.ToString() : string.Empty";
+                }
+                else
+                {
+                    expression = $"{srcMember} != null ? {srcMember}.ToString() : string.Empty";
+                }
             }
             else
             {
@@ -343,13 +362,26 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
 
         if (IsString(sourceUnderlying) && IsFrameworkParseType(destinationUnderlying, out string parseCall))
         {
-            string fallback = TypeConversionHelper.GetDefaultValueForType(
-                destinationUnderlying.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+            string underlyingName =
+                destinationUnderlying.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            string fallback = GetNullSourceFallback(underlyingName, destinationIsNullable);
             expression = $"{srcMember} != null ? {parseCall}({srcMember}) : {fallback}";
             return true;
         }
 
         return false;
+    }
+
+    private static string GetNullSourceFallback(string destinationTypeName, bool destinationIsNullable)
+    {
+        if (!destinationIsNullable)
+        {
+            return TypeConversionHelper.GetDefaultValueForType(destinationTypeName);
+        }
+
+        // Bare `null` breaks AutoMapper expression-tree MapFrom type inference for nullable
+        // value destinations (CS1660). `default(T?)` preserves null without losing type.
+        return $"default({destinationTypeName}?)";
     }
 
     private static bool IsFrameworkToStringType(ITypeSymbol type)
@@ -371,7 +403,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
         }
 
         return type.ContainingNamespace?.ToDisplayString() == "System" &&
-               type.Name is "DateTimeOffset" or "DateOnly" or "TimeOnly" or "TimeSpan" or "Decimal";
+               type.Name is "DateTimeOffset" or "DateOnly" or "TimeOnly" or "Decimal";
     }
 
     private static bool IsFrameworkParseType(ITypeSymbol type, out string parseCall)

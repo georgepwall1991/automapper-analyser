@@ -1179,6 +1179,134 @@ public class AM001_CodeFixTests
         Assert.DoesNotContain(actions, action => action.Title.Contains("with conversion", StringComparison.Ordinal));
     }
 
+
+    [Fact]
+    public async Task AM001_ShouldFixTimeSpanToStringWithoutCultureArg()
+    {
+        // TimeSpan has no ToString(IFormatProvider); parameterless ToString is culture-invariant for the default form.
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public TimeSpan Duration { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Duration { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public TimeSpan Duration { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Duration { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Duration, opt => opt.MapFrom(src => src.Duration.ToString()));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                    "Duration", "Source", "System.TimeSpan", "Destination", "string"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldFixStringToNullableIntWithNullFallback()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Value { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int? Value { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #nullable enable
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string? Value { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public int? Value { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value != null ? int.Parse(src.Value, global::System.Globalization.CultureInfo.InvariantCulture) : default(int?)));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                    "Value", "Source", "string?", "Destination", "int?"),
+                expectedFixedCode);
+    }
+
     private static Document CreateDocument(string source)
     {
         var workspace = new AdhocWorkspace();
