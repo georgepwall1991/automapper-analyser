@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>60</PatchVersion>
+        <PatchVersion>61</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.60 - Fixer UX shared infra (Batch 2)
-- AM001 Convert-all / Ignore-all + nested Fix individual for multi-property maps
-- AM022 MaxDepth scaffold always best-first before Ignore
-- Shared AddUsingIfMissing for AM003/AM021/AM031
+                <PackageReleaseNotes>Version 2.30.61 - Fixer UX polish (Batch 3)
+- AM032 null-guard fix emits ArgumentNullException.ThrowIfNull
+- AM031 Remove convention ForMember before Ignore
+- AM003/AM021 keyword-safe MapFrom + clearer conversion titles
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

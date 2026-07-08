@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.61] - 2026-07-08
+
+Fixer UX executable polish (Batch 3).
+
+### Changed
+
+- **AM032**: null-guard code fix emits `ArgumentNullException.ThrowIfNull` (matches modern guard recognition).
+- **AM031**: lightbulb order is Cache → Remove convention ForMember → Ignore (manual review).
+- **AM003 / AM021**: keyword-escaped MapFrom sources; humanized conversion titles (quoted property names / short conversion labels).
+
+### Validation
+
+- Full solution test suite (`net10.0`) green: 1381 passed.
+
 ## [2.30.60] - 2026-07-08
 
 Fixer UX shared infrastructure (Batch 2).
