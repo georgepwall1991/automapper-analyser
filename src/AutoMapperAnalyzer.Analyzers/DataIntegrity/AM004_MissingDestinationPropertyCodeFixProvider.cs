@@ -146,7 +146,7 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
             .Select(p => PropertyFixSpec.DoNotValidate(p.Name))
             .ToList();
         actions.Add(CodeAction.Create(
-            $"Suppress validation for all {count} source properties (DoNotValidate)",
+            $"Suppress validation for all {count} source properties (DoNotValidate) (manual review)",
             _ => ReplaceNodeAsync(
                 context.Document, root, invocation, FoldAggregateForMembers(invocation, doNotValidateSpecs)),
             "AM004_DoNotValidateAll"));

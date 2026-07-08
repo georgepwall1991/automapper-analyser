@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.IO;
+using System.Linq;
 using AutoMapper;
 using AutoMapperAnalyzer.Analyzers.DataIntegrity;
 using Microsoft.CodeAnalysis;
@@ -97,6 +98,58 @@ public class DataIntegrityCodeActionUxTests
         CodeAction action = Assert.Single(actions);
         Assert.Equal("Ignore destination property 'ExtraInfo' (manual review)", action.Title);
         Assert.Equal("AM006_Ignore_ExtraInfo", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM011_AggregateIgnoreAll_TitleIncludesManualReview()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public required string Alpha { get; set; }
+                                        public required string Beta { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        ImmutableArray<Diagnostic> diagnostics = await compilation.WithAnalyzers(
+                ImmutableArray.Create<DiagnosticAnalyzer>(new AM011_UnmappedRequiredPropertyAnalyzer()))
+            .GetAnalyzerDiagnosticsAsync();
+        Assert.True(diagnostics.Length >= 2);
+
+        List<CodeAction> actions = await RegisterActionsAsync(
+            document,
+            new AM011_UnmappedRequiredPropertyCodeFixProvider(),
+            diagnostics[0]);
+
+        CodeAction? ignoreAll = actions.FirstOrDefault(a => a.EquivalenceKey == "AM011_IgnoreAll");
+        Assert.NotNull(ignoreAll);
+        Assert.Contains("manual review", ignoreAll!.Title, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(actions, a => a.EquivalenceKey == "AM011_MapAll");
+        CodeAction? scaffoldAll = actions.FirstOrDefault(a => a.EquivalenceKey == "AM011_ScaffoldAll");
+        Assert.NotNull(scaffoldAll);
+        Assert.Contains("manual review", scaffoldAll!.Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Scaffold", scaffoldAll.Title, StringComparison.OrdinalIgnoreCase);
     }
 
     private static Document CreateDocument(string source)

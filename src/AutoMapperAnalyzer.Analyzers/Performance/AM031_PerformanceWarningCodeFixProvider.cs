@@ -99,6 +99,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
             .ToImmutableHashSet(StringComparer.Ordinal);
 
         // Keep targeted caching fix for multiple-enumeration diagnostics.
+        // CanCacheCollectionPath already withholds non-expression bodies so apply never no-ops.
         if (issueTypes.Contains(MultipleEnumerationIssueType))
         {
             string? collectionName = relatedDiagnostics
@@ -112,16 +113,23 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
             }
         }
 
-        RegisterIgnoreMappingFix(context, operationContext.Root, destinationConfigurationInvocation, propertyName!, relatedDiagnostics);
-
-        if (await CanUseConventionMappingAsync(
-                context.Document,
-                destinationConfigurationInvocation,
-                propertyName!,
-                context.CancellationToken))
+        // Ignore/Remove rewrite the ForMember link; only register when the peel target exists
+        // so the lightbulb never advertises a silent no-op.
+        if (GetInvocationWithoutForMember(destinationConfigurationInvocation) != null)
         {
-            RegisterRemoveForMemberFix(context, operationContext.Root, destinationConfigurationInvocation, propertyName!,
+            RegisterIgnoreMappingFix(context, operationContext.Root, destinationConfigurationInvocation, propertyName!,
                 relatedDiagnostics);
+
+            if (await CanUseConventionMappingAsync(
+                    context.Document,
+                    destinationConfigurationInvocation,
+                    propertyName!,
+                    context.CancellationToken))
+            {
+                RegisterRemoveForMemberFix(context, operationContext.Root, destinationConfigurationInvocation,
+                    propertyName!,
+                    relatedDiagnostics);
+            }
         }
     }
 

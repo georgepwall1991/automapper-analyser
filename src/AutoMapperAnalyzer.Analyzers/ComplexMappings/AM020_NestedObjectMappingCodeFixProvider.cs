@@ -38,15 +38,41 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         {
             SyntaxNode node = operationContext.Root.FindNode(diagnostic.Location.SourceSpan);
 
-            if (node is InvocationExpressionSyntax invocation)
+            if (node is not InvocationExpressionSyntax invocation)
             {
-                var action = CodeAction.Create(
-                    "Add missing nested CreateMap registrations",
-                    c => AddMissingNestedMappingAsync(context.Document, invocation, operationContext.SemanticModel, c),
-                    "AM020_AddMissingNestedMappings");
-
-                context.RegisterCodeFix(action, diagnostic);
+                continue;
             }
+
+            // Preflight: only advertise a fix when apply can insert into a block body.
+            if (!TryGetCreateMapInsertTarget(invocation, out _, out _))
+            {
+                continue;
+            }
+
+            (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) typeArguments =
+                GetCreateMapTypeArguments(invocation, operationContext.SemanticModel);
+            if (typeArguments.sourceType == null || typeArguments.destinationType == null)
+            {
+                continue;
+            }
+
+            List<(INamedTypeSymbol sourceType, INamedTypeSymbol destinationType)> missingMappings =
+                GetMissingNestedMappings(
+                    invocation,
+                    typeArguments.sourceType,
+                    typeArguments.destinationType,
+                    operationContext.SemanticModel);
+            if (missingMappings.Count == 0)
+            {
+                continue;
+            }
+
+            var action = CodeAction.Create(
+                "Add missing nested CreateMap registrations",
+                c => AddMissingNestedMappingAsync(context.Document, invocation, operationContext.SemanticModel, c),
+                "AM020_AddMissingNestedMappings");
+
+            context.RegisterCodeFix(action, diagnostic);
         }
     }
 
@@ -76,14 +102,12 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
                 typeArguments.destinationType,
                 semanticModel);
 
-        if (!missingMappings.Any())
+        if (missingMappings.Count == 0)
         {
             return document;
         }
 
-        ConstructorDeclarationSyntax? constructor =
-            createMapInvocation.Ancestors().OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
-        if (constructor?.Body == null)
+        if (!TryGetCreateMapInsertTarget(createMapInvocation, out SyntaxNode? bodyOwner, out ExpressionStatementSyntax? originalStatement))
         {
             return document;
         }
@@ -91,21 +115,118 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         ExpressionStatementSyntax[] newStatements = missingMappings.Select(m =>
             CreateCreateMapStatement(m.sourceType, m.destinationType, semanticModel, createMapInvocation.SpanStart)).ToArray();
 
-        ExpressionStatementSyntax? originalStatement =
-            createMapInvocation.Ancestors().OfType<ExpressionStatementSyntax>().FirstOrDefault();
+        return InsertCreateMapStatements(document, root, bodyOwner!, originalStatement!, newStatements);
+    }
+
+    /// <summary>
+    ///     Locates a block body (constructor or method) and expression statement that can host
+    ///     inserted CreateMap statements after the original. Returns false when apply would no-op.
+    ///     Method bodies only qualify when CreateMap is bare/<c>this</c> (Profile-style); receiver-qualified
+    ///     calls such as <c>cfg.CreateMap&lt;,&gt;()</c> are withheld because the fix emits unqualified CreateMap.
+    /// </summary>
+    private static bool TryGetCreateMapInsertTarget(
+        InvocationExpressionSyntax createMapInvocation,
+        out SyntaxNode? bodyOwner,
+        out ExpressionStatementSyntax? originalStatement)
+    {
+        bodyOwner = null;
+        originalStatement = createMapInvocation.Ancestors().OfType<ExpressionStatementSyntax>().FirstOrDefault();
         if (originalStatement == null)
         {
-            return document;
+            return false;
         }
 
-        int originalIndex = constructor.Body.Statements.IndexOf(originalStatement);
-        BlockSyntax newBody = constructor.Body.WithStatements(
-            constructor.Body.Statements.InsertRange(originalIndex + 1, newStatements));
+        ConstructorDeclarationSyntax? constructor =
+            createMapInvocation.Ancestors().OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
+        if (constructor?.Body != null && constructor.Body.Statements.Contains(originalStatement))
+        {
+            // Profile constructors almost always use bare CreateMap; still gate on unqualified form
+            // so cfg.CreateMap inside a ctor cannot produce a compile-breaking insert.
+            if (!IsUnqualifiedCreateMapInvocation(createMapInvocation))
+            {
+                return false;
+            }
 
-        ConstructorDeclarationSyntax newConstructor = constructor.WithBody(newBody);
-        SyntaxNode newRoot = root.ReplaceNode(constructor, newConstructor);
+            bodyOwner = constructor;
+            return true;
+        }
 
-        return document.WithSyntaxRoot(newRoot);
+        MethodDeclarationSyntax? method =
+            createMapInvocation.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+        if (method?.Body != null &&
+            method.Body.Statements.Contains(originalStatement) &&
+            IsUnqualifiedCreateMapInvocation(createMapInvocation))
+        {
+            bodyOwner = method;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     True when the mapping chain roots at CreateMap without an external receiver (bare or <c>this</c>),
+    ///     so an unqualified <c>CreateMap&lt;,&gt;()</c> insert will compile. Peels fluent chains
+    ///     (e.g. diagnostics on <c>ReverseMap()</c>).
+    /// </summary>
+    private static bool IsUnqualifiedCreateMapInvocation(InvocationExpressionSyntax invocation)
+    {
+        InvocationExpressionSyntax? current = invocation;
+        while (current != null)
+        {
+            if (IsDirectUnqualifiedCreateMap(current))
+            {
+                return true;
+            }
+
+            current = (current.Expression as MemberAccessExpressionSyntax)?.Expression as InvocationExpressionSyntax;
+        }
+
+        return false;
+    }
+
+    private static bool IsDirectUnqualifiedCreateMap(InvocationExpressionSyntax invocation)
+    {
+        return invocation.Expression switch
+        {
+            GenericNameSyntax generic when generic.Identifier.ValueText == "CreateMap" => true,
+            IdentifierNameSyntax identifier when identifier.Identifier.ValueText == "CreateMap" => true,
+            MemberAccessExpressionSyntax memberAccess
+                when GetMemberName(memberAccess.Name) == "CreateMap" &&
+                     memberAccess.Expression is ThisExpressionSyntax => true,
+            _ => false
+        };
+    }
+
+    private static string GetMemberName(SimpleNameSyntax name) =>
+        name is GenericNameSyntax generic ? generic.Identifier.ValueText : name.Identifier.ValueText;
+
+    private static Document InsertCreateMapStatements(
+        Document document,
+        SyntaxNode root,
+        SyntaxNode bodyOwner,
+        ExpressionStatementSyntax originalStatement,
+        ExpressionStatementSyntax[] newStatements)
+    {
+        switch (bodyOwner)
+        {
+            case ConstructorDeclarationSyntax constructor when constructor.Body != null:
+            {
+                int originalIndex = constructor.Body.Statements.IndexOf(originalStatement);
+                BlockSyntax newBody = constructor.Body.WithStatements(
+                    constructor.Body.Statements.InsertRange(originalIndex + 1, newStatements));
+                return document.WithSyntaxRoot(root.ReplaceNode(constructor, constructor.WithBody(newBody)));
+            }
+            case MethodDeclarationSyntax method when method.Body != null:
+            {
+                int originalIndex = method.Body.Statements.IndexOf(originalStatement);
+                BlockSyntax newBody = method.Body.WithStatements(
+                    method.Body.Statements.InsertRange(originalIndex + 1, newStatements));
+                return document.WithSyntaxRoot(root.ReplaceNode(method, method.WithBody(newBody)));
+            }
+            default:
+                return document;
+        }
     }
 
     private static (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) GetCreateMapTypeArguments(
