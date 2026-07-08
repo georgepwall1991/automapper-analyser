@@ -202,10 +202,13 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
             properties.Add(PropertyNamePropertyName, sourceProperty.Name);
             properties.Add(SourcePropertyTypePropertyName, sourceTypeName);
             properties.Add(DestinationPropertyTypePropertyName, destTypeName);
+            // Preserve CreateMap/ReverseMap span so property-token diagnostics still route code fixes.
+            properties.Add("MappingInvocationStart", invocation.SpanStart.ToString());
+            properties.Add("MappingInvocationLength", invocation.Span.Length.ToString());
 
             var diagnostic = Diagnostic.Create(
                 PropertyTypeMismatchRule,
-                invocation.GetLocation(),
+                GetPropertyLocation(destinationProperty) ?? invocation.GetLocation(),
                 properties.ToImmutable(),
                 sourceProperty.Name,
                 AutoMapperAnalysisHelpers.GetTypeName(sourceType),
@@ -215,6 +218,24 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
             );
             context.ReportDiagnostic(diagnostic);
         }
+    }
+
+    private static Location? GetPropertyLocation(IPropertySymbol property)
+    {
+        foreach (SyntaxReference syntaxReference in property.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
+            {
+                return propertyDeclaration.Identifier.GetLocation();
+            }
+
+            if (syntaxReference.GetSyntax() is ParameterSyntax parameter)
+            {
+                return parameter.Identifier.GetLocation();
+            }
+        }
+
+        return null;
     }
 
     private static string CreateMismatchKey(
@@ -324,6 +345,39 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 
         Conversion conversion = compilation.ClassifyConversion(sourceType, destinationType);
         return conversion.Exists && conversion.IsImplicit;
+    }
+
+    /// <summary>
+    ///     True when the analyzer would report AM001 for this convention property pair
+    ///     (excludes AM002/AM020/AM021 ownership and compatible pairs). Used by the code fix
+    ///     sibling recompute so Convert-all never rewrites non-AM001 properties.
+    /// </summary>
+    internal static bool WouldReportPropertyTypeMismatch(
+        Compilation compilation,
+        ITypeSymbol sourcePropertyType,
+        ITypeSymbol destinationPropertyType)
+    {
+        if (SymbolEqualityComparer.Default.Equals(sourcePropertyType, destinationPropertyType))
+        {
+            return false;
+        }
+
+        if (IsNullableCompatibilityIssue(sourcePropertyType, destinationPropertyType))
+        {
+            return false;
+        }
+
+        if (IsGenericTypeMismatch(sourcePropertyType, destinationPropertyType))
+        {
+            return false;
+        }
+
+        if (IsComplexTypeMappingRequired(sourcePropertyType, destinationPropertyType))
+        {
+            return false;
+        }
+
+        return !AreTypesCompatible(compilation, sourcePropertyType, destinationPropertyType);
     }
 
     private static bool IsPrimitiveOrFrameworkType(ITypeSymbol type)

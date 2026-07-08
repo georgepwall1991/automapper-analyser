@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.Text;
 
 namespace AutoMapperAnalyzer.Tests.Infrastructure;
 
@@ -50,17 +51,34 @@ internal static class CodeFixActionInspector
         CodeFixProvider provider,
         ImmutableArray<Diagnostic> diagnostics)
     {
+        ImmutableArray<Diagnostic> contextDiagnostics = NormalizeForCodeFixContext(diagnostics);
         var topLevel = new List<CodeAction>();
         var context = new CodeFixContext(
             document,
-            diagnostics[0].Location.SourceSpan,
-            diagnostics,
+            contextDiagnostics[0].Location.SourceSpan,
+            contextDiagnostics,
             (action, _) => topLevel.Add(action),
             CancellationToken.None);
 
         await provider.RegisterCodeFixesAsync(context);
 
         return Flatten(topLevel);
+    }
+
+    /// <summary>
+    ///     CodeFixContext requires identical SourceSpans on every diagnostic. When property-token
+    ///     diagnostics differ, keep only the first (providers recompute siblings). When metadata
+    ///     pile-up already shares CreateMap spans, keep the full set for aggregate registration.
+    /// </summary>
+    private static ImmutableArray<Diagnostic> NormalizeForCodeFixContext(ImmutableArray<Diagnostic> diagnostics)
+    {
+        TextSpan first = diagnostics[0].Location.SourceSpan;
+        if (diagnostics.All(d => d.Location.SourceSpan == first))
+        {
+            return diagnostics;
+        }
+
+        return ImmutableArray.Create(diagnostics[0]);
     }
 
     /// <summary>
@@ -100,11 +118,12 @@ internal static class CodeFixActionInspector
         ImmutableArray<Diagnostic> diagnostics,
         string equivalenceKey)
     {
+        ImmutableArray<Diagnostic> contextDiagnostics = NormalizeForCodeFixContext(diagnostics);
         var topLevel = new List<CodeAction>();
         var context = new CodeFixContext(
             document,
-            diagnostics[0].Location.SourceSpan,
-            diagnostics,
+            contextDiagnostics[0].Location.SourceSpan,
+            contextDiagnostics,
             (action, _) => topLevel.Add(action),
             CancellationToken.None);
 

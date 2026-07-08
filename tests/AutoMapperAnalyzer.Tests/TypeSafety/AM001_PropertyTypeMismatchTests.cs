@@ -40,10 +40,45 @@ public class AM001_PropertyTypeMismatchTests
                        }
                        """;
 
-        // Expect the analyzer to detect the string -> int type mismatch for Age property
+        // Property-token placement: Destination.Age identifier (not CreateMap invocation).
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 18, 9, "Age", "Source",
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 11, 16, "Age", "Source",
+                "string", "Destination", "int"));
+    }
+
+    [Fact]
+    public async Task AM001_ShouldLandOnDestinationPropertyToken_NotCreateMapInvocation()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Value { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Value { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        // Line 12 col 20 is Destination.Value; CreateMap is later on the profile.
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 12, 20, "Value", "Source",
                 "string", "Destination", "int"));
     }
 
@@ -78,7 +113,7 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Age", "Source",
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 20, "Age", "Source",
                 "string", "Destination", "int"));
     }
 
@@ -116,7 +151,7 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Value", "Source",
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 20, "Value", "Source",
                 "uint", "Destination", "int"));
     }
 
@@ -151,7 +186,7 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Amount", "Source",
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 24, "Amount", "Source",
                 "double", "Destination", "decimal"));
     }
 
@@ -219,7 +254,7 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Score",
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 8, 20, "Score",
                 "Destination", "long", "Source", "int"));
     }
 
@@ -310,7 +345,7 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 32, 13, "Amount", "Source",
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 25, 24, "Amount", "Source",
                 "TestNamespace.Money", "Destination", "decimal"));
     }
 
@@ -350,7 +385,7 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 25, 13, "Age", "Source",
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 18, 20, "Age", "Source",
                 "string", "Destination", "int"));
     }
 
@@ -656,7 +691,7 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 30, 13, "Age", "Source",
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 23, 20, "Age", "Source",
                 "string", "Destination", "int"));
     }
 
@@ -692,7 +727,7 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 21, 13, "CreatedDate",
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 14, 23, "CreatedDate",
                 "Source", "System.DateTime", "Destination", "string"));
     }
 
@@ -733,7 +768,7 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 26, 13, "Value",
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 27, "Value",
                 "Source", "System.DateOnly", "Destination", "TestNamespace.CustomDate"));
     }
 
@@ -963,7 +998,7 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Age", "Source",
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 20, "Age", "Source",
                 "string?", "Destination", "int"));
     }
 
@@ -1085,10 +1120,11 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Age",
+            // Forward: lands on Destination.Age (int)
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 20, "Age",
                 "Source", "string", "Destination", "int"),
-            // ReverseMap() invocation spans the fluent chain starting at CreateMap.
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Age",
+            // Reverse: lands on Source.Age (string)
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 8, 23, "Age",
                 "Destination", "int", "Source", "string"));
     }
 
@@ -1125,7 +1161,7 @@ public class AM001_PropertyTypeMismatchTests
 
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
             testCode,
-            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Amount",
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 25, "Amount",
                 "Source", "double?", "Destination", "decimal?"));
     }
 

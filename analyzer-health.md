@@ -6,7 +6,7 @@ This is a deliberately harsh health audit for the **21** implemented AutoMapper 
 
 Every implemented rule currently has an analyzer and a code fix provider. Scores are 1-5, where `5` means reference-quality and hard to improve, `3` means usable but meaningfully incomplete, and `1` means unreliable or underbuilt.
 
-**Ship status:** production-acceptable. **2.30.63** AM022 graph-aware Ignore; **2.30.62** splits AM031 multi-concept ID into AM031 + AM034–AM038. Remaining highest residual is **AM022** (FP/Fix min 3). Full suite green; catalog/snapshots current.
+**Ship status:** production-acceptable. **2.30.64** AM001 property-token placement; **2.30.63** AM022 graph-aware Ignore; **2.30.62** AM031 split multi-concept ID into AM031 + AM034–AM038. Remaining highest residual is **AM022** (FP/Fix min 3). Full suite green; catalog/snapshots current.
 
 ## Rubric
 
@@ -33,7 +33,7 @@ Priority is a planning signal: `High` means the analyzer is important and has me
 
 | Rule | Title | Domain | Severity | Analyzer | False Positives | Fix Strategy | Tests | Docs/Samples | Importance | Priority | Notes |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| AM001 | Property type mismatch | Type Safety | Error | 4 | 4 | 5 | 5 | 4 | 5 | Low | Direction-preserving ReverseMap keys; collection-only generic deferral; fixer peels nullables, invariant-culture Parse/ToString, keywords, DateTime/Uri/bool/Guid. **Fix Strategy 5**: Convert-all/Ignore-all + nested Fix individual for multi-property maps (Batch 2). Residual: property-token diagnostic placement. |
+| AM001 | Property type mismatch | Type Safety | Error | 4 | 4 | 5 | 5 | 4 | 5 | Low | Direction-preserving ReverseMap keys; collection-only generic deferral; fixer peels nullables, invariant-culture Parse/ToString, keywords, DateTime/Uri/bool/Guid. **Fix Strategy 5**: Convert-all/Ignore-all + nested Fix individual. **2.30.64**: destination property-token placement + MappingInvocation metadata + sibling recompute for aggregates. |
 | AM002 | Nullable compatibility issue | Type Safety | Error/Info | 4 | 4 | 4 | 5 | 4 | 5 | Low | Descriptor-accurate docs now call out the Error/Info split, reverse-map nullable-to-non-nullable losses report and fix even when forward-side nullability policy is configured before `ReverseMap()`, pass-through and different-member nullable `MapFrom` bodies no longer hide nullable-to-non-nullable errors even when the same-name source member is non-nullable, diagnostics name the actual nullable source member for explicit different-source mappings, constructed generic source/destination labels such as `Source<T>` and `Destination<T>` are preserved, null-forgiving-only generic `MapFrom` bodies now report instead of treating compiler suppression as runtime null handling, semantic string literal/`nameof(...)`/const destination-member selectors and typed-lambda safe mappings are recognized as explicit nullability configuration, helper methods inside member options no longer masquerade as AutoMapper null handlers or mapping configuration, unsafe `NullSubstitute` values still report while assignable fallback values and typed value-type defaults are respected, unguarded nullable receiver dereferences inside `MapFrom` still report even when the final mapped value has a different type, while guarded dereferences and nullable value `GetValueOrDefault()` stay quiet, member-level converter/resolver ownership is respected including generic member-resolver `MapFrom<TResolver, TSourceMember>(...)` forms while generic expression `MapFrom<TSourceMember>(...)` overloads remain analyzable, top-level `ForPath` including typed-lambda paths respects null handling while child-only `ForPath` does not suppress parent nullability, repeated destination-member configuration uses the later effective mapping, the fixer preserves existing member options/source expressions and emits fully qualified framework defaults or `default!` for generic/reference fallback defaults when adding defaults without appending behind `Condition`/`PreCondition`, and catalog trust now marks the Info descriptor as analyzer-only. Remaining opportunities are advanced generic/nullability-flow semantics. |
 | AM003 | Collection type incompatibility | Type Safety | Error | 4 | 4 | 4 | 5 | 4 | 4 | Low | Shared container-incompatibility predicate with AM021 (HashSet/Queue/Stack/SortedSet/LinkedList/Immutable*/FrozenSet). Combined container+element mismatches report AM003 only; CreateRange fixes still convert elements when a named conversion exists. Sample isolates same-element List→HashSet. Custom-collection edge cases remain. |
 | AM004 | Source property has no corresponding destination property | Data Integrity | Warning | 4 | 4 | 4 | 5 | 5 | 5 | Low | Strong source-loss guardrail with unique-best fuzzy, reverse-map, and property-token placement. Aggregate Map-all/DoNotValidate-all still primarily surfaces for metadata pile-up / multi-diagnostic context (not same-document single-property lightbulbs). Catalog `Scaffold` trust remains accurate. |
@@ -72,7 +72,7 @@ Use this table as the hardening queue. Ranking = **Importance × (5 − min(Anal
 | Rank | Rule | Signal | Residual (evidence-backed) | Likely score move if closed |
 | --- | --- | --- | --- | --- |
 | 1 | **AM022** | gap=4, min=3 (FP) | Graph-aware Ignore shipped 2.30.63 (Fix 4). Residual: intentional circular DTO false positives / graph heuristics (FP=3). | FP 3→4 needs better intentional-cycle suppressions |
-| 2 | **AM001** | gap=5, min=4 | Diagnostics still land on **CreateMap invocation** (`invocation.GetLocation()`), not property tokens (unlike AM004/005/006/011). Fix Strategy already 5 (Convert-all/Ignore-all + nested individual). | Analyzer/Docs polish only unless placement ships |
+| 2 | **AM001** | gap=4, min=4 | Property-token placement shipped 2.30.64. Residual: advanced conversion modelling only with user repros. | — |
 | 3 | **AM004 / AM006** | gap=5/4 | Aggregate Map-all / DoNotValidate-all / Ignore-all need multi-diagnostic **group** context; same-document single-property lightbulbs do not recompute siblings the way AM011 does. Catalog Scaffold remains correct. | Fix 4→5 if same-document sibling recompute matches AM011 without inventing mappings |
 | 4 | **AM031 / AM034–AM038** | Fix=3 | Shared ForPath analyzer-only + Scaffold policy after ID split. Further smell breadth is diminishing returns. | Fix 3→4 only with ForPath-safe rewrites |
 | 5 | **AM011** | gap=5, min=4 | Residual: primary single-property path still scaffolds defaults when fuzzy fails. | Fix stays 4 until less scaffold-heavy without lying |
@@ -85,8 +85,8 @@ Use this table as the hardening queue. Ranking = **Importance × (5 − min(Anal
 **Recommended next hardening batch:**
 
 1. **AM004/AM006 same-document sibling recompute**
-2. **AM001 property-token placement**
-3. **AM022 intentional-cycle FP** (remaining after graph-aware Ignore)
+2. **AM022 intentional-cycle FP**
+3. **AM032 destination-aware null fix**
 
 Do **not** open advanced AM001/AM002 conversion/nullability modelling without a filed false-positive/false-negative repro.
 
@@ -149,6 +149,12 @@ Still open (do not start without a repro or explicit product decision):
 - **AM020 constructor-body CreateMap insert.** Structural host limit; catalog `LikelyRewrite` already honest.
 
 
+## Reanalysis Changelog (2026-07-08 → 2.30.64 AM001 property-token placement)
+
+| Rules | Finding | Change | Score impact |
+| --- | --- | --- | --- |
+| AM001 | Diagnostics on CreateMap invocation | Destination property-token location + MappingInvocation metadata; fixer sibling recompute for aggregates | Placement residual closed |
+
 ## Reanalysis Changelog (2026-07-08 → 2.30.63 AM022 graph-aware Ignore)
 
 | Rules | Finding | Change | Score impact |
@@ -201,7 +207,7 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 | AM030 | ~5 direct tests in shared 146-test bucket. | Tests 4→3; tightened Notes. | AM030 Tests −1 |
 | AM032 | Null-flow heuristic + throw-only fix policy risk. | False Positives 4→3; tightened Notes. | AM032 False Positives −1 |
 
-## Fixer Trust Summary (v2.30.63)
+## Fixer Trust Summary (v2.30.64)
 
 | Rule | Fixable? | Catalog trust | Notes |
 | --- | --- | --- | --- |

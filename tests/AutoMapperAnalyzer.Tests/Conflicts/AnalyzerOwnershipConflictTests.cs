@@ -41,8 +41,8 @@ public class AnalyzerOwnershipConflictTests
             .WithSource(testCode)
             .ExpectDiagnostic(
                 AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule,
-                19,
-                13,
+                12,
+                20,
                 "Age",
                 "Source",
                 "string",
@@ -135,8 +135,8 @@ public class AnalyzerOwnershipConflictTests
             .WithSource(testCode)
             .ExpectDiagnostic(
                 AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule,
-                20,
                 13,
+                20,
                 "Age",
                 "Source",
                 "string?",
@@ -180,8 +180,8 @@ public class AnalyzerOwnershipConflictTests
             .WithSource(testCode)
             .ExpectDiagnostic(
                 AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule,
-                19,
-                13,
+                12,
+                20,
                 "Age",
                 "Source",
                 "string",
