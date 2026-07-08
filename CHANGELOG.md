@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## [2.30.56] - 2026-07-08
+
+Analyzer hitlist hardening from the 2026-07-08 improvement plan.
+
 ### Changed
 
 - **AM004 unique-best fuzzy gate**: per-property and aggregate "Map all" fuzzy destination suggestions now use `FindUniqueBestFuzzyMatch` (same as AM006/AM011). Name-distance ties no longer pick the first candidate in symbol order, so ambiguous destinations only offer `DoNotValidate` / "DoNotValidate all".
@@ -9,6 +13,13 @@
 - **AM003 sample isolation**: `TypeSafetyExamples` container-mismatch sample uses same-element `List<string>` → `HashSet<string>` so it no longer doubles as an AM021 element mismatch.
 - **AM004 docs**: rule docs document unique-best fuzzy mapping, aggregate Map-all/DoNotValidate-all, nested per-property submenu, and property-token placement.
 - **Trust tests**: AM001↔AM002 ownership conflict coverage; AM030 signature-depth regressions (wrong return type, missing `ResolutionContext`, non-public `Convert`).
+- **Release metadata**: bumped package/docs version references to 2.30.56.
+
+### Validation
+
+- Full solution test suite (`net10.0`) green: 1363 passed.
+- AnalyzerVerifier `--check-catalog --check-snapshots` green.
+- `git diff --check` passed.
 
 ## [2.30.55] - 2026-07-06
 

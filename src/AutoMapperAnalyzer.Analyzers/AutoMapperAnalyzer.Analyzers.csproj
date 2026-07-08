@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>55</PatchVersion>
+        <PatchVersion>56</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,18 +32,19 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.55 - Analyzer health full reanalysis
+        <PackageReleaseNotes>Version 2.30.56 - Analyzer hitlist hardening
 
             Changed:
-            - Full rule+fixer reanalysis of analyzer-health.md: refreshed scorecard, Fixer Trust Summary, and promoted three P2 backlog items (AM003/AM004 docs drift, AM001↔AM002 conflict test, AM030 signature-depth tests). No analyzer, fixer, or test source changed.
-            - Re-verified the full local test baseline (1352 tests) against the current release commit.
+            - AM004 unique-best fuzzy gate: per-property and aggregate Map-all use FindUniqueBestFuzzyMatch (same as AM006/AM011); name-distance ties withhold fuzzy map actions.
+            - AM032 nullable pass-through: pure return source / expression-bodied source to a nullable destination no longer reports AM032.
+            - AM003 sample isolation, AM004 aggregate UX docs, AM001↔AM002 ownership tests, AM030 signature-depth regressions.
 
             Validation:
-            - Full solution test suite passing on net10.0 (1352 tests)
+            - Full solution test suite passing on net10.0 (1363 tests)
             - Rule catalog and sample diagnostics snapshot checks passing
             - Analyzer and test projects build clean under -warnaserror (the release gate)
 
-            Previous Release: v2.30.54 - Analyzer precision and regression hardening
+            Previous Release: v2.30.55 - Analyzer health full reanalysis
         </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

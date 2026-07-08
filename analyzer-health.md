@@ -1,6 +1,6 @@
 # Analyzer Health
 
-Reviewed: 2026-07-08 (previous review: 2026-07-06; current shipped version: 2.30.55; hitlist #1–#5 complete on branch)
+Reviewed: 2026-07-08 (previous review: 2026-07-06; current shipped version: 2.30.56)
 
 This is a deliberately harsh health audit for the 16 implemented AutoMapper analyzer rule IDs in this repository. Several rule IDs expose multiple diagnostic descriptors, especially `AM002`, `AM022`, and `AM031`; the scorecard rates the public rule ID as the user experiences it.
 

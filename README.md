@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1352%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1363%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,24 +14,26 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.55
+## 🎉 Latest Release: v2.30.56
 
-**Analyzer health full reanalysis**
+**Analyzer hitlist hardening — AM004 unique-best fuzzy, AM032 pass-through, trust tests**
 
 ✅ **Highlights**
 
-- Full rule+fixer reanalysis of `analyzer-health.md`: refreshed scorecard, Fixer Trust Summary, and promoted three P2 backlog items for the next hardening pass.
-- No analyzer, fixer, or test source changed.
+- **AM004**: fuzzy MapFrom / Map-all require a unique best destination name match (same gate as AM006/AM011); ambiguous ties withhold the automatic map action.
+- **AM032**: pure nullable→nullable source pass-through (`return source` / `=> source`) no longer false-positives.
+- **Trust**: AM003 sample isolation, AM004 aggregate UX docs, AM001↔AM002 ownership tests, AM030 signature-depth regressions.
 
 🧪 **Validation**
 
-- Full solution test validation passed on `net10.0` with 1352 tests.
+- Full solution test validation passed on `net10.0` with 1363 tests.
 - AnalyzerVerifier `--check-catalog --check-snapshots` green.
 - Analyzer and test projects build clean under `-warnaserror` (the release gate; the samples project intentionally carries diagnostics).
 
 ### Recent Releases
 
-- **v2.30.55**: Analyzer health monitor sweep — doc-only refresh of `analyzer-health.md` confirming every rule remains Low priority with no actionable precision debt; no analyzer, fixer, or test source changed.
+- **v2.30.56**: Analyzer hitlist hardening — AM004 unique-best fuzzy gate, AM032 nullable pass-through suppression, AM003 sample isolation, AM001↔AM002 ownership tests, AM030 signature-depth regressions.
+- **v2.30.55**: Analyzer health full reanalysis — refreshed scorecard and Fixer Trust Summary; no analyzer/fixer/test source changes.
 - **v2.30.54**: Analyzer precision and regression hardening — expands typed/string/`nameof(...)`/const explicit configuration handling, typed `ForPath` and `ConvertUsing` coverage, converter guard recognition, duplicate-map and reverse-map boundaries, collection conversion axes, exact BCL performance heuristics, and safer automatic code-fix selection across the implemented rule set.
 - **v2.30.53**: AM032 conditional-access null-handling precision — unsafe invocation/constructor arguments, primitive parse targets, explicit and target-typed `Uri` constructors, simple-local unsafe arguments, explicit/null-forgiven null coalesce fallbacks, coalesced guards whose null fallback enters unsafe branches, late guarded-local checks after unsafe source use, maybe-null local member dereferences, and nested-helper-only guards report while TryParse success/fallback flows, nullable parse provider/style arguments, null-tolerant argument targets, boolean guard locals, source-free fallback assignments, boolean switch-statement fallbacks, split-assigned guarded locals, and nullable fallback returns stay quiet.
 - **v2.30.52**: AM006/AM004 aggregate + nested "Fix individual…" code-fix actions — keeps the lightbulb short when many properties pile onto one `CreateMap` (metadata model types).
@@ -222,7 +224,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.55">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.56">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
