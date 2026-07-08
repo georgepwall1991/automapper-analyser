@@ -694,6 +694,82 @@ public class AM004_CodeFixTests
     }
 
     [Fact]
+    public async Task AM004_FuzzyMatch_ShouldSuppress_WhenBestDestinationCandidateIsAmbiguous()
+    {
+        // Email → Eamil and Emial are both Levenshtein distance 2. First-match ordering would
+        // pick one arbitrarily; unique-best withholds the fuzzy map action so only DoNotValidate remains.
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Name { get; set; }
+                                        public string Email { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; }
+                                        public string Eamil { get; set; }
+                                        public string Emial { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Email { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public string Name { get; set; }
+                                                 public string Eamil { get; set; }
+                                                 public string Emial { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForSourceMember(src => src.Email, opt => opt.DoNotValidate());
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM004_MissingDestinationPropertyAnalyzer, AM004_MissingDestinationPropertyCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new[]
+                {
+                    new DiagnosticResult(AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule)
+                        .WithLocation(8, 23)
+                        .WithArguments("Email")
+                },
+                expectedFixedCode,
+                0, // Index 0 = DoNotValidate only — no fuzzy Map action under a name-distance tie
+                null,
+                1);
+    }
+
+    [Fact]
     public async Task AM004_FuzzyMatch_ShouldWorkWithReverseMap()
     {
         const string testCode = """

@@ -530,6 +530,15 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         string sourceParameterName,
         ITypeSymbol? destinationType)
     {
+        // Pure pass-through of a nullable source into a nullable destination (return source / => source)
+        // is intentional null-preserving conversion — do not demand an explicit null guard.
+        if (destinationType != null &&
+            IsNullableType(destinationType) &&
+            IsNullableSourcePassThrough(method, sourceParameterName))
+        {
+            return true;
+        }
+
         IEnumerable<SyntaxNode> nodes = GetConverterExecutableDescendantNodes(method);
 
         bool hasBinaryNullCheck = nodes
@@ -636,6 +645,42 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
                    .Any(conditional =>
                        IsConditionalAccessRootedInSource(conditional, sourceParameterName) &&
                        ConditionalAccessFlowsToReturn(conditional, method, sourceParameterName));
+    }
+
+    /// <summary>
+    ///     True when the converter body only returns the source parameter (block or expression-bodied).
+    ///     Used to suppress AM032 for nullable→nullable pass-through converters.
+    /// </summary>
+    private static bool IsNullableSourcePassThrough(MethodDeclarationSyntax method, string sourceParameterName)
+    {
+        if (method.ExpressionBody != null)
+        {
+            return IsSourceReference(UnwrapParenthesized(method.ExpressionBody.Expression), sourceParameterName);
+        }
+
+        if (method.Body == null)
+        {
+            return false;
+        }
+
+        // Single-statement body: return source;
+        if (method.Body.Statements.Count == 1 &&
+            method.Body.Statements[0] is ReturnStatementSyntax { Expression: { } returnExpression })
+        {
+            return IsSourceReference(UnwrapParenthesized(returnExpression), sourceParameterName);
+        }
+
+        return false;
+    }
+
+    private static ExpressionSyntax UnwrapParenthesized(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesized)
+        {
+            expression = parenthesized.Expression;
+        }
+
+        return expression;
     }
 
     private static bool PatternMatchesNull(PatternSyntax pattern)

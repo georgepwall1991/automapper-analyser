@@ -7,6 +7,145 @@ namespace AutoMapperAnalyzer.Tests.Conflicts;
 public class AnalyzerOwnershipConflictTests
 {
     [Fact]
+    public async Task NonNullableTypeMismatch_ReportsOnlyAM001()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Age { get; set; } = string.Empty;
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzers(
+                new AM001_PropertyTypeMismatchAnalyzer(),
+                new AM002_NullableCompatibilityAnalyzer())
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule,
+                19,
+                13,
+                "Age",
+                "Source",
+                "string",
+                "Destination",
+                "int")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task NullableToNonNullableSameType_ReportsOnlyAM002()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Name { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public string Name { get; set; } = string.Empty;
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzers(
+                new AM001_PropertyTypeMismatchAnalyzer(),
+                new AM002_NullableCompatibilityAnalyzer())
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule,
+                20,
+                13,
+                "Name",
+                "Source",
+                "Name",
+                "string?",
+                "Destination",
+                "string")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task NullableIncompatibleTypes_ReportsOnlyAM001()
+    {
+        // string? → int is a type mismatch (AM001), not a nullability policy issue (AM002).
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string? Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzers(
+                new AM001_PropertyTypeMismatchAnalyzer(),
+                new AM002_NullableCompatibilityAnalyzer())
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule,
+                20,
+                13,
+                "Age",
+                "Source",
+                "string?",
+                "Destination",
+                "int")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task StringToIntMismatch_ReportsOnlyAM001()
     {
         const string testCode = """

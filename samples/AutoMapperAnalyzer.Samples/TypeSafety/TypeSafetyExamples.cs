@@ -59,20 +59,20 @@ public class TypeSafetyExamples
     }
 
     /// <summary>
-    ///     AM003: Collection Type Incompatibility
-    ///     This should trigger AM003 diagnostic
+    ///     AM003: Collection container incompatibility (same element type, different container).
+    ///     Isolates AM003 ownership — element-type mismatches are AM021, not this sample.
     /// </summary>
     public void CollectionTypeIncompatibilityExample()
     {
         var config = new MapperConfiguration(cfg =>
         {
-            // ❌ AM003: Collection container mismatch: List<string> to HashSet<int>
-            cfg.CreateMap<ArticleWithStringTags, ArticleWithIntTags>();
+            // ❌ AM003: Collection container mismatch: List<string> to HashSet<string>
+            cfg.CreateMap<ArticleWithListTags, ArticleWithHashSetTags>();
         });
 
         var mapper = config.CreateMapper();
 
-        var source = new ArticleWithStringTags
+        var source = new ArticleWithListTags
         {
             Title = "Sample Article",
             Tags = new List<string> { "tech", "programming", "csharp" }
@@ -80,7 +80,7 @@ public class TypeSafetyExamples
 
         try
         {
-            var destination = mapper.Map<ArticleWithIntTags>(source);
+            var destination = mapper.Map<ArticleWithHashSetTags>(source);
             Console.WriteLine(
                 $"Mapped: {destination.Title}, Tags: [{string.Join(", ", destination.Tags)}]"
             );
@@ -118,16 +118,16 @@ public class PersonWithRequiredName
     public string Name { get; set; } = string.Empty; // Non-nullable - potential NRE!
 }
 
-public class ArticleWithStringTags
+public class ArticleWithListTags
 {
     public string Title { get; set; } = string.Empty;
-    public List<string> Tags { get; set; } = []; // List of strings
+    public List<string> Tags { get; set; } = []; // List container
 }
 
-public class ArticleWithIntTags
+public class ArticleWithHashSetTags
 {
     public string Title { get; set; } = string.Empty;
-    public HashSet<int> Tags { get; set; } = []; // HashSet of ints - incompatible!
+    public HashSet<string> Tags { get; set; } = []; // HashSet container — AM003 owns this, not AM021
 }
 
 /// <summary>

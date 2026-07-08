@@ -131,6 +131,41 @@ public class AM004_AggregateCodeFixTests
     }
 
     [Fact]
+    public async Task AM004_MapAll_Withheld_WhenAnySourcePropertyHasAmbiguousFuzzyDestination()
+    {
+        // FirstName → FirstNam is unique; Email → Eamil/Emial ties. "Map all" must not appear
+        // because it would invent an arbitrary destination for Email.
+        const string ambiguousModels = """
+                                       namespace Models
+                                       {
+                                           public class Source
+                                           {
+                                               public string FirstName { get; set; }
+                                               public string Email { get; set; }
+                                           }
+
+                                           public class Destination
+                                           {
+                                               public string FirstNam { get; set; }
+                                               public string Eamil { get; set; }
+                                               public string Emial { get; set; }
+                                           }
+                                       }
+                                       """;
+
+        IReadOnlyList<CodeFixActionInspector.ActionInfo> actions = await RegisterActionsAsync(ambiguousModels);
+
+        Assert.Contains(actions, a => a.Depth == 0 && a.EquivalenceKey == "AM004_DoNotValidateAll");
+        Assert.DoesNotContain(actions, a => a.EquivalenceKey == "AM004_MapAll");
+        Assert.DoesNotContain(
+            actions,
+            a => a.EquivalenceKey != null && a.EquivalenceKey.StartsWith("AM004_FuzzyMatch_Email_", StringComparison.Ordinal));
+        Assert.Contains(
+            actions,
+            a => a.EquivalenceKey != null && a.EquivalenceKey.StartsWith("AM004_FuzzyMatch_FirstName_", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task AM004_TwoUnmapped_Fuzzy_OffersMapAllDoNotValidateAllAndNestedSubmenu()
     {
         IReadOnlyList<CodeFixActionInspector.ActionInfo> actions = await RegisterActionsAsync(FuzzyModels);

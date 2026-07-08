@@ -352,7 +352,16 @@ CreateMap<Source, Destination>()
     .ForMember(dest => dest.ContactEmail, opt => opt.MapFrom(src => src.Email));
 ```
 
-AM004 offers this when it finds one compatible destination property with a strong fuzzy-name match.
+AM004 offers this when it finds **one unique best** compatible destination property with a strong fuzzy-name match (Levenshtein distance 1–2). If two or more destinations tie for the best distance, the fuzzy map action is withheld so the lightbulb never invents an arbitrary mapping — only `DoNotValidate()` remains. Aggregate **"Map all to similar destination properties"** uses the same unique-best gate and appears only when every flagged source property has a unique best destination.
+
+Diagnostics are reported on the **source property identifier** (property-token placement). When 2+ source properties are unmapped on one `CreateMap` (typical for compiled/metadata model types), the fixer also offers:
+
+- **Suppress validation for all N source properties (DoNotValidate)** — always available for multi-property maps
+- **Map all N to similar destination properties** — only when every property has a unique-best fuzzy match
+- **Fix individual source property…** — nested submenu with per-property fuzzy map / DoNotValidate actions
+
+The single-unmapped-property case stays flat (no aggregate menu).
+
 AM004 stays quiet when source members are explicitly handled by custom member or constructor-parameter
 mapping, `ForSourceMember(...).DoNotValidate()`, or when `ConstructUsing`/`ConvertUsing` owns the map.
 
@@ -1023,7 +1032,8 @@ Reports nullable-source converters whose `Convert` implementation does not visib
 parameter before using it. Detection recognizes `== null`/`!= null`, null patterns,
 conditional-access guard expressions such as `source?.Length is null`, `source?.Length is > 0`, or
 `if (source?.Length > 0)`,
-`string.IsNullOrEmpty`/`IsNullOrWhiteSpace`, null-coalescing, conditional access with an explicit fallback, and modern guard clauses such as
+`string.IsNullOrEmpty`/`IsNullOrWhiteSpace`, null-coalescing, conditional access with an explicit fallback, pure
+nullable→nullable source pass-through (`return source;` or `=> source`), and modern guard clauses such as
 `ArgumentNullException.ThrowIfNull(source)`, `ArgumentException.ThrowIfNullOrEmpty(source)`, and
 `ArgumentException.ThrowIfNullOrWhiteSpace(source)`. A standalone conditional access such as `source?.Length` does not
 count as null handling if the converter later uses `source` unsafely, and passing the maybe-null value into a non-null

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+
+- **AM004 unique-best fuzzy gate**: per-property and aggregate "Map all" fuzzy destination suggestions now use `FindUniqueBestFuzzyMatch` (same as AM006/AM011). Name-distance ties no longer pick the first candidate in symbol order, so ambiguous destinations only offer `DoNotValidate` / "DoNotValidate all".
+- **AM032 nullable pass-through**: pure `return source` / `=> source` converters with a nullable destination no longer raise AM032 — null-preserving pass-through is intentional null handling.
+- **AM003 sample isolation**: `TypeSafetyExamples` container-mismatch sample uses same-element `List<string>` → `HashSet<string>` so it no longer doubles as an AM021 element mismatch.
+- **AM004 docs**: rule docs document unique-best fuzzy mapping, aggregate Map-all/DoNotValidate-all, nested per-property submenu, and property-token placement.
+- **Trust tests**: AM001↔AM002 ownership conflict coverage; AM030 signature-depth regressions (wrong return type, missing `ResolutionContext`, non-public `Convert`).
+
 ## [2.30.55] - 2026-07-06
 
 Analyzer-health full reanalysis. No analyzer, fixer, or test source changed.

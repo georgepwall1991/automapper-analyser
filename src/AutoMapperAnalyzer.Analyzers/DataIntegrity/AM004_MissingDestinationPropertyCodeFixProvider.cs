@@ -119,13 +119,14 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
         SyntaxNode root = operationContext.Root;
         var actions = ImmutableArray.CreateBuilder<CodeAction>();
 
-        // "Map all" only when every flagged source property has a fuzzy destination match.
+        // "Map all" only when every flagged source property has a unique-best fuzzy destination match.
+        // Ties (same Levenshtein distance) withhold the action so aggregate rewrites never invent a mapping.
         List<IPropertySymbol> destProperties = AutoMapperAnalysisHelpers
             .GetMappableProperties(mappingContext.DestinationType, requireSetter: true)
             .ToList();
         var matches = orderedSourceProperties
             .Select(p => (Source: p,
-                Match: FuzzyMatchHelper.FindFuzzyMatches(p.Name, destProperties, p.Type).FirstOrDefault()))
+                Match: FuzzyMatchHelper.FindUniqueBestFuzzyMatch(p.Name, destProperties, p.Type)))
             .ToList();
 
         if (matches.All(m => m.Match != null))
@@ -165,8 +166,10 @@ public class AM004_MissingDestinationPropertyCodeFixProvider : AutoMapperCodeFix
 
         var destProperties = AutoMapperAnalysisHelpers.GetMappableProperties(
             mappingContext.DestinationType, requireSetter: true);
-        return FuzzyMatchHelper.FindFuzzyMatches(propertyName, destProperties, sourcePropertySymbol.Type)
-            .FirstOrDefault();
+        // Require a unique lowest-distance destination (same gate as AM006/AM011). First-match
+        // ordering is order-dependent and can map a source property to the wrong destination.
+        return FuzzyMatchHelper.FindUniqueBestFuzzyMatch(
+            propertyName, destProperties, sourcePropertySymbol.Type);
     }
 
     private static bool TryResolveMappingContext(

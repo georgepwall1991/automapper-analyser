@@ -4235,6 +4235,205 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM030_ShouldReportDiagnostic_WhenConvertReturnTypeDoesNotMatchInterface()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class WrongReturnTypeConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public string Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return source;
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM030_CustomTypeConverterAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.InvalidConverterImplementationRule)
+                .WithLocation(6, 18)
+                .WithArguments("WrongReturnTypeConverter", "String", "DateTime"),
+            new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule)
+                .WithLocation(6, 18)
+                .WithArguments("WrongReturnTypeConverter"),
+            DiagnosticResult.CompilerError("CS0738")
+                .WithLocation(6, 45));
+    }
+
+    [Fact]
+    public async Task AM030_ShouldReportDiagnostic_WhenConvertMissingResolutionContextParameter()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class MissingContextConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM030_CustomTypeConverterAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.InvalidConverterImplementationRule)
+                .WithLocation(6, 18)
+                .WithArguments("MissingContextConverter", "String", "DateTime"),
+            new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule)
+                .WithLocation(6, 18)
+                .WithArguments("MissingContextConverter"),
+            DiagnosticResult.CompilerError("CS0535")
+                .WithLocation(6, 44));
+    }
+
+    [Fact]
+    public async Task AM030_ShouldReportDiagnostic_WhenConvertMethodIsNotPublic()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class PrivateConvertConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        private DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM030_CustomTypeConverterAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.InvalidConverterImplementationRule)
+                .WithLocation(6, 18)
+                .WithArguments("PrivateConvertConverter", "String", "DateTime"),
+            new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule)
+                .WithLocation(6, 18)
+                .WithArguments("PrivateConvertConverter"),
+            DiagnosticResult.CompilerError("CS0737")
+                .WithLocation(6, 44));
+    }
+
+    [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenNullableSourceIsPassedThroughToNullableDestination()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class PassThroughConverter : ITypeConverter<string?, string?>
+                                    {
+                                        public string? Convert(string? source, string? destination, ResolutionContext context)
+                                        {
+                                            return source;
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, string?>().ConvertUsing<PassThroughConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM032_ShouldNotReportDiagnostic_WhenExpressionBodiedPassThroughToNullableDestination()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class ExpressionPassThroughConverter : ITypeConverter<string?, string?>
+                                    {
+                                        public string? Convert(string? source, string? destination, ResolutionContext context)
+                                            => source;
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, string?>().ConvertUsing<ExpressionPassThroughConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM032_ShouldReportDiagnostic_WhenNullableSourcePassedThroughToNonNullableDestination()
+    {
+        // Pass-through to non-nullable dest is not intentional null handling — still AM032.
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class UnsafePassThroughConverter : ITypeConverter<string?, string>
+                                    {
+                                        public string Convert(string? source, string destination, ResolutionContext context)
+                                        {
+                                            return source;
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, string>().ConvertUsing<UnsafePassThroughConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule,
+                8,
+                23,
+                "UnsafePassThroughConverter",
+                "String")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldReportDiagnostic_WhenTypeConverterIsUnused()
     {
         const string testCode = """

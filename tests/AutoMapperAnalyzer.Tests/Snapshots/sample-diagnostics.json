@@ -315,7 +315,7 @@
     "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/TypeSafetyExamples.cs",
     "line": 70,
     "column": 13,
-    "message": "Property 'Tags' has incompatible collection types: ArticleWithStringTags.Tags (System.Collections.Generic.List<string>) cannot be mapped to ArticleWithIntTags.Tags (System.Collections.Generic.HashSet<int>) without explicit collection conversion",
+    "message": "Property 'Tags' has incompatible collection types: ArticleWithListTags.Tags (System.Collections.Generic.List<string>) cannot be mapped to ArticleWithHashSetTags.Tags (System.Collections.Generic.HashSet<string>) without explicit collection conversion",
     "fixTrustLevel": "LikelyRewrite"
   },
   {
