@@ -1307,6 +1307,131 @@ public class AM001_CodeFixTests
                 expectedFixedCode);
     }
 
+
+    [Fact]
+    public async Task AM001_ShouldFixNullableDoubleToDecimalWithSourceTypedFallback()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public double? Amount { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public decimal Amount { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public double? Amount { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public decimal Amount { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Amount, opt => opt.MapFrom(src => (decimal)(src.Amount ?? 0.0)));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 19, 13,
+                    "Amount", "Source", "double?", "Destination", "decimal"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldFixStringToDateTimeWithInvariantParse()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string CreatedDate { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public DateTime CreatedDate { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string CreatedDate { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public DateTime CreatedDate { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(src => src.CreatedDate != null ? global::System.DateTime.Parse(src.CreatedDate, global::System.Globalization.CultureInfo.InvariantCulture) : global::System.DateTime.MinValue));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM001_PropertyTypeMismatchAnalyzer, AM001_PropertyTypeMismatchCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13,
+                    "CreatedDate", "Source", "string", "Destination", "System.DateTime"),
+                expectedFixedCode);
+    }
+
     private static Document CreateDocument(string source)
     {
         var workspace = new AdhocWorkspace();

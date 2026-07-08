@@ -203,7 +203,11 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
             {
                 if (sourceIsNullable && !destinationIsNullable)
                 {
-                    string fallback = TypeConversionHelper.GetDefaultValueForType(destinationTypeName);
+                    // Coalesce must match the source nullable's underlying type so `src.X ?? fallback`
+                    // compiles before the outer cast (e.g. double?→decimal uses 0.0, not 0m).
+                    string sourceTypeName =
+                        sourceUnderlying.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                    string fallback = TypeConversionHelper.GetDefaultValueForType(sourceTypeName);
                     return $"({destinationTypeName})({srcMember} ?? {fallback})";
                 }
 
@@ -360,12 +364,16 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
             return true;
         }
 
-        if (IsString(sourceUnderlying) && IsFrameworkParseType(destinationUnderlying, out string parseCall))
+        if (IsString(sourceUnderlying) &&
+            IsFrameworkParseType(destinationUnderlying, out string parseCall, out bool parseNeedsInvariantCulture))
         {
             string underlyingName =
                 destinationUnderlying.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
             string fallback = GetNullSourceFallback(underlyingName, destinationIsNullable);
-            expression = $"{srcMember} != null ? {parseCall}({srcMember}) : {fallback}";
+            string parseArgs = parseNeedsInvariantCulture
+                ? $"{srcMember}, global::System.Globalization.CultureInfo.InvariantCulture"
+                : srcMember;
+            expression = $"{srcMember} != null ? {parseCall}({parseArgs}) : {fallback}";
             return true;
         }
 
@@ -406,13 +414,18 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
                type.Name is "DateTimeOffset" or "DateOnly" or "TimeOnly" or "Decimal";
     }
 
-    private static bool IsFrameworkParseType(ITypeSymbol type, out string parseCall)
+    private static bool IsFrameworkParseType(
+        ITypeSymbol type,
+        out string parseCall,
+        out bool needsInvariantCulture)
     {
         parseCall = string.Empty;
+        needsInvariantCulture = false;
 
         if (type.SpecialType == SpecialType.System_DateTime)
         {
             parseCall = "global::System.DateTime.Parse";
+            needsInvariantCulture = true;
             return true;
         }
 
@@ -425,12 +438,15 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
                     return true;
                 case "DateTimeOffset":
                     parseCall = "global::System.DateTimeOffset.Parse";
+                    needsInvariantCulture = true;
                     return true;
                 case "DateOnly":
                     parseCall = "global::System.DateOnly.Parse";
+                    needsInvariantCulture = true;
                     return true;
                 case "TimeOnly":
                     parseCall = "global::System.TimeOnly.Parse";
+                    needsInvariantCulture = true;
                     return true;
                 case "Uri":
                     parseCall = "new global::System.Uri";
