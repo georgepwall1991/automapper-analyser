@@ -112,7 +112,10 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         IPropertySymbol[] sourceProperties =
             AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToArray();
         IPropertySymbol[] destinationProperties =
-            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false).ToArray();
+            AutoMapperAnalysisHelpers.GetMappableProperties(
+                destinationType,
+                requireGetter: false,
+                requireSetter: true).ToArray();
 
         // Check each source property for mapping compatibility
         foreach (IPropertySymbol sourceProp in sourceProperties)
@@ -220,13 +223,16 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourcePropertyType,
         ITypeSymbol destinationPropertyType)
     {
-        string[] propertyNames = [sourcePropertyName.ToUpperInvariant(), destinationPropertyName.ToUpperInvariant()];
-        Array.Sort(propertyNames, StringComparer.Ordinal);
-
-        string[] typeNames = [sourcePropertyType.ToDisplayString(), destinationPropertyType.ToDisplayString()];
-        Array.Sort(typeNames, StringComparer.Ordinal);
-
-        return $"{propertyNames[0]}|{propertyNames[1]}::{typeNames[0]}|{typeNames[1]}";
+        // Preserve direction so ReverseMap can report both sides of a bidirectional
+        // mismatch (e.g. string→int forward and int→string reverse need different fixes).
+        return string.Concat(
+            sourcePropertyName,
+            "→",
+            destinationPropertyName,
+            "::",
+            sourcePropertyType.ToDisplayString(),
+            "→",
+            destinationPropertyType.ToDisplayString());
     }
 
     private static bool IsNullableCompatibilityIssue(ITypeSymbol sourceType, ITypeSymbol destinationType)
@@ -245,13 +251,20 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 
     private static bool IsGenericTypeMismatch(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
+        // AM021 owns same-open-generic collection element mismatches (List<int>→List<string>).
+        // Do NOT suppress Nullable<T> or other non-collection generics here — those remain AM001.
+        if (!AutoMapperAnalysisHelpers.IsCollectionType(sourceType) ||
+            !AutoMapperAnalysisHelpers.IsCollectionType(destinationType))
+        {
+            return false;
+        }
+
         if (sourceType is INamedTypeSymbol sourceNamed && destinationType is INamedTypeSymbol destNamed)
         {
-            // Both are generic types with same generic definition but different type arguments
+            // Both are generic collections with same generic definition but different type arguments
             if (sourceNamed.IsGenericType && destNamed.IsGenericType &&
                 SymbolEqualityComparer.Default.Equals(sourceNamed.OriginalDefinition, destNamed.OriginalDefinition))
             {
-                // Check if type arguments are different
                 for (int i = 0; i < sourceNamed.TypeArguments.Length; i++)
                 {
                     if (!SymbolEqualityComparer.Default.Equals(
@@ -280,6 +293,10 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 
     private static bool IsComplexTypeMappingRequired(ITypeSymbol sourceType, ITypeSymbol destinationType)
     {
+        // Peel Nullable<T> so int?→long? stays a scalar AM001 concern (not AM020 nested mapping).
+        sourceType = AutoMapperAnalysisHelpers.GetUnderlyingType(sourceType);
+        destinationType = AutoMapperAnalysisHelpers.GetUnderlyingType(destinationType);
+
         // Both are named types (classes/structs/interfaces) but not the same type
         if (sourceType is INamedTypeSymbol sourceNamed && destinationType is INamedTypeSymbol destNamed)
         {
@@ -296,17 +313,6 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
-    }
-
-    private static bool HasExistingCreateMapForTypes(
-        SyntaxNodeAnalysisContext context,
-        ITypeSymbol sourceType,
-        ITypeSymbol destinationType)
-    {
-        return AutoMapperAnalysisHelpers.HasExistingCreateMapForTypes(
-            context.Compilation,
-            sourceType,
-            destinationType);
     }
 
     private static bool AreTypesCompatible(Compilation compilation, ITypeSymbol sourceType, ITypeSymbol destinationType)

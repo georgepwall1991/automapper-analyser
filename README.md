@@ -14,7 +14,7 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.57
+## 🎉 Latest Release: v2.30.58
 
 **Full analyzer+fixer audit hardening — ownership, reverse-map, safe fixes**
 
@@ -33,6 +33,7 @@ prevention*
 
 ### Recent Releases
 
+- **v2.30.58**: AM001 ReverseMap direction keys, Nullable scalar reporting, fixer culture/null/keyword/framework conversion hardening.
 - **v2.30.57**: Full analyzer+fixer audit hardening — AM003/AM021 ownership, AM020 internal fixer parity, AM021 Parse gate, AM041 paren reverse, AM011 reverse fuzzy, AM031 multi-enum all keys, docs/trust honesty.
 - **v2.30.56**: Analyzer hitlist hardening — AM004 unique-best fuzzy gate, AM032 nullable pass-through suppression, AM003 sample isolation, AM001↔AM002 ownership tests, AM030 signature-depth regressions.
 - **v2.30.55**: Analyzer health full reanalysis — refreshed scorecard and Fixer Trust Summary; no analyzer/fixer/test source changes.
@@ -226,7 +227,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.57">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.58">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

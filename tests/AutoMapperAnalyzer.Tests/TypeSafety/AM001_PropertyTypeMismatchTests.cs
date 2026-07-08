@@ -14,7 +14,7 @@ public class AM001_PropertyTypeMismatchTests
     }
 
     [Fact]
-    public async Task Debug_AM001_SimpleTest()
+    public async Task AM001_ShouldReportDiagnostic_WhenStringMappedToInt_Simple()
     {
         const string
             testCode = """
@@ -1050,4 +1050,116 @@ public class AM001_PropertyTypeMismatchTests
         // AM001 should ignore struct -> class mappings since they are complex mappings (handled by AM020)
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
+
+    [Fact]
+    public async Task AM001_ShouldReportBothDirections_WhenReverseMapHasBidirectionalTypeMismatch()
+    {
+        // string↔int needs distinct fixes per direction; direction-preserving mismatch keys
+        // must allow both diagnostics.
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public string Age { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public int Age { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Age",
+                "Source", "string", "Destination", "int"),
+            // ReverseMap() invocation spans the fluent chain starting at CreateMap.
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Age",
+                "Destination", "int", "Source", "string"));
+    }
+
+    [Fact]
+    public async Task AM001_ShouldReportDiagnostic_WhenNullableDoubleMappedToNullableDecimal()
+    {
+        // Nullable<T> with different type args is a scalar mismatch, not AM021 collection ownership.
+        // double→decimal is explicit-only even after nullable lifting, so AM001 must report.
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public double? Amount { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public decimal? Amount { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 20, 13, "Amount",
+                "Source", "double?", "Destination", "decimal?"));
+    }
+
+    [Fact]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenNullableIntWidensToNullableLong()
+    {
+        // int→long is implicit; lifted int?→long? must stay quiet (not suppressed-for-the-wrong-reason).
+        const string testCode = """
+
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public int? Value { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public long? Value { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
 }

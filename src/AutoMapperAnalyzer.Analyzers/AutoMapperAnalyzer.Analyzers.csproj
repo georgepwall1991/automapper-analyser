@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>57</PatchVersion>
+        <PatchVersion>58</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,21 +32,12 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.57 - Full analyzer+fixer audit hardening
-
-            Changed:
-            - Shared AM003/AM021 collection-container incompatibility predicate so immutable/frozen/SortedSet/LinkedList container mismatches no longer double-report.
-            - AM020 fixer uses shared public+internal property discovery (no silent no-op on internal nested maps).
-            - AM021 list simple conversions gate Parse destinations to string sources; AM041 parenthesized ReverseMap registration; AM011 reverse per-property fuzzy; AM031 multi-collection multi-enum reports; catalog trust honesty (AM020 LikelyRewrite, AM022 Scaffold).
-            - Docs: AM001 Parse vs TryParse, AM022 MaxDepth(2), AM006 aggregate UX, AM050 sibling withhold, remove fake AM031.00x IDs.
-
-            Validation:
-            - Full solution test suite passing on net10.0 (1367 tests)
-            - Rule catalog and sample diagnostics snapshot checks passing
-            - Analyzer and test projects build clean under -warnaserror (the release gate)
-
-            Previous Release: v2.30.56 - Analyzer hitlist hardening
-        </PackageReleaseNotes>
+        <PackageReleaseNotes>Version 2.30.58 - AM001 reverse-map, Nullable, and fixer hardening
+- Direction-preserving mismatch keys so ReverseMap reports both conversion directions
+- Narrow generic deferral to collections only (Nullable&lt;T&gt; scalar mismatches report again)
+- Peel Nullable&lt;T&gt; in fixer; invariant-culture Parse/ToString; keyword EscapeIdentifier
+- Framework scalar conversions (DateTime/Uri/bool/Guid/DateOnly/TimeOnly)
+</PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
         <!-- Remove strict PackageType for broader compatibility -->
