@@ -86,69 +86,18 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         bool isReverseMap,
         InvocationExpressionSyntax? reverseMapInvocation = null)
     {
-        List<IPropertySymbol> sourcePropertiesList =
-            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToList();
-        HashSet<string> sourcePropertyNames = new HashSet<string>(sourcePropertiesList.Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
-        IEnumerable<IPropertySymbol> destinationProperties =
-            AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, requireGetter: false, requireSetter: true);
         InvocationExpressionSyntax mappingInvocation =
             isReverseMap && reverseMapInvocation != null ? reverseMapInvocation : invocation;
 
-        if (HasCustomConversion(
-                mappingInvocation,
-                context.SemanticModel,
-                stopAtReverseMapBoundary: !isReverseMap))
+        List<IPropertySymbol> unmapped = GetUnmappedDestinationProperties(
+            mappingInvocation,
+            sourceType,
+            destinationType,
+            context.SemanticModel,
+            stopAtReverseMapBoundary: !isReverseMap);
+
+        foreach (IPropertySymbol destProperty in unmapped)
         {
-            return;
-        }
-
-        foreach (IPropertySymbol destProperty in destinationProperties)
-        {
-            // Required members are enforced by AM011 (error). Skip here to avoid duplicate,
-            // contradictory diagnostics for the same property.
-            if (destProperty.IsRequired)
-            {
-                continue;
-            }
-
-            // 1. Check for direct mapping (same name)
-            if (sourcePropertyNames.Contains(destProperty.Name))
-            {
-                continue;
-            }
-
-            // 2. Check for flattening
-            // If Dest is "CustomerName" and Source has "Customer" (complex), and "Customer" has "Name".
-            if (sourcePropertiesList.Any(srcProp => IsFlatteningMatch(srcProp, destProperty)))
-            {
-                continue;
-            }
-
-            // 3. Check for explicit configuration (ForMember/ForPath)
-            if (IsPropertyConfiguredWithForMember(
-                    mappingInvocation,
-                    destProperty.Name,
-                    context.SemanticModel,
-                    stopAtReverseMapBoundary: !isReverseMap))
-            {
-                continue;
-            }
-
-            if (IsDestinationPropertyInitializedByConstructUsing(
-                    mappingInvocation,
-                    destProperty.Name,
-                    context.SemanticModel,
-                    stopAtReverseMapBoundary: !isReverseMap))
-            {
-                continue;
-            }
-
-            // 4. Check for Ignore? 
-            // IsPropertyConfiguredWithForMember checks if ForMember exists. 
-            // If ForMember exists (even if Ignore), it is "mapped" (or explicitly handled).
-            // So check 3 covers Ignore.
-
-            // Report diagnostic
             ImmutableDictionary<string, string?>.Builder properties =
                 ImmutableDictionary.CreateBuilder<string, string?>();
             properties.Add("PropertyName", destProperty.Name);
@@ -167,6 +116,70 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
 
             context.ReportDiagnostic(diagnostic);
         }
+    }
+
+    /// <summary>
+    ///     Live unmapped non-required destination properties for a mapping direction.
+    ///     Shared with the code fix so sibling recompute matches analyzer ownership.
+    /// </summary>
+    internal static List<IPropertySymbol> GetUnmappedDestinationProperties(
+        InvocationExpressionSyntax mappingInvocation,
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType,
+        SemanticModel semanticModel,
+        bool stopAtReverseMapBoundary)
+    {
+        if (HasCustomConversion(mappingInvocation, semanticModel, stopAtReverseMapBoundary))
+        {
+            return [];
+        }
+
+        List<IPropertySymbol> sourcePropertiesList =
+            AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToList();
+        var sourcePropertyNames = new HashSet<string>(
+            sourcePropertiesList.Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
+
+        var unmapped = new List<IPropertySymbol>();
+        foreach (IPropertySymbol destProperty in AutoMapperAnalysisHelpers.GetMappableProperties(
+                     destinationType, requireGetter: false, requireSetter: true))
+        {
+            if (destProperty.IsRequired)
+            {
+                continue;
+            }
+
+            if (sourcePropertyNames.Contains(destProperty.Name))
+            {
+                continue;
+            }
+
+            if (sourcePropertiesList.Any(srcProp => IsFlatteningMatch(srcProp, destProperty)))
+            {
+                continue;
+            }
+
+            if (IsPropertyConfiguredWithForMember(
+                    mappingInvocation,
+                    destProperty.Name,
+                    semanticModel,
+                    stopAtReverseMapBoundary))
+            {
+                continue;
+            }
+
+            if (IsDestinationPropertyInitializedByConstructUsing(
+                    mappingInvocation,
+                    destProperty.Name,
+                    semanticModel,
+                    stopAtReverseMapBoundary))
+            {
+                continue;
+            }
+
+            unmapped.Add(destProperty);
+        }
+
+        return unmapped;
     }
 
     private static bool HasCustomConversion(

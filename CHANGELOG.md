@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## [2.30.65] - 2026-07-08
+
+AM004/AM006 same-document sibling recompute for aggregate code actions.
+
+### Changed
+
+- **AM004 / AM006**: Map-all, DoNotValidate-all, and Ignore-all recompute live unmapped siblings from a single property-token caret (AM011-style), so same-document lightbulbs no longer require multi-diagnostic pile-up.
+- **AM006**: shared `GetUnmappedDestinationProperties` with the analyzer for ownership-accurate recompute.
+
+### Validation
+
+- Full suite on `net10.0`: **1390** passed.
+
 ## [2.30.64] - 2026-07-08
 
 AM001 property-token diagnostic placement with aggregate-preserving sibling recompute.

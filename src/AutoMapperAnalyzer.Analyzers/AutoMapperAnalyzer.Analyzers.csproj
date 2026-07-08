@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>64</PatchVersion>
+        <PatchVersion>65</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,9 +32,9 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.64 - AM001 property-token diagnostic placement
-- Type-mismatch diagnostics land on destination property identifiers
-- MappingInvocation metadata + sibling recompute keep Convert-all/Ignore-all aggregates working
+                <PackageReleaseNotes>Version 2.30.65 - AM004/AM006 same-document sibling recompute
+- Map-all / DoNotValidate-all / Ignore-all from a single property-token caret
+- Recompute uses live analyzer unmapped sets (AM011-style)
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
