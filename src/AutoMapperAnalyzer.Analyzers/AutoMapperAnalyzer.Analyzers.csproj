@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>61</PatchVersion>
+        <PatchVersion>62</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -25,17 +25,17 @@
         <PackageVersion Condition="'$(PackageVersion)' == ''">$(MajorVersion).$(MinorVersion).$(PatchVersion)</PackageVersion>
         <Title>AutoMapper Roslyn Analyzer</Title>
         <Authors>George Wall</Authors>
-        <Description>Catch AutoMapper configuration errors at compile-time before they cause runtime chaos! This Roslyn analyzer detects type mismatches, nullable issues, missing properties, collection incompatibilities, and complex mapping problems - all with intelligent code fixes. Transform AutoMapper development from reactive debugging to proactive prevention. Features 16 analyzer rules with smart fixes for type safety, data integrity, complex mappings, performance, and configuration. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, 9.0+, 10.0+.</Description>
+        <Description>Catch AutoMapper configuration errors at compile-time before they cause runtime chaos! This Roslyn analyzer detects type mismatches, nullable issues, missing properties, collection incompatibilities, and complex mapping problems - all with intelligent code fixes. Transform AutoMapper development from reactive debugging to proactive prevention. Features 21 analyzer rules with smart fixes for type safety, data integrity, complex mappings, performance, and configuration. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, 9.0+, 10.0+.</Description>
         <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis;code-quality;diagnostics;code-fix;type-safety;compile-time;netframework;netcore;dotnet;dotnet6;dotnet8;dotnet9;dotnet10</PackageTags>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/georgepwall1991/automapper-analyser</PackageProjectUrl>
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.61 - Fixer UX polish (Batch 3)
-- AM032 null-guard stays net48-compatible classic if-throw
-- AM031 Remove convention ForMember before Ignore
-- AM003/AM021 keyword-safe MapFrom + clearer conversion titles
+                <PackageReleaseNotes>Version 2.30.62 - Split AM031 performance concepts into independent rule IDs
+- AM031 multiple enumeration (kept)
+- AM034 expensive operation, AM035 expensive computation, AM036 sync-over-async, AM037 complex LINQ, AM038 non-deterministic
+- Independent severity/docs/catalog entries; shared analyzer + code fix provider
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
