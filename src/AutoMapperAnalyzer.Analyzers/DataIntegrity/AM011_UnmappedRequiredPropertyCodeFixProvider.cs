@@ -52,17 +52,10 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             IPropertySymbol? diagnosticProperty = unmappedRequiredProperties.FirstOrDefault(
                 property => string.Equals(property.Name, properties["PropertyName"], StringComparison.Ordinal));
 
+            // Stale or already-configured diagnostics: withhold rather than scaffolding a
+            // second ForMember from diagnostic metadata that no longer matches live unmapped set.
             if (diagnosticProperty == null)
             {
-                (CodeAction primary, CodeAction ignore) = BuildPerPropertyActions(
-                    context.Document,
-                    operationContext.Root,
-                    operationContext.SemanticModel,
-                    invocation,
-                    properties["PropertyName"],
-                    properties["PropertyType"]);
-                context.RegisterCodeFix(primary, diagnostic);
-                context.RegisterCodeFix(ignore, diagnostic);
                 continue;
             }
 
@@ -203,36 +196,57 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         int count = orderedProperties.Count;
         SyntaxNode root = operationContext.Root;
 
-        List<PropertyFixSpec> mapSpecs = orderedProperties
-            .Select(property =>
-            {
-                IPropertySymbol? fuzzyMatch =
-                    FuzzyMatchHelper.FindUniqueBestFuzzyMatch(property.Name, sourceProperties, property.Type);
-                return fuzzyMatch != null
-                    ? PropertyFixSpec.MapFrom(
-                        property.Name, $"src.{CodeFixSyntaxHelper.EscapeIdentifier(fuzzyMatch.Name)}")
-                    : PropertyFixSpec.MapFrom(
-                        property.Name, TypeConversionHelper.GetDefaultValueForType(property.Type.ToDisplayString()));
-            })
+        var matches = orderedProperties
+            .Select(property => (
+                Property: property,
+                Match: FuzzyMatchHelper.FindUniqueBestFuzzyMatch(property.Name, sourceProperties, property.Type)))
             .ToList();
 
-        CodeAction mapAll = CodeAction.Create(
-            $"Map all {count} unmapped required properties",
-            _ => ReplaceNodeAsync(
-                context.Document, root, invocation, FoldAggregateForMembers(invocation, mapSpecs)),
-            "AM011_MapAll");
+        var actions = ImmutableArray.CreateBuilder<CodeAction>();
+
+        // Honest "Map all": only when every required property has a unique fuzzy source match
+        // (same gate as AM004/AM006). Never claim "Map" while injecting defaults.
+        if (matches.All(m => m.Match != null))
+        {
+            List<PropertyFixSpec> mapSpecs = matches
+                .Select(m => PropertyFixSpec.MapFrom(
+                    m.Property.Name, $"src.{CodeFixSyntaxHelper.EscapeIdentifier(m.Match!.Name)}"))
+                .ToList();
+            actions.Add(CodeAction.Create(
+                $"Map all {count} unmapped required properties",
+                _ => ReplaceNodeAsync(
+                    context.Document, root, invocation, FoldAggregateForMembers(invocation, mapSpecs)),
+                "AM011_MapAll"));
+        }
+        else
+        {
+            // Mixed or no fuzzy: bulk default/fuzzy scaffold with an honest title.
+            List<PropertyFixSpec> scaffoldSpecs = matches
+                .Select(m => m.Match != null
+                    ? PropertyFixSpec.MapFrom(
+                        m.Property.Name, $"src.{CodeFixSyntaxHelper.EscapeIdentifier(m.Match.Name)}")
+                    : PropertyFixSpec.MapFrom(
+                        m.Property.Name,
+                        TypeConversionHelper.GetDefaultValueForType(m.Property.Type.ToDisplayString())))
+                .ToList();
+            actions.Add(CodeAction.Create(
+                $"Scaffold maps for all {count} required properties (manual review)",
+                _ => ReplaceNodeAsync(
+                    context.Document, root, invocation, FoldAggregateForMembers(invocation, scaffoldSpecs)),
+                "AM011_ScaffoldAll"));
+        }
 
         List<PropertyFixSpec> ignoreSpecs = orderedProperties
             .Select(property => PropertyFixSpec.Ignore(property.Name))
             .ToList();
 
-        CodeAction ignoreAll = CodeAction.Create(
-            $"Ignore all {count} unmapped required properties",
+        actions.Add(CodeAction.Create(
+            $"Ignore all {count} unmapped required properties (manual review)",
             _ => ReplaceNodeAsync(
                 context.Document, root, invocation, FoldAggregateForMembers(invocation, ignoreSpecs)),
-            "AM011_IgnoreAll");
+            "AM011_IgnoreAll"));
 
-        return ImmutableArray.Create(mapAll, ignoreAll);
+        return actions.ToImmutable();
     }
 
     private static List<IPropertySymbol> FindUnmappedRequiredProperties(

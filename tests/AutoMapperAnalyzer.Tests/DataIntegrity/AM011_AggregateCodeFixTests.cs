@@ -83,8 +83,9 @@ public class AM011_AggregateCodeFixTests
     }
 
     [Fact]
-    public async Task AM011_MapAll_ScaffoldsEveryRequiredProperty_InOneEdit()
+    public async Task AM011_ScaffoldAll_ScaffoldsEveryRequiredProperty_InOneEdit_WhenNoFuzzyMatches()
     {
+        // No unique fuzzy source matches → honest Scaffold-all (not "Map all") injects defaults.
         const string expectedFixedCode = """
                                          using AutoMapper;
 
@@ -113,7 +114,7 @@ public class AM011_AggregateCodeFixTests
                                          }
                                          """;
 
-        await AssertAggregateClearsAllAsync(ThreeRequiredSource, "AM011_MapAll", expectedFixedCode);
+        await AssertAggregateClearsAllAsync(ThreeRequiredSource, "AM011_ScaffoldAll", expectedFixedCode);
     }
 
     [Fact]
@@ -180,10 +181,9 @@ public class AM011_AggregateCodeFixTests
     }
 
     [Fact]
-    public async Task AM011_MapAll_EscapesKeywordSourceIdentifiers()
+    public async Task AM011_ScaffoldAll_EscapesKeywordSourceIdentifiers_WhenMixedFuzzyAndDefaults()
     {
-        // 'Events' fuzzy-matches the keyword source member '@event'; the generated MapFrom must emit
-        // 'src.@event', not the uncompilable 'src.event'. 'Status' has no match and falls back to a default.
+        // Mixed fuzzy + default → Scaffold-all (not dishonest "Map all"). 'Events' → src.@event; Status → default.
         const string keywordSource = """
                                      using AutoMapper;
 
@@ -236,7 +236,82 @@ public class AM011_AggregateCodeFixTests
                                          }
                                          """;
 
-        await AssertAggregateClearsAllAsync(keywordSource, "AM011_MapAll", expectedFixedCode);
+        await AssertAggregateClearsAllAsync(keywordSource, "AM011_ScaffoldAll", expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM011_MapAll_OnlyWhenEveryRequiredPropertyHasUniqueFuzzyMatch()
+    {
+        const string allFuzzySource = """
+                                      using AutoMapper;
+
+                                      namespace TestNamespace
+                                      {
+                                          public class Source
+                                          {
+                                              public string FirstNam { get; set; }
+                                              public string LastNam { get; set; }
+                                          }
+
+                                          public class Destination
+                                          {
+                                              public required string FirstName { get; set; }
+                                              public required string LastName { get; set; }
+                                          }
+
+                                          public class TestProfile : Profile
+                                          {
+                                              public TestProfile()
+                                              {
+                                                  CreateMap<Source, Destination>();
+                                              }
+                                          }
+                                      }
+                                      """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public string FirstNam { get; set; }
+                                                 public string LastNam { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public required string FirstName { get; set; }
+                                                 public required string LastName { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.FirstName, opt => opt.MapFrom(src => src.FirstNam)).ForMember(dest => dest.LastName, opt => opt.MapFrom(src => src.LastNam));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        Document document = CreateDocument(allFuzzySource);
+        ImmutableArray<Diagnostic> diagnostics =
+            await GetDiagnosticsAsync<AM011_UnmappedRequiredPropertyAnalyzer>(document);
+        Assert.Equal(2, diagnostics.Length);
+
+        IReadOnlyList<CodeFixActionInspector.ActionInfo> actions =
+            await CodeFixActionInspector.GetActionsAsync(
+                document,
+                new AM011_UnmappedRequiredPropertyCodeFixProvider(),
+                diagnostics[0]);
+
+        Assert.Contains(actions, a => a.EquivalenceKey == "AM011_MapAll" && a.Depth == 0);
+        Assert.DoesNotContain(actions, a => a.EquivalenceKey == "AM011_ScaffoldAll");
+        Assert.Contains(actions, a => a.EquivalenceKey == "AM011_IgnoreAll" && a.Depth == 0);
+
+        await AssertAggregateClearsAllAsync(allFuzzySource, "AM011_MapAll", expectedFixedCode);
     }
 
     [Fact]
@@ -253,8 +328,18 @@ public class AM011_AggregateCodeFixTests
                 new AM011_UnmappedRequiredPropertyCodeFixProvider(),
                 diagnostics[0]);
 
-        Assert.Contains(actions, a => a.EquivalenceKey == "AM011_MapAll" && a.Depth == 0);
+        // No fuzzy matches → Scaffold-all (honest), not Map-all.
+        Assert.Contains(actions, a => a.EquivalenceKey == "AM011_ScaffoldAll" && a.Depth == 0);
+        Assert.DoesNotContain(actions, a => a.EquivalenceKey == "AM011_MapAll");
         Assert.Contains(actions, a => a.EquivalenceKey == "AM011_IgnoreAll" && a.Depth == 0);
+        Assert.Contains(
+            actions,
+            a => a.EquivalenceKey == "AM011_IgnoreAll" &&
+                 a.Title.Contains("manual review", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            actions,
+            a => a.EquivalenceKey == "AM011_ScaffoldAll" &&
+                 a.Title.Contains("manual review", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -271,10 +356,11 @@ public class AM011_AggregateCodeFixTests
                 new AM011_UnmappedRequiredPropertyCodeFixProvider(),
                 diagnostics[0]);
 
-        // Map all + Ignore all + a single "Fix individual…" parent = 3 top-level entries (not 2 + 6 flat).
+        // Scaffold all + Ignore all + a single "Fix individual…" parent = 3 top-level entries (not 2 + 6 flat).
         Assert.Equal(3, CodeFixActionInspector.TopLevelCount(actions));
-        Assert.Contains(actions, a => a.Depth == 0 && a.EquivalenceKey == "AM011_MapAll");
+        Assert.Contains(actions, a => a.Depth == 0 && a.EquivalenceKey == "AM011_ScaffoldAll");
         Assert.Contains(actions, a => a.Depth == 0 && a.EquivalenceKey == "AM011_IgnoreAll");
+        Assert.DoesNotContain(actions, a => a.EquivalenceKey == "AM011_MapAll");
         Assert.Contains(
             actions,
             a => a.Depth == 0 && a.HasChildren && a.Title.Contains("individual", StringComparison.OrdinalIgnoreCase));
@@ -328,7 +414,7 @@ public class AM011_AggregateCodeFixTests
                 new AM011_UnmappedRequiredPropertyCodeFixProvider(),
                 single);
 
-        Assert.DoesNotContain(actions, a => a.EquivalenceKey is "AM011_MapAll" or "AM011_IgnoreAll");
+        Assert.DoesNotContain(actions, a => a.EquivalenceKey is "AM011_MapAll" or "AM011_ScaffoldAll" or "AM011_IgnoreAll");
         // Degenerate case stays a flat per-property choice: scaffold default + ignore.
         Assert.Equal(2, CodeFixActionInspector.TopLevelCount(actions));
     }

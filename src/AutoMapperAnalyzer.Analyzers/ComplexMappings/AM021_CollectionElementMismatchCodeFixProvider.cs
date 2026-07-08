@@ -300,6 +300,12 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
         string sourceTypeShortName = GetShortTypeName(sourceElementType);
         string destTypeShortName = GetShortTypeName(destElementType);
 
+        // Only advertise when apply can insert into a constructor/method block statement list.
+        if (!TryGetElementCreateMapInsertTarget(invocation, out _, out _))
+        {
+            return;
+        }
+
         context.RegisterCodeFix(
             CodeAction.Create(
                 $"Add CreateMap<{sourceTypeShortName}, {destTypeShortName}>() for element mapping",
@@ -309,6 +315,86 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
                 $"AM021_ComplexMapping_{propertyName}"),
             diagnostic);
     }
+
+    private static bool TryGetElementCreateMapInsertTarget(
+        InvocationExpressionSyntax invocation,
+        out SyntaxNode? bodyOwner,
+        out StatementSyntax? statementWithInvocation)
+    {
+        bodyOwner = null;
+        statementWithInvocation = null;
+
+        // Inserted CreateMap is unqualified; only Profile-style bare/this CreateMap hosts compile.
+        if (!IsUnqualifiedCreateMapInvocation(invocation))
+        {
+            return false;
+        }
+
+        ConstructorDeclarationSyntax? constructor = invocation.Ancestors()
+            .OfType<ConstructorDeclarationSyntax>()
+            .FirstOrDefault(c => c.Body != null);
+        if (constructor?.Body != null)
+        {
+            StatementSyntax? statement = constructor.Body.Statements
+                .FirstOrDefault(s => s.DescendantNodes().Contains(invocation));
+            if (statement != null)
+            {
+                bodyOwner = constructor;
+                statementWithInvocation = statement;
+                return true;
+            }
+        }
+
+        MethodDeclarationSyntax? method = invocation.Ancestors()
+            .OfType<MethodDeclarationSyntax>()
+            .FirstOrDefault(m => m.Body != null);
+        if (method?.Body != null)
+        {
+            StatementSyntax? statement = method.Body.Statements
+                .FirstOrDefault(s => s.DescendantNodes().Contains(invocation));
+            if (statement != null)
+            {
+                bodyOwner = method;
+                statementWithInvocation = statement;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsUnqualifiedCreateMapInvocation(InvocationExpressionSyntax invocation)
+    {
+        // Diagnostics may land on ForMember chains; peel to CreateMap when present.
+        InvocationExpressionSyntax? createMap = invocation;
+        while (createMap != null)
+        {
+            if (IsDirectUnqualifiedCreateMap(createMap))
+            {
+                return true;
+            }
+
+            createMap = (createMap.Expression as MemberAccessExpressionSyntax)?.Expression as InvocationExpressionSyntax;
+        }
+
+        return IsDirectUnqualifiedCreateMap(invocation);
+    }
+
+    private static bool IsDirectUnqualifiedCreateMap(InvocationExpressionSyntax invocation)
+    {
+        return invocation.Expression switch
+        {
+            GenericNameSyntax generic when generic.Identifier.ValueText == "CreateMap" => true,
+            IdentifierNameSyntax identifier when identifier.Identifier.ValueText == "CreateMap" => true,
+            MemberAccessExpressionSyntax memberAccess
+                when GetMemberName(memberAccess.Name) == "CreateMap" &&
+                     memberAccess.Expression is ThisExpressionSyntax => true,
+            _ => false
+        };
+    }
+
+    private static string GetMemberName(SimpleNameSyntax name) =>
+        name is GenericNameSyntax generic ? generic.Identifier.ValueText : name.Identifier.ValueText;
 
     private async Task<Document> AddMapFromWithLinqAsync(
         Document document,
@@ -347,37 +433,33 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             return document;
         }
 
-        // Find the class/profile containing this CreateMap
-        ClassDeclarationSyntax? classDeclaration = invocation.FirstAncestorOrSelf<ClassDeclarationSyntax>();
-        if (classDeclaration != null)
+        if (!TryGetElementCreateMapInsertTarget(invocation, out SyntaxNode? bodyOwner, out StatementSyntax? statementWithInvocation))
         {
-            // Add CreateMap for element types after the current CreateMap
-            ExpressionStatementSyntax createMapStatement =
-                CreateElementCreateMapStatement(sourceTypeName, destTypeName);
+            return document;
+        }
 
-            ConstructorDeclarationSyntax? constructor = classDeclaration.DescendantNodes()
-                .OfType<ConstructorDeclarationSyntax>()
-                .FirstOrDefault(c =>
-                    c.Body != null && c.Body.Statements.Any(s => s.DescendantNodes().Contains(invocation)));
+        ExpressionStatementSyntax createMapStatement =
+            CreateElementCreateMapStatement(sourceTypeName, destTypeName);
 
-            if (constructor?.Body != null)
+        switch (bodyOwner)
+        {
+            case ConstructorDeclarationSyntax constructor when constructor.Body != null && statementWithInvocation != null:
             {
-                StatementSyntax? statementWithInvocation = constructor.Body.Statements
-                    .FirstOrDefault(s => s.DescendantNodes().Contains(invocation));
-
-                if (statementWithInvocation != null)
-                {
-                    int indexOfStatement = constructor.Body.Statements.IndexOf(statementWithInvocation);
-
-                    // Insert the new CreateMap statement after the existing one
-                    var newStatements = constructor.Body.Statements.ToList();
-                    newStatements.Insert(indexOfStatement + 1, createMapStatement);
-
-                    BlockSyntax newBody = constructor.Body.WithStatements(SyntaxFactory.List(newStatements));
-                    ConstructorDeclarationSyntax newConstructor = constructor.WithBody(newBody);
-                    ClassDeclarationSyntax newClass = classDeclaration.ReplaceNode(constructor, newConstructor);
-                    root = root!.ReplaceNode(classDeclaration, newClass);
-                }
+                int indexOfStatement = constructor.Body.Statements.IndexOf(statementWithInvocation);
+                var newStatements = constructor.Body.Statements.ToList();
+                newStatements.Insert(indexOfStatement + 1, createMapStatement);
+                BlockSyntax newBody = constructor.Body.WithStatements(SyntaxFactory.List(newStatements));
+                root = root.ReplaceNode(constructor, constructor.WithBody(newBody));
+                break;
+            }
+            case MethodDeclarationSyntax method when method.Body != null && statementWithInvocation != null:
+            {
+                int indexOfStatement = method.Body.Statements.IndexOf(statementWithInvocation);
+                var newStatements = method.Body.Statements.ToList();
+                newStatements.Insert(indexOfStatement + 1, createMapStatement);
+                BlockSyntax newBody = method.Body.WithStatements(SyntaxFactory.List(newStatements));
+                root = root.ReplaceNode(method, method.WithBody(newBody));
+                break;
             }
         }
 

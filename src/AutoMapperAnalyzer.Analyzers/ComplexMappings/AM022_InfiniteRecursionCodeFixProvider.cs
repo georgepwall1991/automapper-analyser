@@ -69,10 +69,10 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
                         $"AM022_Ignore_{propertyName}"),
                     diagnostic);
 
-                // Offer MaxDepth as alternative
+                // Offer MaxDepth scaffold as alternative (hard-coded depth 2 — review before keeping)
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        "Add MaxDepth(2) to prevent infinite recursion",
+                        "Add MaxDepth(2) scaffold (review depth)",
                         cancellationToken =>
                             AddMaxDepthAsync(context.Document, operationContext.Root, invocation),
                         "AM022_AddMaxDepth"),
@@ -80,10 +80,10 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
             }
             else
             {
-                // Multiple properties or none: offer MaxDepth first (simpler)
+                // Multiple properties or none: offer MaxDepth scaffold first (simpler)
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        "Add MaxDepth(2) to prevent infinite recursion",
+                        "Add MaxDepth(2) scaffold (review depth)",
                         cancellationToken =>
                             AddMaxDepthAsync(context.Document, operationContext.Root, invocation),
                         "AM022_AddMaxDepth"),

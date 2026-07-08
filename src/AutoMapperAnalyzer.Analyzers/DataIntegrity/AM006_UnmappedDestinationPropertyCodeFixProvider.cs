@@ -124,7 +124,7 @@ public class AM006_UnmappedDestinationPropertyCodeFixProvider : AutoMapperCodeFi
             .Select(p => PropertyFixSpec.Ignore(p.Name))
             .ToList();
         actions.Add(CodeAction.Create(
-            $"Ignore all {count} unmapped destination properties",
+            $"Ignore all {count} unmapped destination properties (manual review)",
             _ => ReplaceNodeAsync(
                 context.Document, root, invocation, FoldAggregateForMembers(invocation, ignoreSpecs)),
             "AM006_IgnoreAll"));
