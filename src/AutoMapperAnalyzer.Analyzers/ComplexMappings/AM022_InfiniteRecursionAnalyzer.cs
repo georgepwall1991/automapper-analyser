@@ -392,6 +392,12 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
+        // A downstream map that owns or bounds recursion terminates this graph path.
+        if (createMapRegistry.IsCycleConstrained(currentSourceType, currentDestinationType))
+        {
+            return false;
+        }
+
         string typePairKey = GetTypePairKey(currentSourceType, currentDestinationType);
         if (visited.Contains(typePairKey))
         {

@@ -1553,4 +1553,411 @@ public class AM022_InfiniteRecursionTests
                 "DestPerson")
             .RunAsync();
     }
+
+    [Theory]
+    [InlineData(".PreserveReferences()")]
+    [InlineData(".MaxDepth(2)")]
+    [InlineData(".ConvertUsing((SourceB source) => new DestB())")]
+    [InlineData(".ConvertUsing<SourceBConverter>()")]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenDownstreamCycleMapIsConstrained(string cycleBreaker)
+    {
+        string testCode = $$"""
+                            using AutoMapper;
+
+                            namespace TestNamespace
+                            {
+                                public class SourceA
+                                {
+                                    public SourceB Child { get; set; }
+                                }
+
+                                public class SourceB
+                                {
+                                    public SourceA Owner { get; set; }
+                                }
+
+                                public class DestA
+                                {
+                                    public DestB Child { get; set; }
+                                }
+
+                                public class DestB
+                                {
+                                    public DestA Owner { get; set; }
+                                }
+
+                                public sealed class SourceBConverter : ITypeConverter<SourceB, DestB>
+                                {
+                                    public DestB Convert(SourceB source, DestB destination, ResolutionContext context) =>
+                                        new();
+                                }
+
+                                public class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<SourceA, DestA>();
+                                        CreateMap<SourceB, DestB>(){{cycleBreaker}};
+                                    }
+                                }
+                            }
+                            """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenDownstreamCycleMapIsConstrainedInLaterStatement()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Owner { get; set; }
+                                    }
+
+                                    public class DestA
+                                    {
+                                        public DestB Child { get; set; }
+                                    }
+
+                                    public class DestB
+                                    {
+                                        public DestA Owner { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestA>();
+                                            var downstreamMap = CreateMap<SourceB, DestB>();
+                                            downstreamMap.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenDeferredCycleBreakerAppliesOnlyAfterReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Owner { get; set; }
+                                    }
+
+                                    public class DestA
+                                    {
+                                        public DestB Child { get; set; }
+                                    }
+
+                                    public class DestB
+                                    {
+                                        public DestA Owner { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestA>();
+                                            var downstreamMap = CreateMap<SourceB, DestB>();
+                                            downstreamMap.ReverseMap().PreserveReferences();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 29, 13, "SourceA", "DestA")
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 30, 33, "SourceB", "DestB")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenDownstreamCycleMapIsConstrainedOnlyAfterReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Owner { get; set; }
+                                    }
+
+                                    public class DestA
+                                    {
+                                        public DestB Child { get; set; }
+                                    }
+
+                                    public class DestB
+                                    {
+                                        public DestA Owner { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestA>();
+                                            CreateMap<SourceB, DestB>()
+                                                .ReverseMap()
+                                                .PreserveReferences();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 29, 13, "SourceA", "DestA")
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 30, 13, "SourceB", "DestB")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenReverseDownstreamCycleMapIsConstrainedAfterReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Owner { get; set; }
+                                    }
+
+                                    public class DestA
+                                    {
+                                        public DestB Child { get; set; }
+                                    }
+
+                                    public class DestB
+                                    {
+                                        public DestA Owner { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<DestA, SourceA>();
+                                            CreateMap<SourceB, DestB>()
+                                                .ReverseMap()
+                                                .PreserveReferences();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenDownstreamCycleBreakerIsNotAutoMapperMethod()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Owner { get; set; }
+                                    }
+
+                                    public class DestA
+                                    {
+                                        public DestB Child { get; set; }
+                                    }
+
+                                    public class DestB
+                                    {
+                                        public DestA Owner { get; set; }
+                                    }
+
+                                    public sealed class CustomMappingExpression
+                                    {
+                                        public CustomMappingExpression PreserveReferences() => this;
+                                    }
+
+                                    public static class CustomMappingExtensions
+                                    {
+                                        public static CustomMappingExpression Custom<TSource, TDestination>(
+                                            this IMappingExpression<TSource, TDestination> mapping) =>
+                                            new();
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestA>();
+                                            CreateMap<SourceB, DestB>()
+                                                .Custom()
+                                                .PreserveReferences();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 41, 13, "SourceA", "DestA")
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 42, 13, "SourceB", "DestB")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenOnlyOneDuplicateDownstreamMapIsConstrained()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Owner { get; set; }
+                                    }
+
+                                    public class DestA
+                                    {
+                                        public DestB Child { get; set; }
+                                    }
+
+                                    public class DestB
+                                    {
+                                        public DestA Owner { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestA>();
+                                            CreateMap<SourceB, DestB>()
+                                                .PreserveReferences();
+                                            CreateMap<SourceB, DestB>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 29, 13, "SourceA", "DestA")
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 32, 13, "SourceB", "DestB")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenOnlyLastDuplicateDownstreamMapIsConstrained()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Owner { get; set; }
+                                    }
+
+                                    public class DestA
+                                    {
+                                        public DestB Child { get; set; }
+                                    }
+
+                                    public class DestB
+                                    {
+                                        public DestA Owner { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestA>();
+                                            CreateMap<SourceB, DestB>();
+                                            CreateMap<SourceB, DestB>()
+                                                .PreserveReferences();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 29, 13, "SourceA", "DestA")
+            .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 30, 13, "SourceB", "DestB")
+            .RunAsync();
+    }
 }

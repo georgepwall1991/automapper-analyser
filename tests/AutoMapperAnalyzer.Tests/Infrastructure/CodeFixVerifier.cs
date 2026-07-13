@@ -51,7 +51,8 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
     }
 
     public static async Task VerifyFixAsync(string source, DiagnosticResult[] expectedDiagnostics, string fixedSource,
-        int? codeActionIndex, int? incrementalIterations, int? fixAllIterations, DiagnosticResult[]? remainingDiagnostics = null)
+        int? codeActionIndex, int? incrementalIterations, int? fixAllIterations,
+        DiagnosticResult[]? remainingDiagnostics = null, string? batchFixedSource = null)
     {
         var test = new CSharpCodeFixTest<TAnalyzer, TCodeFix, LineEndingAgnosticVerifier>
         {
@@ -60,6 +61,11 @@ internal static class CodeFixVerifier<TAnalyzer, TCodeFix>
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
             CodeActionIndex = codeActionIndex
         };
+        if (batchFixedSource != null)
+        {
+            test.BatchFixedCode = batchFixedSource;
+        }
+
         ConfigureNonLocalDiagnosticSupport(test);
 
         AddAutoMapperReferences(test.TestState);

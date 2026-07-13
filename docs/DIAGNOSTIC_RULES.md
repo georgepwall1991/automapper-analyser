@@ -972,7 +972,10 @@ recursive member path is actually convention-mapped and each indirect nested typ
 that AutoMapper can use for recursion. Ignoring the top-level recursive destination member with
 `ForMember(..., opt => opt.Ignore())` or `ForPath(..., opt => opt.Ignore())` suppresses the diagnostic. Forward
 `MaxDepth`, `PreserveReferences`, and `ConvertUsing` configuration also suppress AM022 because those mapping shapes
-own recursion behavior explicitly. Helper methods named `Ignore` are not treated as suppression unless they resolve to
+own recursion behavior explicitly. For indirect cycles, the traversal honours these cycle breakers on downstream
+`CreateMap` registrations as well as the root map, including direct same-block calls through a local mapping variable,
+while preserving configuration direction around `ReverseMap()`.
+Helper methods named `Ignore` or cycle-breaker names are not treated as suppression unless they resolve to
 AutoMapper's member-configuration `Ignore()` method. Built-in framework types such as `System.Guid` stay out of
 graph recursion analysis, but user-defined types with the same short names are still analyzed.
 
@@ -1599,7 +1602,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.65">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.66">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1638,5 +1641,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.65
+**Version**: 2.30.66
 **Maintainer**: George Wall

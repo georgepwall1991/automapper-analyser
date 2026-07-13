@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>65</PatchVersion>
+        <PatchVersion>66</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,9 +32,9 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.65 - AM004/AM006 same-document sibling recompute
-- Map-all / DoNotValidate-all / Ignore-all from a single property-token caret
-- Recompute uses live analyzer unmapped sets (AM011-style)
+                <PackageReleaseNotes>Version 2.30.66 - AM022 downstream cycle-breaker precision
+- Multi-map recursion traversal respects downstream MaxDepth, PreserveReferences, and ConvertUsing
+- Cycle-breaker ownership is semantic, direction-aware, and conservative for duplicate registrations
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
