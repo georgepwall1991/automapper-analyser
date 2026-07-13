@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.66] - 2026-07-13
+
+AM022 downstream cycle-breaker precision for intentional circular mappings.
+
+### Changed
+
+- **AM022**: multi-map recursion traversal now stops when a downstream mapping direction is explicitly bounded by `MaxDepth`, preserves object identity with `PreserveReferences`, or owns construction through `ConvertUsing`.
+- **AM022 directionality**: fluent or same-block local configuration after `ReverseMap()` constrains only the reverse mapping direction; semantic AutoMapper ownership prevents lookalike methods from suppressing diagnostics.
+- **Duplicate registrations**: ambiguous mapping pairs suppress recursion only when every registration for that direction is explicitly constrained.
+
+### Validation
+
+- AM022 analyzer and code-fix suite: **66** passed.
+- Full suite on `net10.0`: **1401** passed, 0 skipped, 0 failed.
+
 ## [2.30.65] - 2026-07-08
 
 AM004/AM006 same-document sibling recompute for aggregate code actions.

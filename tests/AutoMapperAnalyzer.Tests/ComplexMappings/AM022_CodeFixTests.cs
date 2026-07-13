@@ -70,7 +70,6 @@ public class AM022_CodeFixTests
                                              }
                                          }
                                          """;
-
         await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
@@ -251,7 +250,7 @@ public class AM022_CodeFixTests
                                         public TestProfile()
                                         {
                                             CreateMap<SourceParent, DestParent>();
-                                            CreateMap<SourceChild, DestChild>().MaxDepth(2);
+                                            CreateMap<SourceChild, DestChild>();
                                         }
                                     }
                                 }
@@ -287,19 +286,34 @@ public class AM022_CodeFixTests
                                                  public TestProfile()
                                                  {
                                                      CreateMap<SourceParent, DestParent>().MaxDepth(2);
-                                                     CreateMap<SourceChild, DestChild>().MaxDepth(2);
+                                                     CreateMap<SourceChild, DestChild>();
                                                  }
                                              }
                                          }
                                          """;
 
+        string expectedBatchFixedCode = expectedFixedCode.Replace(
+            "CreateMap<SourceChild, DestChild>();",
+            "CreateMap<SourceChild, DestChild>().MaxDepth(2);");
+
         await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
-                    .WithLocation(29, 13)
-                    .WithArguments("SourceParent", "DestParent"),
-                expectedFixedCode);
+                new[]
+                {
+                    new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                        .WithLocation(29, 13)
+                        .WithArguments("SourceParent", "DestParent"),
+                    new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                        .WithLocation(30, 13)
+                        .WithArguments("SourceChild", "DestChild")
+                },
+                expectedFixedCode,
+                codeActionIndex: null,
+                incrementalIterations: 1,
+                fixAllIterations: 1,
+                remainingDiagnostics: null,
+                batchFixedSource: expectedBatchFixedCode);
     }
 
     [Fact]
@@ -364,7 +378,6 @@ public class AM022_CodeFixTests
                                              }
                                          }
                                          """;
-
         // Index 0: MaxDepth first (Ignore second)
         await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
             .VerifyFixAsync(
@@ -602,8 +615,8 @@ public class AM022_CodeFixTests
                                         public TestProfile()
                                         {
                                             CreateMap<SourceA, DestA>();
-                                            CreateMap<SourceB, DestB>().MaxDepth(2);
-                                            CreateMap<SourceC, DestC>().MaxDepth(2);
+                                            CreateMap<SourceB, DestB>();
+                                            CreateMap<SourceC, DestC>();
                                         }
                                     }
                                 }
@@ -655,21 +668,43 @@ public class AM022_CodeFixTests
                                                  public TestProfile()
                                                  {
                                                      CreateMap<SourceA, DestA>().MaxDepth(2);
-                                                     CreateMap<SourceB, DestB>().MaxDepth(2);
-                                                     CreateMap<SourceC, DestC>().MaxDepth(2);
+                                                     CreateMap<SourceB, DestB>();
+                                                     CreateMap<SourceC, DestC>();
                                                  }
                                              }
                                          }
                                          """;
 
+        string expectedBatchFixedCode = expectedFixedCode
+            .Replace(
+                "CreateMap<SourceB, DestB>();",
+                "CreateMap<SourceB, DestB>().MaxDepth(2);")
+            .Replace(
+                "CreateMap<SourceC, DestC>();",
+                "CreateMap<SourceC, DestC>().MaxDepth(2);");
+
         // Circular chain A→B→C→A detected as infinite recursion risk
         await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
-                    .WithLocation(45, 13)
-                    .WithArguments("SourceA", "DestA"),
-                expectedFixedCode);
+                new[]
+                {
+                    new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                        .WithLocation(45, 13)
+                        .WithArguments("SourceA", "DestA"),
+                    new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                        .WithLocation(46, 13)
+                        .WithArguments("SourceB", "DestB"),
+                    new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                        .WithLocation(47, 13)
+                        .WithArguments("SourceC", "DestC")
+                },
+                expectedFixedCode,
+                codeActionIndex: null,
+                incrementalIterations: 1,
+                fixAllIterations: 1,
+                remainingDiagnostics: null,
+                batchFixedSource: expectedBatchFixedCode);
     }
 
     [Fact]
@@ -721,10 +756,9 @@ public class AM022_CodeFixTests
                                     {
                                         public TestProfile()
                                         {
-                                            // B/C already scaffolded so only A reports — isolates graph-aware Ignore.
                                             CreateMap<SourceA, DestA>();
-                                            CreateMap<SourceB, DestB>().MaxDepth(2);
-                                            CreateMap<SourceC, DestC>().MaxDepth(2);
+                                            CreateMap<SourceB, DestB>();
+                                            CreateMap<SourceC, DestC>();
                                         }
                                     }
                                 }
@@ -775,24 +809,35 @@ public class AM022_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     // B/C already scaffolded so only A reports — isolates graph-aware Ignore.
                                                      CreateMap<SourceA, DestA>().ForMember(dest => dest.BReference, opt => opt.Ignore());
-                                                     CreateMap<SourceB, DestB>().MaxDepth(2);
-                                                     CreateMap<SourceC, DestC>().MaxDepth(2);
+                                                     CreateMap<SourceB, DestB>().ForMember(dest => dest.CReference, opt => opt.Ignore());
+                                                     CreateMap<SourceC, DestC>().ForMember(dest => dest.AReference, opt => opt.Ignore());
                                                  }
                                              }
                                          }
                                          """;
 
-        // Index 0 MaxDepth, index 1 Ignore graph edge BReference (not a dest self-ref).
+        // Index 0 MaxDepth, index 1 Ignore graph edge BReference (not a destination self-ref).
         await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
-                    .WithLocation(46, 13)
-                    .WithArguments("SourceA", "DestA"),
+                new[]
+                {
+                    new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                        .WithLocation(45, 13)
+                        .WithArguments("SourceA", "DestA"),
+                    new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                        .WithLocation(46, 13)
+                        .WithArguments("SourceB", "DestB"),
+                    new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                        .WithLocation(47, 13)
+                        .WithArguments("SourceC", "DestC")
+                },
                 expectedFixedCode,
-                1);
+                codeActionIndex: 1,
+                incrementalIterations: 3,
+                fixAllIterations: 3,
+                remainingDiagnostics: null);
     }
 
     [Fact]
@@ -837,7 +882,7 @@ public class AM022_CodeFixTests
                                         public TestProfile()
                                         {
                                             CreateMap<SourceA, DestA>();
-                                            CreateMap<SourceB, DestB>().MaxDepth(2);
+                                            CreateMap<SourceB, DestB>();
                                         }
                                     }
                                 }
@@ -879,7 +924,7 @@ public class AM022_CodeFixTests
                                                  public TestProfile()
                                                  {
                                                      CreateMap<SourceA, DestA>().ForMember(dest => dest.BReference, opt => opt.Ignore()).ForMember(dest => dest.Parent, opt => opt.Ignore());
-                                                     CreateMap<SourceB, DestB>().MaxDepth(2);
+                                                     CreateMap<SourceB, DestB>().ForMember(dest => dest.AReference, opt => opt.Ignore());
                                                  }
                                              }
                                          }
@@ -889,11 +934,20 @@ public class AM022_CodeFixTests
         await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule)
-                    .WithLocation(35, 13)
-                    .WithArguments("SourceA", "DestA"),
+                new[]
+                {
+                    new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule)
+                        .WithLocation(35, 13)
+                        .WithArguments("SourceA", "DestA"),
+                    new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                        .WithLocation(36, 13)
+                        .WithArguments("SourceB", "DestB")
+                },
                 expectedFixedCode,
-                1);
+                codeActionIndex: 1,
+                incrementalIterations: 2,
+                fixAllIterations: 2,
+                remainingDiagnostics: null);
     }
 
     [Fact]

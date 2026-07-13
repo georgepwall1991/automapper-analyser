@@ -12,6 +12,8 @@ namespace AutoMapperAnalyzer.Analyzers.Helpers;
 internal sealed class CreateMapRegistry
 {
     private static readonly ConditionalWeakTable<Compilation, CreateMapRegistry> Cache = new();
+    private static readonly ImmutableHashSet<string> CycleBreakerMethodNames =
+        ImmutableHashSet.Create(StringComparer.Ordinal, "MaxDepth", "PreserveReferences", "ConvertUsing");
 
     private readonly Dictionary<InvocationExpressionSyntax, (string Source, string Dest, Location Location)>
         _duplicates;
@@ -43,6 +45,35 @@ internal sealed class CreateMapRegistry
         }
 
         return false;
+    }
+
+    /// <summary>
+    ///     Checks whether every registration for a mapping direction explicitly constrains recursive traversal.
+    /// </summary>
+    public bool IsCycleConstrained(ITypeSymbol? source, ITypeSymbol? destination)
+    {
+        if (source == null || destination == null)
+        {
+            return false;
+        }
+
+        bool found = false;
+        foreach (MappingInfo mapping in _mappings)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(mapping.Source, source) ||
+                !SymbolEqualityComparer.Default.Equals(mapping.Destination, destination))
+            {
+                continue;
+            }
+
+            found = true;
+            if (!mapping.IsCycleConstrained)
+            {
+                return false;
+            }
+        }
+
+        return found;
     }
 
     /// <summary>
@@ -104,41 +135,48 @@ internal sealed class CreateMapRegistry
                     AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
                 if (sourceType != null && destType != null)
                 {
+                    InvocationExpressionSyntax? reverseMapInvocation =
+                        AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
                     mappings.Add(new MappingInfo
                     {
                         Source = sourceType,
                         Destination = destType,
                         Location = invocation.GetLocation(),
                         Node = invocation,
-                        IsReverseMap = false
+                        IsReverseMap = false,
+                        IsCycleConstrained = HasCycleBreaker(
+                            invocation,
+                            reverseMapInvocation,
+                            semanticModel,
+                            reverseDirection: false)
                     });
 
                     // Check for ReverseMap()
-                    if (AutoMapperAnalysisHelpers.HasReverseMap(invocation))
+                    if (reverseMapInvocation != null)
                     {
-                        InvocationExpressionSyntax? reverseMapInvocation =
-                            AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
-                        if (reverseMapInvocation != null)
+                        Location loc;
+                        if (reverseMapInvocation.Expression is MemberAccessExpressionSyntax ma)
                         {
-                            Location loc;
-                            if (reverseMapInvocation.Expression is MemberAccessExpressionSyntax ma)
-                            {
-                                loc = ma.Name.GetLocation();
-                            }
-                            else
-                            {
-                                loc = reverseMapInvocation.GetLocation();
-                            }
-
-                            mappings.Add(new MappingInfo
-                            {
-                                Source = destType,
-                                Destination = sourceType,
-                                Location = loc,
-                                Node = reverseMapInvocation,
-                                IsReverseMap = true
-                            });
+                            loc = ma.Name.GetLocation();
                         }
+                        else
+                        {
+                            loc = reverseMapInvocation.GetLocation();
+                        }
+
+                        mappings.Add(new MappingInfo
+                        {
+                            Source = destType,
+                            Destination = sourceType,
+                            Location = loc,
+                            Node = reverseMapInvocation,
+                            IsReverseMap = true,
+                            IsCycleConstrained = HasCycleBreaker(
+                                invocation,
+                                reverseMapInvocation,
+                                semanticModel,
+                                reverseDirection: true)
+                        });
                     }
                 }
             }
@@ -196,6 +234,116 @@ internal sealed class CreateMapRegistry
         return type.Name;
     }
 
+    private static bool HasCycleBreaker(
+        InvocationExpressionSyntax createMapInvocation,
+        InvocationExpressionSyntax? reverseMapInvocation,
+        SemanticModel semanticModel,
+        bool reverseDirection)
+    {
+        for (SyntaxNode? parent = createMapInvocation.Parent; parent != null; parent = parent.Parent)
+        {
+            if (parent is not InvocationExpressionSyntax chainedCall)
+            {
+                continue;
+            }
+
+            bool appliesToReverseDirection = reverseMapInvocation != null &&
+                                             reverseMapInvocation.Ancestors().Contains(chainedCall);
+            if (appliesToReverseDirection != reverseDirection)
+            {
+                continue;
+            }
+
+            foreach (string methodName in CycleBreakerMethodNames)
+            {
+                if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedCall, semanticModel, methodName))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return HasDeferredCycleBreaker(
+            createMapInvocation,
+            reverseMapInvocation,
+            semanticModel,
+            reverseDirection);
+    }
+
+    private static bool HasDeferredCycleBreaker(
+        InvocationExpressionSyntax createMapInvocation,
+        InvocationExpressionSyntax? reverseMapInvocation,
+        SemanticModel semanticModel,
+        bool reverseDirection)
+    {
+        VariableDeclaratorSyntax? declarator = createMapInvocation.Ancestors()
+            .OfType<VariableDeclaratorSyntax>()
+            .FirstOrDefault();
+        if (declarator?.Initializer == null ||
+            declarator.Parent?.Parent is not LocalDeclarationStatementSyntax declaration ||
+            declaration.Parent is not BlockSyntax block ||
+            semanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol mappingLocal)
+        {
+            return false;
+        }
+
+        bool localRepresentsReverseDirection = reverseMapInvocation != null;
+        foreach (ExpressionStatementSyntax statement in block.Statements
+                     .OfType<ExpressionStatementSyntax>()
+                     .Where(candidate => candidate.SpanStart > declaration.SpanStart))
+        {
+            foreach (InvocationExpressionSyntax candidate in statement.Expression.DescendantNodesAndSelf()
+                         .OfType<InvocationExpressionSyntax>())
+            {
+                if (!IsCycleBreaker(candidate, semanticModel) ||
+                    candidate.Expression is not MemberAccessExpressionSyntax memberAccess ||
+                    !ReferencesLocal(memberAccess.Expression, mappingLocal, semanticModel))
+                {
+                    continue;
+                }
+
+                bool followsReverseMap = memberAccess.Expression.DescendantNodesAndSelf()
+                    .OfType<InvocationExpressionSyntax>()
+                    .Any(invocation => MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                        invocation,
+                        semanticModel,
+                        "ReverseMap"));
+                bool appliesToReverseDirection = localRepresentsReverseDirection || followsReverseMap;
+                if (appliesToReverseDirection == reverseDirection)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsCycleBreaker(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    {
+        foreach (string methodName in CycleBreakerMethodNames)
+        {
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, methodName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ReferencesLocal(
+        ExpressionSyntax expression,
+        ILocalSymbol mappingLocal,
+        SemanticModel semanticModel)
+    {
+        return expression.DescendantNodesAndSelf()
+            .OfType<IdentifierNameSyntax>()
+            .Any(identifier => SymbolEqualityComparer.Default.Equals(
+                semanticModel.GetSymbolInfo(identifier).Symbol,
+                mappingLocal));
+    }
+
     internal struct MappingInfo
     {
         public ITypeSymbol Source;
@@ -203,6 +351,7 @@ internal sealed class CreateMapRegistry
         public Location Location;
         public InvocationExpressionSyntax Node;
         public bool IsReverseMap;
+        public bool IsCycleConstrained;
     }
 
     private class MappingComparer : IEqualityComparer<(ITypeSymbol Source, ITypeSymbol Destination)>
