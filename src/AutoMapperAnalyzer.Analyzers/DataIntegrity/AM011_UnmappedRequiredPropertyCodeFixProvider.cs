@@ -61,14 +61,17 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
 
             if (unmappedRequiredProperties.Count < 2 || !processedInvocations.Add(invocation.Span))
             {
-                (CodeAction primary, CodeAction ignore) = BuildPerPropertyActions(
+                (CodeAction? primary, CodeAction ignore) = BuildPerPropertyActions(
                     context.Document,
                     operationContext.Root,
                     operationContext.SemanticModel,
                     invocation,
-                    diagnosticProperty.Name,
-                    diagnosticProperty.Type.ToDisplayString());
-                context.RegisterCodeFix(primary, diagnostic);
+                    diagnosticProperty.Name);
+                if (primary != null)
+                {
+                    context.RegisterCodeFix(primary, diagnostic);
+                }
+
                 context.RegisterCodeFix(ignore, diagnostic);
                 continue;
             }
@@ -82,17 +85,20 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             var perPropertySubMenus = new List<CodeAction>();
             foreach (IPropertySymbol property in unmappedRequiredProperties)
             {
-                (CodeAction primary, CodeAction ignore) = BuildPerPropertyActions(
+                (CodeAction? primary, CodeAction ignore) = BuildPerPropertyActions(
                     context.Document,
                     operationContext.Root,
                     operationContext.SemanticModel,
                     invocation,
-                    property.Name,
-                    property.Type.ToDisplayString());
+                    property.Name);
+
+                ImmutableArray<CodeAction> propertyActions = primary == null
+                    ? [ignore]
+                    : [primary, ignore];
 
                 perPropertySubMenus.Add(CodeAction.Create(
                     $"Required property '{property.Name}'",
-                    ImmutableArray.Create(primary, ignore),
+                    propertyActions,
                     isInlinable: false));
             }
 
@@ -105,13 +111,12 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         }
     }
 
-    private (CodeAction Primary, CodeAction Ignore) BuildPerPropertyActions(
+    private (CodeAction? Primary, CodeAction Ignore) BuildPerPropertyActions(
         Document document,
         SyntaxNode root,
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
-        string propertyName,
-        string propertyType)
+        string propertyName)
     {
         // Resolve types through ReverseMap the same way aggregate fixes do, so reverse-direction
         // per-property fuzzy suggestions work when the diagnostic anchors on ReverseMap().
@@ -133,8 +138,10 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             }
         }
 
-        // Option 1 (primary): fuzzy match if found, else default value.
-        CodeAction primary;
+        // Offer an executable mapping only when a unique compatible fuzzy source exists.
+        // Otherwise require the developer to make the explicit manual-review Ignore choice
+        // instead of manufacturing required domain data with string.Empty/0/false.
+        CodeAction? primary = null;
         if (bestFuzzyMatch != null)
         {
             string fuzzyName = bestFuzzyMatch.Name;
@@ -146,18 +153,8 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
                     CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName, sourceExpression)),
                 $"AM011_FuzzyMatch_{propertyName}_{fuzzyName}");
         }
-        else
-        {
-            string defaultValue = TypeConversionHelper.GetDefaultValueForType(propertyType);
-            primary = CodeAction.Create(
-                $"Scaffold default mapping for '{propertyName}' ({defaultValue})",
-                _ => ReplaceNodeAsync(
-                    document, root, invocation,
-                    CodeFixSyntaxHelper.CreateForMemberWithMapFrom(invocation, propertyName, defaultValue)),
-                $"AM011_DefaultValue_{propertyName}");
-        }
 
-        // Option 2 (fallback): Ignore.
+        // Explicit fallback: Ignore.
         CodeAction ignore = CodeAction.Create(
             $"Ignore required property '{propertyName}' (manual review)",
             _ => ReplaceNodeAsync(

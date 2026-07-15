@@ -368,7 +368,10 @@ public class AM011_AggregateCodeFixTests
         // Per-property fixes are nested under the parent, never duplicated at the top level.
         Assert.DoesNotContain(
             actions,
-            a => a.Depth == 0 && a.EquivalenceKey != null && a.EquivalenceKey.StartsWith("AM011_Ignore_", StringComparison.Ordinal));
+            a => a.Depth == 0 &&
+                 !a.HasChildren &&
+                 a.EquivalenceKey != null &&
+                 a.EquivalenceKey.StartsWith("AM011_Ignore_", StringComparison.Ordinal));
         Assert.Contains(actions, a => a.IsNested && a.EquivalenceKey == "AM011_Ignore_Alpha");
         Assert.Contains(actions, a => a.IsNested && a.EquivalenceKey == "AM011_Ignore_Beta");
         Assert.Contains(actions, a => a.IsNested && a.EquivalenceKey == "AM011_Ignore_Gamma");
@@ -415,8 +418,12 @@ public class AM011_AggregateCodeFixTests
                 single);
 
         Assert.DoesNotContain(actions, a => a.EquivalenceKey is "AM011_MapAll" or "AM011_ScaffoldAll" or "AM011_IgnoreAll");
-        // Degenerate case stays a flat per-property choice: scaffold default + ignore.
-        Assert.Equal(2, CodeFixActionInspector.TopLevelCount(actions));
+        CodeFixActionInspector.ActionInfo action = Assert.Single(actions);
+        Assert.Equal("AM011_Ignore_Alpha", action.EquivalenceKey);
+        Assert.Contains("manual review", action.Title, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(actions, item =>
+            item.EquivalenceKey != null &&
+            item.EquivalenceKey.StartsWith("AM011_DefaultValue_", StringComparison.Ordinal));
     }
 
     private static async Task AssertAggregateClearsAllAsync(

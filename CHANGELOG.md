@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.68] - 2026-07-15
+
+AM011 single-property fixer trust hardening.
+
+### Changed
+
+- **AM011**: single-property diagnostics no longer manufacture required domain data with `string.Empty`, `0`, `false`, or `default` when no unique fuzzy source-property match exists.
+- **Explicit fallback**: the fixer keeps a unique fuzzy mapping as the primary action and otherwise offers only the clearly labelled Ignore action for manual review. Aggregate Scaffold-all remains available for intentionally reviewing several missing members together.
+
+### Validation
+
+- AM011 analyzer and code-fix suite: **45** passed.
+- Clean-branch full suite: **1410** passed, 0 skipped, 0 failed.
+
 ## [2.30.67] - 2026-07-15
 
 Performance `ForPath` fixer parity for AM031 and AM034–AM038.
