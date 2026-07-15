@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.67] - 2026-07-15
+
+Performance `ForPath` fixer parity for AM031 and AM034–AM038.
+
+### Changed
+
+- **AM031 / AM034–AM038**: nested `ForPath` performance diagnostics now offer an executable `Ignore()` scaffold labelled for manual review.
+- **Conservative fixer boundary**: the action preserves the original nested destination selector and options parameter; caching remains `ForMember`-only because block-bodied expression trees do not compile, and convention removal remains withheld for nested paths.
+
+### Validation
+
+- Performance code-fix suite: **17** passed.
+- Clean-branch full suite: pending PR CI; local superset: **1428** passed, 0 skipped, 0 failed.
+
 ## [2.30.66] - 2026-07-13
 
 AM022 downstream cycle-breaker precision for intentional circular mappings.

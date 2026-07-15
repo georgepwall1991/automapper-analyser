@@ -1,12 +1,12 @@
 # Analyzer Health
 
-Reviewed: 2026-07-13 (AM022 downstream cycle-breaker precision prepared as **2.30.66**)
+Reviewed: 2026-07-15 (performance `ForPath` fixer parity prepared as **2.30.67**)
 
 This is a deliberately harsh health audit for the **21** implemented AutoMapper analyzer rule IDs in this repository (16 before the 2.30.62 performance split). Several rule IDs still expose multiple diagnostic descriptors, especially `AM002` and `AM022`; the scorecard rates the public rule ID as the user experiences it.
 
 Every implemented rule currently has an analyzer and a code fix provider. Scores are 1-5, where `5` means reference-quality and hard to improve, `3` means usable but meaningfully incomplete, and `1` means unreliable or underbuilt.
 
-**Ship status:** production-acceptable. **2.30.66** AM022 downstream cycle breakers; **2.30.65** AM004/AM006 sibling recompute; **2.30.64** AM001 property tokens; **2.30.63** AM022 graph-aware Ignore. Remaining min-health-3 surface is the performance fixer family (AM031/AM034–AM038). Full suite green; catalog/snapshots current.
+**Ship status:** production-acceptable. **2.30.67** performance `ForPath` Ignore scaffolds; **2.30.66** AM022 downstream cycle breakers; **2.30.65** AM004/AM006 sibling recompute; **2.30.64** AM001 property tokens. Every rule now has minimum health 4. Full suite green; catalog/snapshots current.
 
 ## Rubric
 
@@ -46,12 +46,12 @@ Priority is a planning signal: `High` means the analyzer is important and has me
 | AM030 | Invalid type converter implementation | Custom Conversions | Error | 4 | 4 | 4 | 4 | 4 | 3 | Low | Analyzer-only by design; AM001/AM020/AM021 own missing-converter mapping. Split from AM032/AM033 is clean in catalog and trust tests. Direct AM030 coverage includes empty implementation, wrong return type, missing `ResolutionContext`, and non-public `Convert` (each paired with the matching compiler error). |
 | AM032 | Type converter null handling | Custom Conversions | Warning | 4 | 4 | 4 | 5 | 4 | 4 | Low | Best-in-class null-guard detection with catalog `LikelyRewrite` trust. Recognizes `ThrowIfNull*`, switch/pattern/coalesce/conditional-access guards, and pure nullable→nullable source pass-through (`return source` / `=> source`). Residual: heuristic null-flow edge cases; the auto-fix still inserts `ArgumentNullException` (appropriate when a diagnostic fires for non-nullable destinations without intentional null handling). |
 | AM033 | Unused type converter | Custom Conversions | Info | 4 | 4 | 4 | 4 | 4 | 2 | Low | Unused-converter diagnostics now have their own Info rule ID and remain analyzer-only, and the shared converter code-fix provider no longer advertises AM033 as fixable. Usage analysis recognizes generic, instance, type-based including parenthesized/casted `typeof(...)` and simple explicit or implicit `Type` locals/fields/properties initialized from, expression-bodied to, or getter-bodied to `typeof(...)`, parameterless `Type` factory methods and local functions that expression-body or return `typeof(...)`, simple interface-typed locals/fields/properties, and DI/service-provider interface handles passed to `ConvertUsing(...)`. Product importance is intentionally lower because this is cleanup guidance. |
-| AM031 | Multiple enumeration | Performance | Warning | 4 | 4 | 3 | 5 | 4 | 4 | Low | Single-concept after 2.30.62 ID split (was multi-descriptor umbrella). Cache rewrite for ForMember multi-enum remains; ForPath analyzer-only; Scaffold trust. Residual: ForPath-safe rewrites + graph of smell breadth now lives on AM034–AM038. |
-| AM034 | Expensive operation in mapping | Performance | Warning | 4 | 4 | 3 | 5 | 4 | 4 | Low | Split from AM031 in 2.30.62. Shared analyzer/fixer; Ignore/Remove scaffold on ForMember only. Residual: heuristic smell catalog breadth. |
-| AM035 | Expensive computation in mapping | Performance | Warning | 4 | 4 | 3 | 4 | 4 | 3 | Low | Split from AM031 in 2.30.62. Narrower surface than AM034. |
-| AM036 | Sync-over-async in mapping | Performance | Warning | 4 | 4 | 3 | 5 | 4 | 4 | Low | Split from AM031 in 2.30.62. Task.Result/Wait/WaitAll/WaitAny/GetResult including source Task properties. |
-| AM037 | Complex LINQ in mapping | Performance | Warning | 4 | 4 | 3 | 4 | 4 | 3 | Low | Split from AM031 in 2.30.62. Real Enumerable/Queryable SelectMany gate. |
-| AM038 | Non-deterministic operation in mapping | Performance | Info | 4 | 4 | 3 | 5 | 4 | 3 | Low | Split from AM031 in 2.30.62. Info severity; scaffold fixes only. |
+| AM031 | Multiple enumeration | Performance | Warning | 4 | 4 | 4 | 5 | 4 | 4 | Low | Single-concept after 2.30.62 ID split (was multi-descriptor umbrella). **2.30.67**: ForMember keeps cache/Remove/Ignore actions; ForPath now offers an executable Ignore scaffold while cache and convention removal remain conservatively withheld. Scaffold trust. |
+| AM034 | Expensive operation in mapping | Performance | Warning | 4 | 4 | 4 | 5 | 4 | 4 | Low | Split from AM031 in 2.30.62. **2.30.67**: shared fixer offers Ignore on ForMember and ForPath, plus convention-safe Remove on ForMember. Residual: heuristic smell catalog breadth. |
+| AM035 | Expensive computation in mapping | Performance | Warning | 4 | 4 | 4 | 4 | 4 | 3 | Low | Split from AM031 in 2.30.62. Shared ForPath Ignore scaffold; narrower surface than AM034. |
+| AM036 | Sync-over-async in mapping | Performance | Warning | 4 | 4 | 4 | 5 | 4 | 4 | Low | Split from AM031 in 2.30.62. Task.Result/Wait/WaitAll/WaitAny/GetResult including source Task properties; shared ForPath Ignore scaffold. |
+| AM037 | Complex LINQ in mapping | Performance | Warning | 4 | 4 | 4 | 4 | 4 | 3 | Low | Split from AM031 in 2.30.62. Real Enumerable/Queryable SelectMany gate; shared ForPath Ignore scaffold. |
+| AM038 | Non-deterministic operation in mapping | Performance | Info | 4 | 4 | 4 | 5 | 4 | 3 | Low | Split from AM031 in 2.30.62. Info severity; ForMember/ForPath scaffold fixes. |
 | AM041 | Duplicate mapping registration | Configuration | Warning | 4 | 4 | 4 | 4 | 4 | 4 | Low | Compilation-wide registry now peels parentheses in `GetReverseMapInvocation`, so `(CreateMap<S,D>()).ReverseMap()` registers reverse duplicates. SafeRewrite removal withholds chained/nested/arg-position config. Remaining risk is nuanced intentional override ordering. |
 | AM050 | Redundant MapFrom configuration | Configuration | Info | 4 | 4 | 4 | 4 | 4 | 2 | Low | Safe cleanup rule now requires proven source/destination type compatibility including nullable reference annotations, string literal and `nameof(...)`/constant `ForMember` members resolved through the effective mapping direction including `ReverseMap()` segments with direct reverse-map `nameof(...)`/const analyzer and code-fix coverage, parenthesized/typed lambda parameter shapes — `o.MapFrom((s) => s.Name)` and `o.MapFrom((Source s) => s.Name)` — with `ForMember`/`ForPath` code-fix parity, and parenthesized member bodies such as `s => (s.Name)`/`d => (d.Name)` alongside the simple `s => s.Name` shape. Multi-parameter parenthesized lambdas are intentionally ignored so AutoMapper's `(src, ctx) => ...` overload stays quiet. The automatic `ForMember`/`ForPath` removal code fix now withholds when the options lambda carries sibling configuration (`Condition`, `NullSubstitute`, `PreCondition`, `UseDestinationValue`, `Ignore`, etc.) so policy overrides cannot be silently dropped; simple-MapFrom shapes still receive the automatic action. Product importance remains low. |
 
@@ -71,21 +71,20 @@ Use this table as the hardening queue. Ranking = **Importance × (5 − min(Anal
 
 | Rank | Rule | Signal | Residual (evidence-backed) | Likely score move if closed |
 | --- | --- | --- | --- | --- |
-| 1 | **AM031 / AM034–AM038** | Fix=3 | Shared ForPath analyzer-only + Scaffold policy after ID split. Further smell breadth is diminishing returns. | Fix 3→4 only with ForPath-safe rewrites |
-| 2 | **AM001** | gap=4, min=4 | Property-token placement shipped 2.30.64. Residual: advanced conversion modelling only with user repros. | — |
-| 3 | **AM011** | gap=5, min=4 | Residual: primary single-property path still scaffolds defaults when fuzzy fails. | Fix stays 4 until less scaffold-heavy without lying |
-| 4 | **AM022** | gap=4, min=4 | Downstream global cycle breakers shipped 2.30.66. Member-level graph/dataflow refinements remain opportunistic. | FP 4→5 needs evidence-backed dataflow precision |
+| 1 | **AM011** | gap=5, min=4 | Primary single-property path still scaffolds defaults when fuzzy fails. | Fix stays 4 until less scaffold-heavy without lying |
+| 2 | **AM032** | gap=4, min=4 | Classic net48-safe if-throw; not destination-aware. | Fix 4→5 if destination-aware policies are safe |
+| 3 | **AM022** | gap=4, min=4 | Downstream global cycle breakers shipped 2.30.66. Member-level graph/dataflow refinements remain opportunistic. | FP 4→5 needs evidence-backed dataflow precision |
+| 4 | **AM001** | gap=4, min=4 | Property-token placement shipped 2.30.64. Residual: advanced conversion modelling only with user repros. | — |
 | 5 | **AM002** | gap=5, min=4 | Advanced generic/nullability-flow only — wait for real user FP/FN. | — until evidence |
-| 6 | **AM032** | gap=4, min=4 | Classic net48-safe if-throw; not destination-aware. | Fix 4→5 if destination-aware policies are safe |
-| 7 | **AM020 / AM021 / AM003** | gap=5/4 | Custom-collection / constructor-body insert structural limits. | Opportunistic |
-| 8 | **AM041 / AM050** | gap=4/2 | SafeRewrite nuance / low Importance. | Low ROI |
-| 9 | **AM033 / AM005 / AM030** | gap=2–3 | Importance-limited. | Product priority only |
+| 6 | **AM020 / AM021 / AM003** | gap=5/4 | Custom-collection / constructor-body insert structural limits. | Opportunistic |
+| 7 | **AM041 / AM050** | gap=4/2 | SafeRewrite nuance / low Importance. | Low ROI |
+| 8 | **AM033 / AM005 / AM030** | gap=2–3 | Importance-limited. | Product priority only |
 
 **Recommended next hardening batch:**
 
-1. **AM031/AM034–AM038 ForPath-safe rewrites** (Fix still 3)
+1. **AM011 less scaffold-heavy single-property fixes**
 2. **AM032 destination-aware null fix**
-3. **AM011 less scaffold-heavy single-property fixes**
+3. **AM022 member-level graph/dataflow precision only with a concrete repro**
 
 Do **not** open advanced AM001/AM002 conversion/nullability modelling without a filed false-positive/false-negative repro.
 
@@ -109,7 +108,7 @@ Active queue (also summarized in Working Base). Prefer one focus per hardening b
 - _AM022 graph-aware Ignore — resolved in 2.30.63._ Multi-type cycle edges offered for Ignore.
 - _AM022 downstream cycle-breaker precision — resolved in 2.30.66._ Multi-map traversal honours direction-specific `MaxDepth`, `PreserveReferences`, and `ConvertUsing`; False Positives 3→4.
 - _AM004 / AM006 same-document sibling recompute — resolved in 2.30.65._
-- **AM001 property-token diagnostic placement.** Still reports on `CreateMap` invocation span; data-integrity rules already land on property tokens.
+- _AM031 / AM034–AM038 `ForPath` fixer parity — resolved in 2.30.67._ Nested paths receive an executable Ignore scaffold; caching and convention removal remain safely withheld.
 - **AM032 destination-aware null fixes.** Emit stays classic net48 `if-throw`; not destination-nullability-aware. Analyzer ThrowIfNull* recognition is already strong.
 
 Resolved historical P2 (keep for audit trail):
@@ -122,7 +121,8 @@ Resolved historical P2 (keep for audit trail):
 - _AM050 sibling-config direct coverage — resolved in 2.30.26._
 - _AM041 `ForPath` chained-config test — resolved in 2.30.27._
 - _AM031 remove-`ForMember` safety — resolved in 2.30.28._
-- _AM004 / AM005 / AM006 / AM011 diagnostic placement — resolved in 2.30.32_ (AM001 placement still open above).
+- _AM004 / AM005 / AM006 / AM011 diagnostic placement — resolved in 2.30.32._
+- _AM001 property-token diagnostic placement — resolved in 2.30.64._
 - _AM011 honest Map-all / Scaffold-all — resolved in 2.30.59._
 - _AM001 Convert-all / Ignore-all multi-property UX — resolved in 2.30.60._
 - _AM022 MaxDepth title/order honesty — resolved in 2.30.59–2.30.61._
@@ -148,6 +148,12 @@ Still open (do not start without a repro or explicit product decision):
 - **AM022 / AM031 dataflow-grade heuristics.** High effort, diminishing returns until a concrete false-positive pattern is filed (prefer P2 ID-split / graph-Ignore first).
 - **AM020 constructor-body CreateMap insert.** Structural host limit; catalog `LikelyRewrite` already honest.
 
+
+## Reanalysis Changelog (2026-07-15 → 2.30.67 performance `ForPath` fixer parity)
+
+| Rules | Finding | Change | Score impact |
+| --- | --- | --- | --- |
+| AM031 / AM034–AM038 | Nested `ForPath` diagnostics had no executable remediation even though AutoMapper path options support Ignore | Preserve the original nested selector and options parameter while replacing only `MapFrom` with an Ignore scaffold; cache and Remove stay ForMember-only | Fix Strategy 3→4 |
 
 ## Reanalysis Changelog (2026-07-13 → 2.30.66 AM022 downstream cycle breakers)
 
@@ -219,7 +225,7 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 | AM030 | ~5 direct tests in shared 146-test bucket. | Tests 4→3; tightened Notes. | AM030 Tests −1 |
 | AM032 | Null-flow heuristic + throw-only fix policy risk. | False Positives 4→3; tightened Notes. | AM032 False Positives −1 |
 
-## Fixer Trust Summary (v2.30.66)
+## Fixer Trust Summary (v2.30.67)
 
 | Rule | Fixable? | Catalog trust | Notes |
 | --- | --- | --- | --- |
@@ -233,8 +239,8 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 | AM022 | Yes | Scaffold | `MaxDepth(2)` + graph-aware Ignore on cycle edges (manual review) |
 | AM030, AM033 | No | NoFix | Analyzer-only by design |
 | AM032 | Yes | LikelyRewrite | Inserts `ArgumentNullException` guard |
-| AM031 | Yes | Scaffold | Multiple enumeration; cache rewrite + Ignore/Remove on ForMember; ForPath analyzer-only |
-| AM034–AM038 | Partial | Scaffold | Shared performance fixer; ForMember Ignore/Remove scaffolds; ForPath analyzer-only |
+| AM031 | Yes | Scaffold | Multiple enumeration; cache rewrite + Ignore/Remove on ForMember; Ignore scaffold on ForPath |
+| AM034–AM038 | Yes | Scaffold | Shared performance fixer; ForMember Ignore/Remove scaffolds; ForPath Ignore scaffold |
 | AM041, AM050 | Yes | SafeRewrite | Conservative removal/withhold for chained config |
 
 ## Cross-Cutting Findings
@@ -264,7 +270,7 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 - AM033 also treats any `ConvertUsing(...)` argument whose resolved type is the interface `ITypeConverter<TSource, TDestination>` itself as covering every declared concrete implementation of that interface pair. That closes the DI/service-provider false-positive class — for example `public TestProfile(ITypeConverter<string, DateTime> converter)` or `services.Resolve<ITypeConverter<string, DateTime>>()` — while declared converters whose `<TSource, TDestination>` pair is not referenced by any `ConvertUsing` call still report.
 - AM032 converter null-handling detection recognizes `ArgumentNullException.ThrowIfNull(source)`, `ArgumentException.ThrowIfNullOrEmpty(source)`, and `ArgumentException.ThrowIfNullOrWhiteSpace(source)` as explicit null guards on the converter's source parameter, closing the false-positive class where modern guard clauses replaced the older `if (source == null) throw ...` shape. Recognition also covers named-argument shapes such as `ThrowIfNull(argument: source)` and `ThrowIfNull(paramName: ..., argument: source)` so swapping or omitting optional labels does not re-introduce the false positive. Conditional access now suppresses only when it participates in a null guard such as `source?.Length is null`, `source?.Length is > 0`, `source?.Trim() == null`, `string.IsNullOrWhiteSpace(source?.Trim())`, `!(source?.Length > 0)`, `(source?.Length > 0) == false`, `(source?.Length > 0) is false`, or `(source?.Length).HasValue`, binds a pattern variable then checks that variable such as `source?.Length is var length && length > 0`, is stored in an initialized, split-assigned, or boolean guard local that is then null-guarded, `.HasValue`-guarded, relationally guarded before use, returned through a ternary fallback such as `trimmed is null ? string.Empty : trimmed`, or returned as a nullable-destination fallback after a positive local guard, feeds a null-tolerant TryParse fallback or success branch whose null-source path is source-free, passes conditional access to nullable parse provider/style arguments, guards a returning, throwing, ternary, switch expression, or switch statement path where null sources take a fallback path that does not use `source`, guards assignment to a fallback local that is returned after the branch including explicit `else` fallback assignments and harmless source-free statements before the fallback return, is paired with an explicit source-free fallback such as `source?.Trim() ?? string.Empty`, is coalesced through a simple local initialized from conditional access only when the fallback path is source-free, non-null, and the local has not been reassigned before the guard/fallback, is returned directly to a nullable destination, or is returned through a simple local initialized from the conditional access, including casted returns, branch returns, chained null-conditionals, and parenthesized local returns; guarded switch null arms/cases may fall through to later safe fallbacks when their `when` clauses are false, switch pattern-variable `when` guards such as `var length when length > 0` or `var length when length is null` are evaluated for null input in both switch expressions and switch statements, switch sections may break to later safe fallback returns, and null-excluding switch statements may fall through to later safe fallback returns. Standalone probes such as `_ = source?.Length` followed by unsafe source use, unsafe invocation or constructor arguments such as `DateTime.Parse(source?.Trim())`, `int.Parse(source?.Trim())`, `DateTime.Parse(trimmed)`, `new Uri(source?.Trim())`, or target-typed `new(source?.Trim())` in `Uri` converters, local guards that run after unsafe source use, member dereferences on maybe-null locals such as `trimmed.Length`, nested helper-only guards, coalesce fallbacks such as `source?.Trim() ?? source.Trim()`, `source?.Trim() ?? null`, or `source?.Trim() ?? null!`, coalesced guards whose null fallback enters an unsafe branch such as `(source?.Length ?? 1) > 0`, conditional fallback returns that can still fall through to unsafe source use, lifted inequality guards such as `source?.Length != 0 ? ... : ...`, conditional-access locals overwritten with unsafe source dereferences, nested local-function returns that do not represent the converter's return value, switch null arms/cases that still parse `source`, and reversed branches/null-comparison branches whose null path still parses `source` still trigger AM032.
 - AM032 named-argument guard recognition now applies across the `ThrowIfNull*` family, including `ArgumentException.ThrowIfNullOrEmpty(paramName: ..., argument: source)` and `ArgumentException.ThrowIfNullOrWhiteSpace(paramName: ..., argument: source)`.
-- AM031 now analyzes `ForPath(... MapFrom(...))` in addition to `ForMember` and reports nested destination labels such as `Stats.Total`; `ForPath` diagnostics intentionally withhold automatic fixes because the cache rewrite requires a statement-bodied lambda.
+- AM031 analyzes `ForPath(... MapFrom(...))` in addition to `ForMember` and reports nested destination labels such as `Stats.Total`; `ForPath` diagnostics offer an executable Ignore scaffold while cache and convention-removal actions remain withheld because expression-tree statement lambdas do not compile and nested-path convention equivalence is not proven.
 - AM031 multiple-enumeration tracking now also recognizes `Min`, `Max`, `Aggregate`, `LongCount`, `Single`, `SingleOrDefault`, `ToHashSet`, `ToDictionary`, and `ToLookup` as terminal enumeration calls, so shapes such as `src.Numbers.Min() + src.Numbers.Max()` or `src.Numbers.Single() + src.Numbers.ToHashSet().Count` now report instead of going silent. The whole enumeration-tracking set is gated on `System.Linq.Enumerable`/`System.Linq.Queryable` containing types so non-LINQ namesakes like `Math.Min`/`Math.Max` no longer false-positive, and lazy/intermediate operators (`Where`, `Select`, `OrderBy`, `GroupBy`, `Distinct`, …) intentionally stay off the terminal list.
 - AM031 complex `SelectMany` operation diagnostics are now gated on `System.Linq.Enumerable`/`System.Linq.Queryable` containing types, so user-defined `SelectMany` namesakes with nested selector invocations no longer false-positive.
 - AM031 expensive-computation detection now requires real `System.Linq.Enumerable.Range(...)`, so project-local `Enumerable.Range(...)` namesakes stay quiet.
@@ -296,17 +302,17 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 
 Architecture-style coverage currently comes from analyzer/fixer tests, conflict ownership tests, helper tests, sample projects, documentation, the checked-in `RuleCatalog`, generated trust artifacts, package smoke tests, and the deterministic `tools/AnalyzerVerifier` checks.
 
-Current local verification (**2026-07-13** against the **v2.30.66** release candidate):
+Current local verification (**2026-07-15** against the **v2.30.67** release candidate):
 
-- Package version in `src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj`: **2.30.66**.
+- Package version in `src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj`: **2.30.67**.
 - `dotnet build automapper-analyser.sln --configuration Release -warnaserror` passed: 0 warnings, 0 errors.
-- `dotnet test tests/AutoMapperAnalyzer.Tests/AutoMapperAnalyzer.Tests.csproj --configuration Release --no-build --framework net10.0` passed: **1401** passed, 0 skipped, 0 failed (~15 s).
+- Clean-branch full suite: pending PR CI; local superset passed **1428** tests, 0 skipped, 0 failed.
 - `dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj --configuration Release --no-build -- --check-catalog --check-snapshots` passed: rule catalog and sample diagnostics snapshot are up to date.
 - `git diff --check` passed.
 - Targeted `dotnet format whitespace` completed without diffs in the changed C# files; the repository-wide check still exposes pre-existing line-ending drift outside this slice.
 - Sample project emits AM0xx when analyzers run (`-p:RunAnalyzersDuringBuild=true`); local untracked `Directory.Build.props` (if present) may skip analyzers during CLI builds — unit tests + AnalyzerVerifier remain the verification source of truth.
 - Approximate list-tests name hits (not exclusive filters; for trend only): AM001 57, AM002 83, AM003 61, AM004 87, AM005 34, AM006 43, AM011 45, AM020 97, AM021 64, AM022 53, AM030/32/33 bucket 152, AM031 292, AM041 35, AM050 48, RuleCatalog 10.
-- Release metadata is synchronized for `v2.30.66`; tag/publication follows the merged PR.
+- Release metadata is synchronized for `v2.30.67`; tag/publication follows the merged PR.
 - Historical baseline (2026-07-06 @ `b138fa8` / v2.30.55): **1352** tests green — superseded; do not use for planning.
 - The trust-first pass removed active skipped tests, added drift validation, and moved intentional analyzer-test warnings into an explicit test-project warning baseline.
 - `/usr/local/share/dotnet/dotnet --list-runtimes` shows only .NET 10 runtimes in this local environment, so broader multi-TFM runtime verification remains blocked by missing .NET 8 and .NET 9 runtimes.

@@ -1248,7 +1248,7 @@ CreateMap<Source, Destination>()
 
 **Code Fix 1: Cache Collection Enumeration**
 
-AM031 offers this executable rewrite only for `ForMember` mappings when the repeated enumeration is rooted in the source mapping parameter, including nested source paths such as `src.Customer.Orders`. Captured fields, injected services, other closure values, and `ForPath` diagnostics stay analyzer-only because the analyzer cannot safely decide where those values should be cached or because the generated statement lambda would not compile for expression-tree `ForPath.MapFrom`.
+AM031 offers this executable cache rewrite only for `ForMember` mappings when the repeated enumeration is rooted in the source mapping parameter, including nested source paths such as `src.Customer.Orders`. Captured fields, injected services, and other closure values do not receive the cache action. `ForPath` diagnostics instead offer `ForPath(..., opt => opt.Ignore())` as an executable scaffold labelled for manual review; caching remains withheld because a generated statement lambda would not compile for expression-tree `ForPath.MapFrom`.
 
 ```csharp
 CreateMap<Source, Destination>()
@@ -1303,7 +1303,7 @@ public class MappingProfile : Profile
 
 #### Solutions
 
-Prefer precomputing outside the map. Automatic actions on `ForMember` are scaffold-level: Ignore (manual review) or Remove when the MapFrom is a direct convention-equivalent member pass-through. `ForPath` is analyzer-only.
+Prefer precomputing outside the map. Automatic actions on `ForMember` are scaffold-level: Ignore (manual review) or Remove when the MapFrom is a direct convention-equivalent member pass-through. `ForPath` offers an executable Ignore scaffold while preserving the nested destination selector; caching and convention removal remain withheld.
 
 #### Detected Patterns (summary)
 
@@ -1602,7 +1602,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.66">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.67">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1641,5 +1641,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.66
+**Version**: 2.30.67
 **Maintainer**: George Wall

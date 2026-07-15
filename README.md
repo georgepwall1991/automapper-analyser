@@ -14,14 +14,14 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.66
+## 🎉 Latest Release: v2.30.67
 
-**AM022 downstream cycle-breaker precision**
+**Performance `ForPath` fixer parity**
 
 ✅ **Highlights**
 
-- Multi-map cycles respect downstream `MaxDepth`, `PreserveReferences`, and `ConvertUsing`.
-- Forward and reverse mapping directions remain independently analysed.
+- AM031 and AM034–AM038 now offer an executable Ignore scaffold for nested destination paths.
+- Caching stays `ForMember`-only and nested-path convention removal stays withheld.
 
 🧪 **Validation**
 
@@ -29,6 +29,7 @@ prevention*
 
 ### Recent Releases
 
+- **v2.30.67**: AM031 and AM034–AM038 add executable `ForPath` Ignore scaffolds while preserving conservative cache/removal boundaries.
 - **v2.30.66**: AM022 respects direction-aware downstream cycle breakers in multi-map recursion graphs.
 - **v2.30.65**: AM004/AM006 same-document sibling recompute for aggregates.
 - **v2.30.64**: AM001 property-token diagnostic placement + aggregate sibling recompute.
@@ -231,7 +232,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.66">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.67">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

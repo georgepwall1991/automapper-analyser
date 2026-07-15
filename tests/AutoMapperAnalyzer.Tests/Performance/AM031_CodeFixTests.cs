@@ -440,7 +440,7 @@ public class AM031_CodeFixTests
     }
 
     [Fact]
-    public async Task AM031_ShouldNotRegisterFixes_ForForPathMultipleEnumeration()
+    public async Task AM031_ShouldOfferIgnoreOnly_ForForPathMultipleEnumeration()
     {
         const string source = """
                               using AutoMapper;
@@ -486,7 +486,153 @@ public class AM031_CodeFixTests
             "Numbers");
 
         List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
-        Assert.Empty(actions);
+
+        CodeAction ignoreAction = Assert.Single(actions);
+        Assert.Contains("Ignore mapping for 'Stats.Total'", ignoreAction.Title, StringComparison.Ordinal);
+        Assert.DoesNotContain(actions, action => action.Title.Contains("Cache", StringComparison.Ordinal));
+        Assert.DoesNotContain(actions, action => action.Title.Contains("Remove", StringComparison.Ordinal));
+
+        string updatedCode = await ApplyActionAsync(ignoreAction, document);
+        Assert.Contains(
+            ".ForPath(dest => dest.Stats.Total, opt => opt.Ignore())",
+            updatedCode,
+            StringComparison.Ordinal);
+
+        Document updatedDocument = CreateDocument(updatedCode);
+        Compilation compilation = (await updatedDocument.Project.GetCompilationAsync())!;
+        Assert.Empty(compilation.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Theory]
+    [InlineData("AM034", "ExpensiveOperation")]
+    [InlineData("AM035", "ExpensiveComputation")]
+    [InlineData("AM036", "TaskResult")]
+    [InlineData("AM037", "ComplexLinq")]
+    [InlineData("AM038", "NonDeterministic")]
+    public async Task PerformanceFixer_ShouldOfferForPathIgnore_ForEverySharedRule(
+        string diagnosticId,
+        string issueType)
+    {
+        const string source = """
+                              using AutoMapper;
+
+                              namespace TestNamespace
+                              {
+                                  public class Source
+                                  {
+                                      public int Score { get; set; }
+                                  }
+
+                                  public class StatsDto
+                                  {
+                                      public int Score { get; set; }
+                                  }
+
+                                  public class Destination
+                                  {
+                                      public StatsDto Stats { get; set; } = new();
+                                  }
+
+                                  public class TestProfile : Profile
+                                  {
+                                      public TestProfile()
+                                      {
+                                          CreateMap<Source, Destination>()
+                                              .ForPath(dest => dest.Stats.Score, options => options.MapFrom(src => src.Score));
+                                      }
+                                  }
+                              }
+                              """;
+
+        Document document = CreateDocument(source);
+        var descriptor = new DiagnosticDescriptor(
+            diagnosticId,
+            "Synthetic performance diagnostic",
+            "Synthetic performance diagnostic",
+            "AutoMapper.Performance",
+            DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+        Diagnostic diagnostic = await CreateDiagnosticAtSourceLambdaAsync(
+            document,
+            descriptor,
+            issueType,
+            "Stats.Score");
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction ignoreAction = Assert.Single(actions);
+        Assert.Contains("Ignore mapping for 'Stats.Score'", ignoreAction.Title, StringComparison.Ordinal);
+
+        string updatedCode = await ApplyActionAsync(ignoreAction, document);
+        Assert.Contains(
+            ".ForPath(dest => dest.Stats.Score, options => options.Ignore())",
+            updatedCode,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PerformanceFixer_ShouldOfferOneForPathIgnore_WhenDiagnosticsShareTheLambda()
+    {
+        const string source = """
+                              using AutoMapper;
+                              using System;
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              namespace TestNamespace
+                              {
+                                  public class Source
+                                  {
+                                      public List<int> Numbers { get; set; } = new();
+                                  }
+
+                                  public class StatsDto
+                                  {
+                                      public int Total { get; set; }
+                                  }
+
+                                  public class Destination
+                                  {
+                                      public StatsDto Stats { get; set; } = new();
+                                  }
+
+                                  public class TestProfile : Profile
+                                  {
+                                      public TestProfile()
+                                      {
+                                          CreateMap<Source, Destination>()
+                                              .ForPath(dest => dest.Stats.Total, opt => opt.MapFrom(src => src.Numbers.Sum() + src.Numbers.Average() + DateTime.Now.Year));
+                                      }
+                                  }
+                              }
+                              """;
+
+        Document document = CreateDocument(source);
+        Diagnostic multipleEnumeration = await CreateDiagnosticAtSourceLambdaAsync(
+            document,
+            AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule,
+            "MultipleEnumeration",
+            "Stats.Total",
+            "Numbers",
+            "Stats.Total",
+            "Numbers");
+        Diagnostic nonDeterministic = await CreateDiagnosticAtSourceLambdaAsync(
+            document,
+            AM031_PerformanceWarningAnalyzer.NonDeterministicOperationRule,
+            "NonDeterministic",
+            "Stats.Total",
+            null,
+            "Stats.Total",
+            "DateTime.Now");
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, multipleEnumeration, nonDeterministic);
+
+        CodeAction ignoreAction = Assert.Single(actions);
+        string updatedCode = await ApplyActionAsync(ignoreAction, document);
+        Assert.Contains(
+            ".ForPath(dest => dest.Stats.Total, opt => opt.Ignore())",
+            updatedCode,
+            StringComparison.Ordinal);
     }
 
     [Fact]

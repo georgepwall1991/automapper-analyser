@@ -103,6 +103,16 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
 
         if (!IsForMemberInvocation(destinationConfigurationInvocation))
         {
+            if (GetPreviousInvocation(destinationConfigurationInvocation) != null)
+            {
+                RegisterIgnoreMappingFix(
+                    context,
+                    operationContext.Root,
+                    destinationConfigurationInvocation,
+                    propertyName!,
+                    relatedDiagnostics);
+            }
+
             return;
         }
 
@@ -129,7 +139,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         // Ignore/Remove rewrite the ForMember link; only register when the peel target exists
         // so the lightbulb never advertises a silent no-op.
         // Best-first order: Cache (above) → Remove convention ForMember → Ignore last.
-        if (GetInvocationWithoutForMember(destinationConfigurationInvocation) != null)
+        if (GetPreviousInvocation(destinationConfigurationInvocation) != null)
         {
             if (await CanUseConventionMappingAsync(
                     context.Document,
@@ -172,7 +182,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
     private void RegisterIgnoreMappingFix(
         CodeFixContext context,
         SyntaxNode root,
-        InvocationExpressionSyntax forMemberInvocation,
+        InvocationExpressionSyntax destinationConfigurationInvocation,
         string propertyName,
         ImmutableArray<Diagnostic> diagnostics)
     {
@@ -182,7 +192,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
                 cancellationToken => ReplaceWithIgnoreAsync(
                     context.Document,
                     root,
-                    forMemberInvocation,
+                    destinationConfigurationInvocation,
                     propertyName,
                     cancellationToken),
                 $"AM031_Ignore_{propertyName}"),
@@ -307,22 +317,70 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
     private Task<Document> ReplaceWithIgnoreAsync(
         Document document,
         SyntaxNode root,
-        InvocationExpressionSyntax forMemberInvocation,
+        InvocationExpressionSyntax destinationConfigurationInvocation,
         string propertyName,
         CancellationToken cancellationToken)
     {
-        InvocationExpressionSyntax? previousInvocation = GetInvocationWithoutForMember(forMemberInvocation);
+        InvocationExpressionSyntax? previousInvocation = GetPreviousInvocation(destinationConfigurationInvocation);
         if (previousInvocation == null)
         {
             return Task.FromResult(document);
         }
 
-        InvocationExpressionSyntax ignoreInvocation =
-            CodeFixSyntaxHelper.CreateForMemberWithIgnore(previousInvocation, propertyName)
-                .WithTriviaFrom(forMemberInvocation);
+        InvocationExpressionSyntax? ignoreInvocation = IsForMemberInvocation(destinationConfigurationInvocation)
+            ? CodeFixSyntaxHelper.CreateForMemberWithIgnore(previousInvocation, propertyName)
+            : ReplaceOptionsWithIgnore(destinationConfigurationInvocation);
 
-        SyntaxNode newRoot = root.ReplaceNode(forMemberInvocation, ignoreInvocation);
+        if (ignoreInvocation == null)
+        {
+            return Task.FromResult(document);
+        }
+
+        ignoreInvocation = ignoreInvocation.WithTriviaFrom(destinationConfigurationInvocation);
+
+        SyntaxNode newRoot = root.ReplaceNode(destinationConfigurationInvocation, ignoreInvocation);
         return Task.FromResult(document.WithSyntaxRoot(newRoot));
+    }
+
+    private static InvocationExpressionSyntax? ReplaceOptionsWithIgnore(
+        InvocationExpressionSyntax destinationConfigurationInvocation)
+    {
+        if (destinationConfigurationInvocation.ArgumentList.Arguments.Count < 2)
+        {
+            return null;
+        }
+
+        ArgumentSyntax optionsArgument = destinationConfigurationInvocation.ArgumentList.Arguments[1];
+        LambdaExpressionSyntax? ignoreLambda = optionsArgument.Expression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.WithBody(
+                CreateIgnoreInvocation(simpleLambda.Parameter.Identifier)),
+            ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 1 } parenthesizedLambda =>
+                parenthesizedLambda.WithBody(
+                    CreateIgnoreInvocation(parenthesizedLambda.ParameterList.Parameters[0].Identifier)),
+            _ => null
+        };
+
+        if (ignoreLambda == null)
+        {
+            return null;
+        }
+
+        ArgumentSyntax ignoreArgument = optionsArgument.WithExpression(
+            ignoreLambda.WithTriviaFrom(optionsArgument.Expression));
+
+        return destinationConfigurationInvocation.WithArgumentList(
+            destinationConfigurationInvocation.ArgumentList.WithArguments(
+                destinationConfigurationInvocation.ArgumentList.Arguments.Replace(optionsArgument, ignoreArgument)));
+    }
+
+    private static InvocationExpressionSyntax CreateIgnoreInvocation(SyntaxToken optionsParameter)
+    {
+        return SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                SyntaxFactory.IdentifierName(optionsParameter.ValueText),
+                SyntaxFactory.IdentifierName("Ignore")));
     }
 
     private Task<Document> RemoveForMemberAsync(
@@ -331,7 +389,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         InvocationExpressionSyntax forMemberInvocation,
         CancellationToken cancellationToken)
     {
-        InvocationExpressionSyntax? previousInvocation = GetInvocationWithoutForMember(forMemberInvocation);
+        InvocationExpressionSyntax? previousInvocation = GetPreviousInvocation(forMemberInvocation);
         if (previousInvocation == null)
         {
             return Task.FromResult(document);
@@ -398,9 +456,10 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         return Task.FromResult(document.WithSyntaxRoot(newRoot));
     }
 
-    private static InvocationExpressionSyntax? GetInvocationWithoutForMember(InvocationExpressionSyntax forMemberToRemove)
+    private static InvocationExpressionSyntax? GetPreviousInvocation(
+        InvocationExpressionSyntax destinationConfigurationInvocation)
     {
-        return forMemberToRemove.Expression is MemberAccessExpressionSyntax
+        return destinationConfigurationInvocation.Expression is MemberAccessExpressionSyntax
         {
             Expression: InvocationExpressionSyntax previousInvocation
         }
