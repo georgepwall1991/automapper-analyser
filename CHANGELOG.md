@@ -14,7 +14,7 @@ Performance `ForPath` fixer parity for AM031 and AM034–AM038.
 ### Validation
 
 - Performance code-fix suite: **17** passed.
-- Clean-branch full suite: pending PR CI; local superset: **1428** passed, 0 skipped, 0 failed.
+- Clean-branch full suite: **1407** passed, 0 skipped, 0 failed.
 
 ## [2.30.66] - 2026-07-13
 
