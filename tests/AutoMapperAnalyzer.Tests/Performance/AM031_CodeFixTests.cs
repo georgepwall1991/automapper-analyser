@@ -570,6 +570,61 @@ public class AM031_CodeFixTests
             StringComparison.Ordinal);
     }
 
+
+    [Fact]
+    public async Task PerformanceFixer_ShouldPreserveEscapedForPathOptionsParameter()
+    {
+        const string source = """
+                              using AutoMapper;
+
+                              namespace TestNamespace
+                              {
+                                  public class Source
+                                  {
+                                      public int Score { get; set; }
+                                  }
+
+                                  public class StatsDto
+                                  {
+                                      public int Score { get; set; }
+                                  }
+
+                                  public class Destination
+                                  {
+                                      public StatsDto Stats { get; set; } = new();
+                                  }
+
+                                  public class TestProfile : Profile
+                                  {
+                                      public TestProfile()
+                                      {
+                                          CreateMap<Source, Destination>()
+                                              .ForPath(dest => dest.Stats.Score, @event => @event.MapFrom(src => src.Score));
+                                      }
+                                  }
+                              }
+                              """;
+
+        Document document = CreateDocument(source);
+        Diagnostic diagnostic = await CreateDiagnosticAtSourceLambdaAsync(
+            document,
+            AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule,
+            "ExpensiveOperation",
+            "Stats.Score");
+
+        CodeAction ignoreAction = Assert.Single(await RegisterActionsAsync(document, diagnostic));
+        string updatedCode = await ApplyActionAsync(ignoreAction, document);
+
+        Assert.Contains(
+            ".ForPath(dest => dest.Stats.Score, @event => @event.Ignore())",
+            updatedCode,
+            StringComparison.Ordinal);
+
+        Document updatedDocument = CreateDocument(updatedCode);
+        Compilation compilation = (await updatedDocument.Project.GetCompilationAsync())!;
+        Assert.Empty(compilation.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+    }
+
     [Fact]
     public async Task PerformanceFixer_ShouldOfferOneForPathIgnore_WhenDiagnosticsShareTheLambda()
     {

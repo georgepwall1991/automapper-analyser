@@ -379,7 +379,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         return SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
-                SyntaxFactory.IdentifierName(optionsParameter.ValueText),
+                SyntaxFactory.IdentifierName(optionsParameter),
                 SyntaxFactory.IdentifierName("Ignore")));
     }
 
