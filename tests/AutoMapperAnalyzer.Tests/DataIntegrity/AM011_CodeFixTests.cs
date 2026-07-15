@@ -9,7 +9,7 @@ namespace AutoMapperAnalyzer.Tests.DataIntegrity;
 public class AM011_CodeFixTests
 {
     [Fact]
-    public async Task AM011_ShouldAddDefaultValueMapping()
+    public async Task AM011_ShouldOfferIgnore_WhenNoFuzzyStringMatch()
     {
         const string testCode = """
 
@@ -63,7 +63,7 @@ public class AM011_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredField, opt => opt.MapFrom(src => string.Empty));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredField, opt => opt.Ignore());
                                                  }
                                              }
                                          }
@@ -76,11 +76,11 @@ public class AM011_CodeFixTests
                     .WithLocation(16, 32)
                     .WithArguments("RequiredField"),
                 expectedFixedCode,
-                0); // Primary fix: default value (no fuzzy match)
+                0); // No proven source match: require an explicit manual-review Ignore.
     }
 
     [Fact]
-    public async Task AM011_ShouldAddConstantValueMapping()
+    public async Task AM011_ShouldOfferIgnore_WhenNoFuzzyNumericMatch()
     {
         const string testCode = """
 
@@ -130,7 +130,7 @@ public class AM011_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredNumber, opt => opt.MapFrom(src => 0));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredNumber, opt => opt.Ignore());
                                                  }
                                              }
                                          }
@@ -143,11 +143,11 @@ public class AM011_CodeFixTests
                     .WithLocation(14, 29)
                     .WithArguments("RequiredNumber"),
                 expectedFixedCode,
-                0); // Primary fix: default value (0 for int)
+                0); // No proven source match: do not manufacture a numeric default.
     }
 
     [Fact]
-    public async Task AM011_ShouldAddCustomLogicMapping()
+    public async Task AM011_ShouldOfferIgnore_WhenNoFuzzySourceExists()
     {
         const string testCode = """
 
@@ -197,7 +197,7 @@ public class AM011_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredField, opt => opt.MapFrom(src => string.Empty));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredField, opt => opt.Ignore());
                                                  }
                                              }
                                          }
@@ -210,11 +210,11 @@ public class AM011_CodeFixTests
                     .WithLocation(14, 32)
                     .WithArguments("RequiredField"),
                 expectedBulkFixedCode,
-                0); // Primary fix: default value
+                0); // No proven source match: require an explicit manual-review Ignore.
     }
 
     [Fact]
-    public async Task AM011_ShouldAddSourcePropertySuggestionComment()
+    public async Task AM011_ShouldOfferIgnore_WhenSourceNameIsNotFuzzy()
     {
         const string testCode = """
 
@@ -264,7 +264,7 @@ public class AM011_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredDescription, opt => opt.MapFrom(src => string.Empty));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredDescription, opt => opt.Ignore());
                                                  }
                                              }
                                          }
@@ -277,7 +277,7 @@ public class AM011_CodeFixTests
                     .WithLocation(14, 32)
                     .WithArguments("RequiredDescription"),
                 expectedFixedCode,
-                0); // Primary fix: default value
+                0); // Distant names are not enough evidence to invent a mapping.
     }
 
     [Fact]
@@ -354,7 +354,7 @@ public class AM011_CodeFixTests
     }
 
     [Fact]
-    public async Task AM011_ShouldHandleRequiredBoolProperty()
+    public async Task AM011_ShouldIgnoreRequiredBool_WhenNoFuzzyMatch()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -402,7 +402,7 @@ public class AM011_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredFlag, opt => opt.MapFrom(src => false));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredFlag, opt => opt.Ignore());
                                                  }
                                              }
                                          }
@@ -415,11 +415,11 @@ public class AM011_CodeFixTests
                     .WithLocation(13, 30)
                     .WithArguments("RequiredFlag"),
                 expectedFixedCode,
-                0); // Primary fix: default value (false for bool)
+                0); // No proven source match: do not manufacture false.
     }
 
     [Fact]
-    public async Task AM011_ShouldHandleRequiredDecimalProperty()
+    public async Task AM011_ShouldIgnoreRequiredDecimal_WhenNoFuzzyMatch()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -467,7 +467,7 @@ public class AM011_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredPrice, opt => opt.MapFrom(src => 0m));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.RequiredPrice, opt => opt.Ignore());
                                                  }
                                              }
                                          }
@@ -480,11 +480,11 @@ public class AM011_CodeFixTests
                     .WithLocation(13, 33)
                     .WithArguments("RequiredPrice"),
                 expectedFixedCode,
-                0); // Primary fix: default value (0m for decimal)
+                0); // No proven source match: do not manufacture a decimal default.
     }
 
     [Fact]
-    public async Task AM011_ShouldSuppressFuzzyMatch_WhenBestCandidateIsAmbiguous()
+    public async Task AM011_ShouldWithholdDefaultScaffold_WhenBestCandidateIsAmbiguous()
     {
         const string testCode = """
 
@@ -534,7 +534,7 @@ public class AM011_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Email, opt => opt.MapFrom(src => string.Empty));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Email, opt => opt.Ignore());
                                                  }
                                              }
                                          }
@@ -547,7 +547,7 @@ public class AM011_CodeFixTests
                     .WithLocation(14, 32)
                     .WithArguments("Email"),
                 expectedFixedCode,
-                0);
+                0); // No unique fuzzy match: require an explicit manual-review Ignore.
     }
 
     [Fact]

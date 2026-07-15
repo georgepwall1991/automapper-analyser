@@ -605,7 +605,7 @@ CreateMap<Source, Destination>()
     .ForMember(dest => dest.Email, opt => opt.MapFrom(src => "noreply@example.com"));
 ```
 
-Use this only when the default value is valid domain data. The code fix may generate a compilable starter value such as `string.Empty`, `0`, or `false`, but required members usually deserve an intentional source mapping.
+Use this only when the default value is valid domain data. This is a user-authored policy decision: the single-property code fix does not manufacture a starter value for a required member.
 
 **Option 3: Configure With ForPath**
 
@@ -627,7 +627,7 @@ public class Destination
 }
 ```
 
-**Manual Review Boundary**: The fixer can suggest a unique fuzzy source-property match or add a default-value mapping. If you choose to ignore a required member, verify that another construction path initializes it or that leaving it unset is intentional.
+**Manual Review Boundary**: For one missing required property, the fixer suggests a mapping only when there is a unique compatible fuzzy source-property match; otherwise it offers only the explicit Ignore action. It does not fabricate `string.Empty`, `0`, `false`, or `default` as required domain data. For several missing required properties, aggregate Scaffold-all remains a clearly labelled manual-review action. If you choose Ignore, verify that another construction path initializes the member or that leaving it unset is intentional.
 
 #### Configuration
 
@@ -1602,7 +1602,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.67">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.68">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1641,5 +1641,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.67
+**Version**: 2.30.68
 **Maintainer**: George Wall

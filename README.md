@@ -14,14 +14,14 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.67
+## 🎉 Latest Release: v2.30.68
 
-**Performance `ForPath` fixer parity**
+**AM011 single-property fixer trust hardening**
 
 ✅ **Highlights**
 
-- AM031 and AM034–AM038 now offer an executable Ignore scaffold for nested destination paths.
-- Caching stays `ForMember`-only and nested-path convention removal stays withheld.
+- AM011 no longer invents required values such as `string.Empty`, `0`, or `false` when no unique fuzzy source match exists.
+- Unique fuzzy mappings stay primary; otherwise the only single-property fallback is the explicit Ignore action for manual review.
 
 🧪 **Validation**
 
@@ -29,6 +29,7 @@ prevention*
 
 ### Recent Releases
 
+- **v2.30.68**: AM011 single-property fixes stop manufacturing required domain data when no unique fuzzy source match exists.
 - **v2.30.67**: AM031 and AM034–AM038 add executable `ForPath` Ignore scaffolds while preserving conservative cache/removal boundaries.
 - **v2.30.66**: AM022 respects direction-aware downstream cycle breakers in multi-map recursion graphs.
 - **v2.30.65**: AM004/AM006 same-document sibling recompute for aggregates.
@@ -232,7 +233,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.67">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.68">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
