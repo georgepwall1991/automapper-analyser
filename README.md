@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1401%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1410%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,21 +14,22 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.66
+## 🎉 Latest Release: v2.30.67
 
-**AM022 downstream cycle-breaker precision**
+**Performance `ForPath` fixer parity**
 
 ✅ **Highlights**
 
-- Multi-map cycles respect downstream `MaxDepth`, `PreserveReferences`, and `ConvertUsing`.
-- Forward and reverse mapping directions remain independently analysed.
+- AM031 and AM034–AM038 now offer an executable Ignore scaffold for nested destination paths.
+- Caching stays `ForMember`-only and nested-path convention removal stays withheld.
 
 🧪 **Validation**
 
-- Full solution test validation on `net10.0`.
+- Clean-branch full suite: **1410** passed, 0 skipped, 0 failed on `net10.0`.
 
 ### Recent Releases
 
+- **v2.30.67**: AM031 and AM034–AM038 add executable `ForPath` Ignore scaffolds while preserving conservative cache/removal boundaries.
 - **v2.30.66**: AM022 respects direction-aware downstream cycle breakers in multi-map recursion graphs.
 - **v2.30.65**: AM004/AM006 same-document sibling recompute for aggregates.
 - **v2.30.64**: AM001 property-token diagnostic placement + aggregate sibling recompute.
@@ -231,7 +232,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.66">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.67">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
