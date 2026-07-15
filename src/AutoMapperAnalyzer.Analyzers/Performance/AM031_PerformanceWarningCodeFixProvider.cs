@@ -103,14 +103,20 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
 
         if (!IsForMemberInvocation(destinationConfigurationInvocation))
         {
-            if (GetPreviousInvocation(destinationConfigurationInvocation) != null)
+            InvocationExpressionSyntax? ignoreInvocation =
+                GetPreviousInvocation(destinationConfigurationInvocation) != null
+                    ? ReplaceOptionsWithIgnore(destinationConfigurationInvocation)
+                    : null;
+
+            if (ignoreInvocation != null)
             {
                 RegisterIgnoreMappingFix(
                     context,
                     operationContext.Root,
                     destinationConfigurationInvocation,
                     propertyName!,
-                    relatedDiagnostics);
+                    relatedDiagnostics,
+                    ignoreInvocation);
             }
 
             return;
@@ -184,7 +190,8 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         SyntaxNode root,
         InvocationExpressionSyntax destinationConfigurationInvocation,
         string propertyName,
-        ImmutableArray<Diagnostic> diagnostics)
+        ImmutableArray<Diagnostic> diagnostics,
+        InvocationExpressionSyntax? replacementInvocation = null)
     {
         context.RegisterCodeFix(
             CodeAction.Create(
@@ -194,6 +201,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
                     root,
                     destinationConfigurationInvocation,
                     propertyName,
+                    replacementInvocation,
                     cancellationToken),
                 $"AM031_Ignore_{propertyName}"),
             diagnostics);
@@ -319,6 +327,7 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
         SyntaxNode root,
         InvocationExpressionSyntax destinationConfigurationInvocation,
         string propertyName,
+        InvocationExpressionSyntax? replacementInvocation,
         CancellationToken cancellationToken)
     {
         InvocationExpressionSyntax? previousInvocation = GetPreviousInvocation(destinationConfigurationInvocation);
@@ -327,14 +336,8 @@ public class AM031_PerformanceWarningCodeFixProvider : AutoMapperCodeFixProvider
             return Task.FromResult(document);
         }
 
-        InvocationExpressionSyntax? ignoreInvocation = IsForMemberInvocation(destinationConfigurationInvocation)
-            ? CodeFixSyntaxHelper.CreateForMemberWithIgnore(previousInvocation, propertyName)
-            : ReplaceOptionsWithIgnore(destinationConfigurationInvocation);
-
-        if (ignoreInvocation == null)
-        {
-            return Task.FromResult(document);
-        }
+        InvocationExpressionSyntax ignoreInvocation = replacementInvocation
+            ?? CodeFixSyntaxHelper.CreateForMemberWithIgnore(previousInvocation, propertyName);
 
         ignoreInvocation = ignoreInvocation.WithTriviaFrom(destinationConfigurationInvocation);
 

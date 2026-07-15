@@ -306,7 +306,7 @@ Current local verification (**2026-07-15** against the **v2.30.67** release cand
 
 - Package version in `src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj`: **2.30.67**.
 - `dotnet build automapper-analyser.sln --configuration Release -warnaserror` passed: 0 warnings, 0 errors.
-- Clean-branch full suite: **1408** passed, 0 skipped, 0 failed.
+- Clean-branch full suite: **1409** passed, 0 skipped, 0 failed.
 - `dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj --configuration Release --no-build -- --check-catalog --check-snapshots` passed: rule catalog and sample diagnostics snapshot are up to date.
 - `git diff --check` passed.
 - Targeted `dotnet format whitespace` completed without diffs in the changed C# files; the repository-wide check still exposes pre-existing line-ending drift outside this slice.
