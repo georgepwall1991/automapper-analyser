@@ -679,6 +679,56 @@ public class AM031_CodeFixTests
     }
 
     [Fact]
+    public async Task PerformanceFixer_ShouldWithholdForPathIgnore_ForMethodGroupOptions()
+    {
+        const string source = """
+                              using AutoMapper;
+
+                              namespace TestNamespace
+                              {
+                                  public class Source
+                                  {
+                                      public int Score { get; set; }
+                                  }
+
+                                  public class StatsDto
+                                  {
+                                      public int Score { get; set; }
+                                  }
+
+                                  public class Destination
+                                  {
+                                      public StatsDto Stats { get; set; } = new();
+                                  }
+
+                                  public class TestProfile : Profile
+                                  {
+                                      private static void ConfigurePath(
+                                          IPathConfigurationExpression<Source, Destination, int> options) =>
+                                          options.MapFrom(src => src.Score);
+
+                                      public TestProfile()
+                                      {
+                                          CreateMap<Source, Destination>()
+                                              .ForPath(dest => dest.Stats.Score, ConfigurePath);
+                                      }
+                                  }
+                              }
+                              """;
+
+        Document document = CreateDocument(source);
+        Diagnostic diagnostic = await CreateDiagnosticAtSourceLambdaAsync(
+            document,
+            AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule,
+            "ExpensiveOperation",
+            "Stats.Score");
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Empty(actions);
+    }
+
+    [Fact]
     public async Task PerformanceFixer_ShouldOfferOneForPathIgnore_WhenDiagnosticsShareTheLambda()
     {
         const string source = """
