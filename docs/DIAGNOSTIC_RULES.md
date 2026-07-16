@@ -975,12 +975,16 @@ that AutoMapper can use for recursion. Ignoring the top-level recursive destinat
 own recursion behavior explicitly. For indirect cycles, the traversal honours these cycle breakers on downstream
 `CreateMap` registrations as well as the root map, including direct same-block calls through a local mapping variable,
 while preserving configuration direction around `ReverseMap()`.
-When the current forward map renames a root edge, AM022 also follows a uniquely configured direct property mapping such
-as `.ForMember(d => d.RenamedChild, o => o.MapFrom(s => s.Child))`. This inference is deliberately root-only and
-requires semantic AutoMapper ownership plus direct expression-bodied property selectors. Duplicate destination
-configuration, `ForPath`, reverse-map segments, blocks, method calls, transforms, resolvers, converters, and downstream
-explicit-member inference remain outside the automatic graph. For these renamed root edges, the Ignore lightbulb is
-appended after the existing MapFrom so Ignore is the effective member policy; MaxDepth remains the first action.
+When a forward map renames an edge, AM022 also follows a uniquely configured direct property mapping such as
+`.ForMember(d => d.RenamedChild, o => o.MapFrom(s => s.Child))` at the root and throughout the configured recursion
+graph. The inference requires exactly one forward registration for the type direction, semantic AutoMapper ownership,
+and direct expression-bodied property selectors. Duplicate mapping directions, duplicate destination configuration,
+`ForPath`, reverse-generated mappings, blocks, method calls, transforms, resolvers, and converters remain outside the
+automatic graph. Downstream `MaxDepth`, `PreserveReferences`, and `ConvertUsing` still terminate the path. For renamed
+root edges, the Ignore lightbulb is appended after the existing MapFrom so Ignore is the effective member policy;
+MaxDepth remains the first action, and breaking one root edge clears every diagnostic for that cycle. Semantic
+`ForMember(...Ignore())` and `ForPath(...Ignore())` overrides also remove that destination edge when a downstream map
+is replayed, including when `ForPath` overrides an earlier direct `MapFrom` for the same member.
 Helper methods named `Ignore` or cycle-breaker names are not treated as suppression unless they resolve to
 AutoMapper's member-configuration `Ignore()` method. Built-in framework types such as `System.Guid` stay out of
 graph recursion analysis, but user-defined types with the same short names are still analyzed.
@@ -1614,7 +1618,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.70">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.71">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1653,5 +1657,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.70
+**Version**: 2.30.71
 **Maintainer**: George Wall

@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>70</PatchVersion>
+        <PatchVersion>71</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.70 - AM022 direct member-map cycle detection
-- Direct property MapFrom edges close renamed root cycles
-- Duplicate, transformed, reverse, lookalike, and downstream explicit shapes remain excluded
-- Ignore is appended after MapFrom so the generated cycle breaker is effective
+                <PackageReleaseNotes>Version 2.30.71 - AM022 downstream direct member-map cycle detection
+- Unique forward direct property MapFrom edges participate throughout configured cycle graphs
+- Duplicate directions, reverse-generated mappings, transformed expressions, and ambiguous members remain excluded
+- Downstream cycle breakers and semantic ForMember/ForPath Ignore overrides terminate traversal; one effective root Ignore clears the cycle
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

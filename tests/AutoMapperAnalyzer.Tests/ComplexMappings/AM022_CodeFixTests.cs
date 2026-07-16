@@ -810,8 +810,8 @@ public class AM022_CodeFixTests
                                                  public TestProfile()
                                                  {
                                                      CreateMap<SourceA, DestA>().ForMember(dest => dest.BReference, opt => opt.Ignore());
-                                                     CreateMap<SourceB, DestB>().ForMember(dest => dest.CReference, opt => opt.Ignore());
-                                                     CreateMap<SourceC, DestC>().ForMember(dest => dest.AReference, opt => opt.Ignore());
+                                                     CreateMap<SourceB, DestB>();
+                                                     CreateMap<SourceC, DestC>();
                                                  }
                                              }
                                          }
@@ -835,8 +835,8 @@ public class AM022_CodeFixTests
                 },
                 expectedFixedCode,
                 codeActionIndex: 1,
-                incrementalIterations: 3,
-                fixAllIterations: 3,
+                incrementalIterations: 1,
+                fixAllIterations: 1,
                 remainingDiagnostics: null);
     }
 
@@ -917,15 +917,25 @@ public class AM022_CodeFixTests
                                          }
                                          """;
 
+        var expectedDiagnostics = new[]
+        {
+            new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                .WithLocation(29, 13)
+                .WithArguments("SourceParent", "DestinationParent"),
+            new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                .WithLocation(31, 13)
+                .WithArguments("SourceChild", "DestinationChild")
+        };
+
         // Index 0 remains MaxDepth; index 1 appends Ignore after the existing MapFrom so Ignore wins.
+        // Breaking the root edge clears both diagnostics in one application.
         await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
-                new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
-                    .WithLocation(29, 13)
-                    .WithArguments("SourceParent", "DestinationParent"),
+                expectedDiagnostics,
                 expectedFixedCode,
-                codeActionIndex: 1);
+                1,
+                1);
     }
 
     [Fact]
@@ -1012,13 +1022,13 @@ public class AM022_CodeFixTests
                                                  public TestProfile()
                                                  {
                                                      CreateMap<SourceA, DestA>().ForMember(dest => dest.BReference, opt => opt.Ignore()).ForMember(dest => dest.Parent, opt => opt.Ignore());
-                                                     CreateMap<SourceB, DestB>().ForMember(dest => dest.AReference, opt => opt.Ignore());
+                                                     CreateMap<SourceB, DestB>();
                                                  }
                                              }
                                          }
                                          """;
 
-        // Index 0 MaxDepth; index 1 Ignore-all graph edges (BReference, Parent — ordinal order).
+        // Index 0 MaxDepth; index 1 ignores SourceA's graph edges, which breaks both cycles.
         await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
             .VerifyFixAsync(
                 testCode,
@@ -1033,8 +1043,8 @@ public class AM022_CodeFixTests
                 },
                 expectedFixedCode,
                 codeActionIndex: 1,
-                incrementalIterations: 2,
-                fixAllIterations: 2,
+                incrementalIterations: 1,
+                fixAllIterations: 1,
                 remainingDiagnostics: null);
     }
 
@@ -1518,5 +1528,103 @@ public class AM022_CodeFixTests
                     .WithArguments("SourceNode", "DestNode"),
                 expectedFixedCode,
                 0);
+    }
+
+    [Fact]
+    public async Task AM022_ShouldIgnoreRootMember_WhenCycleUsesTwoDirectRenamedMemberMaps()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Parent { get; set; }
+                                    }
+
+                                    public class DestinationA
+                                    {
+                                        public DestinationB RenamedChild { get; set; }
+                                    }
+
+                                    public class DestinationB
+                                    {
+                                        public DestinationA RenamedParent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestinationA>()
+                                                .ForMember(destination => destination.RenamedChild, options => options.MapFrom(source => source.Child));
+                                            CreateMap<SourceB, DestinationB>()
+                                                .ForMember(destination => destination.RenamedParent, options => options.MapFrom(source => source.Parent));
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class SourceA
+                                             {
+                                                 public SourceB Child { get; set; }
+                                             }
+
+                                             public class SourceB
+                                             {
+                                                 public SourceA Parent { get; set; }
+                                             }
+
+                                             public class DestinationA
+                                             {
+                                                 public DestinationB RenamedChild { get; set; }
+                                             }
+
+                                             public class DestinationB
+                                             {
+                                                 public DestinationA RenamedParent { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<SourceA, DestinationA>()
+                                                         .ForMember(destination => destination.RenamedChild, options => options.MapFrom(source => source.Child)).ForMember(dest => dest.RenamedChild, opt => opt.Ignore());
+                                                     CreateMap<SourceB, DestinationB>()
+                                                         .ForMember(destination => destination.RenamedParent, options => options.MapFrom(source => source.Parent));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        var expectedDiagnostics = new[]
+        {
+            new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                .WithLocation(29, 13)
+                .WithArguments("SourceA", "DestinationA"),
+            new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                .WithLocation(31, 13)
+                .WithArguments("SourceB", "DestinationB")
+        };
+
+        await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                expectedDiagnostics,
+                expectedFixedCode,
+                1,
+                1);
     }
 }
