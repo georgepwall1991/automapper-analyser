@@ -48,6 +48,46 @@ internal sealed class CreateMapRegistry
     }
 
     /// <summary>
+    ///     Gets the sole explicit forward registration for a mapping direction.
+    ///     Reverse-generated and duplicate registrations are deliberately treated as ambiguous.
+    /// </summary>
+    public bool TryGetUniqueForwardMapping(
+        ITypeSymbol? source,
+        ITypeSymbol? destination,
+        out InvocationExpressionSyntax invocation,
+        out SemanticModel semanticModel)
+    {
+        invocation = null!;
+        semanticModel = null!;
+        MappingInfo? match = null;
+
+        foreach (MappingInfo mapping in _mappings)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(mapping.Source, source) ||
+                !SymbolEqualityComparer.Default.Equals(mapping.Destination, destination))
+            {
+                continue;
+            }
+
+            if (match != null)
+            {
+                return false;
+            }
+
+            match = mapping;
+        }
+
+        if (match is not { IsReverseMap: false } uniqueForwardMapping)
+        {
+            return false;
+        }
+
+        invocation = uniqueForwardMapping.Node;
+        semanticModel = uniqueForwardMapping.SemanticModel;
+        return true;
+    }
+
+    /// <summary>
     ///     Checks whether every registration for a mapping direction explicitly constrains recursive traversal.
     /// </summary>
     public bool IsCycleConstrained(ITypeSymbol? source, ITypeSymbol? destination)
@@ -143,6 +183,7 @@ internal sealed class CreateMapRegistry
                         Destination = destType,
                         Location = invocation.GetLocation(),
                         Node = invocation,
+                        SemanticModel = semanticModel,
                         IsReverseMap = false,
                         IsCycleConstrained = HasCycleBreaker(
                             invocation,
@@ -170,6 +211,7 @@ internal sealed class CreateMapRegistry
                             Destination = sourceType,
                             Location = loc,
                             Node = reverseMapInvocation,
+                            SemanticModel = semanticModel,
                             IsReverseMap = true,
                             IsCycleConstrained = HasCycleBreaker(
                                 invocation,
@@ -350,6 +392,7 @@ internal sealed class CreateMapRegistry
         public ITypeSymbol Destination;
         public Location Location;
         public InvocationExpressionSyntax Node;
+        public SemanticModel SemanticModel;
         public bool IsReverseMap;
         public bool IsCycleConstrained;
     }

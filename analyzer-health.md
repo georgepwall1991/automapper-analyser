@@ -1,12 +1,12 @@
 # Analyzer Health
 
-Reviewed: 2026-07-16 (AM022 direct member-map cycle detection prepared as **2.30.70**)
+Reviewed: 2026-07-16 (AM022 downstream direct member-map cycle detection prepared as **2.30.71**)
 
 This is a deliberately harsh health audit for the **21** implemented AutoMapper analyzer rule IDs in this repository (16 before the 2.30.62 performance split). Several rule IDs still expose multiple diagnostic descriptors, especially `AM002` and `AM022`; the scorecard rates the public rule ID as the user experiences it.
 
 Every implemented rule currently has an analyzer and a code fix provider. Scores are 1-5, where `5` means reference-quality and hard to improve, `3` means usable but meaningfully incomplete, and `1` means unreliable or underbuilt.
 
-**Ship status:** production-acceptable. **2.30.70** AM022 direct member-map cycle detection; **2.30.69** AM032 destination-aware null fixes; **2.30.68** AM011 single-property fixer honesty; **2.30.67** performance `ForPath` Ignore scaffolds. Every rule now has minimum health 4. Full suite green; catalog/snapshots current.
+**Ship status:** production-acceptable. **2.30.71** AM022 downstream direct member-map cycle detection; **2.30.70** AM022 direct root member-map cycle detection; **2.30.69** AM032 destination-aware null fixes; **2.30.68** AM011 single-property fixer honesty. Every rule now has minimum health 4. Full suite green; catalog/snapshots current.
 
 ## Rubric
 
@@ -42,7 +42,7 @@ Priority is a planning signal: `High` means the analyzer is important and has me
 | AM011 | Required destination property is not mapped | Data Integrity | Error | 4 | 5 | 4 | 5 | 5 | 5 | Low | Important runtime-failure guardrail; per-property fuzzy resolves ReverseMap types. **2.30.68**: single-property fixes map only a unique compatible fuzzy source; otherwise the sole fallback is explicit Ignore, never fabricated required data. Aggregate Map-all stays unique-fuzzy-only; mixed/default bulk remains honest Scaffold-all + manual review; stale diagnostics withhold. |
 | AM020 | Nested object mapping configuration missing | Complex Mappings | Warning | 4 | 4 | 4 | 5 | 5 | 5 | Low | Reference analyzer; fixer now shares public+internal property discovery with the analyzer (internal nested CreateMap fix covered). Catalog trust is `LikelyRewrite` (constructor-body insertion remains a structural limit). |
 | AM021 | Collection element type incompatibility | Complex Mappings | Warning | 4 | 4 | 4 | 5 | 4 | 4 | Low | Defers fully when AM003 owns container incompatibility (shared helper). Same-container element mismatches, dictionary axes, reverse gaps, and implicit element conversions remain AM021. List simple Select rewrites now refuse non-compiling Parse destinations (string-source gate matches dictionaries). |
-| AM022 | Infinite recursion risk | Complex Mappings | Warning | 4 | 4 | 4 | 5 | 4 | 4 | Low | Requires configured nested CreateMap chains for indirect cycles; strong semantic suppressions. **2.30.70**: uniquely configured direct root `ForMember(...MapFrom(source => source.Property))` edges close renamed cycles; duplicate, transformed, reverse, lookalike, and downstream explicit-member shapes remain excluded. Ignore is appended after MapFrom so it wins; downstream `MaxDepth`, `PreserveReferences`, and `ConvertUsing` still terminate traversal. Catalog `Scaffold` remains honest. |
+| AM022 | Infinite recursion risk | Complex Mappings | Warning | 4 | 4 | 4 | 5 | 4 | 4 | Low | Requires configured nested CreateMap chains for indirect cycles; strong semantic suppressions. **2.30.71**: uniquely registered forward `ForMember(...MapFrom(source => source.Property))` edges close renamed cycles at the root and downstream, so every owning map reports. Duplicate directions, duplicate destination configuration, transformed expressions, reverse-generated mappings, lookalikes, `ForPath` member inference, resolvers, and converters remain excluded. Semantic `ForMember`/`ForPath` Ignore overrides remove replayed downstream edges, so one effective root Ignore clears the cycle; downstream `MaxDepth`, `PreserveReferences`, and `ConvertUsing` also terminate traversal. Catalog `Scaffold` remains honest. |
 | AM030 | Invalid type converter implementation | Custom Conversions | Error | 4 | 4 | 4 | 4 | 4 | 3 | Low | Analyzer-only by design; AM001/AM020/AM021 own missing-converter mapping. Split from AM032/AM033 is clean in catalog and trust tests. Direct AM030 coverage includes empty implementation, wrong return type, missing `ResolutionContext`, and non-public `Convert` (each paired with the matching compiler error). |
 | AM032 | Type converter null handling | Custom Conversions | Warning | 4 | 4 | 5 | 5 | 4 | 4 | Low | Best-in-class null-guard detection with catalog `LikelyRewrite` trust. Recognizes `ThrowIfNull*`, switch/pattern/coalesce/conditional-access guards, and nullable pass-through. **Fix Strategy 5 (2.30.69)**: proven nullable destinations offer return-null first plus the retained throw policy; non-nullable, oblivious, and unproven destinations remain throw-only. Residual analyzer work is heuristic null-flow only and requires a concrete repro. |
 | AM033 | Unused type converter | Custom Conversions | Info | 4 | 4 | 4 | 4 | 4 | 2 | Low | Unused-converter diagnostics now have their own Info rule ID and remain analyzer-only, and the shared converter code-fix provider no longer advertises AM033 as fixable. Usage analysis recognizes generic, instance, type-based including parenthesized/casted `typeof(...)` and simple explicit or implicit `Type` locals/fields/properties initialized from, expression-bodied to, or getter-bodied to `typeof(...)`, parameterless `Type` factory methods and local functions that expression-body or return `typeof(...)`, simple interface-typed locals/fields/properties, and DI/service-provider interface handles passed to `ConvertUsing(...)`. Product importance is intentionally lower because this is cleanup guidance. |
@@ -73,7 +73,7 @@ Use this table as the hardening queue. Ranking = **Importance × (5 − min(Anal
 | --- | --- | --- | --- | --- |
 | 1 | **AM001** | gap=4, min=4 | Property-token placement shipped 2.30.64. Residual: advanced conversion modelling only with user repros. | — |
 | 2 | **AM002** | gap=5, min=4 | Advanced generic/nullability-flow only — wait for real user FP/FN. | — until evidence |
-| 3 | **AM022** | gap=4, min=4 | Direct renamed root edges shipped 2.30.70. Downstream explicit-member inference remains opportunistic and repro-gated. | — until evidence |
+| 3 | **AM022** | gap=4, min=4 | Direct renamed root edges shipped 2.30.70; concrete downstream renamed-edge false negative closed in 2.30.71. Advanced configuration inference remains repro-gated. | — until evidence |
 | 4 | **AM020 / AM021 / AM003** | gap=5/4 | Custom-collection / constructor-body insert structural limits. | Opportunistic |
 | 5 | **AM041 / AM050** | gap=4/2 | SafeRewrite nuance / low Importance. | Low ROI |
 | 6 | **AM033 / AM005 / AM030** | gap=2–3 | Importance-limited. | Product priority only |
@@ -81,7 +81,7 @@ Use this table as the hardening queue. Ranking = **Importance × (5 − min(Anal
 **Recommended next hardening batch:**
 
 1. **Monitor sweep** for a new evidence-backed residual
-2. **AM022 downstream explicit-member precision only with a concrete compiling repro**
+2. Advance AM001, AM002, or AM022 only when a concrete compiling false positive/negative proves the gap
 
 Do **not** open advanced AM001/AM002 conversion/nullability modelling without a filed false-positive/false-negative repro.
 
@@ -304,7 +304,7 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 - AM021 now respects compiler-known implicit element conversions from Roslyn conversion classification, including user-defined value-object conversions such as `Money` to `decimal`, while explicit-only element conversions and reverse-map directions where a forward implicit conversion is not reversible still report.
 - AM021 simple-conversion fixes now emit fully qualified `global::System.Convert`, `global::System.DateTime`, and `global::System.Guid` calls instead of relying on `using System`, avoiding user-type shadowing in generated mappings. Immutable/frozen destination collections use fully qualified `ImmutableList.CreateRange(...)`, `ImmutableHashSet.CreateRange(...)`, and `FrozenSet.ToFrozenSet(...)` factory calls, while custom collection lookalikes stay on the manual-review ignore path.
 - AM021's Tests score is now calibrated to 5, matching AM022 after the current coverage review found comparable analyzer breadth and stronger code-fix method count for AM021.
-- AM022 ignore suppression now uses semantic AutoMapper method ownership, so helper calls such as `MappingHelpers.Ignore()` inside a `ForMember` options lambda no longer hide a real recursion diagnostic. AM022 also reuses the shared namespace-aware built-in classifier for simple-type pruning, keeping actual `System.Guid`/`DateTime`-style framework types out of recursion graphs without suppressing user-defined domain types that share those short names.
+- AM022 ignore suppression uses semantic AutoMapper method ownership, so helper calls such as `MappingHelpers.Ignore()` inside a `ForMember` options lambda do not hide a real recursion diagnostic. In 2.30.71, strict direct property-to-property member maps from a unique forward registration also participate downstream; duplicate directions, reverse-generated mappings, transforms, and ambiguous member configuration remain outside inference. AM022 also reuses the shared namespace-aware built-in classifier for simple-type pruning, keeping actual `System.Guid`/`DateTime`-style framework types out of recursion graphs without suppressing user-defined domain types that share those short names.
 - AM041 duplicate-map diagnostics now include constructed generic type arguments and array element types/ranks, so collection duplicates name the actionable source/destination shapes instead of collapsing both sides to the metadata type name.
 - AM041 now avoids offering the duplicate-map removal fix for `ReverseMap().ForMember(...)` style chains, including parenthesized chains, where the reverse direction carries additional configuration that cannot be safely rewritten.
 - AM041 now also withholds the duplicate-map removal fix when the duplicate is a `CreateMap<TSource, TDestination>()` registration carrying chained mapping configuration — including `CreateMap<>().ForMember(...)`, parenthesized `(CreateMap<>()).ForMember(...)`, and `CreateMap<>().ReverseMap().ForMember(...)` shapes — so policy overrides such as `.ForMember(d => d.X, opt => opt.Ignore())` are no longer silently dropped by an automatic statement removal. Bare `CreateMap<TSource, TDestination>().ReverseMap()` reversals, including `(CreateMap<TSource, TDestination>()).ReverseMap()`, preserve the reverse direction through the safe swapped `CreateMap` rewrite.
@@ -319,17 +319,17 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 
 Architecture-style coverage currently comes from analyzer/fixer tests, conflict ownership tests, helper tests, sample projects, documentation, the checked-in `RuleCatalog`, generated trust artifacts, package smoke tests, and the deterministic `tools/AnalyzerVerifier` checks.
 
-Current local verification (**2026-07-16** against the **v2.30.70** release candidate):
+Current local verification (**2026-07-16** against the **v2.30.71** release candidate):
 
-- Package version in `src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj`: **2.30.70**.
+- Package version in `src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj`: **2.30.71**.
 - `dotnet build automapper-analyser.sln --configuration Release -warnaserror` passed: 0 warnings, 0 errors.
-- Clean-branch full suite: **1423** passed, 0 skipped, 0 failed.
+- Clean-branch full suite: **1433** passed, 0 skipped, 0 failed.
 - `dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj --configuration Release --no-build -- --check-catalog --check-snapshots` passed: rule catalog and sample diagnostics snapshot are up to date.
 - Remote branch compare is one commit with only the 15 intended source/test/trust/release files and no trailing-whitespace additions.
 - Targeted `dotnet format whitespace` completed on the local candidate; the clean branch preserves the touched files' existing LF convention to avoid whole-file line-ending churn.
 - Sample project emits AM0xx when analyzers run (`-p:RunAnalyzersDuringBuild=true`); local untracked `Directory.Build.props` (if present) may skip analyzers during CLI builds — unit tests + AnalyzerVerifier remain the verification source of truth.
 - Approximate list-tests name hits (not exclusive filters; for trend only): AM001 57, AM002 83, AM003 61, AM004 87, AM005 34, AM006 43, AM011 45, AM020 97, AM021 64, AM022 62, AM030/32/33 bucket 156, AM031 292, AM041 35, AM050 48, RuleCatalog 10.
-- Release metadata is synchronized for `v2.30.70`; tag/publication follows the merged PR.
+- Release metadata is synchronized for `v2.30.71`; tag/publication follows the merged PR.
 - Historical baseline (2026-07-06 @ `b138fa8` / v2.30.55): **1352** tests green — superseded; do not use for planning.
 - The trust-first pass removed active skipped tests, added drift validation, and moved intentional analyzer-test warnings into an explicit test-project warning baseline.
 - `/usr/local/share/dotnet/dotnet --list-runtimes` shows only .NET 10 runtimes in this local environment, so broader multi-TFM runtime verification remains blocked by missing .NET 8 and .NET 9 runtimes.

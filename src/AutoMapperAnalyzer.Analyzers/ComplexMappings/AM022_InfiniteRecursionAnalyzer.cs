@@ -79,7 +79,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                 invocationExpr,
                 typeArguments.sourceType,
                 typeArguments.destinationType,
-                context.SemanticModel);
+                context.SemanticModel,
+                createMapRegistry);
 
         // Check if recursion is constrained or the mapping body is custom-owned.
         if (
@@ -260,8 +261,16 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
+        ExpressionSyntax destinationSelector = forMemberCall.ArgumentList.Arguments[0].Expression;
+        if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(forMemberCall, semanticModel, "ForPath"))
+        {
+            return TryGetDirectSelectedProperty(destinationSelector, semanticModel, out IPropertySymbol property)
+                ? property.Name
+                : null;
+        }
+
         return AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
-            forMemberCall.ArgumentList.Arguments[0].Expression,
+            destinationSelector,
             semanticModel);
     }
 
@@ -294,7 +303,11 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         }
 
         // Check for circular references reachable through proven root member paths.
-        if (HasMappedCircularReference(sourceType, destinationType, createMapRegistry, rootMappedPairs))
+        if (HasMappedCircularReference(
+                sourceType,
+                destinationType,
+                createMapRegistry,
+                rootMappedPairs))
         {
             var diagnostic = Diagnostic.Create(
                 InfiniteRecursionRiskRule,
@@ -365,7 +378,12 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             sourceType,
             destinationType,
             createMapRegistry,
-            GetRootMappedPropertyPairs(invocation, sourceType, destinationType, semanticModel));
+            GetRootMappedPropertyPairs(
+                invocation,
+                sourceType,
+                destinationType,
+                semanticModel,
+                createMapRegistry));
     }
 
     private static HashSet<string> FindRecursiveDestinationProperties(
@@ -463,7 +481,10 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         IEnumerable<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)> mappedPairs =
             depth == 0 && !rootMappedPairs.IsDefault
                 ? rootMappedPairs
-                : GetConventionMappedPropertyPairs(currentSourceType, currentDestinationType);
+                : GetDownstreamMappedPropertyPairs(
+                    currentSourceType,
+                    currentDestinationType,
+                    createMapRegistry);
 
         foreach ((IPropertySymbol sourceProperty, IPropertySymbol destinationProperty) in mappedPairs)
         {
@@ -503,14 +524,55 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
     }
 
     private static ImmutableArray<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)>
+        GetDownstreamMappedPropertyPairs(
+            ITypeSymbol sourceType,
+            ITypeSymbol destinationType,
+            CreateMapRegistry createMapRegistry)
+    {
+        if (createMapRegistry.TryGetUniqueForwardMapping(
+                sourceType,
+                destinationType,
+                out var invocation,
+                out SemanticModel semanticModel))
+        {
+            return GetRootMappedPropertyPairs(
+                invocation,
+                sourceType,
+                destinationType,
+                semanticModel,
+                createMapRegistry);
+        }
+
+        return GetConventionMappedPropertyPairs(sourceType, destinationType).ToImmutableArray();
+    }
+
+    private static ImmutableArray<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)>
         GetRootMappedPropertyPairs(
             InvocationExpressionSyntax invocation,
             ITypeSymbol sourceType,
             ITypeSymbol destinationType,
-            SemanticModel semanticModel
+            SemanticModel semanticModel,
+            CreateMapRegistry createMapRegistry
         )
     {
         var mappedPairs = GetConventionMappedPropertyPairs(sourceType, destinationType).ToList();
+        if (!createMapRegistry.TryGetUniqueForwardMapping(
+                sourceType,
+                destinationType,
+                out var registeredInvocation,
+                out _)
+            || registeredInvocation.SyntaxTree != invocation.SyntaxTree
+            || registeredInvocation.Span != invocation.Span)
+        {
+            return mappedPairs.ToImmutableArray();
+        }
+
+        HashSet<string> ignoredProperties = GetIgnoredProperties(
+            invocation,
+            AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation),
+            semanticModel);
+        mappedPairs.RemoveAll(pair => ignoredProperties.Contains(pair.DestinationProperty.Name));
+
         var configuredMembers = new List<(
             IPropertySymbol DestinationProperty,
             InvocationExpressionSyntax ForMemberInvocation)>();
@@ -542,7 +604,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         {
             int configurationCount = configuredMembers.Count(candidate =>
                 SymbolEqualityComparer.Default.Equals(candidate.DestinationProperty, destinationProperty));
-            if (configurationCount != 1
+            if (ignoredProperties.Contains(destinationProperty.Name)
+                || configurationCount != 1
                 || !TryGetDirectMapFromSourceProperty(
                     forMemberInvocation,
                     semanticModel,

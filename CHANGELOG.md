@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.71] - 2026-07-16
+
+AM022 downstream direct member-map cycle detection.
+
+### Changed
+
+- **AM022 downstream direct `ForMember(...MapFrom...)` edges**: uniquely registered forward maps now contribute strict direct property-to-property edges throughout the configured recursion graph, so cycles with renamed members on multiple legs report every owning `CreateMap`.
+- **Conservative boundary**: duplicate mapping directions, reverse-generated mappings, duplicate destination configuration, transformed expressions, `ForPath` member inference, lookalike APIs, resolvers, and converters remain excluded; downstream `MaxDepth`, `PreserveReferences`, and `ConvertUsing` still terminate traversal.
+- **Graph-breaking fix**: semantic `ForMember` and `ForPath` Ignore overrides remove the destination edge when downstream maps are replayed. One root Ignore action therefore clears all diagnostics for the broken cycle and is appended after an existing `MapFrom` so it is effective.
+
+### Validation
+
+- AM022 analyzer and code-fix suite: **85** passed.
+- Full solution suite: **1433** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.70] - 2026-07-16
 
 AM022 direct member-map cycle detection.
