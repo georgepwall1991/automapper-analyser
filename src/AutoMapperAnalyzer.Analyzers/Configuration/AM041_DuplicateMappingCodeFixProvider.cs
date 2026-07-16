@@ -187,6 +187,15 @@ public class AM041_DuplicateMappingCodeFixProvider : AutoMapperCodeFixProviderBa
 
             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
             {
+                if (memberAccess.Expression is IdentifierNameSyntax &&
+                    invocation.Parent is ExpressionStatementSyntax deferredReverseMapStatement)
+                {
+                    SyntaxNode? newRoot = root.RemoveNode(
+                        deferredReverseMapStatement,
+                        SyntaxRemoveOptions.KeepNoTrivia);
+                    return Task.FromResult(document.WithSyntaxRoot(newRoot!));
+                }
+
                 // Replace the whole ReverseMap() invocation with the expression it was called on
                 // e.g. CreateMap<A,B>().ReverseMap() -> CreateMap<A,B>()
                 return ReplaceNodeAsync(document, root, invocation, memberAccess.Expression);
