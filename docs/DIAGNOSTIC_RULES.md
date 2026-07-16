@@ -1150,13 +1150,19 @@ public class StringToIntConverter : ITypeConverter<string?, int>
 
 #### Code Fix
 
-For nullable-source converters, AM032 offers an executable fix that inserts:
+For nullable-source converters with a non-nullable or unproven destination, AM032 offers an executable exception guard:
 
 ```csharp
 if (source == null) throw new global::System.ArgumentNullException(nameof(source));
 ```
 
-The generated guard is fully qualified so the fixer does not add, reorder, or duplicate `using System` directives.
+When the converter destination is semantically proven nullable (`T?` or an annotated nullable reference), the primary action instead preserves null:
+
+```csharp
+if (source == null) return null;
+```
+
+The exception guard remains available as a secondary explicit policy. Oblivious reference types and other destinations whose nullability is not proven stay throw-only. Both forms are net48-safe; the exception guard is fully qualified so the fixer does not add, reorder, or duplicate `using System` directives.
 
 #### Configuration
 
@@ -1602,7 +1608,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.68">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.69">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1641,5 +1647,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.68
+**Version**: 2.30.69
 **Maintainer**: George Wall

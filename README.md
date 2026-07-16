@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1410%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1414%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,21 +14,22 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.68
+## 🎉 Latest Release: v2.30.69
 
-**AM011 single-property fixer trust hardening**
+**AM032 destination-aware null-fix policy**
 
 ✅ **Highlights**
 
-- AM011 no longer invents required values such as `string.Empty`, `0`, or `false` when no unique fuzzy source match exists.
-- Unique fuzzy mappings stay primary; otherwise the only single-property fallback is the explicit Ignore action for manual review.
+- Proven nullable destinations offer null propagation first and retain the exception guard as an explicit alternative.
+- Non-nullable, oblivious, and unproven destinations remain conservatively throw-only.
 
 🧪 **Validation**
 
-- Clean-branch full suite: **1410** passed, 0 skipped, 0 failed on `net10.0`.
+- Clean-branch full suite: **1414** passed, 0 skipped, 0 failed on `net10.0`.
 
 ### Recent Releases
 
+- **v2.30.69**: AM032 makes nullable-destination null propagation primary while retaining the throw policy.
 - **v2.30.68**: AM011 single-property fixes stop manufacturing required domain data when no unique fuzzy source match exists.
 - **v2.30.67**: AM031 and AM034–AM038 add executable `ForPath` Ignore scaffolds while preserving conservative cache/removal boundaries.
 - **v2.30.66**: AM022 respects direction-aware downstream cycle breakers in multi-map recursion graphs.
@@ -233,7 +234,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.68">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.69">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

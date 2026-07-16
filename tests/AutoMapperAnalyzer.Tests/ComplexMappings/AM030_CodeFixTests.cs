@@ -187,6 +187,163 @@ public class AM030_CodeFixTests
     }
 
     [Fact]
+    public async Task AM032_ShouldOfferReturnNullBeforeThrow_ForNullableReferenceDestination()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class NullUnsafeConverter : ITypeConverter<string?, string?>
+                                    {
+                                        public string? Convert(string? source, string? destination, ResolutionContext context)
+                                        {
+                                            return source.Trim();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(
+            await GetDiagnosticsAsync(document),
+            item => item.Id == "AM032");
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Collection(
+            actions,
+            action =>
+            {
+                Assert.Equal("Return null when 'source' is null", action.Title);
+                Assert.Equal("AM032_ReturnNull_source", action.EquivalenceKey);
+            },
+            action =>
+            {
+                Assert.Equal("Throw when 'source' is null", action.Title);
+                Assert.Equal("AM032_AddNullGuard_source", action.EquivalenceKey);
+            });
+
+        string updatedCode = await ApplyActionAsync(actions[0], document);
+        Assert.Contains("if (source == null) return null;", updatedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("ArgumentNullException", updatedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AM032_ShouldReturnNull_ForExpressionBodiedNullableValueDestination()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class NullUnsafeConverter : ITypeConverter<string?, int?>
+                                    {
+                                        public int? Convert(string? source, int? destination, ResolutionContext context) => int.Parse(source);
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, int?>().ConvertUsing<NullUnsafeConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class NullUnsafeConverter : ITypeConverter<string?, int?>
+                                             {
+                                                 public int? Convert(string? source, int? destination, ResolutionContext context)
+                                                 {
+                                                     if (source == null) return null;
+                                                     return int.Parse(source);
+                                                 }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<string?, int?>().ConvertUsing<NullUnsafeConverter>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM030_CustomTypeConverterAnalyzer, AM030_CustomTypeConverterCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule)
+                    .WithLocation(7, 21)
+                    .WithArguments("NullUnsafeConverter", "String"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM032_ShouldOfferThrowOnly_ForNonNullableDestination()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class NullUnsafeConverter : ITypeConverter<string?, int>
+                                    {
+                                        public int Convert(string? source, int destination, ResolutionContext context)
+                                        {
+                                            return int.Parse(source);
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(
+            await GetDiagnosticsAsync(document),
+            item => item.Id == "AM032");
+
+        CodeAction action = Assert.Single(await RegisterActionsAsync(document, diagnostic));
+        Assert.Equal("Throw when 'source' is null", action.Title);
+        Assert.Equal("AM032_AddNullGuard_source", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM032_ShouldOfferThrowOnly_ForObliviousReferenceDestination()
+    {
+        const string testCode = """
+                                #nullable disable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class NullUnsafeConverter : ITypeConverter<int?, string>
+                                    {
+                                        public string Convert(int? source, string destination, ResolutionContext context)
+                                        {
+                                            return source.Value.ToString();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(
+            await GetDiagnosticsAsync(document),
+            item => item.Id == "AM032");
+
+        CodeAction action = Assert.Single(await RegisterActionsAsync(document, diagnostic));
+        Assert.Equal("Throw when 'source' is null", action.Title);
+        Assert.Equal("AM032_AddNullGuard_source", action.EquivalenceKey);
+    }
+
+    [Fact]
     public async Task AM030_ShouldPreserveExistingSystemUsing_WhenAddingNullGuard()
     {
         const string testCode = """
@@ -888,5 +1045,13 @@ public class AM030_CodeFixTests
 
         await provider.RegisterCodeFixesAsync(context);
         return actions;
+    }
+
+    private static async Task<string> ApplyActionAsync(CodeAction action, Document originalDocument)
+    {
+        ImmutableArray<CodeActionOperation> operations = await action.GetOperationsAsync(CancellationToken.None);
+        ApplyChangesOperation applyChanges = Assert.Single(operations.OfType<ApplyChangesOperation>());
+        Document updatedDocument = applyChanges.ChangedSolution.GetDocument(originalDocument.Id)!;
+        return (await updatedDocument.GetTextAsync()).ToString();
     }
 }

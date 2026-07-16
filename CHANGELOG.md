@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.69] - 2026-07-16
+
+AM032 destination-aware null-fix policy.
+
+### Changed
+
+- **AM032 nullable destinations**: converters whose destination return type is semantically proven nullable now offer `return null` as the primary null guard, while retaining the existing exception guard as an explicit alternative.
+- **Conservative boundary**: non-nullable, oblivious, and otherwise unproven destination types remain throw-only. Both generated forms compile for the supported net48 consumer baseline.
+
+### Validation
+
+- AM030/AM032 code-fix suite: **18** passed.
+- Clean-branch full suite: **1414** passed, 0 skipped, 0 failed.
+
 ## [2.30.68] - 2026-07-15
 
 AM011 single-property fixer trust hardening.
