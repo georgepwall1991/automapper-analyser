@@ -56,7 +56,8 @@ internal static class AM020MappingConfigurationHelpers
                      ShouldStopAtReverseMapBoundary(createMapInvocation, semanticModel)))
         {
             if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ForMember") ||
-                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ForPath"))
+                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ForPath") ||
+                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ForCtorParam"))
             {
                 mappingCalls.Add(invocation);
             }
