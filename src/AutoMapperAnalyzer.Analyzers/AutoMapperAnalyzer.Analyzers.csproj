@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>71</PatchVersion>
+        <PatchVersion>72</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.71 - AM022 downstream direct member-map cycle detection
-- Unique forward direct property MapFrom edges participate throughout configured cycle graphs
-- Duplicate directions, reverse-generated mappings, transformed expressions, and ambiguous members remain excluded
-- Downstream cycle breakers and semantic ForMember/ForPath Ignore overrides terminate traversal; one effective root Ignore clears the cycle
+                <PackageReleaseNotes>Version 2.30.72 - AM001 constructor-parameter ownership precision
+- Semantic AutoMapper ForCtorParam configuration suppresses the exact destination mismatch it owns
+- Literal, nameof, and const parameter names respect forward and ReverseMap direction boundaries
+- Stale AM001 diagnostics no longer offer fixes after constructor ownership removes the live mismatch
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

@@ -131,6 +131,11 @@ to domain types remain AM001 conversion problems. AM020 excludes actual `System`
 classification, but user-defined types that merely share framework short names are still analyzed as domain
 types.
 
+An exact semantic AutoMapper `ForCtorParam` owns the named destination constructor parameter just like an
+explicit member conversion. Literal, `nameof(...)`, and `const string` parameter names are recognized within
+the effective fluent mapping direction. A wrong parameter name or configuration placed after `ReverseMap()`
+does not suppress the forward diagnostic.
+
 #### When to Use
 
 - ✅ String → numeric conversions
@@ -1618,7 +1623,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.71">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.72">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1657,5 +1662,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.71
+**Version**: 2.30.72
 **Maintainer**: George Wall

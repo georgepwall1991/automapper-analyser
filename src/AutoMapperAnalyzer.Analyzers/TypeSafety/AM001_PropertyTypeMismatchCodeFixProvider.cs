@@ -42,10 +42,16 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
                      AM001_PropertyTypeMismatchAnalyzer.PropertyNamePropertyName))
         {
             // Expand to every convention type-mismatch on this map (not only diags in the caret context).
-            List<string> allMismatched = GetMismatchedPropertyNames(operationContext, group.Invocation);
-            if (allMismatched.Count == 0)
+            List<string>? allMismatched = GetMismatchedPropertyNames(operationContext, group.Invocation);
+            if (allMismatched == null)
             {
                 allMismatched = group.PropertyNames.ToList();
+            }
+            else if (allMismatched.Count == 0)
+            {
+                // The map no longer has a live AM001 mismatch (for example, a stale IDE
+                // diagnostic after explicit ForCtorParam ownership was added).
+                continue;
             }
 
             var expandedGroup = new DiagnosticInvocationGroup(
@@ -102,7 +108,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
         }
     }
 
-    private static List<string> GetMismatchedPropertyNames(
+    private static List<string>? GetMismatchedPropertyNames(
         CodeFixOperationContext operationContext,
         InvocationExpressionSyntax invocation)
     {
@@ -110,7 +116,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
             ResolveCreateMapTypesWithReverse(invocation, operationContext.SemanticModel);
         if (sourceType == null || destinationType == null)
         {
-            return [];
+            return null;
         }
 
         var names = new List<string>();

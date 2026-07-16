@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## [2.30.72] - 2026-07-16
+
+AM001 constructor-parameter ownership precision.
+
+### Changed
+
+- **AM001 `ForCtorParam` ownership**: semantic AutoMapper constructor-parameter configuration now suppresses the exact positional-record property mismatch it converts, including literal, `nameof(...)`, and const parameter names.
+- **Direction and name boundaries**: wrong parameter names remain diagnostic, and configuration after `ReverseMap()` applies only to the reverse destination.
+- **Stale fixer honesty**: an obsolete AM001 diagnostic no longer offers conversion or Ignore actions after live recomputation proves constructor ownership removed the mismatch.
+
+### Validation
+
+- AM001 analyzer and code-fix suite: **63** passed.
+- Clean-branch full solution suite: **1440** passed, 0 skipped, 0 failed on `net10.0`.
+- AutoMapper 14 runtime repro: configured mapping passes `AssertConfigurationIsValid()` and maps the expected value; the unconfigured control throws `AutoMapperConfigurationException`.
+
 ## [2.30.71] - 2026-07-16
 
 AM022 downstream direct member-map cycle detection.

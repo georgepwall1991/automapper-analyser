@@ -9,6 +9,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
 using Microsoft.CodeAnalysis.Text;
@@ -1536,6 +1537,68 @@ public class AM001_CodeFixTests
                 Diagnostic(AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule, 13, 25,
                     "CreatedDate", "Source", "string", "Destination", "System.DateTime"),
                 expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldNotOfferFix_WhenStaleDiagnosticIsOwnedByForCtorParam()
+    {
+        const string testCode = """
+                                using System;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public record Source(Guid Value);
+
+                                    public record Destination(int Value);
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForCtorParam(nameof(Destination.Value),
+                                                    options => options.MapFrom(source => source.Value.GetHashCode()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        SyntaxNode root = (await document.GetSyntaxRootAsync())!;
+        InvocationExpressionSyntax createMapInvocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression is GenericNameSyntax
+            {
+                Identifier.ValueText: "CreateMap"
+            });
+        ParameterSyntax destinationParameter = root.DescendantNodes()
+            .OfType<RecordDeclarationSyntax>()
+            .Single(record => record.Identifier.ValueText == "Destination")
+            .ParameterList!
+            .Parameters
+            .Single();
+
+        var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+        properties.Add("PropertyName", "Value");
+        properties.Add("SourcePropertyType", "System.Guid");
+        properties.Add("DestinationPropertyType", "int");
+        properties.Add("MappingInvocationStart", createMapInvocation.SpanStart.ToString(CultureInfo.InvariantCulture));
+        properties.Add("MappingInvocationLength", createMapInvocation.Span.Length.ToString(CultureInfo.InvariantCulture));
+
+        Diagnostic staleDiagnostic = Microsoft.CodeAnalysis.Diagnostic.Create(
+            AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule,
+            destinationParameter.Identifier.GetLocation(),
+            properties.ToImmutable(),
+            "Value",
+            "Source",
+            "System.Guid",
+            "Destination",
+            "int");
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, [staleDiagnostic]);
+
+        Assert.Empty(actions);
     }
 
     private static Document CreateDocument(string source)

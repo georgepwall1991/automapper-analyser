@@ -967,6 +967,153 @@ public class AM001_PropertyTypeMismatchTests
         await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
+    [Theory]
+    [InlineData("\"Value\"")]
+    [InlineData("nameof(Destination.Value)")]
+    [InlineData("ValueParameter")]
+    public async Task AM001_ShouldNotReportDiagnostic_WhenRecordConstructorParameterHandlesMismatch(
+        string parameterNameExpression)
+    {
+        string testCode = $$"""
+                            using System;
+                            using AutoMapper;
+
+                            namespace TestNamespace
+                            {
+                                public record Source(Guid Value);
+
+                                public record Destination(int Value);
+
+                                public class TestProfile : Profile
+                                {
+                                    private const string ValueParameter = nameof(Destination.Value);
+
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam({{parameterNameExpression}},
+                                                options => options.MapFrom(source => source.Value.GetHashCode()));
+                                    }
+                                }
+                            }
+                            """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task AM001_ShouldReportDiagnostic_WhenRecordConstructorParameterIsNotConfigured()
+    {
+        const string testCode = """
+                                using System;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public record Source(Guid Value);
+
+                                    public record Destination(int Value);
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(
+                AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule,
+                8,
+                35,
+                "Value",
+                "Source",
+                "System.Guid",
+                "Destination",
+                "int"));
+    }
+
+    [Fact]
+    public async Task AM001_ShouldReportDiagnostic_WhenForCtorParamNamesDifferentParameter()
+    {
+        const string testCode = """
+                                using System;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public record Source(Guid Value);
+
+                                    public record Destination(int Value);
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForCtorParam("Other",
+                                                    options => options.MapFrom(source => source.Value.GetHashCode()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(
+                AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule,
+                8,
+                35,
+                "Value",
+                "Source",
+                "System.Guid",
+                "Destination",
+                "int"));
+    }
+
+    [Fact]
+    public async Task AM001_ShouldReportForwardDiagnostic_WhenForCtorParamAppearsAfterReverseMap()
+    {
+        const string testCode = """
+                                using System;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public record Source(Guid Value);
+
+                                    public record Destination(int Value);
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap()
+                                                .ForCtorParam(nameof(Source.Value),
+                                                    options => options.MapFrom(destination => Guid.Empty));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM001_PropertyTypeMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            CreateDiagnostic(
+                AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule,
+                8,
+                35,
+                "Value",
+                "Source",
+                "System.Guid",
+                "Destination",
+                "int"));
+    }
+
     [Fact]
     public async Task AM001_ShouldReportDiagnostic_WhenNullableSourceTypeIsAlsoTypeIncompatible()
     {
