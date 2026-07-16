@@ -1473,6 +1473,12 @@ The same safety boundary applies to duplicate `CreateMap<TSource, TDestination>(
 
 Duplicate mappings nested inside another expression, such as `Register(CreateMap<S, D>())`, `Register(CreateMap<S, D>().ReverseMap())`, or a variable assignment, still report AM041 but do not receive the automatic removal action. The developer must decide how to preserve the surrounding expression.
 
+AM041 also recognizes a direct local rooted in semantic AutoMapper `CreateMap<S, D>()`, including a fluent
+configuration initializer, followed by a standalone `mapping.ReverseMap()` statement in the same block. The
+deferred reverse direction participates in duplicate detection in either statement order, and a duplicate
+standalone `ReverseMap()` can be removed safely. Aliases, fields/properties, conditional calls, assignments,
+nested argument flow, and lookalike APIs remain outside this deliberately flow-insensitive boundary.
+
 #### Configuration
 
 ```ini
@@ -1623,7 +1629,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.72">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.73">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1662,5 +1668,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.72
+**Version**: 2.30.73
 **Maintainer**: George Wall

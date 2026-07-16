@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>72</PatchVersion>
+        <PatchVersion>73</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.72 - AM001 constructor-parameter ownership precision
-- Semantic AutoMapper ForCtorParam configuration suppresses the exact destination mismatch it owns
-- Literal, nameof, and const parameter names respect forward and ReverseMap direction boundaries
-- Stale AM001 diagnostics no longer offer fixes after constructor ownership removes the live mismatch
+                <PackageReleaseNotes>Version 2.30.73 - AM041 deferred ReverseMap registration
+- Direct local CreateMap variables, including fluent initializers, register later standalone same-block ReverseMap calls
+- Alias, conditional, and non-semantic calls remain outside the conservative boundary
+- Duplicate deferred ReverseMap fixes remove the statement without leaving invalid expression code
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1440%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1450%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,22 +14,23 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.72
+## 🎉 Latest Release: v2.30.73
 
-**AM001 constructor-parameter ownership precision**
+**AM041 deferred `ReverseMap()` registration**
 
 ✅ **Highlights**
 
-- Semantic AutoMapper `ForCtorParam` mappings now own the exact positional-record property mismatch they explicitly convert.
-- Literal, `nameof(...)`, and const parameter names are recognized without crossing `ReverseMap()` direction boundaries; wrong names still report.
-- Stale AM001 diagnostics withhold code actions once live recomputation proves constructor ownership removed the mismatch.
+- Direct locals rooted in `CreateMap<S, D>()`, including fluent configuration chains, now register later standalone same-block `mapping.ReverseMap()` calls for duplicate detection.
+- Aliases, conditionals, nested calls, and lookalike APIs remain conservatively excluded.
+- Removing a duplicate deferred `ReverseMap()` deletes the statement cleanly instead of leaving invalid `mapping;` code.
 
 🧪 **Validation**
 
-- AM001 suite: **63** passed; clean-branch full suite: **1440** passed, 0 skipped, 0 failed on `net10.0`.
+- AM041 suite: **45** passed; clean-branch full suite: **1450** passed, 0 skipped, 0 failed on `net10.0`.
 
 ### Recent Releases
 
+- **v2.30.73**: AM041 detects direct local deferred `ReverseMap()` registrations, including fluent initializers, and removes duplicate standalone calls safely.
 - **v2.30.72**: AM001 respects exact semantic `ForCtorParam` ownership for positional-record mismatches and withholds stale fixes.
 - **v2.30.71**: AM022 follows unique direct renamed member maps throughout the configured cycle graph while downstream `ForMember`/`ForPath` Ignore overrides remove broken edges.
 - **v2.30.70**: AM022 detects direct renamed `ForMember(...MapFrom...)` cycle edges and emits an effective Ignore alternative.
@@ -238,7 +239,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.72">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.73">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

@@ -147,4 +147,186 @@ public class AM041_DuplicateMappingTests
 
         await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
     }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_When_DeferredReverseMapPrecedesExplicitReverseDirection()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        var mapping = CreateMap<Source, Destination>();
+                                        mapping.ReverseMap();
+                                        CreateMap<Destination, Source>();
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(12, 9)
+            .WithArguments("Destination", "Source");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_OnDeferredReverseMap_WhenExplicitDirectionPrecedesIt()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Destination, Source>();
+                                        var mapping = CreateMap<Source, Destination>();
+                                        mapping.ReverseMap();
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(12, 17)
+            .WithArguments("Destination", "Source");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_When_ConfiguredLocalDefersReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source { public string Name { get; set; } = ""; }
+                                public class Destination { public string Name { get; set; } = ""; }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        var mapping = CreateMap<Source, Destination>()
+                                            .ForMember(destination => destination.Name, options => options.MapFrom(source => source.Name));
+                                        mapping.ReverseMap();
+                                        CreateMap<Destination, Source>();
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(13, 9)
+            .WithArguments("Destination", "Source");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_WhenLocalCreateMapHasNoDeferredReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        var mapping = CreateMap<Source, Destination>();
+                                        CreateMap<Destination, Source>();
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_WhenDeferredReverseMapUsesAlias()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        var mapping = CreateMap<Source, Destination>();
+                                        var alias = mapping;
+                                        alias.ReverseMap();
+                                        CreateMap<Destination, Source>();
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_WhenDeferredReverseMapIsConditional()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile(bool reverse)
+                                    {
+                                        var mapping = CreateMap<Source, Destination>();
+                                        if (reverse)
+                                        {
+                                            mapping.ReverseMap();
+                                        }
+                                        CreateMap<Destination, Source>();
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_WhenCreateMapIsNestedInInitializerArgument()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        var mapping = Wrap(CreateMap<Source, Destination>());
+                                        mapping.ReverseMap();
+                                        CreateMap<Destination, Source>();
+                                    }
+
+                                    private static IMappingExpression<TSource, TDestination> Wrap<TSource, TDestination>(
+                                        IMappingExpression<TSource, TDestination> mapping) => mapping;
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
 }

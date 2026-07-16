@@ -1,12 +1,12 @@
 # Analyzer Health
 
-Reviewed: 2026-07-16 (AM001 constructor-parameter ownership precision prepared as **2.30.72**)
+Reviewed: 2026-07-16 (AM041 deferred `ReverseMap()` registration prepared as **2.30.73**)
 
 This is a deliberately harsh health audit for the **21** implemented AutoMapper analyzer rule IDs in this repository (16 before the 2.30.62 performance split). Several rule IDs still expose multiple diagnostic descriptors, especially `AM002` and `AM022`; the scorecard rates the public rule ID as the user experiences it.
 
 Every implemented rule currently has an analyzer and a code fix provider. Scores are 1-5, where `5` means reference-quality and hard to improve, `3` means usable but meaningfully incomplete, and `1` means unreliable or underbuilt.
 
-**Ship status:** production-acceptable. **2.30.72** AM001 constructor-parameter ownership precision; **2.30.71** AM022 downstream direct member-map cycle detection; **2.30.70** AM022 direct root member-map cycle detection; **2.30.69** AM032 destination-aware null fixes. Every rule now has minimum health 4. Full suite green; catalog/snapshots and the executable package compatibility contract are current.
+**Ship status:** production-acceptable. **2.30.73** AM041 deferred `ReverseMap()` registration; **2.30.72** AM001 constructor-parameter ownership precision; **2.30.71** AM022 downstream direct member-map cycle detection; **2.30.70** AM022 direct root member-map cycle detection. Every rule now has minimum health 4. Full suite green; catalog/snapshots and the executable package compatibility contract are current.
 
 ## Rubric
 
@@ -52,7 +52,7 @@ Priority is a planning signal: `High` means the analyzer is important and has me
 | AM036 | Sync-over-async in mapping | Performance | Warning | 4 | 4 | 4 | 5 | 4 | 4 | Low | Split from AM031 in 2.30.62. Task.Result/Wait/WaitAll/WaitAny/GetResult including source Task properties; shared ForPath Ignore scaffold. |
 | AM037 | Complex LINQ in mapping | Performance | Warning | 4 | 4 | 4 | 4 | 4 | 3 | Low | Split from AM031 in 2.30.62. Real Enumerable/Queryable SelectMany gate; shared ForPath Ignore scaffold. |
 | AM038 | Non-deterministic operation in mapping | Performance | Info | 4 | 4 | 4 | 5 | 4 | 3 | Low | Split from AM031 in 2.30.62. Info severity; ForMember/ForPath scaffold fixes. |
-| AM041 | Duplicate mapping registration | Configuration | Warning | 4 | 4 | 4 | 4 | 4 | 4 | Low | Compilation-wide registry now peels parentheses in `GetReverseMapInvocation`, so `(CreateMap<S,D>()).ReverseMap()` registers reverse duplicates. SafeRewrite removal withholds chained/nested/arg-position config. Remaining risk is nuanced intentional override ordering. |
+| AM041 | Duplicate mapping registration | Configuration | Warning | 4 | 4 | 4 | 4 | 4 | 4 | Low | Compilation-wide registry peels parentheses in fluent `ReverseMap()` chains. **2.30.73**: a direct local rooted in semantic AutoMapper `CreateMap<S,D>()`, including a fluent configuration initializer, registers later standalone same-block `mapping.ReverseMap()` calls; aliases, conditional/nested calls, assignments, and lookalikes stay excluded. The fixer removes a duplicate deferred statement without leaving invalid expression code. SafeRewrite removal still withholds chained/nested/argument-position configuration. |
 | AM050 | Redundant MapFrom configuration | Configuration | Info | 4 | 4 | 4 | 4 | 4 | 2 | Low | Safe cleanup rule now requires proven source/destination type compatibility including nullable reference annotations, string literal and `nameof(...)`/constant `ForMember` members resolved through the effective mapping direction including `ReverseMap()` segments with direct reverse-map `nameof(...)`/const analyzer and code-fix coverage, parenthesized/typed lambda parameter shapes — `o.MapFrom((s) => s.Name)` and `o.MapFrom((Source s) => s.Name)` — with `ForMember`/`ForPath` code-fix parity, and parenthesized member bodies such as `s => (s.Name)`/`d => (d.Name)` alongside the simple `s => s.Name` shape. Multi-parameter parenthesized lambdas are intentionally ignored so AutoMapper's `(src, ctx) => ...` overload stays quiet. The automatic `ForMember`/`ForPath` removal code fix now withholds when the options lambda carries sibling configuration (`Condition`, `NullSubstitute`, `PreCondition`, `UseDestinationValue`, `Ignore`, etc.) so policy overrides cannot be silently dropped; simple-MapFrom shapes still receive the automatic action. Product importance remains low. |
 
 ## Planning Shortlist
@@ -75,7 +75,7 @@ Use this table as the hardening queue. Ranking = **Importance × (5 − min(Anal
 | 2 | **AM002** | gap=5, min=4 | Advanced generic/nullability-flow only — wait for real user FP/FN. | — until evidence |
 | 3 | **AM022** | gap=4, min=4 | Direct renamed root edges shipped 2.30.70; concrete downstream renamed-edge false negative closed in 2.30.71. Advanced configuration inference remains repro-gated. | — until evidence |
 | 4 | **AM020 / AM021 / AM003** | gap=5/4 | Custom-collection / constructor-body insert structural limits. | Opportunistic |
-| 5 | **AM041 / AM050** | gap=4/2 | SafeRewrite nuance / low Importance. | Low ROI |
+| 5 | **AM041 / AM050** | gap=4/2 | Concrete AM041 deferred-local `ReverseMap()` false negative closed in 2.30.73; remaining SafeRewrite nuance is repro-gated. AM050 remains low Importance. | Low ROI |
 | 6 | **AM033 / AM005 / AM030** | gap=2–3 | Importance-limited. | Product priority only |
 
 **Recommended next hardening batch:**
@@ -147,6 +147,12 @@ Still open (do not start without a repro or explicit product decision):
 - **AM022 / AM031 dataflow-grade heuristics.** High effort, diminishing returns until a concrete false-positive or false-negative pattern is filed. AM022 direct renamed root edges are covered; downstream explicit-member inference remains repro-gated.
 - **AM020 constructor-body CreateMap insert.** Structural host limit; catalog `LikelyRewrite` already honest.
 
+
+## Reanalysis Changelog (2026-07-16 → 2.30.73 AM041 deferred `ReverseMap()` registration)
+
+| Rules | Finding | Change | Score impact |
+| --- | --- | --- | --- |
+| AM041 | A direct local `var mapping = CreateMap<S,D>(); mapping.ReverseMap();` failed to register `D → S`, while the semantically equivalent fluent chain did | Register only later standalone same-block semantic `ReverseMap()` calls whose direct receiver resolves to the exact initializer local; remove a duplicate deferred statement rather than rewriting it to invalid `mapping;` code | No numeric move; closes a concrete compiling false negative and an associated fixer correctness trap |
 
 ## Reanalysis Changelog (2026-07-16 → 2.30.72 AM001 constructor-parameter ownership precision)
 
@@ -325,18 +331,18 @@ Full rule+fixer reanalysis driven by four parallel subagent audits (Type Safety,
 
 Architecture-style coverage currently comes from analyzer/fixer tests, conflict ownership tests, helper tests, sample projects, documentation, the checked-in `RuleCatalog`, generated trust artifacts, package smoke tests, and the deterministic `tools/AnalyzerVerifier` checks.
 
-Current local verification (**2026-07-16** against the **v2.30.72** release candidate):
+Current local verification (**2026-07-16** against the **v2.30.73** release candidate):
 
-- Package version in `src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj`: **2.30.72**.
+- Package version in `src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj`: **2.30.73**.
 - `dotnet build automapper-analyser.sln --configuration Release -warnaserror` passed: 0 warnings, 0 errors.
-- Clean-branch full suite: **1440** passed, 0 skipped, 0 failed.
+- Clean-branch full suite: **1447** passed, 0 skipped, 0 failed.
 - `dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj --configuration Release --no-build -- --check-catalog --check-snapshots --check-compatibility` passed: rule catalog, sample diagnostics snapshot, manifest, and compatibility documentation are up to date.
-- The packed `AutoMapperAnalyzer.Analyzers.2.30.72.nupkg` (SHA-256 `c1903e0cf75cb6e7883d6668038c442554e9a819805c481332cebee9a951dc2b`) passed local `net10-am14` verification: the healthy consumer built without analyzer/load diagnostics and the broken string-to-int consumer failed specifically with `AM001`. CI supplies the Windows `net48-am10` and remaining Linux matrix evidence against the same SHA-256-verified artifact.
+- The locally packed `AutoMapperAnalyzer.Analyzers.2.30.73.nupkg` (SHA-256 `9a46390ef571a865e41ea3896b5e4ec9c8856b3a0a677dcf4c7185776c2f97dd`) passed `net10-am14` verification: the healthy consumer built without analyzer/load diagnostics and the broken string-to-int consumer failed specifically with `AM001`. CI independently verifies its clean-branch package across the Windows `net48-am10` and Linux compatibility matrix and records the artifact SHA-256.
 - Remote branch compare is one commit with only the 15 intended source/test/trust/release files and no trailing-whitespace additions.
 - Targeted `dotnet format whitespace` completed on the local candidate; the clean branch preserves the touched files' existing LF convention to avoid whole-file line-ending churn.
 - Sample project emits AM0xx when analyzers run (`-p:RunAnalyzersDuringBuild=true`); local untracked `Directory.Build.props` (if present) may skip analyzers during CLI builds — unit tests + AnalyzerVerifier remain the verification source of truth.
-- Approximate list-tests name hits (not exclusive filters; for trend only): AM001 63, AM002 83, AM003 61, AM004 87, AM005 34, AM006 43, AM011 45, AM020 97, AM021 64, AM022 62, AM030/32/33 bucket 156, AM031 292, AM041 35, AM050 48, RuleCatalog 10.
-- Release metadata is synchronized for `v2.30.72`; tag/publication follows the merged PR.
+- Approximate list-tests name hits (not exclusive filters; for trend only): AM001 63, AM002 83, AM003 61, AM004 87, AM005 34, AM006 43, AM011 45, AM020 97, AM021 64, AM022 62, AM030/32/33 bucket 156, AM031 292, AM041 42, AM050 48, RuleCatalog 10.
+- Release metadata is synchronized for `v2.30.73`; tag/publication follows the merged PR.
 - Historical baseline (2026-07-06 @ `b138fa8` / v2.30.55): **1352** tests green — superseded; do not use for planning.
 - The trust-first pass removed active skipped tests, added drift validation, and moved intentional analyzer-test warnings into an explicit test-project warning baseline.
 - `/usr/local/share/dotnet/dotnet --list-runtimes` shows only .NET 10 runtimes in this local environment, so broader multi-TFM runtime verification remains blocked by missing .NET 8 and .NET 9 runtimes.

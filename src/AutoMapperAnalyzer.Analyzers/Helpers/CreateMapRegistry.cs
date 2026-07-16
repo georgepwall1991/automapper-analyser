@@ -220,6 +220,26 @@ internal sealed class CreateMapRegistry
                                 reverseDirection: true)
                         });
                     }
+                    else
+                    {
+                        foreach (InvocationExpressionSyntax deferredReverseMap in
+                                 GetDeferredReverseMapInvocations(invocation, semanticModel))
+                        {
+                            var memberAccess = (MemberAccessExpressionSyntax)deferredReverseMap.Expression;
+                            Location location = memberAccess.Name.GetLocation();
+
+                            mappings.Add(new MappingInfo
+                            {
+                                Source = destType,
+                                Destination = sourceType,
+                                Location = location,
+                                Node = deferredReverseMap,
+                                SemanticModel = semanticModel,
+                                IsReverseMap = true,
+                                IsCycleConstrained = false
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -359,6 +379,76 @@ internal sealed class CreateMapRegistry
         }
 
         return false;
+    }
+
+    private static IEnumerable<InvocationExpressionSyntax> GetDeferredReverseMapInvocations(
+        InvocationExpressionSyntax createMapInvocation,
+        SemanticModel semanticModel)
+    {
+        VariableDeclaratorSyntax? declarator = createMapInvocation.Ancestors()
+            .OfType<VariableDeclaratorSyntax>()
+            .FirstOrDefault();
+        if (declarator?.Initializer is not { Value: ExpressionSyntax initializer } ||
+            !IsMappingInitializerRootedAtCreateMap(initializer, createMapInvocation) ||
+            declarator.Parent?.Parent is not LocalDeclarationStatementSyntax declaration ||
+            declaration.Parent is not BlockSyntax block ||
+            semanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol mappingLocal)
+        {
+            yield break;
+        }
+
+        foreach (ExpressionStatementSyntax statement in block.Statements
+                     .OfType<ExpressionStatementSyntax>()
+                     .Where(candidate => candidate.SpanStart > declaration.SpanStart))
+        {
+            if (statement.Expression is not InvocationExpressionSyntax candidate ||
+                candidate.ArgumentList.Arguments.Count != 0 ||
+                !MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                    candidate,
+                    semanticModel,
+                    "ReverseMap") ||
+                candidate.Expression is not MemberAccessExpressionSyntax
+                {
+                    Expression: IdentifierNameSyntax receiver
+                } ||
+                !SymbolEqualityComparer.Default.Equals(
+                    semanticModel.GetSymbolInfo(receiver).Symbol,
+                    mappingLocal))
+            {
+                continue;
+            }
+
+            yield return candidate;
+        }
+    }
+
+    private static bool IsMappingInitializerRootedAtCreateMap(
+        ExpressionSyntax initializer,
+        InvocationExpressionSyntax createMapInvocation)
+    {
+        ExpressionSyntax current = initializer;
+        while (true)
+        {
+            while (current is ParenthesizedExpressionSyntax parenthesized)
+            {
+                current = parenthesized.Expression;
+            }
+
+            if (current == createMapInvocation)
+            {
+                return true;
+            }
+
+            if (current is not InvocationExpressionSyntax
+                {
+                    Expression: MemberAccessExpressionSyntax memberAccess
+                })
+            {
+                return false;
+            }
+
+            current = memberAccess.Expression;
+        }
     }
 
     private static bool IsCycleBreaker(InvocationExpressionSyntax invocation, SemanticModel semanticModel)

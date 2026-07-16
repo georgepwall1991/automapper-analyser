@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## [2.30.73] - 2026-07-16
+
+AM041 deferred `ReverseMap()` registration.
+
+### Changed
+
+- **AM041 local-symbol coverage**: a direct local rooted in semantic AutoMapper `CreateMap<S, D>()`, including a fluent configuration initializer, now registers later standalone `mapping.ReverseMap()` calls in the same block, so the reverse `D → S` direction participates in duplicate detection regardless of statement order.
+- **Conservative boundary**: aliases, fields/properties, conditional or nested calls, assignments, and lookalike APIs remain excluded rather than introducing flow-sensitive guesses.
+- **Executable fix**: when a standalone deferred `ReverseMap()` is the duplicate, the fixer removes that statement instead of rewriting it to the invalid expression statement `mapping;`.
+
+### Validation
+
+- AM041 analyzer and code-fix suite: **45** passed.
+- Clean-branch full solution suite: **1450** passed, 0 skipped, 0 failed on `net10.0`.
+- Public 2.30.72 repro: the deferred-local form emitted no AM041 while the equivalent fluent form did; both AutoMapper 14 configurations passed `AssertConfigurationIsValid()`.
+
 ## [2.30.72] - 2026-07-16
 
 AM001 constructor-parameter ownership precision.
