@@ -1960,4 +1960,314 @@ public class AM022_InfiniteRecursionTests
             .ExpectDiagnostic(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule, 30, 13, "SourceB", "DestB")
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM022_ShouldReportRootDiagnostic_WhenDirectForMemberMapFromClosesConfiguredCycle()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceParent
+                                    {
+                                        public SourceChild Child { get; set; }
+                                    }
+
+                                    public class SourceChild
+                                    {
+                                        public SourceParent Parent { get; set; }
+                                    }
+
+                                    public class DestinationParent
+                                    {
+                                        public DestinationChild RenamedChild { get; set; }
+                                    }
+
+                                    public class DestinationChild
+                                    {
+                                        public DestinationParent Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceParent, DestinationParent>()
+                                                .ForMember(destination => destination.RenamedChild, options => options.MapFrom(source => source.Child));
+                                            CreateMap<SourceChild, DestinationChild>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule,
+                29,
+                13,
+                "SourceParent",
+                "DestinationParent")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenDirectForMemberCycleNestedMapIsMissing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceParent
+                                    {
+                                        public SourceChild Child { get; set; }
+                                    }
+
+                                    public class SourceChild
+                                    {
+                                        public SourceParent Parent { get; set; }
+                                    }
+
+                                    public class DestinationParent
+                                    {
+                                        public DestinationChild RenamedChild { get; set; }
+                                    }
+
+                                    public class DestinationChild
+                                    {
+                                        public DestinationParent Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceParent, DestinationParent>()
+                                                .ForMember(destination => destination.RenamedChild, options => options.MapFrom(source => source.Child));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Theory]
+    [InlineData(".MaxDepth(2)")]
+    [InlineData(".PreserveReferences()")]
+    [InlineData(".ConvertUsing((SourceChild source) => new DestinationChild())")]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenDirectForMemberCycleNestedMapIsConstrained(
+        string cycleBreaker)
+    {
+        string testCode = $$"""
+                            using AutoMapper;
+
+                            namespace TestNamespace
+                            {
+                                public class SourceParent
+                                {
+                                    public SourceChild Child { get; set; }
+                                }
+
+                                public class SourceChild
+                                {
+                                    public SourceParent Parent { get; set; }
+                                }
+
+                                public class DestinationParent
+                                {
+                                    public DestinationChild RenamedChild { get; set; }
+                                }
+
+                                public class DestinationChild
+                                {
+                                    public DestinationParent Parent { get; set; }
+                                }
+
+                                public class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<SourceParent, DestinationParent>()
+                                            .ForMember(destination => destination.RenamedChild, options => options.MapFrom(source => source.Child));
+                                        CreateMap<SourceChild, DestinationChild>(){{cycleBreaker}};
+                                    }
+                                }
+                            }
+                            """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenMapFromExpressionIsTransformed()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceParent
+                                    {
+                                        public SourceChild Child { get; set; }
+                                    }
+
+                                    public class SourceChild
+                                    {
+                                        public SourceParent Parent { get; set; }
+                                    }
+
+                                    public class DestinationParent
+                                    {
+                                        public DestinationChild RenamedChild { get; set; }
+                                    }
+
+                                    public class DestinationChild
+                                    {
+                                        public DestinationParent Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceParent, DestinationParent>()
+                                                .ForMember(destination => destination.RenamedChild, options =>
+                                                    options.MapFrom(source => SelectChild(source.Child)));
+                                            CreateMap<SourceChild, DestinationChild>();
+                                        }
+
+                                        private static SourceChild SelectChild(SourceChild child) => child;
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenDestinationMemberHasDuplicateConfiguration()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceParent
+                                    {
+                                        public SourceChild Child { get; set; }
+                                    }
+
+                                    public class SourceChild
+                                    {
+                                        public SourceParent Parent { get; set; }
+                                    }
+
+                                    public class DestinationParent
+                                    {
+                                        public DestinationChild RenamedChild { get; set; }
+                                    }
+
+                                    public class DestinationChild
+                                    {
+                                        public DestinationParent Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceParent, DestinationParent>()
+                                                .ForMember(destination => destination.RenamedChild, options => options.MapFrom(source => source.Child))
+                                                .ForMember(destination => destination.RenamedChild, options => options.MapFrom(source => source.Child));
+                                            CreateMap<SourceChild, DestinationChild>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenMapFromIsNotAutoMapperOwned()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceParent
+                                    {
+                                        public SourceChild Child { get; set; }
+                                    }
+
+                                    public class SourceChild
+                                    {
+                                        public SourceParent Parent { get; set; }
+                                    }
+
+                                    public class DestinationParent
+                                    {
+                                        public DestinationChild RenamedChild { get; set; }
+                                    }
+
+                                    public class DestinationChild
+                                    {
+                                        public DestinationParent Parent { get; set; }
+                                    }
+
+                                    public sealed class CustomMemberConfiguration
+                                    {
+                                        public void MapFrom<TSource>(Func<TSource, SourceChild> selector)
+                                        {
+                                        }
+                                    }
+
+                                    public static class CustomMemberExtensions
+                                    {
+                                        public static CustomMemberConfiguration Custom<TSource, TDestination, TMember>(
+                                            this IMemberConfigurationExpression<TSource, TDestination, TMember> options) => new();
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceParent, DestinationParent>()
+                                                .ForMember(
+                                                    destination => destination.RenamedChild,
+                                                    options => options.Custom().MapFrom((SourceParent source) => source.Child));
+                                            CreateMap<SourceChild, DestinationChild>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
 }

@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.70] - 2026-07-16
+
+AM022 direct member-map cycle detection.
+
+### Changed
+
+- **AM022 direct `ForMember(...MapFrom...)` edges**: a uniquely configured, semantically AutoMapper-owned direct property mapping can now close the root recursion graph even when source and destination member names differ.
+- **Conservative boundary**: only direct property-to-property expression lambdas on the current forward map participate. Duplicate destination configuration, transformed expressions, lookalike APIs, reverse segments, and downstream explicit-member inference remain excluded.
+- **Effective Ignore fix**: the graph-aware Ignore action is appended after the existing `MapFrom` so the cycle breaker is the effective destination-member policy; MaxDepth remains first.
+
+### Validation
+
+- AM022 analyzer and code-fix suite: **75** passed.
+- Clean-branch full suite: **1423** passed, 0 skipped, 0 failed.
+
 ## [2.30.69] - 2026-07-16
 
 AM032 destination-aware null-fix policy.

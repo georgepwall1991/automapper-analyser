@@ -74,6 +74,12 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         InvocationExpressionSyntax? reverseMapInvocation =
             AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocationExpr);
         CreateMapRegistry createMapRegistry = CreateMapRegistry.FromCompilation(context.Compilation);
+        ImmutableArray<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)> rootMappedPairs =
+            GetRootMappedPropertyPairs(
+                invocationExpr,
+                typeArguments.sourceType,
+                typeArguments.destinationType,
+                context.SemanticModel);
 
         // Check if recursion is constrained or the mapping body is custom-owned.
         if (
@@ -94,7 +100,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                 typeArguments.destinationType as INamedTypeSymbol,
                 reverseMapInvocation,
                 context.SemanticModel,
-                createMapRegistry
+                createMapRegistry,
+                rootMappedPairs
             )
         )
         {
@@ -107,7 +114,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             invocationExpr,
             typeArguments.sourceType,
             typeArguments.destinationType,
-            createMapRegistry
+            createMapRegistry,
+            rootMappedPairs
         );
     }
 
@@ -143,7 +151,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol? destinationType,
         InvocationExpressionSyntax? reverseMapInvocation,
         SemanticModel semanticModel,
-        CreateMapRegistry createMapRegistry
+        CreateMapRegistry createMapRegistry,
+        ImmutableArray<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)> rootMappedPairs
     )
     {
         if (sourceType == null || destinationType == null)
@@ -155,7 +164,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         HashSet<string> selfReferencingDestProperties = FindRecursiveDestinationProperties(
             sourceType,
             destinationType,
-            createMapRegistry);
+            createMapRegistry,
+            rootMappedPairs);
         if (
             selfReferencingDestProperties.Count > 0
             && selfReferencingDestProperties.All(prop => ignoredProperties.Contains(prop))
@@ -260,7 +270,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         InvocationExpressionSyntax invocation,
         ITypeSymbol? sourceType,
         ITypeSymbol? destinationType,
-        CreateMapRegistry createMapRegistry
+        CreateMapRegistry createMapRegistry,
+        ImmutableArray<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)> rootMappedPairs
     )
     {
         if (sourceType == null || destinationType == null)
@@ -269,7 +280,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         }
 
         // Check for self-referencing mapped properties on both sides to reduce false positives.
-        if (HasMappedSelfReference(sourceType, destinationType))
+        if (HasMappedSelfReference(sourceType, destinationType, rootMappedPairs))
         {
             var diagnostic = Diagnostic.Create(
                 SelfReferencingTypeRule,
@@ -282,8 +293,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Check for circular references reachable through convention-mapped member paths.
-        if (HasMappedCircularReference(sourceType, destinationType, createMapRegistry))
+        // Check for circular references reachable through proven root member paths.
+        if (HasMappedCircularReference(sourceType, destinationType, createMapRegistry, rootMappedPairs))
         {
             var diagnostic = Diagnostic.Create(
                 InfiniteRecursionRiskRule,
@@ -296,15 +307,17 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool HasMappedSelfReference(ITypeSymbol? sourceType, ITypeSymbol? destinationType)
+    private static bool HasMappedSelfReference(
+        ITypeSymbol? sourceType,
+        ITypeSymbol? destinationType,
+        ImmutableArray<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)> rootMappedPairs)
     {
         if (sourceType == null || destinationType == null)
         {
             return false;
         }
 
-        foreach ((IPropertySymbol sourceProperty, IPropertySymbol destinationProperty) in
-                 GetConventionMappedPropertyPairs(sourceType, destinationType))
+        foreach ((IPropertySymbol sourceProperty, IPropertySymbol destinationProperty) in rootMappedPairs)
         {
             if (
                 IsSelfReference(sourceProperty.Type, sourceType)
@@ -319,7 +332,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    ///     Destination properties on a CreateMap pair whose convention-mapped path participates
+    ///     Destination properties on a CreateMap pair whose mapped path participates
     ///     in a configured circular graph (self-ref or multi-type). Used by the analyzer for
     ///     Ignore suppression and by the code fix for graph-aware Ignore actions.
     /// </summary>
@@ -329,12 +342,44 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         CreateMapRegistry createMapRegistry
     )
     {
+        return FindRecursiveDestinationProperties(
+            sourceType,
+            destinationType,
+            createMapRegistry,
+            GetConventionMappedPropertyPairs(sourceType, destinationType).ToImmutableArray());
+    }
+
+    /// <summary>
+    ///     Finds recursive destination members using the current CreateMap's proven root edges,
+    ///     including direct property-to-property ForMember MapFrom configuration.
+    /// </summary>
+    internal static HashSet<string> FindRecursiveDestinationProperties(
+        INamedTypeSymbol sourceType,
+        INamedTypeSymbol destinationType,
+        CreateMapRegistry createMapRegistry,
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel
+    )
+    {
+        return FindRecursiveDestinationProperties(
+            sourceType,
+            destinationType,
+            createMapRegistry,
+            GetRootMappedPropertyPairs(invocation, sourceType, destinationType, semanticModel));
+    }
+
+    private static HashSet<string> FindRecursiveDestinationProperties(
+        INamedTypeSymbol sourceType,
+        INamedTypeSymbol destinationType,
+        CreateMapRegistry createMapRegistry,
+        ImmutableArray<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)> rootMappedPairs
+    )
+    {
         var recursiveProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var visited = new HashSet<string>(StringComparer.Ordinal);
         visited.Add(GetTypePairKey(sourceType, destinationType));
 
-        foreach ((IPropertySymbol sourceProperty, IPropertySymbol destinationProperty) in
-                 GetConventionMappedPropertyPairs(sourceType, destinationType))
+        foreach ((IPropertySymbol sourceProperty, IPropertySymbol destinationProperty) in rootMappedPairs)
         {
             ITypeSymbol sourcePropertyType = UnwrapCollectionElementType(sourceProperty.Type);
             ITypeSymbol destinationPropertyType = UnwrapCollectionElementType(destinationProperty.Type);
@@ -365,7 +410,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
     private static bool HasMappedCircularReference(
         ITypeSymbol? sourceType,
         ITypeSymbol? destinationType,
-        CreateMapRegistry createMapRegistry
+        CreateMapRegistry createMapRegistry,
+        ImmutableArray<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)> rootMappedPairs
     )
     {
         if (sourceType == null || destinationType == null)
@@ -374,7 +420,14 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         }
 
         var visited = new HashSet<string>(StringComparer.Ordinal);
-        return HasMappedCircularReferenceRecursive(sourceType, destinationType, visited, createMapRegistry, 0, 10);
+        return HasMappedCircularReferenceRecursive(
+            sourceType,
+            destinationType,
+            visited,
+            createMapRegistry,
+            0,
+            10,
+            rootMappedPairs);
     }
 
     private static bool HasMappedCircularReferenceRecursive(
@@ -383,7 +436,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         HashSet<string> visited,
         CreateMapRegistry createMapRegistry,
         int depth,
-        int maxDepth
+        int maxDepth,
+        ImmutableArray<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)> rootMappedPairs = default
     )
     {
         // Prevent stack overflow by limiting recursion depth
@@ -406,8 +460,12 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
 
         visited.Add(typePairKey);
 
-        foreach ((IPropertySymbol sourceProperty, IPropertySymbol destinationProperty) in
-                 GetConventionMappedPropertyPairs(currentSourceType, currentDestinationType))
+        IEnumerable<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)> mappedPairs =
+            depth == 0 && !rootMappedPairs.IsDefault
+                ? rootMappedPairs
+                : GetConventionMappedPropertyPairs(currentSourceType, currentDestinationType);
+
+        foreach ((IPropertySymbol sourceProperty, IPropertySymbol destinationProperty) in mappedPairs)
         {
             ITypeSymbol sourcePropertyType = UnwrapCollectionElementType(sourceProperty.Type);
             ITypeSymbol destinationPropertyType = UnwrapCollectionElementType(destinationProperty.Type);
@@ -442,6 +500,137 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    private static ImmutableArray<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)>
+        GetRootMappedPropertyPairs(
+            InvocationExpressionSyntax invocation,
+            ITypeSymbol sourceType,
+            ITypeSymbol destinationType,
+            SemanticModel semanticModel
+        )
+    {
+        var mappedPairs = GetConventionMappedPropertyPairs(sourceType, destinationType).ToList();
+        var configuredMembers = new List<(
+            IPropertySymbol DestinationProperty,
+            InvocationExpressionSyntax ForMemberInvocation)>();
+
+        foreach (InvocationExpressionSyntax chainedInvocation in
+                 MappingChainAnalysisHelper.GetScopedChainInvocations(
+                     invocation,
+                     semanticModel,
+                     stopAtReverseMapBoundary: true))
+        {
+            if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                    chainedInvocation,
+                    semanticModel,
+                    "ForMember")
+                || chainedInvocation.ArgumentList.Arguments.Count < 2
+                || !TryGetDirectSelectedProperty(
+                    chainedInvocation.ArgumentList.Arguments[0].Expression,
+                    semanticModel,
+                    out IPropertySymbol destinationProperty))
+            {
+                continue;
+            }
+
+            configuredMembers.Add((destinationProperty, chainedInvocation));
+        }
+
+        foreach ((IPropertySymbol destinationProperty, InvocationExpressionSyntax forMemberInvocation) in
+                 configuredMembers)
+        {
+            int configurationCount = configuredMembers.Count(candidate =>
+                SymbolEqualityComparer.Default.Equals(candidate.DestinationProperty, destinationProperty));
+            if (configurationCount != 1
+                || !TryGetDirectMapFromSourceProperty(
+                    forMemberInvocation,
+                    semanticModel,
+                    out IPropertySymbol sourceProperty)
+                || mappedPairs.Any(pair =>
+                    SymbolEqualityComparer.Default.Equals(pair.DestinationProperty, destinationProperty)))
+            {
+                continue;
+            }
+
+            mappedPairs.Add((sourceProperty, destinationProperty));
+        }
+
+        return mappedPairs.ToImmutableArray();
+    }
+
+    private static bool TryGetDirectMapFromSourceProperty(
+        InvocationExpressionSyntax forMemberInvocation,
+        SemanticModel semanticModel,
+        out IPropertySymbol sourceProperty)
+    {
+        sourceProperty = null!;
+        if (forMemberInvocation.ArgumentList.Arguments.Count < 2)
+        {
+            return false;
+        }
+
+        ImmutableArray<InvocationExpressionSyntax> mapFromInvocations = forMemberInvocation.ArgumentList.Arguments[1]
+            .Expression
+            .DescendantNodesAndSelf()
+            .OfType<InvocationExpressionSyntax>()
+            .Where(candidate => MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                candidate,
+                semanticModel,
+                "MapFrom"))
+            .ToImmutableArray();
+
+        return mapFromInvocations.Length == 1
+               && mapFromInvocations[0].ArgumentList.Arguments.Count == 1
+               && TryGetDirectSelectedProperty(
+                   mapFromInvocations[0].ArgumentList.Arguments[0].Expression,
+                   semanticModel,
+                   out sourceProperty);
+    }
+
+    private static bool TryGetDirectSelectedProperty(
+        ExpressionSyntax selector,
+        SemanticModel semanticModel,
+        out IPropertySymbol property)
+    {
+        property = null!;
+
+        string? parameterName;
+        MemberAccessExpressionSyntax? memberAccess;
+        switch (selector)
+        {
+            case SimpleLambdaExpressionSyntax
+            {
+                Body: MemberAccessExpressionSyntax simpleMemberAccess
+            } simpleLambda:
+                parameterName = simpleLambda.Parameter.Identifier.ValueText;
+                memberAccess = simpleMemberAccess;
+                break;
+            case ParenthesizedLambdaExpressionSyntax
+            {
+                ParameterList.Parameters.Count: 1,
+                Body: MemberAccessExpressionSyntax parenthesizedMemberAccess
+            } parenthesizedLambda:
+                parameterName = parenthesizedLambda.ParameterList.Parameters[0].Identifier.ValueText;
+                memberAccess = parenthesizedMemberAccess;
+                break;
+            default:
+                return false;
+        }
+
+        if (memberAccess.Expression is not IdentifierNameSyntax identifier
+            || !string.Equals(identifier.Identifier.ValueText, parameterName, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (semanticModel.GetSymbolInfo(memberAccess).Symbol is not IPropertySymbol resolvedProperty)
+        {
+            return false;
+        }
+
+        property = resolvedProperty;
+        return true;
     }
 
     private static IEnumerable<(IPropertySymbol SourceProperty, IPropertySymbol DestinationProperty)>
