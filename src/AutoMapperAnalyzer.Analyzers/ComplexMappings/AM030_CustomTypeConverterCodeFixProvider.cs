@@ -54,14 +54,32 @@ public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProvide
             }
 
             string sourceParameterName = convertMethod.ParameterList.Parameters[0].Identifier.ValueText;
+            IMethodSymbol? convertMethodSymbol = operationContext.SemanticModel.GetDeclaredSymbol(convertMethod);
+            if (convertMethodSymbol != null && CanReturnNull(convertMethodSymbol.ReturnType))
+            {
+                context.RegisterCodeFix(
+                    CodeAction.Create(
+                        $"Return null when '{sourceParameterName}' is null",
+                        cancellationToken => AddNullGuardAsync(
+                            context.Document,
+                            operationContext.Root,
+                            convertMethod,
+                            sourceParameterName,
+                            NullGuardPolicy.ReturnNull,
+                            cancellationToken),
+                        $"AM032_ReturnNull_{sourceParameterName}"),
+                    diagnostic);
+            }
+
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    $"Add null guard for '{sourceParameterName}'",
+                    $"Throw when '{sourceParameterName}' is null",
                     cancellationToken => AddNullGuardAsync(
                         context.Document,
                         operationContext.Root,
                         convertMethod,
                         sourceParameterName,
+                        NullGuardPolicy.Throw,
                         cancellationToken),
                     $"AM032_AddNullGuard_{sourceParameterName}"),
                 diagnostic);
@@ -73,12 +91,15 @@ public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProvide
         SyntaxNode root,
         MethodDeclarationSyntax convertMethod,
         string sourceParameterName,
+        NullGuardPolicy policy,
         CancellationToken cancellationToken)
     {
-        // Classic if-throw remains the emit form so net48 consumers (documented support matrix)
-        // get compiling code. AM032 analyzer still recognizes ThrowIfNull* when users write it.
-        StatementSyntax guardStatement = SyntaxFactory.ParseStatement(
-            $"if ({sourceParameterName} == null) throw new global::System.ArgumentNullException(nameof({sourceParameterName}));")
+        // Both forms compile for net48 consumers. Null propagation is offered only when the
+        // destination return type is semantically proven nullable; throw remains explicit policy.
+        string guardText = policy == NullGuardPolicy.ReturnNull
+            ? $"if ({sourceParameterName} == null) return null;"
+            : $"if ({sourceParameterName} == null) throw new global::System.ArgumentNullException(nameof({sourceParameterName}));";
+        StatementSyntax guardStatement = SyntaxFactory.ParseStatement(guardText)
             .WithTrailingTrivia(SyntaxFactory.ElasticLineFeed);
 
         MethodDeclarationSyntax updatedMethod;
@@ -112,5 +133,22 @@ public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProvide
 
         SyntaxNode newRoot = root.ReplaceNode(convertMethod, updatedMethod);
         return document.WithSyntaxRoot(newRoot);
+    }
+
+    private static bool CanReturnNull(ITypeSymbol returnType)
+    {
+        if (returnType is INamedTypeSymbol namedType &&
+            namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+        {
+            return true;
+        }
+
+        return returnType.IsReferenceType && returnType.NullableAnnotation == NullableAnnotation.Annotated;
+    }
+
+    private enum NullGuardPolicy
+    {
+        ReturnNull,
+        Throw
     }
 }
