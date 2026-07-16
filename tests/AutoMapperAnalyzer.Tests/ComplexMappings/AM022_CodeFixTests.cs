@@ -841,6 +841,94 @@ public class AM022_CodeFixTests
     }
 
     [Fact]
+    public async Task AM022_ShouldOfferEffectiveIgnoreForDirectForMemberCycleEdge()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceParent
+                                    {
+                                        public SourceChild Child { get; set; }
+                                    }
+
+                                    public class SourceChild
+                                    {
+                                        public SourceParent Parent { get; set; }
+                                    }
+
+                                    public class DestinationParent
+                                    {
+                                        public DestinationChild RenamedChild { get; set; }
+                                    }
+
+                                    public class DestinationChild
+                                    {
+                                        public DestinationParent Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceParent, DestinationParent>()
+                                                .ForMember(destination => destination.RenamedChild, options => options.MapFrom(source => source.Child));
+                                            CreateMap<SourceChild, DestinationChild>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class SourceParent
+                                             {
+                                                 public SourceChild Child { get; set; }
+                                             }
+
+                                             public class SourceChild
+                                             {
+                                                 public SourceParent Parent { get; set; }
+                                             }
+
+                                             public class DestinationParent
+                                             {
+                                                 public DestinationChild RenamedChild { get; set; }
+                                             }
+
+                                             public class DestinationChild
+                                             {
+                                                 public DestinationParent Parent { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<SourceParent, DestinationParent>()
+                                                         .ForMember(destination => destination.RenamedChild, options => options.MapFrom(source => source.Child)).ForMember(dest => dest.RenamedChild, opt => opt.Ignore());
+                                                     CreateMap<SourceChild, DestinationChild>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        // Index 0 remains MaxDepth; index 1 appends Ignore after the existing MapFrom so Ignore wins.
+        await CodeFixVerifier<AM022_InfiniteRecursionAnalyzer, AM022_InfiniteRecursionCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule)
+                    .WithLocation(29, 13)
+                    .WithArguments("SourceParent", "DestinationParent"),
+                expectedFixedCode,
+                codeActionIndex: 1);
+    }
+
+    [Fact]
     public async Task AM022_ShouldIgnoreAllGraphEdges_WhenSelfRefAndMultiTypeCycleBothPresent()
     {
         // DestA has Parent: DestA (self-ref) and BReference: DestB (multi-type edge).

@@ -54,6 +54,10 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
             ImmutableList<string> cycleProperties = FindCycleBreakingProperties(
                 createMapTypes.Item1,
                 createMapTypes.Item2,
+                invocation,
+                operationContext.SemanticModel);
+            InvocationExpressionSyntax ignoreInsertionPoint = FindIgnoreInsertionPoint(
+                invocation,
                 operationContext.SemanticModel);
 
             // Best-first: MaxDepth scaffold first (consistent single- and multi-property), then Ignore.
@@ -72,7 +76,11 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
                     CodeAction.Create(
                         $"Ignore circular property '{propertyName}' (manual review)",
                         cancellationToken =>
-                            AddIgnoreAsync(context.Document, operationContext.Root, invocation, propertyName),
+                            AddIgnoreAsync(
+                                context.Document,
+                                operationContext.Root,
+                                ignoreInsertionPoint,
+                                propertyName),
                         $"AM022_Ignore_{propertyName}"),
                     diagnostic);
             }
@@ -82,7 +90,7 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
                     CodeAction.Create(
                         $"Ignore all {cycleProperties.Count} circular properties (manual review)",
                         cancellationToken =>
-                            AddIgnoreMultipleAsync(context.Document, operationContext.Root, invocation,
+                            AddIgnoreMultipleAsync(context.Document, operationContext.Root, ignoreInsertionPoint,
                                 cycleProperties),
                         "AM022_IgnoreAll"),
                     diagnostic);
@@ -93,6 +101,7 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
     private static ImmutableList<string> FindCycleBreakingProperties(
         ITypeSymbol sourceType,
         ITypeSymbol destType,
+        InvocationExpressionSyntax invocation,
         SemanticModel semanticModel)
     {
         // Prefer the same graph edges the analyzer uses for Ignore suppression so the lightbulb
@@ -101,7 +110,12 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
         {
             CreateMapRegistry registry = CreateMapRegistry.FromCompilation(semanticModel.Compilation);
             HashSet<string> recursive = AM022_InfiniteRecursionAnalyzer
-                .FindRecursiveDestinationProperties(namedSource, namedDest, registry);
+                .FindRecursiveDestinationProperties(
+                    namedSource,
+                    namedDest,
+                    registry,
+                    invocation,
+                    semanticModel);
             if (recursive.Count > 0)
             {
                 return recursive.OrderBy(name => name, StringComparer.Ordinal).ToImmutableList();
@@ -110,6 +124,32 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
 
         // Fallback: destination same-type self-references when the graph walk is empty.
         return FindSelfReferencingProperties(destType);
+    }
+
+    private static InvocationExpressionSyntax FindIgnoreInsertionPoint(
+        InvocationExpressionSyntax createMapInvocation,
+        SemanticModel semanticModel)
+    {
+        foreach (InvocationExpressionSyntax chainedInvocation in MappingChainAnalysisHelper
+                     .GetScopedChainInvocations(
+                         createMapInvocation,
+                         semanticModel,
+                         stopAtReverseMapBoundary: true)
+                     .Reverse())
+        {
+            SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(chainedInvocation);
+            IEnumerable<IMethodSymbol> methodSymbols = symbolInfo.Symbol is IMethodSymbol method
+                ? new[] { method }
+                : symbolInfo.CandidateSymbols.OfType<IMethodSymbol>();
+
+            if (methodSymbols.Any(candidate =>
+                    MappingChainAnalysisHelper.IsAutoMapperMethod(candidate, candidate.Name)))
+            {
+                return chainedInvocation;
+            }
+        }
+
+        return createMapInvocation;
     }
 
     private static ImmutableList<string> FindSelfReferencingProperties(ITypeSymbol destType)

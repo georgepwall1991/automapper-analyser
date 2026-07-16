@@ -869,8 +869,8 @@ dotnet_diagnostic.AM021.severity = warning
 
 #### Description
 
-Detects circular reference patterns in convention-mapped object graphs that can cause stack overflow without `MaxDepth`
-configuration.
+Detects circular reference patterns in convention-mapped object graphs and in proven direct
+`ForMember(...MapFrom(source => source.Property))` root edges that can cause stack overflow without a cycle breaker.
 
 #### Problem
 
@@ -975,6 +975,12 @@ that AutoMapper can use for recursion. Ignoring the top-level recursive destinat
 own recursion behavior explicitly. For indirect cycles, the traversal honours these cycle breakers on downstream
 `CreateMap` registrations as well as the root map, including direct same-block calls through a local mapping variable,
 while preserving configuration direction around `ReverseMap()`.
+When the current forward map renames a root edge, AM022 also follows a uniquely configured direct property mapping such
+as `.ForMember(d => d.RenamedChild, o => o.MapFrom(s => s.Child))`. This inference is deliberately root-only and
+requires semantic AutoMapper ownership plus direct expression-bodied property selectors. Duplicate destination
+configuration, `ForPath`, reverse-map segments, blocks, method calls, transforms, resolvers, converters, and downstream
+explicit-member inference remain outside the automatic graph. For these renamed root edges, the Ignore lightbulb is
+appended after the existing MapFrom so Ignore is the effective member policy; MaxDepth remains the first action.
 Helper methods named `Ignore` or cycle-breaker names are not treated as suppression unless they resolve to
 AutoMapper's member-configuration `Ignore()` method. Built-in framework types such as `System.Guid` stay out of
 graph recursion analysis, but user-defined types with the same short names are still analyzed.
@@ -1608,7 +1614,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.69">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.70">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1647,5 +1653,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.69
+**Version**: 2.30.70
 **Maintainer**: George Wall
