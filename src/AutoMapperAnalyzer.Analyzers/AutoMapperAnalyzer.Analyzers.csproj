@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>73</PatchVersion>
+        <PatchVersion>74</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,33 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.73 - AM041 deferred ReverseMap registration
-- Direct local CreateMap variables, including fluent initializers, register later standalone same-block ReverseMap calls
-- Alias, conditional, and non-semantic calls remain outside the conservative boundary
-- Duplicate deferred ReverseMap fixes remove the statement without leaving invalid expression code
+                <PackageReleaseNotes>Version 2.30.74 - AM002 ForCtorParam null-safety ownership
+- Exact semantic constructor-parameter mappings participate in direction-aware AM002 null analysis
+- Literal, nameof, and const names preserve unsafe direct/null-forgiving diagnostics
+- Unique direct top-level assignments resolve differently named parameters; deferred writes remain excluded
+- Constructor ownership dominates same-name member/path configuration to match AutoMapper execution
+- Default fixes repair the constructor MapFrom expression and withhold inapplicable property Ignore
+- Source-ordered options aliases distinguish executed vetoes from reassigned lookalikes across synchronous local calls
+- Enclosing assignment chains preserve iterator provenance through the local that is actually enumerated
+- Options-valued local-function arguments bind semantic parameters before executed veto analysis
+- Conditional reassignments preserve may-alias provenance unless the same execution region dominates the call
+- Constructor MapFrom extraction reuses executed alias and local-function provenance while excluding deferred helpers
+- Conditional MapFrom branches remain alternatives until an unconditional mapping replaces them
+- Parenthesized option receivers retain semantic alias identity during veto matching
+- Enumerable ToList and ToArray materialization executes iterator-local vetoes
+- Deferred member NullSubstitute calls cannot suppress diagnostics
+- Aliased constructor MapFrom transformations are coalesced in place
+- Nested helper calls follow C# child-before-container evaluation order
+- Conditional receiver aliases preserve unconfigured runtime alternatives
+- Invoked helpers propagate captured options-alias mutations to later caller-side configuration
+- Conditional iterator-result reassignment preserves may-enumerate provenance unless it dominates enumeration
+- Argument-side helper mutations feed callee entry and ref/out alias writes propagate to callers
+- Roslyn endpoint reachability recognizes iterator reassignments that dominate after terminating alternatives
+- Post-await options calls remain deferred while pre-suspension configuration stays active
+- Alias and helper-based Condition or PreCondition vetoes withhold unsafe default fixes
+- NullSubstitute suppresses AM002 only when its semantic AutoMapper call executes unconditionally
+- Constructor MapFrom extraction rejects same-named non-AutoMapper extension methods
+- Nested generic traversal flips variance polarity so double contravariance reports nullable loss
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

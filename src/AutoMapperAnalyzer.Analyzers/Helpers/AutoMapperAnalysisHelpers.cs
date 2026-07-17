@@ -174,6 +174,16 @@ public static class AutoMapperAnalysisHelpers
     /// <returns>True if the types are compatible; otherwise, false.</returns>
     public static bool AreTypesCompatible(ITypeSymbol? sourceType, ITypeSymbol? destType)
     {
+        var visitedTypePairs = new Dictionary<ITypeSymbol, HashSet<ITypeSymbol>>(
+            SymbolEqualityComparer.Default);
+        return AreTypesCompatible(sourceType, destType, visitedTypePairs);
+    }
+
+    private static bool AreTypesCompatible(
+        ITypeSymbol? sourceType,
+        ITypeSymbol? destType,
+        Dictionary<ITypeSymbol, HashSet<ITypeSymbol>> visitedTypePairs)
+    {
         if (sourceType == null || destType == null)
         {
             return false;
@@ -181,6 +191,11 @@ public static class AutoMapperAnalysisHelpers
 
         // Same type
         if (SymbolEqualityComparer.Default.Equals(sourceType, destType))
+        {
+            return true;
+        }
+
+        if (!TryVisitTypePair(sourceType, destType, visitedTypePairs))
         {
             return true;
         }
@@ -201,7 +216,7 @@ public static class AutoMapperAnalysisHelpers
         {
             ITypeSymbol? sourceElement = GetCollectionElementType(sourceType);
             ITypeSymbol? destElement = GetCollectionElementType(destType);
-            return AreTypesCompatible(sourceElement, destElement);
+            return AreTypesCompatible(sourceElement, destElement, visitedTypePairs);
         }
 
         // Check for numeric type compatibility
@@ -211,6 +226,20 @@ public static class AutoMapperAnalysisHelpers
         }
 
         return false;
+    }
+
+    internal static bool TryVisitTypePair(
+        ITypeSymbol sourceType,
+        ITypeSymbol destinationType,
+        Dictionary<ITypeSymbol, HashSet<ITypeSymbol>> visitedTypePairs)
+    {
+        if (!visitedTypePairs.TryGetValue(sourceType, out HashSet<ITypeSymbol>? destinationTypes))
+        {
+            destinationTypes = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+            visitedTypePairs.Add(sourceType, destinationTypes);
+        }
+
+        return destinationTypes.Add(destinationType);
     }
 
     /// <summary>
