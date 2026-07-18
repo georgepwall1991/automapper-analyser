@@ -159,6 +159,72 @@ internal static class AM020MappingConfigurationHelpers
         return constructorOwnedPropertyName;
     }
 
+    public static string? GetPositionalRecordPropertyNameForConstructorParameter(
+        ITypeSymbol destinationType,
+        ITypeSymbol sourceType,
+        string constructorParameterName,
+        IReadOnlyCollection<string> configuredConstructorParameterNames,
+        SemanticModel semanticModel)
+    {
+        if (destinationType is not INamedTypeSymbol { IsRecord: true } namedDestinationType ||
+            string.IsNullOrWhiteSpace(constructorParameterName))
+        {
+            return null;
+        }
+
+        HashSet<string> sourceMemberNames = GetMappableSourceMemberNames(sourceType);
+        var configuredParameterNames = new HashSet<string>(
+            configuredConstructorParameterNames,
+            StringComparer.Ordinal);
+        IMethodSymbol? constructor = GetSelectedConstructor(
+            namedDestinationType,
+            sourceType,
+            sourceMemberNames,
+            configuredParameterNames);
+        IParameterSymbol? constructorParameter = constructor?.Parameters.FirstOrDefault(parameter =>
+            string.Equals(parameter.Name, constructorParameterName, StringComparison.Ordinal));
+        if (constructor == null || constructorParameter == null)
+        {
+            return null;
+        }
+
+        bool isPositionalRecordParameter = constructor.DeclaringSyntaxReferences.Any(syntaxReference =>
+        {
+            if (syntaxReference.GetSyntax() is not RecordDeclarationSyntax
+                {
+                    ParameterList: { } parameterList
+                } recordDeclaration)
+            {
+                return false;
+            }
+
+            SemanticModel recordSemanticModel =
+                semanticModel.Compilation.GetSemanticModel(recordDeclaration.SyntaxTree);
+            return parameterList.Parameters.Any(parameterSyntax =>
+                SymbolEqualityComparer.Default.Equals(
+                    recordSemanticModel.GetDeclaredSymbol(parameterSyntax)?.OriginalDefinition,
+                    constructorParameter.OriginalDefinition));
+        });
+        if (!isPositionalRecordParameter)
+        {
+            return null;
+        }
+
+        IPropertySymbol[] positionalProperties = namedDestinationType
+            .GetMembers(constructorParameter.Name)
+            .OfType<IPropertySymbol>()
+            .Where(property =>
+                property.DeclaringSyntaxReferences.Any(propertyReference =>
+                    constructorParameter.DeclaringSyntaxReferences.Any(parameterReference =>
+                        propertyReference.SyntaxTree == parameterReference.SyntaxTree &&
+                        propertyReference.Span == parameterReference.Span)) &&
+                SymbolEqualityComparer.Default.Equals(property.Type, constructorParameter.Type))
+            .ToArray();
+        return positionalProperties.Length == 1
+            ? positionalProperties[0].Name
+            : null;
+    }
+
     public static IReadOnlyList<ITypeSymbol> GetConstructorParameterTypes(
         ITypeSymbol destinationType,
         ITypeSymbol sourceType,

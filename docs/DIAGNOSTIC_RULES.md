@@ -879,7 +879,8 @@ dotnet_diagnostic.AM021.severity = warning
 #### Description
 
 Detects circular reference patterns in convention-mapped object graphs and in proven direct
-`ForMember(...MapFrom(source => source.Property))` root edges that can cause stack overflow without a cycle breaker.
+`ForMember(...MapFrom(source => source.Property))` or constructor-owned
+`ForCtorParam(...MapFrom(source => source.Property))` edges that can cause stack overflow without a cycle breaker.
 
 #### Problem
 
@@ -994,6 +995,16 @@ root edges, the Ignore lightbulb is appended after the existing MapFrom so Ignor
 MaxDepth remains the first action, and breaking one root edge clears every diagnostic for that cycle. Semantic
 `ForMember(...Ignore())` and `ForPath(...Ignore())` overrides also remove that destination edge when a downstream map
 is replayed, including when `ForPath` overrides an earlier direct `MapFrom` for the same member.
+AM022 also follows an exact semantic `ForCtorParam` edge when one unique configuration directly selects a source
+property and the selected constructor assigns that parameter to one destination property, whether writable, read-only,
+or the compiler-generated property sharing the same positional-record parameter syntax. Constructor-owned
+edges replay downstream, but `ForMember(...Ignore())` and `PreserveReferences` cannot break them because constructor
+arguments recurse before member mapping and before a destination instance participates in reference tracking.
+`MaxDepth` safely terminates a mixed cycle that returns through an ordinary member edge, but self-cycles and multi-type
+cycles whose complete return path is constructor-owned still report. Those diagnostics therefore expose no automatic
+fix; `ConvertUsing` remains the explicit construction owner. Duplicate parameter configuration,
+transformed selectors, uninvoked local helpers, invalid parameter paths, ambiguous/additional
+constructor uses, and metadata-only ownership remain outside this inference boundary.
 Helper methods named `Ignore` or cycle-breaker names are not treated as suppression unless they resolve to
 AutoMapper's member-configuration `Ignore()` method. Built-in framework types such as `System.Guid` stay out of
 graph recursion analysis, but user-defined types with the same short names are still analyzed.
@@ -1633,7 +1644,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.74">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.75">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1672,5 +1683,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.74
+**Version**: 2.30.75
 **Maintainer**: George Wall

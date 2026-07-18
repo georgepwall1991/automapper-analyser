@@ -1,5 +1,6 @@
 using AutoMapperAnalyzer.Analyzers.ComplexMappings;
 using AutoMapperAnalyzer.Tests.Infrastructure;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Testing;
 
 namespace AutoMapperAnalyzer.Tests.ComplexMappings;
@@ -1626,5 +1627,143 @@ public class AM022_CodeFixTests
                 expectedFixedCode,
                 1,
                 1);
+    }
+
+    [Fact]
+    public async Task AM022_ShouldOfferNoAutomaticFix_WhenCycleIsOwnedByForCtorParam()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Ancestor));
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = AggregateFixTestHarness.CreateDocument(testCode, nameof(AM022_CodeFixTests));
+        var diagnostics = await AggregateFixTestHarness
+            .GetDiagnosticsAsync<AM022_InfiniteRecursionAnalyzer>(document);
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+
+        IReadOnlyList<CodeFixActionInspector.ActionInfo> actions = await CodeFixActionInspector.GetActionsAsync(
+            document,
+            new AM022_InfiniteRecursionCodeFixProvider(),
+            diagnostic);
+
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task AM022_ShouldOfferNoAutomaticFix_WhenConstructorCycleHasIneffectiveMaxDepth()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Ancestor))
+                                                .MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = AggregateFixTestHarness.CreateDocument(testCode, nameof(AM022_CodeFixTests));
+        var diagnostics = await AggregateFixTestHarness
+            .GetDiagnosticsAsync<AM022_InfiniteRecursionAnalyzer>(document);
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+
+        IReadOnlyList<CodeFixActionInspector.ActionInfo> actions = await CodeFixActionInspector.GetActionsAsync(
+            document,
+            new AM022_InfiniteRecursionCodeFixProvider(),
+            diagnostic);
+
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task AM022_ShouldOfferNoAutomaticFix_WhenPositionalRecordOwnsCycle()
+    {
+        const string testCode = """
+                                using System.Collections.Generic;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public IReadOnlyList<SourceNode> Ancestors { get; set; }
+                                    }
+
+                                    public record DestinationNode(IReadOnlyList<DestinationNode> Parents);
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("Parents", options =>
+                                                    options.MapFrom(source => source.Ancestors));
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = AggregateFixTestHarness.CreateDocument(testCode, nameof(AM022_CodeFixTests));
+        var diagnostics = await AggregateFixTestHarness
+            .GetDiagnosticsAsync<AM022_InfiniteRecursionAnalyzer>(document);
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+
+        IReadOnlyList<CodeFixActionInspector.ActionInfo> actions = await CodeFixActionInspector.GetActionsAsync(
+            document,
+            new AM022_InfiniteRecursionCodeFixProvider(),
+            diagnostic);
+
+        Assert.Empty(actions);
     }
 }

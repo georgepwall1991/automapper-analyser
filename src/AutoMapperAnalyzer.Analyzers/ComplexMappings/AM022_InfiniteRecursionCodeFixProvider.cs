@@ -60,6 +60,13 @@ public class AM022_InfiniteRecursionCodeFixProvider : AutoMapperCodeFixProviderB
                 invocation,
                 operationContext.SemanticModel);
 
+            bool isConstructorOwnedCycle = diagnostic.Properties.ContainsKey(
+                AM022_InfiniteRecursionAnalyzer.ConstructorOwnedCycleProperty);
+            if (isConstructorOwnedCycle)
+            {
+                continue;
+            }
+
             // Best-first: MaxDepth scaffold first (consistent single- and multi-property), then Ignore.
             context.RegisterCodeFix(
                 CodeAction.Create(
