@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>80</PatchVersion>
+        <PatchVersion>81</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.80 - AM020 expression-bodied void-method fixer parity
-- Direct expression-bodied void methods expand into blocks before the missing nested map is appended
-- Semantic void return and direct arrow-expression ownership preserve executable configuration order
-- Non-void methods, local functions, deferred maps, and unstable receivers remain fixless; arrow and semicolon comments are retained
+                <PackageReleaseNotes>Version 2.30.81 - AM020 conditional block-body insertion safety
+- Withhold nested-map insertion when conditional directives split the diagnosed CreateMap statement
+- Apply the fail-closed boundary to constructor and method blocks under either active symbol set
+- Preserve existing fixes for unconditional blocks and safe expression-bodied owners
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
