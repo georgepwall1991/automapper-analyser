@@ -101,20 +101,29 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                 context.SemanticModel,
                 createMapRegistry);
 
-        bool hasRootMaxDepth = HasForwardAutoMapperConfiguration(
-            invocationExpr,
-            reverseMapInvocation,
-            context.SemanticModel,
-            "MaxDepth");
-        bool hasRootPreserveReferences = HasForwardAutoMapperConfiguration(
-            invocationExpr,
-            reverseMapInvocation,
-            context.SemanticModel,
-            "PreserveReferences");
+        bool hasRootMaxDepth = createMapRegistry.IsMaxDepthConstrained(
+                                   typeArguments.sourceType,
+                                   typeArguments.destinationType) ||
+                               HasForwardAutoMapperConfiguration(
+                                   invocationExpr,
+                                   reverseMapInvocation,
+                                   context.SemanticModel,
+                                   "MaxDepth");
+        bool hasRootPreserveReferences = createMapRegistry.IsPreserveReferencesConstrained(
+                                             typeArguments.sourceType,
+                                             typeArguments.destinationType) ||
+                                         HasForwardAutoMapperConfiguration(
+                                             invocationExpr,
+                                             reverseMapInvocation,
+                                             context.SemanticModel,
+                                             "PreserveReferences");
 
         // A custom converter owns construction completely. Member/depth policies are evaluated
         // against the proven root edges because constructor arguments execute before member mapping.
-        if (HasForwardAutoMapperConfiguration(
+        if (createMapRegistry.IsConvertUsingConstrained(
+                typeArguments.sourceType,
+                typeArguments.destinationType) ||
+            HasForwardAutoMapperConfiguration(
                 invocationExpr,
                 reverseMapInvocation,
                 context.SemanticModel,
@@ -154,12 +163,27 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         string methodName
     )
     {
+        if (semanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol createMapMethod)
+        {
+            return false;
+        }
+
+        IAssemblySymbol autoMapperAssembly = (createMapMethod.ReducedFrom ?? createMapMethod).ContainingAssembly;
         SyntaxNode? parent = invocation.Parent;
         while (parent != null)
         {
             if (
                 parent is InvocationExpressionSyntax chainedCall
                 && MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedCall, semanticModel, methodName)
+                && semanticModel.GetSymbolInfo(chainedCall).Symbol is IMethodSymbol method
+                && SymbolEqualityComparer.Default.Equals(
+                    (method.ReducedFrom ?? method).ContainingAssembly,
+                    autoMapperAssembly)
+                && CreateMapRegistry.IsMappingInitializerRootedAtCreateMap(
+                    chainedCall,
+                    invocation,
+                    semanticModel,
+                    autoMapperAssembly)
                 && AppliesToForwardDirection(chainedCall, reverseMapInvocation)
             )
             {

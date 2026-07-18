@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>75</PatchVersion>
+        <PatchVersion>76</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,13 +32,12 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.75 - AM022 ForCtorParam cycle ownership
-- Direct semantic ForCtorParam property mappings participate in AM022 cycle graphs
-- Unique constructor assignments and exact positional-record properties connect parameters to writable or read-only destination members
-- Constructor-owned edges replay through downstream maps even when MaxDepth or PreserveReferences cannot protect construction
-- Ignore and PreserveReferences cannot suppress constructor-owned recursion; MaxDepth suppresses mixed member/constructor cycles but not construction-only cycles
-- Constructor-owned diagnostics withhold automatic fixes; ConvertUsing remains the explicit ownership boundary
-- Duplicate parameters, transformed selectors, deferred helpers, invalid names, ambiguous ownership, and lookalike APIs stay excluded
+                <PackageReleaseNotes>Version 2.30.76 - AM022 deferred root cycle-breaker parity
+- Direct local mapping variables configured later with MaxDepth, PreserveReferences, or ConvertUsing now constrain the root map as well as downstream traversal
+- Deferred policies require a straight-line same-block path and direct fluent statement chain so conditional exits or expressions cannot hide an unconstrained map
+- Cycle-breaker ownership remains direction-aware; reverse-only policies do not suppress the forward diagnostic
+- Duplicate mapping directions remain conservative unless every registration carries the same constraint
+- Automatic pull-request review now uses GitHub Codex; the obsolete Claude review workflow is removed
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

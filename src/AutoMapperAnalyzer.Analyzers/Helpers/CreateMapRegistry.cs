@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
@@ -359,6 +360,12 @@ internal sealed class CreateMapRegistry
         bool reverseDirection,
         string methodName)
     {
+        IAssemblySymbol? autoMapperAssembly = GetInvocationAssembly(createMapInvocation, semanticModel);
+        if (autoMapperAssembly == null)
+        {
+            return false;
+        }
+
         for (SyntaxNode? parent = createMapInvocation.Parent; parent != null; parent = parent.Parent)
         {
             if (parent is not InvocationExpressionSyntax chainedCall)
@@ -373,7 +380,16 @@ internal sealed class CreateMapRegistry
                 continue;
             }
 
-            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedCall, semanticModel, methodName))
+            if (IsAutoMapperMethodInvocationFromAssembly(
+                    chainedCall,
+                    semanticModel,
+                    methodName,
+                    autoMapperAssembly) &&
+                IsMappingInitializerRootedAtCreateMap(
+                    chainedCall,
+                    createMapInvocation,
+                    semanticModel,
+                    autoMapperAssembly))
             {
                 return true;
             }
@@ -384,7 +400,8 @@ internal sealed class CreateMapRegistry
             reverseMapInvocation,
             semanticModel,
             reverseDirection,
-            methodName);
+            methodName,
+            autoMapperAssembly);
     }
 
     private static bool HasDeferredCycleBreaker(
@@ -392,13 +409,16 @@ internal sealed class CreateMapRegistry
         InvocationExpressionSyntax? reverseMapInvocation,
         SemanticModel semanticModel,
         bool reverseDirection,
-        string methodName)
+        string methodName,
+        IAssemblySymbol autoMapperAssembly)
     {
         VariableDeclaratorSyntax? declarator = createMapInvocation.Ancestors()
             .OfType<VariableDeclaratorSyntax>()
             .FirstOrDefault();
-        if (declarator?.Initializer == null ||
+        if (declarator?.Initializer is not { Value: ExpressionSyntax initializer } ||
+            !IsMappingInitializerRootedAtCreateMap(initializer, createMapInvocation, semanticModel, autoMapperAssembly) ||
             declarator.Parent?.Parent is not LocalDeclarationStatementSyntax declaration ||
+            declaration.Declaration.Variables.Count != 1 ||
             declaration.Parent is not BlockSyntax block ||
             semanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol mappingLocal)
         {
@@ -410,25 +430,43 @@ internal sealed class CreateMapRegistry
                      .OfType<ExpressionStatementSyntax>()
                      .Where(candidate => candidate.SpanStart > declaration.SpanStart))
         {
+            if (!HasStraightLinePath(
+                    declaration,
+                    statement,
+                    block,
+                    mappingLocal,
+                    semanticModel,
+                    autoMapperAssembly))
+            {
+                continue;
+            }
+
             foreach (InvocationExpressionSyntax candidate in statement.Expression.DescendantNodesAndSelf()
                          .OfType<InvocationExpressionSyntax>())
             {
-                if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                if (!IsDirectFluentInvocation(statement.Expression, candidate) ||
+                    !IsAutoMapperMethodInvocationFromAssembly(
                         candidate,
                         semanticModel,
-                        methodName) ||
+                        methodName,
+                        autoMapperAssembly) ||
                     candidate.Expression is not MemberAccessExpressionSyntax memberAccess ||
-                    !ReferencesLocal(memberAccess.Expression, mappingLocal, semanticModel))
+                    !IsFluentReceiverRootedAtLocal(
+                        memberAccess.Expression,
+                        mappingLocal,
+                        semanticModel,
+                        autoMapperAssembly))
                 {
                     continue;
                 }
 
                 bool followsReverseMap = memberAccess.Expression.DescendantNodesAndSelf()
                     .OfType<InvocationExpressionSyntax>()
-                    .Any(invocation => MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                    .Any(invocation => IsAutoMapperMethodInvocationFromAssembly(
                         invocation,
                         semanticModel,
-                        "ReverseMap"));
+                        "ReverseMap",
+                        autoMapperAssembly));
                 bool appliesToReverseDirection = localRepresentsReverseDirection || followsReverseMap;
                 if (appliesToReverseDirection == reverseDirection)
                 {
@@ -440,52 +478,11 @@ internal sealed class CreateMapRegistry
         return false;
     }
 
-    private static IEnumerable<InvocationExpressionSyntax> GetDeferredReverseMapInvocations(
-        InvocationExpressionSyntax createMapInvocation,
-        SemanticModel semanticModel)
+    private static bool IsDirectFluentInvocation(
+        ExpressionSyntax statementExpression,
+        InvocationExpressionSyntax target)
     {
-        VariableDeclaratorSyntax? declarator = createMapInvocation.Ancestors()
-            .OfType<VariableDeclaratorSyntax>()
-            .FirstOrDefault();
-        if (declarator?.Initializer is not { Value: ExpressionSyntax initializer } ||
-            !IsMappingInitializerRootedAtCreateMap(initializer, createMapInvocation) ||
-            declarator.Parent?.Parent is not LocalDeclarationStatementSyntax declaration ||
-            declaration.Parent is not BlockSyntax block ||
-            semanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol mappingLocal)
-        {
-            yield break;
-        }
-
-        foreach (ExpressionStatementSyntax statement in block.Statements
-                     .OfType<ExpressionStatementSyntax>()
-                     .Where(candidate => candidate.SpanStart > declaration.SpanStart))
-        {
-            if (statement.Expression is not InvocationExpressionSyntax candidate ||
-                candidate.ArgumentList.Arguments.Count != 0 ||
-                !MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
-                    candidate,
-                    semanticModel,
-                    "ReverseMap") ||
-                candidate.Expression is not MemberAccessExpressionSyntax
-                {
-                    Expression: IdentifierNameSyntax receiver
-                } ||
-                !SymbolEqualityComparer.Default.Equals(
-                    semanticModel.GetSymbolInfo(receiver).Symbol,
-                    mappingLocal))
-            {
-                continue;
-            }
-
-            yield return candidate;
-        }
-    }
-
-    private static bool IsMappingInitializerRootedAtCreateMap(
-        ExpressionSyntax initializer,
-        InvocationExpressionSyntax createMapInvocation)
-    {
-        ExpressionSyntax current = initializer;
+        ExpressionSyntax current = statementExpression;
         while (true)
         {
             while (current is ParenthesizedExpressionSyntax parenthesized)
@@ -493,7 +490,7 @@ internal sealed class CreateMapRegistry
                 current = parenthesized.Expression;
             }
 
-            if (current == createMapInvocation)
+            if (ReferenceEquals(current, target))
             {
                 return true;
             }
@@ -510,16 +507,304 @@ internal sealed class CreateMapRegistry
         }
     }
 
-    private static bool ReferencesLocal(
-        ExpressionSyntax expression,
+    private static bool HasStraightLinePath(
+        LocalDeclarationStatementSyntax declaration,
+        ExpressionStatementSyntax statement,
+        BlockSyntax block,
         ILocalSymbol mappingLocal,
+        SemanticModel semanticModel,
+        IAssemblySymbol autoMapperAssembly)
+    {
+        int declarationIndex = block.Statements.IndexOf(declaration);
+        int statementIndex = block.Statements.IndexOf(statement);
+        if (declarationIndex < 0 || statementIndex <= declarationIndex)
+        {
+            return false;
+        }
+
+        for (int index = declarationIndex + 1; index < statementIndex; index++)
+        {
+            StatementSyntax interveningStatement = block.Statements[index];
+            if (interveningStatement is LocalFunctionStatementSyntax or EmptyStatementSyntax)
+            {
+                continue;
+            }
+
+            if (interveningStatement is ExpressionStatementSyntax expressionStatement &&
+                IsSafeSameLocalAutoMapperStatement(
+                    expressionStatement,
+                    mappingLocal,
+                    semanticModel,
+                    autoMapperAssembly))
+            {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsSafeSameLocalAutoMapperStatement(
+        ExpressionStatementSyntax statement,
+        ILocalSymbol mappingLocal,
+        SemanticModel semanticModel,
+        IAssemblySymbol autoMapperAssembly)
+    {
+        if (statement.Expression is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax memberAccess
+            } invocation ||
+            !IsAutoMapperMethodInvocationFromAssembly(
+                invocation,
+                semanticModel,
+                memberAccess.Name.Identifier.ValueText,
+                autoMapperAssembly) ||
+            !IsFluentReceiverRootedAtLocal(
+                memberAccess.Expression,
+                mappingLocal,
+                semanticModel,
+                autoMapperAssembly) ||
+            HasPotentiallyMutatingCallbackOperation(
+                invocation,
+                semanticModel,
+                autoMapperAssembly))
+        {
+            return false;
+        }
+
+        DataFlowAnalysis? dataFlow = semanticModel.AnalyzeDataFlow(statement);
+        return dataFlow?.Succeeded == true &&
+               !dataFlow.WrittenInside.Any(symbol =>
+                   SymbolEqualityComparer.Default.Equals(symbol, mappingLocal));
+    }
+
+    private static bool HasPotentiallyMutatingCallbackOperation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel,
+        IAssemblySymbol autoMapperAssembly)
+    {
+        foreach (ArgumentSyntax argument in invocation.ArgumentList.Arguments)
+        {
+            TypeInfo argumentType = semanticModel.GetTypeInfo(argument.Expression);
+            if (argument.Expression is not AnonymousFunctionExpressionSyntax &&
+                argumentType.ConvertedType?.TypeKind == TypeKind.Delegate)
+            {
+                return true;
+            }
+
+            if (argument.DescendantNodesAndSelf().Any(node =>
+                    node is ObjectCreationExpressionSyntax or
+                        ImplicitObjectCreationExpressionSyntax or
+                        AssignmentExpressionSyntax or
+                        AwaitExpressionSyntax))
+            {
+                return true;
+            }
+
+            foreach (InvocationExpressionSyntax nestedInvocation in argument.DescendantNodesAndSelf()
+                         .OfType<InvocationExpressionSyntax>())
+            {
+                if (nestedInvocation.Expression is not MemberAccessExpressionSyntax nestedMemberAccess ||
+                    !IsAutoMapperMethodInvocationFromAssembly(
+                        nestedInvocation,
+                        semanticModel,
+                        nestedMemberAccess.Name.Identifier.ValueText,
+                        autoMapperAssembly))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<InvocationExpressionSyntax> GetDeferredReverseMapInvocations(
+        InvocationExpressionSyntax createMapInvocation,
         SemanticModel semanticModel)
     {
-        return expression.DescendantNodesAndSelf()
-            .OfType<IdentifierNameSyntax>()
-            .Any(identifier => SymbolEqualityComparer.Default.Equals(
-                semanticModel.GetSymbolInfo(identifier).Symbol,
-                mappingLocal));
+        IAssemblySymbol? autoMapperAssembly = GetInvocationAssembly(createMapInvocation, semanticModel);
+        if (autoMapperAssembly == null)
+        {
+            yield break;
+        }
+
+        VariableDeclaratorSyntax? declarator = createMapInvocation.Ancestors()
+            .OfType<VariableDeclaratorSyntax>()
+            .FirstOrDefault();
+        if (declarator?.Initializer is not { Value: ExpressionSyntax initializer } ||
+            !IsMappingInitializerRootedAtCreateMap(
+                initializer,
+                createMapInvocation,
+                semanticModel,
+                autoMapperAssembly) ||
+            declarator.Parent?.Parent is not LocalDeclarationStatementSyntax declaration ||
+            declaration.Declaration.Variables.Count != 1 ||
+            declaration.Parent is not BlockSyntax block ||
+            semanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol mappingLocal)
+        {
+            yield break;
+        }
+
+        foreach (ExpressionStatementSyntax statement in block.Statements
+                     .OfType<ExpressionStatementSyntax>()
+                     .Where(candidate => candidate.SpanStart > declaration.SpanStart))
+        {
+            if (statement.Expression is not InvocationExpressionSyntax candidate ||
+                candidate.ArgumentList.Arguments.Count != 0 ||
+                !IsAutoMapperMethodInvocationFromAssembly(
+                    candidate,
+                    semanticModel,
+                    "ReverseMap",
+                    autoMapperAssembly) ||
+                candidate.Expression is not MemberAccessExpressionSyntax
+                {
+                    Expression: IdentifierNameSyntax receiver
+                } ||
+                !SymbolEqualityComparer.Default.Equals(
+                    semanticModel.GetSymbolInfo(receiver).Symbol,
+                    mappingLocal))
+            {
+                continue;
+            }
+
+            yield return candidate;
+        }
+    }
+
+    private static IAssemblySymbol? GetInvocationAssembly(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        return semanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
+            ? (method.ReducedFrom ?? method).ContainingAssembly
+            : null;
+    }
+
+    private static bool IsAutoMapperMethodInvocationFromAssembly(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel,
+        string methodName,
+        IAssemblySymbol autoMapperAssembly)
+    {
+        return MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                   invocation,
+                   semanticModel,
+                   methodName) &&
+               GetInvocationAssembly(invocation, semanticModel) is { } containingAssembly &&
+               SymbolEqualityComparer.Default.Equals(containingAssembly, autoMapperAssembly);
+    }
+
+    private static bool TryUnwrapTransparentExpression(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel,
+        out ExpressionSyntax unwrapped)
+    {
+        if (expression is ParenthesizedExpressionSyntax parenthesized)
+        {
+            unwrapped = parenthesized.Expression;
+            return true;
+        }
+
+        if (expression is PostfixUnaryExpressionSyntax
+            {
+                RawKind: (int)SyntaxKind.SuppressNullableWarningExpression
+            } suppressNullableWarning)
+        {
+            unwrapped = suppressNullableWarning.Operand;
+            return true;
+        }
+
+        if (expression is CastExpressionSyntax cast)
+        {
+            Conversion conversion = semanticModel.GetConversion(cast.Expression);
+            if (conversion.IsIdentity || conversion.IsReference)
+            {
+                unwrapped = cast.Expression;
+                return true;
+            }
+        }
+
+        unwrapped = expression;
+        return false;
+    }
+
+    internal static bool IsMappingInitializerRootedAtCreateMap(
+        ExpressionSyntax initializer,
+        InvocationExpressionSyntax createMapInvocation,
+        SemanticModel semanticModel,
+        IAssemblySymbol autoMapperAssembly)
+    {
+        ExpressionSyntax current = initializer;
+        while (true)
+        {
+            if (TryUnwrapTransparentExpression(current, semanticModel, out ExpressionSyntax unwrapped))
+            {
+                current = unwrapped;
+                continue;
+            }
+
+            if (current == createMapInvocation)
+            {
+                return true;
+            }
+
+            if (current is not InvocationExpressionSyntax invocation ||
+                invocation.Expression is not MemberAccessExpressionSyntax memberAccess ||
+                !IsAutoMapperMethodInvocationFromAssembly(
+                    invocation,
+                    semanticModel,
+                    memberAccess.Name.Identifier.ValueText,
+                    autoMapperAssembly))
+            {
+                return false;
+            }
+
+            current = memberAccess.Expression;
+        }
+    }
+
+    private static bool IsFluentReceiverRootedAtLocal(
+        ExpressionSyntax expression,
+        ILocalSymbol mappingLocal,
+        SemanticModel semanticModel,
+        IAssemblySymbol autoMapperAssembly)
+    {
+        ExpressionSyntax current = expression;
+        while (true)
+        {
+            if (TryUnwrapTransparentExpression(current, semanticModel, out ExpressionSyntax unwrapped))
+            {
+                current = unwrapped;
+                continue;
+            }
+
+            if (current is IdentifierNameSyntax identifier)
+            {
+                return SymbolEqualityComparer.Default.Equals(
+                    semanticModel.GetSymbolInfo(identifier).Symbol,
+                    mappingLocal);
+            }
+
+            if (current is not InvocationExpressionSyntax invocation ||
+                invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+            {
+                return false;
+            }
+
+            if (!IsAutoMapperMethodInvocationFromAssembly(
+                    invocation,
+                    semanticModel,
+                    memberAccess.Name.Identifier.ValueText,
+                    autoMapperAssembly))
+            {
+                return false;
+            }
+
+            current = memberAccess.Expression;
+        }
     }
 
     internal struct MappingInfo

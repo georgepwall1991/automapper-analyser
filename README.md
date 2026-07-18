@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1626%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1646%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,22 +14,23 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.75
+## 🎉 Latest Release: v2.30.76
 
-**AM022 constructor-parameter cycle ownership**
+**AM022 deferred root cycle-breaker parity**
 
 ✅ **Highlights**
 
-- Direct semantic `ForCtorParam("name", options => options.MapFrom(source => source.Member))` mappings now contribute proven recursion edges when the selected constructor assigns that parameter directly to one destination property, whether writable, read-only, or the compiler-generated property of the same positional-record parameter. The edge participates both at the root and when the map is replayed downstream.
-- Constructor ownership changes the safe remediation: a later `ForMember(...Ignore())` does not remove the value already supplied to the constructor, and `PreserveReferences()` cannot cache an instance that does not exist yet. AutoMapper 14 runtime proofs show that `MaxDepth(2)` safely terminates mixed constructor/member cycles, but still stack-overflows on self-cycles and multi-type cycles whose complete return path is constructor-owned. Reported constructor-owned diagnostics offer no automatic fix; `ConvertUsing` remains the explicit construction-ownership boundary.
-- Duplicate parameter configuration, transformed selectors, uninvoked local helpers, invalid parameter paths, ambiguous/additional constructor uses, metadata-only ownership, and lookalike APIs stay outside inference. Ordinary member edges retain their existing `MaxDepth`/`PreserveReferences` behavior.
+- A map stored directly from `CreateMap<TSource, TDestination>()` now honors later same-block semantic `MaxDepth`, `PreserveReferences`, and `ConvertUsing` calls at the root, closing the false AM022 that previously remained after valid deferred configuration.
+- Deferred policies must be the first executable statement after the captured mapping declaration, apart from inert local-function declarations or empty statements, and use a direct fluent receiver chain rooted at that local. Any intervening executable statement—including constructors, arbitrary wrappers, substituting helpers, recursive effects, delegate invocation surfaces, dynamic calls, and conditional control flow—fails closed; policies chained after `ReverseMap()` cannot suppress the forward root diagnostic, and duplicate directions remain conservative unless every registration is constrained.
+- Pull requests now use exact-head GitHub Codex review without the obsolete automatic Claude review workflow; the separate opt-in `@claude` workflow remains available.
 
 🧪 **Validation**
 
-- AM022 suite: **111** passed; clean-branch full suite: **1626** passed, 0 skipped, 0 failed on `net10.0`.
+- AM022 suite: **131** passed; clean-branch full suite: **1646** passed, 0 skipped, 0 failed on `net10.0`.
 
 ### Recent Releases
 
+- **v2.30.76**: AM022 honors deferred root `MaxDepth`, `PreserveReferences`, and `ConvertUsing` configuration through direct mapping locals while retaining direction and duplicate ambiguity boundaries.
 - **v2.30.75**: AM022 follows direct constructor-owned recursion edges, distinguishes safe mixed-path `MaxDepth` from unsafe construction-only recursion, and withholds ineffective constructor-owned fixes.
 - **v2.30.74**: AM002 respects exact semantic `ForCtorParam` null-safety ownership, propagates synchronous helper mutations and conditional iterator provenance, requires semantic/unconditional null-safety configuration, tracks nested variance polarity, and repairs unsafe constructor inputs in place.
 - **v2.30.73**: AM041 detects direct local deferred `ReverseMap()` registrations, including fluent initializers, and removes duplicate standalone calls safely.
@@ -241,7 +242,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.75">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.76">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

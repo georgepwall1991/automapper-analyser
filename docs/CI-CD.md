@@ -90,6 +90,7 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 
 ### Code Quality
 
+- **PR review**: Exact-head GitHub Codex review is required before merge; the repository does not run an automatic Claude review workflow
 - **Roslyn Analyzers**: Static code analysis
 - **Rule catalog tests**: Descriptor, docs, sample, package, and workflow drift detection
 - **Generated trust artifacts**: CI fails if `docs/RULE_CATALOG.md` or `tests/AutoMapperAnalyzer.Tests/Snapshots/sample-diagnostics.json` drift from implementation
@@ -112,8 +113,8 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 ### Package Versioning
 
 - **Format**: Major.Minor.Patch (SemVer)
-- **Current**: 2.30.75
-- **Pre-release**: 2.30.75-preview, 2.30.75-beta
+- **Current**: 2.30.76
+- **Pre-release**: 2.30.76-preview, 2.30.76-beta
 
 ## 🔧 Configuration
 
