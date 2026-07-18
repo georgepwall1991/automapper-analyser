@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.79] - 2026-07-18
+
+AM020 expression-bodied Profile constructor fixer parity.
+
+### Changed
+
+- **Expression-bodied constructor fix**: AM020 now expands an expression-bodied Profile constructor into a block, preserves the original root `CreateMap<TSource, TDestination>()` call as the first statement, and appends the missing nested registration after it.
+- **Conservative structural boundary**: the rewrite reuses AM020's stable receiver gate. Computed, property, conditional, and indexed receivers remain fixless, and expression-bodied methods remain outside this constructor-only change.
+
+### Validation
+
+- AM020 analyzer and code-fix suite: **104** passed.
+- Clean-branch full solution suite: **1674** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.78] - 2026-07-18
 
 AM020 stable configuration receiver fixes.

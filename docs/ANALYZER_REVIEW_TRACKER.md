@@ -67,6 +67,7 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | AM022 deferred root cycle breakers | Complex Mappings | main | v2.30.76 | Reused the direction-aware registry at the root so later same-block `MaxDepth`, `PreserveReferences`, and `ConvertUsing` calls through a direct mapping local suppress only the exact constrained direction; reverse-only and duplicate-ambiguous registrations remain diagnostic. |
 | AM041 mutually exclusive registration branches | Configuration | main | v2.30.77 | Opposite arms of the same `if`/`else` or one `else if` chain no longer conflict within a single executable body; independent and unconditional duplicates remain diagnostic. |
 | AM020 stable configuration receiver fixes | Complex Mappings | main | v2.30.78 | Missing nested-map actions preserve stable semantic `IMapperConfigurationExpression` parameters, locals, and fields in constructor or method blocks; computed receivers remain fixless. |
+| AM020 expression-bodied Profile constructor fixer parity | Complex Mappings | main | v2.30.79 | Expression-bodied Profile constructors expand into blocks that preserve the original root map before the generated nested registration; unstable receivers and expression-bodied methods remain fixless. |
 
 ## In Progress
 

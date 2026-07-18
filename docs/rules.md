@@ -747,6 +747,9 @@ When the diagnosed mapping is invoked through a stable `IMapperConfigurationExpr
 a constructor or method block, the code fix preserves that receiver on the generated nested registration. Computed,
 property, conditional, and indexed receivers remain fixless so the action never repeats potentially side-effecting
 receiver evaluation.
+An expression-bodied Profile constructor is expanded into a block when the receiver passes the same safety gate. The
+original root mapping remains the first statement and the generated nested registration follows it. Expression-bodied
+methods remain fixless because their return semantics are outside this constructor-only rewrite.
 
 #### Internal Property Support
 
@@ -1652,7 +1655,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.78">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.79">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1691,5 +1694,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.78
+**Version**: 2.30.79
 **Maintainer**: George Wall
