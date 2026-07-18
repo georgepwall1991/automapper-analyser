@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.82] - 2026-07-18
+
+AM021 direct-statement and conditional-region safety.
+
+### Changed
+
+- **No deferred-map hoisting**: AM021 now offers its complex element `CreateMap<TSourceElement, TDestinationElement>()` action only when the diagnosed fluent mapping owns a direct constructor or method block statement. Mappings nested in callbacks, local functions, arguments, assignments, returns, and other expressions keep the in-place Ignore action without receiving a scope-changing registration.
+- **Conditional-region safety**: direct statements inside or split by `#if`/`#else` now also keep only Ignore, preventing an insertion produced under one symbol set from changing another configuration. AM020 and AM021 share the same proven statement-region guard.
+- **Direct-owner parity**: ordinary block statements, direct method statements, parenthesized mapping expressions, fluent chains, and unconditional mappings after completed conditional regions retain the complex element-map action.
+
+### Validation
+
+- AM021 analyzer, code-fix, and helper suite: **70** passed.
+- Clean-branch full solution suite: **1691** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.81] - 2026-07-18
 
 AM020 conditional block-body insertion safety.

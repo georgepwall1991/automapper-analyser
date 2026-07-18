@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>81</PatchVersion>
+        <PatchVersion>82</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.81 - AM020 conditional block-body insertion safety
-- Withhold nested-map insertion when conditional directives split the diagnosed CreateMap statement
-- Apply the fail-closed boundary to constructor and method blocks under either active symbol set
-- Preserve existing fixes for unconditional blocks and safe expression-bodied owners
+                <PackageReleaseNotes>Version 2.30.82 - AM021 direct-statement and conditional-region safety
+- Withhold complex element-map insertion when the diagnosed mapping is nested or deferred
+- Require direct, unconditional constructor or method block statement ownership before adding CreateMap
+- Share AM020's conditional-region guard and preserve Ignore plus safe direct/completed-region actions
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
