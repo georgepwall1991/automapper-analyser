@@ -1610,6 +1610,1267 @@ public class AM022_InfiniteRecursionTests
             .RunAsync();
     }
 
+    [Theory]
+    [InlineData("mapping.MaxDepth(2);")]
+    [InlineData("mapping.PreserveReferences();")]
+    [InlineData("mapping.ConvertUsing(source => new DestinationNode());")]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenRootCycleBreakerIsConfiguredInLaterStatement(
+        string cycleBreaker)
+    {
+        string testCode = $$"""
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            {{cycleBreaker}}
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Theory]
+    [InlineData("(IMappingExpression<SourceNode, DestinationNode>)CreateMap<SourceNode, DestinationNode>()")]
+    [InlineData("CreateMap<SourceNode, DestinationNode>()!")]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenDeferredRootInitializerUsesTransparentWrapper(
+        string mappingInitializer)
+    {
+        string testCode = $$"""
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            var mapping = {{mappingInitializer}};
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Theory]
+    [InlineData("((IMappingExpression<SourceNode, DestinationNode>)mapping).MaxDepth(2);")]
+    [InlineData("mapping!.MaxDepth(2);")]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenDeferredRootPolicyReceiverUsesTransparentWrapper(
+        string cycleBreaker)
+    {
+        string testCode = $$"""
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            {{cycleBreaker}}
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Theory]
+    [InlineData("mapping.ForMember(destination => destination.Name, options => options.Ignore());")]
+    [InlineData("mapping.ReverseMap();")]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenSafeAutoMapperStatementPrecedesDeferredRootPolicy(
+        string interveningStatement)
+    {
+        string testCode = $$"""
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public string Name { get; set; }
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            {{interveningStatement}}
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenInterveningAutoMapperCallbackWritesDeferredRootLocal()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public string Name { get; set; }
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            mapping.ForMember(
+                                                destination => destination.Name,
+                                                options =>
+                                                {
+                                                    mapping = externalMapping;
+                                                    options.Ignore();
+                                                });
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                21,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenInterveningAutoMapperCallbackInvokesMutatingLocalFunction()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public string Name { get; set; }
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            void Replace() => mapping = externalMapping;
+
+                                            mapping.ForMember(
+                                                destination => destination.Name,
+                                                options =>
+                                                {
+                                                    Replace();
+                                                    options.Ignore();
+                                                });
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                21,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenDeferredRootMappingLocalComesFromSubstitutingInitializer()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public static class MappingHelpers
+                                    {
+                                        public static IMappingExpression<SourceNode, DestinationNode> Pick(
+                                            IMappingExpression<SourceNode, DestinationNode> original,
+                                            IMappingExpression<SourceNode, DestinationNode> replacement) => replacement;
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            var mapping = MappingHelpers.Pick(
+                                                CreateMap<SourceNode, DestinationNode>(),
+                                                externalMapping);
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                27,
+                17,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenDeferredRootMappingLocalComesFromSubstitutingExtensionInitializer()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public static class MappingExtensions
+                                    {
+                                        public static IMappingExpression<SourceNode, DestinationNode> Pick(
+                                            this IMappingExpression<SourceNode, DestinationNode> original,
+                                            IMappingExpression<SourceNode, DestinationNode> replacement) => replacement;
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>().Pick(externalMapping);
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                26,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenSubstitutingInitializerExtensionSpoofsAutoMapperNamespace()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace AutoMapper
+                                {
+                                    public static class SpoofedMappingExtensions
+                                    {
+                                        public static IMappingExpression<TestNamespace.SourceNode, TestNamespace.DestinationNode> Pick(
+                                            this IMappingExpression<TestNamespace.SourceNode, TestNamespace.DestinationNode> original,
+                                            IMappingExpression<TestNamespace.SourceNode, TestNamespace.DestinationNode> replacement) => replacement;
+                                    }
+                                }
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>().Pick(externalMapping);
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                29,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Theory]
+    [InlineData("CreateMap<SourceNode, DestinationNode>().MaxDepth();", 28, 13)]
+    [InlineData("var mapping = CreateMap<SourceNode, DestinationNode>(); mapping.MaxDepth();", 28, 27)]
+    public async Task AM022_ShouldReportDiagnostic_WhenCycleBreakerSpoofsAutoMapperNamespace(
+        string mappingConfiguration,
+        int line,
+        int column)
+    {
+        string testCode = $$"""
+                            using AutoMapper;
+
+                            namespace AutoMapper
+                            {
+                                public static class SpoofedMappingExtensions
+                                {
+                                    public static IMappingExpression<TestNamespace.SourceNode, TestNamespace.DestinationNode> MaxDepth(
+                                        this IMappingExpression<TestNamespace.SourceNode, TestNamespace.DestinationNode> mapping) => mapping;
+                                }
+                            }
+
+                            namespace TestNamespace
+                            {
+                                public class SourceNode
+                                {
+                                    public SourceNode Parent { get; set; }
+                                }
+
+                                public class DestinationNode
+                                {
+                                    public DestinationNode Parent { get; set; }
+                                }
+
+                                public class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        {{mappingConfiguration}}
+                                    }
+                                }
+                            }
+                            """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                line,
+                column,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenDirectCycleBreakerFollowsSubstitutingExtension()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public static class MappingExtensions
+                                    {
+                                        public static IMappingExpression<SourceNode, DestinationNode> Pick(
+                                            this IMappingExpression<SourceNode, DestinationNode> original,
+                                            IMappingExpression<SourceNode, DestinationNode> replacement) => replacement;
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .Pick(externalMapping)
+                                                .MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                26,
+                13,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenLaterDeclaratorMutatesDeferredRootMappingLocal()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public static class MappingHelpers
+                                    {
+                                        public static IMappingExpression<SourceNode, DestinationNode> Replace(
+                                            ref IMappingExpression<SourceNode, DestinationNode> mapping,
+                                            IMappingExpression<SourceNode, DestinationNode> replacement)
+                                        {
+                                            mapping = replacement;
+                                            return replacement;
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            IMappingExpression<SourceNode, DestinationNode> mapping =
+                                                    CreateMap<SourceNode, DestinationNode>(),
+                                                other = MappingHelpers.Replace(ref mapping, externalMapping);
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                31,
+                21,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenDeferredRootMappingLocalUsesAutoMapperInitializerChain()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public string Name { get; set; }
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>()
+                                                .ForMember(destination => destination.Name, options => options.Ignore());
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenConditionalExitCanSkipDeferredRootCycleBreaker()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(bool skipPolicy)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            if (skipPolicy)
+                                            {
+                                                return;
+                                            }
+
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                19,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenConditionalExpressionCanSkipDeferredRootCycleBreaker()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(bool skipPolicy)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            _ = skipPolicy ? mapping : mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                19,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenDeferredRootCycleBreakerReceiverOnlyContainsMappingLocal()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public static class MappingHelpers
+                                    {
+                                        public static IMappingExpression<SourceNode, DestinationNode> Pick(
+                                            IMappingExpression<SourceNode, DestinationNode> original,
+                                            IMappingExpression<SourceNode, DestinationNode> replacement) => replacement;
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            MappingHelpers.Pick(mapping, null!).MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                26,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenDeferredRootCycleBreakerUsesSubstitutingExtension()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public static class MappingExtensions
+                                    {
+                                        public static IMappingExpression<SourceNode, DestinationNode> Pick(
+                                            this IMappingExpression<SourceNode, DestinationNode> original,
+                                            IMappingExpression<SourceNode, DestinationNode> replacement) => replacement;
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            mapping.Pick(null!).MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                26,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Theory]
+    [InlineData("mapping = externalMapping;")]
+    [InlineData("MappingHelpers.Replace(ref mapping, externalMapping);")]
+    public async Task AM022_ShouldReportDiagnostic_WhenDeferredRootMappingLocalIsWrittenBeforePolicy(
+        string mutation)
+    {
+        string testCode = $$"""
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public static class MappingHelpers
+                                    {
+                                        public static void Replace(
+                                            ref IMappingExpression<SourceNode, DestinationNode> current,
+                                            IMappingExpression<SourceNode, DestinationNode> replacement)
+                                        {
+                                            current = replacement;
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(
+                                            IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            {{mutation}}
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                30,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Theory]
+    [InlineData("void Replace() => mapping = externalMapping;")]
+    [InlineData("void Replace() { mapping = externalMapping; }")]
+    public async Task AM022_ShouldReportDiagnostic_WhenInvokedLocalFunctionWritesDeferredRootMappingLocal(
+        string localFunction)
+    {
+        string testCode = $$"""
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(
+                                            IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            {{localFunction}}
+                                            Replace();
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                20,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Theory]
+    [InlineData("void Replace() => Apply(); void Apply() => mapping = externalMapping;", "Replace();")]
+    [InlineData("void First() => Second(); void Second() => First();", "First();")]
+    public async Task AM022_ShouldReportDiagnostic_WhenInvokedLocalFunctionEffectsAreUnsafe(
+        string localFunctions,
+        string invocation)
+    {
+        string testCode = $$"""
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(
+                                            IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            {{localFunctions}}
+                                            {{invocation}}
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                20,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenDelegateCanWriteDeferredRootMappingLocal()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(
+                                            IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            void Replace() => mapping = externalMapping;
+                                            System.Action replace = Replace;
+                                            replace();
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                20,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenDynamicDelegateCanWriteDeferredRootMappingLocal()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(
+                                            IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            void Replace() => mapping = externalMapping;
+                                            dynamic replace = (System.Action)Replace;
+                                            replace();
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                20,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenDelegateDynamicInvokeCanWriteDeferredRootMappingLocal()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(
+                                            IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            void Replace() => mapping = externalMapping;
+                                            System.Action replace = Replace;
+                                            replace.DynamicInvoke();
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                20,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenOrdinaryWrapperInvokesMappingCapturingDelegate()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(
+                                            IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            void Replace() => mapping = externalMapping;
+                                            System.Action replace = Replace;
+                                            Run(replace);
+                                            mapping.MaxDepth(2);
+                                        }
+
+                                        private static void Run(System.Action action) => action();
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                20,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenConstructorInvokesMappingCapturingDelegate()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public sealed class Runner
+                                    {
+                                        public Runner(System.Action action) => action();
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile(
+                                            IMappingExpression<SourceNode, DestinationNode> externalMapping)
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            void Replace() => mapping = externalMapping;
+                                            new Runner(Replace);
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                25,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenDeferredRootCycleBreakerAppliesOnlyAfterReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+                                            mapping.ReverseMap().MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                19,
+                27,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostics_WhenOnlyOneDuplicateRootMapIsDeferredConstrained()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Parent { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            var constrained = CreateMap<SourceNode, DestinationNode>();
+                                            constrained.MaxDepth(2);
+                                            CreateMap<SourceNode, DestinationNode>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                19,
+                31,
+                "SourceNode",
+                "DestinationNode")
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                21,
+                13,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
     [Fact]
     public async Task AM022_ShouldNotReportDiagnostic_WhenDownstreamCycleMapIsConstrainedInLaterStatement()
     {
@@ -3849,6 +5110,59 @@ public class AM022_InfiniteRecursionTests
             .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
             .WithSource(testCode)
             .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenInterveningAutoMapperCallbackUsesMutatingMethodGroup()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public string Name { get; set; }
+                                        public SourceNode Child { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public string Name { get; set; }
+                                        public DestinationNode Child { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            IMappingExpression<SourceNode, DestinationNode> externalMapping = null;
+                                            var mapping = CreateMap<SourceNode, DestinationNode>();
+
+                                            void Configure(
+                                                IMemberConfigurationExpression<SourceNode, DestinationNode, string> options)
+                                            {
+                                                mapping = externalMapping;
+                                                options.Ignore();
+                                            }
+
+                                            mapping.ForMember(destination => destination.Name, Configure);
+                                            mapping.MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                22,
+                27,
+                "SourceNode",
+                "DestinationNode")
             .RunAsync();
     }
 }

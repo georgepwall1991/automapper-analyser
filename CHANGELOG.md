@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.76] - 2026-07-18
+
+AM022 deferred root cycle-breaker parity.
+
+### Changed
+
+- **Deferred root policies**: a direct local rooted at `CreateMap<TSource, TDestination>()` now carries later same-block semantic `MaxDepth`, `PreserveReferences`, and `ConvertUsing` calls into AM022's root decision, matching the direction-aware registry behavior already used downstream.
+- **Conservative execution boundary**: deferred policies must be the first executable statement after the mapping declaration, apart from inert local-function declarations or empty statements, and appear in a direct fluent receiver chain rooted at that local. Any intervening executable statement fails closed, covering constructors, accessors, user-defined execution, arbitrary wrappers, helper substitution, recursive effects, delegate invocation surfaces including `DynamicInvoke`, dynamic calls, and unresolved operations without an incomplete syntax blacklist. Conditional exits and conditional expressions cannot hide an unconstrained map. Policies applied only after `ReverseMap()` do not suppress the forward root diagnostic, and duplicate mapping directions remain diagnostic unless every registration carries the constraint.
+- **Review routing**: removed the automatic Claude pull-request review workflow; exact-head GitHub Codex review remains the independent PR gate, while the separate opt-in `@claude` workflow remains available.
+
+### Validation
+
+- AM022 analyzer and code-fix suite: **131** passed.
+- Clean-branch full solution suite: **1646** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.75] - 2026-07-18
 
 AM022 constructor-parameter cycle ownership.

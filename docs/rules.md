@@ -984,7 +984,11 @@ that AutoMapper can use for recursion. Ignoring the top-level recursive destinat
 `MaxDepth`, `PreserveReferences`, and `ConvertUsing` configuration also suppress AM022 because those mapping shapes
 own recursion behavior explicitly. For indirect cycles, the traversal honours these cycle breakers on downstream
 `CreateMap` registrations as well as the root map, including direct same-block calls through a local mapping variable,
-while preserving configuration direction around `ReverseMap()`.
+while preserving configuration direction around `ReverseMap()`. The root decision uses that same semantic local proof
+for `MaxDepth`, `PreserveReferences`, and `ConvertUsing`; a reverse-only call does not suppress the forward direction,
+and duplicate mapping directions are constrained only when every registration carries the policy. The deferred call
+must follow through a straight-line same-block path and the statement's direct fluent receiver chain; a conditional exit
+or conditional expression keeps the root diagnostic active.
 When a forward map renames an edge, AM022 also follows a uniquely configured direct property mapping such as
 `.ForMember(d => d.RenamedChild, o => o.MapFrom(s => s.Child))` at the root and throughout the configured recursion
 graph. The inference requires exactly one forward registration for the type direction, semantic AutoMapper ownership,
@@ -1644,7 +1648,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.75">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.76">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1683,5 +1687,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.75
+**Version**: 2.30.76
 **Maintainer**: George Wall
