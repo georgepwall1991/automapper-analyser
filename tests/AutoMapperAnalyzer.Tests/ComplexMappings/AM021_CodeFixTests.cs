@@ -167,6 +167,251 @@ public class AM021_CodeFixTests
     }
 
     [Fact]
+    public async Task AM021_ShouldOfferOnlyIgnore_WhenComplexElementMappingIsDeferredInCallback()
+    {
+        const string testCode = """
+                                using System;
+                                using System.Collections.Generic;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class DestPerson
+                                    {
+                                        public string Name { get; set; }
+                                    }
+
+                                    public class Source
+                                    {
+                                        public List<SourcePerson> People { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<DestPerson> People { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            Register(() => CreateMap<Source, Destination>());
+                                        }
+
+                                        private static void Register(Action callback) { }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("AM021_Ignore_People", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldOfferComplexMapping_WhenDirectFluentStatementIsParenthesized()
+    {
+        const string testCode = """
+                                using System.Collections.Generic;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson { }
+                                    public class DestPerson { }
+
+                                    public class Source
+                                    {
+                                        public List<SourcePerson> People { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<DestPerson> People { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            (CreateMap<Source, Destination>()).ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Contains(actions, action => action.EquivalenceKey == "AM021_ComplexMapping_People");
+    }
+
+    [Fact]
+    public async Task AM021_ShouldOfferComplexMapping_WhenDirectStatementIsInMethodBlock()
+    {
+        const string testCode = """
+                                using System.Collections.Generic;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson { }
+                                    public class DestPerson { }
+                                    public class Source { public List<SourcePerson> People { get; set; } }
+                                    public class Destination { public List<DestPerson> People { get; set; } }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public void Configure()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Contains(actions, action => action.EquivalenceKey == "AM021_ComplexMapping_People");
+    }
+
+    [Fact]
+    public async Task AM021_ShouldOfferOnlyIgnore_WhenComplexElementMappingIsInLocalFunction()
+    {
+        const string testCode = """
+                                using System.Collections.Generic;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson { }
+                                    public class DestPerson { }
+                                    public class Source { public List<SourcePerson> People { get; set; } }
+                                    public class Destination { public List<DestPerson> People { get; set; } }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            void Configure()
+                                            {
+                                                CreateMap<Source, Destination>();
+                                            }
+
+                                            Configure();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("AM021_Ignore_People", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldOfferOnlyIgnore_WhenComplexElementMappingIsSplitByConditionalDirectives()
+    {
+        const string testCode = """
+                                using System.Collections.Generic;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson { }
+                                    public class DestPerson { }
+                                    public class Source { public List<SourcePerson> People { get; set; } }
+                                    public class Destination { public List<DestPerson> People { get; set; } }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                #if REVERSE_MAP
+                                            CreateMap<Source, Destination>().ReverseMap();
+                                #else
+                                            CreateMap<Source, Destination>();
+                                #endif
+                                        }
+                                    }
+                                }
+                                """;
+
+        foreach (string[] preprocessorSymbols in new[]
+                 {
+                     Array.Empty<string>(),
+                     new[] { "REVERSE_MAP" }
+                 })
+        {
+            Document document = CreateDocument(testCode, preprocessorSymbols);
+            Compilation compilation = (await document.Project.GetCompilationAsync())!;
+            Assert.Empty(compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+            Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+            List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+            CodeAction action = Assert.Single(actions);
+            Assert.Equal("AM021_Ignore_People", action.EquivalenceKey);
+        }
+    }
+
+    [Fact]
+    public async Task AM021_ShouldOfferComplexMapping_WhenConditionalRegionPrecedesUnconditionalStatement()
+    {
+        const string testCode = """
+                                using System.Collections.Generic;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourcePerson { }
+                                    public class DestPerson { }
+                                    public class Source { public List<SourcePerson> People { get; set; } }
+                                    public class Destination { public List<DestPerson> People { get; set; } }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                #if OPTIONAL_SETUP
+                                            _ = 1;
+                                #endif
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        foreach (string[] preprocessorSymbols in new[]
+                 {
+                     Array.Empty<string>(),
+                     new[] { "OPTIONAL_SETUP" }
+                 })
+        {
+            Document document = CreateDocument(testCode, preprocessorSymbols);
+            Compilation compilation = (await document.Project.GetCompilationAsync())!;
+            Assert.Empty(compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+            Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+            List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+            Assert.Contains(actions, action => action.EquivalenceKey == "AM021_ComplexMapping_People");
+        }
+    }
+
+    [Fact]
     public async Task AM021_ShouldFixComplexElementMapping_WhenTypeNamesContainPrimitiveTerms()
     {
         const string testCode = """
@@ -1412,7 +1657,7 @@ public class AM021_CodeFixTests
             .VerifyAnalyzerAsync(testCode);
     }
 
-    private static Document CreateDocument(string source)
+    private static Document CreateDocument(string source, params string[] preprocessorSymbols)
     {
         var workspace = new AdhocWorkspace();
         ProjectId projectId = ProjectId.CreateNewId();
@@ -1421,7 +1666,11 @@ public class AM021_CodeFixTests
         Solution solution = workspace.CurrentSolution
             .AddProject(projectId, "AM021Tests", "AM021Tests", LanguageNames.CSharp)
             .WithProjectCompilationOptions(projectId, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .WithProjectParseOptions(projectId, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview));
+            .WithProjectParseOptions(
+                projectId,
+                CSharpParseOptions.Default
+                    .WithLanguageVersion(LanguageVersion.Preview)
+                    .WithPreprocessorSymbols(preprocessorSymbols));
 
         string trustedPlatformAssemblies = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? string.Empty;
         foreach (string assemblyPath in trustedPlatformAssemblies.Split(Path.PathSeparator))

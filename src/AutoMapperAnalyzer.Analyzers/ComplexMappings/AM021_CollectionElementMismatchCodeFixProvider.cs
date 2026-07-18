@@ -349,37 +349,64 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             return false;
         }
 
+        ExpressionStatementSyntax? directStatement = GetDirectMappingStatement(invocation);
+        if (directStatement == null ||
+            ConditionalDirectiveSafety.IsInsideConditionalDirectiveRegion(directStatement))
+        {
+            return false;
+        }
+
         ConstructorDeclarationSyntax? constructor = invocation.Ancestors()
             .OfType<ConstructorDeclarationSyntax>()
             .FirstOrDefault(c => c.Body != null);
-        if (constructor?.Body != null)
+        if (constructor?.Body != null && constructor.Body.Statements.Contains(directStatement))
         {
-            StatementSyntax? statement = constructor.Body.Statements
-                .FirstOrDefault(s => s.DescendantNodes().Contains(invocation));
-            if (statement != null)
-            {
-                bodyOwner = constructor;
-                statementWithInvocation = statement;
-                return true;
-            }
+            bodyOwner = constructor;
+            statementWithInvocation = directStatement;
+            return true;
         }
 
         MethodDeclarationSyntax? method = invocation.Ancestors()
             .OfType<MethodDeclarationSyntax>()
             .FirstOrDefault(m => m.Body != null);
-        if (method?.Body != null)
+        if (method?.Body != null && method.Body.Statements.Contains(directStatement))
         {
-            StatementSyntax? statement = method.Body.Statements
-                .FirstOrDefault(s => s.DescendantNodes().Contains(invocation));
-            if (statement != null)
-            {
-                bodyOwner = method;
-                statementWithInvocation = statement;
-                return true;
-            }
+            bodyOwner = method;
+            statementWithInvocation = directStatement;
+            return true;
         }
 
         return false;
+    }
+
+    private static ExpressionStatementSyntax? GetDirectMappingStatement(
+        InvocationExpressionSyntax invocation)
+    {
+        ExpressionSyntax mappingExpression = invocation;
+        while (true)
+        {
+            if (mappingExpression.Parent is ParenthesizedExpressionSyntax parenthesized)
+            {
+                mappingExpression = parenthesized;
+                continue;
+            }
+
+            if (mappingExpression.Parent is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Expression == mappingExpression &&
+                memberAccess.Parent is InvocationExpressionSyntax chainedInvocation &&
+                chainedInvocation.Expression == memberAccess)
+            {
+                mappingExpression = chainedInvocation;
+                continue;
+            }
+
+            break;
+        }
+
+        return mappingExpression.Parent is ExpressionStatementSyntax statement &&
+               statement.Expression == mappingExpression
+            ? statement
+            : null;
     }
 
     private static bool IsUnqualifiedCreateMapInvocation(InvocationExpressionSyntax invocation)

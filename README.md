@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1685%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1691%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,21 +14,22 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.81
+## 🎉 Latest Release: v2.30.82
 
-**AM020 conditional block-body insertion safety**
+**AM021 direct-statement and conditional-region safety**
 
 ✅ **Highlights**
 
-- AM020 now withholds nested-map insertion when a diagnosed statement begins inside an open conditional region or directives split its fluent tokens, so a fix generated for one symbol set cannot corrupt or omit configuration in another.
-- Constructor and method blocks share the fail-closed boundary; ordinary mappings after a completed conditional region and the safe expression-bodied paths retain their existing fixes.
+- AM021 now withholds its complex element-map registration when the diagnosed mapping is nested or deferred, preventing a generated `CreateMap` from being hoisted outside a callback or local execution scope.
+- Direct statements inside or split by conditional-compilation regions also keep only Ignore. Direct constructor/method statements, parenthesized fluent chains, and mappings after completed conditional regions retain the complex action.
 
 🧪 **Validation**
 
-- AM020 analyzer, code-fix, and helper suite: **115** passed; clean-branch full suite: **1685** passed, 0 skipped, 0 failed on `net10.0`.
+- AM021 analyzer, code-fix, and helper suite: **70** passed; clean-branch full suite: **1691** passed, 0 skipped, 0 failed on `net10.0`.
 
 ### Recent Releases
 
+- **v2.30.82**: AM021 restricts complex element-map insertion to direct, unconditional constructor/method statements while retaining Ignore for nested, deferred, or conditional-region mappings.
 - **v2.30.81**: AM020 withholds constructor/method block insertion inside or across conditional regions while preserving fixes after completed conditional regions.
 - **v2.30.80**: AM020 converts direct expression-bodied `void` methods into executable blocks while retaining strict return, ownership, receiver, and trivia-safety gates.
 - **v2.30.79**: AM020 converts expression-bodied Profile constructors into executable blocks before appending a missing nested map.
@@ -246,7 +247,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.81">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.82">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

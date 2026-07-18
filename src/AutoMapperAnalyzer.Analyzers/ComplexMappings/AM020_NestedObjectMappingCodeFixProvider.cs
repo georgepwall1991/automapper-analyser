@@ -161,7 +161,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             createMapInvocation.Ancestors().OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
         if (constructor?.Body != null &&
             originalStatement != null &&
-            !IsInsideConditionalDirectiveRegion(originalStatement) &&
+            !ConditionalDirectiveSafety.IsInsideConditionalDirectiveRegion(originalStatement) &&
             constructor.Body.Statements.Contains(originalStatement))
         {
             bodyOwner = constructor;
@@ -183,7 +183,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             createMapInvocation.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
         if (method?.Body != null &&
             originalStatement != null &&
-            !IsInsideConditionalDirectiveRegion(originalStatement) &&
+            !ConditionalDirectiveSafety.IsInsideConditionalDirectiveRegion(originalStatement) &&
             method.Body.Statements.Contains(originalStatement))
         {
             bodyOwner = method;
@@ -229,34 +229,6 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         HasConditionalDirectives(expressionBody.DescendantTrivia(descendIntoTrivia: true)
             .Concat(semicolonToken.LeadingTrivia)
             .Concat(semicolonToken.TrailingTrivia));
-
-    private static bool IsInsideConditionalDirectiveRegion(ExpressionStatementSyntax statement)
-    {
-        int conditionalDepth = 0;
-        foreach (SyntaxTrivia trivia in statement.SyntaxTree.GetRoot()
-                     .DescendantTrivia(descendIntoTrivia: true))
-        {
-            if (trivia.SpanStart >= statement.SpanStart)
-            {
-                break;
-            }
-
-            if (trivia.IsKind(SyntaxKind.IfDirectiveTrivia))
-            {
-                conditionalDepth++;
-            }
-            else if (trivia.IsKind(SyntaxKind.EndIfDirectiveTrivia) && conditionalDepth > 0)
-            {
-                conditionalDepth--;
-            }
-        }
-
-        return conditionalDepth > 0 ||
-               HasConditionalDirectives(statement.DescendantTrivia(descendIntoTrivia: true)
-                   .Where(trivia =>
-                       trivia.SpanStart >= statement.SpanStart &&
-                       trivia.SpanStart < statement.Span.End));
-    }
 
     private static bool HasConditionalDirectives(IEnumerable<SyntaxTrivia> trivia) =>
         trivia.Any(item =>
