@@ -2052,6 +2052,146 @@ public class AM020_NestedObjectMappingCodeFixTests
     }
 
     [Fact]
+    public async Task AM020_CodeFix_ShouldNotOfferFix_WhenBlockStatementIsSplitByConditionalDirectives()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Address { }
+                                public class AddressDto { }
+                                public class Source { public Address HomeAddress { get; set; } }
+                                public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                public sealed class MappingInstaller
+                                {
+                                    public void Configure(IMapperConfigurationExpression configuration)
+                                    {
+                                #if REVERSE_MAP
+                                        configuration.CreateMap<Source, Destination>().ReverseMap();
+                                #else
+                                        configuration.CreateMap<Source, Destination>();
+                                #endif
+                                    }
+                                }
+                                """;
+
+        foreach (string[] preprocessorSymbols in new[]
+                 {
+                     Array.Empty<string>(),
+                     new[] { "REVERSE_MAP" }
+                 })
+        {
+            Document document = CreateDocument(testCode, preprocessorSymbols);
+            Compilation compilation = (await document.Project.GetCompilationAsync())!;
+            Assert.Empty(compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+            Diagnostic diagnostic = Assert.Single(await compilation.WithAnalyzers(
+                    [new AM020_NestedObjectMappingAnalyzer()])
+                .GetAnalyzerDiagnosticsAsync());
+
+            List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+            Assert.Empty(actions);
+        }
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldOfferFix_WhenConditionalRegionPrecedesUnconditionalBlockStatement()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Address { }
+                                public class AddressDto { }
+                                public class Source { public Address HomeAddress { get; set; } }
+                                public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                public sealed class MappingInstaller
+                                {
+                                    public void Configure(IMapperConfigurationExpression configuration)
+                                    {
+                                #if OPTIONAL_SETUP
+                                        _ = 1;
+                                #endif
+                                        configuration.CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         public class Address { }
+                                         public class AddressDto { }
+                                         public class Source { public Address HomeAddress { get; set; } }
+                                         public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                         public sealed class MappingInstaller
+                                         {
+                                             public void Configure(IMapperConfigurationExpression configuration)
+                                             {
+                                         #if OPTIONAL_SETUP
+                                                 _ = 1;
+                                         #endif
+                                                 configuration.CreateMap<Source, Destination>();
+                                                 configuration.CreateMap<Address, AddressDto>();
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(15, 9)
+                    .WithArguments("HomeAddress", "Address", "AddressDto"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldNotOfferFix_WhenConditionalDirectivesSplitFluentBlockStatement()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Address { }
+                                public class AddressDto { }
+                                public class Source { public Address HomeAddress { get; set; } }
+                                public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                public sealed class MappingInstaller
+                                {
+                                    public void Configure(IMapperConfigurationExpression configuration)
+                                    {
+                                        configuration
+                                #if REVERSE_MAP
+                                            .CreateMap<Source, Destination>().ReverseMap();
+                                #else
+                                            .CreateMap<Source, Destination>();
+                                #endif
+                                    }
+                                }
+                                """;
+
+        foreach (string[] preprocessorSymbols in new[]
+                 {
+                     Array.Empty<string>(),
+                     new[] { "REVERSE_MAP" }
+                 })
+        {
+            Document document = CreateDocument(testCode, preprocessorSymbols);
+            Compilation compilation = (await document.Project.GetCompilationAsync())!;
+            Assert.Empty(compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+            Diagnostic diagnostic = Assert.Single(await compilation.WithAnalyzers(
+                    [new AM020_NestedObjectMappingAnalyzer()])
+                .GetAnalyzerDiagnosticsAsync());
+
+            List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+            Assert.Empty(actions);
+        }
+    }
+
+    [Fact]
     public async Task AM020_CodeFix_ShouldPreserveArrowAndSemicolonComments_WhenExpandingVoidMethod()
     {
         const string testCode = """
@@ -2267,6 +2407,42 @@ public class AM020_NestedObjectMappingCodeFixTests
 
         Document document = CreateDocument(testCode, "REVERSE_MAP");
         Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = Assert.Single(await compilation.WithAnalyzers(
+                [new AM020_NestedObjectMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync());
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldNotOfferFix_WhenConstructorBlockStatementIsSplitByConditionalDirectives()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Address { }
+                                public class AddressDto { }
+                                public class Source { public Address HomeAddress { get; set; } }
+                                public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                #if REVERSE_MAP
+                                        CreateMap<Source, Destination>().ReverseMap();
+                                #else
+                                        CreateMap<Source, Destination>();
+                                #endif
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode, "REVERSE_MAP");
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Assert.Empty(compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
         Diagnostic diagnostic = Assert.Single(await compilation.WithAnalyzers(
                 [new AM020_NestedObjectMappingAnalyzer()])
             .GetAnalyzerDiagnosticsAsync());

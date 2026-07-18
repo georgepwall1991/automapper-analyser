@@ -161,6 +161,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             createMapInvocation.Ancestors().OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
         if (constructor?.Body != null &&
             originalStatement != null &&
+            !IsInsideConditionalDirectiveRegion(originalStatement) &&
             constructor.Body.Statements.Contains(originalStatement))
         {
             bodyOwner = constructor;
@@ -182,6 +183,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             createMapInvocation.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
         if (method?.Body != null &&
             originalStatement != null &&
+            !IsInsideConditionalDirectiveRegion(originalStatement) &&
             method.Body.Statements.Contains(originalStatement))
         {
             bodyOwner = method;
@@ -224,14 +226,44 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
     private static bool HasConditionalDirectives(
         ArrowExpressionClauseSyntax expressionBody,
         SyntaxToken semicolonToken) =>
-        expressionBody.DescendantTrivia(descendIntoTrivia: true)
+        HasConditionalDirectives(expressionBody.DescendantTrivia(descendIntoTrivia: true)
             .Concat(semicolonToken.LeadingTrivia)
-            .Concat(semicolonToken.TrailingTrivia)
-            .Any(trivia =>
-                trivia.IsKind(SyntaxKind.IfDirectiveTrivia) ||
-                trivia.IsKind(SyntaxKind.ElifDirectiveTrivia) ||
-                trivia.IsKind(SyntaxKind.ElseDirectiveTrivia) ||
-                trivia.IsKind(SyntaxKind.EndIfDirectiveTrivia));
+            .Concat(semicolonToken.TrailingTrivia));
+
+    private static bool IsInsideConditionalDirectiveRegion(ExpressionStatementSyntax statement)
+    {
+        int conditionalDepth = 0;
+        foreach (SyntaxTrivia trivia in statement.SyntaxTree.GetRoot()
+                     .DescendantTrivia(descendIntoTrivia: true))
+        {
+            if (trivia.SpanStart >= statement.SpanStart)
+            {
+                break;
+            }
+
+            if (trivia.IsKind(SyntaxKind.IfDirectiveTrivia))
+            {
+                conditionalDepth++;
+            }
+            else if (trivia.IsKind(SyntaxKind.EndIfDirectiveTrivia) && conditionalDepth > 0)
+            {
+                conditionalDepth--;
+            }
+        }
+
+        return conditionalDepth > 0 ||
+               HasConditionalDirectives(statement.DescendantTrivia(descendIntoTrivia: true)
+                   .Where(trivia =>
+                       trivia.SpanStart >= statement.SpanStart &&
+                       trivia.SpanStart < statement.Span.End));
+    }
+
+    private static bool HasConditionalDirectives(IEnumerable<SyntaxTrivia> trivia) =>
+        trivia.Any(item =>
+            item.IsKind(SyntaxKind.IfDirectiveTrivia) ||
+            item.IsKind(SyntaxKind.ElifDirectiveTrivia) ||
+            item.IsKind(SyntaxKind.ElseDirectiveTrivia) ||
+            item.IsKind(SyntaxKind.EndIfDirectiveTrivia));
 
     private static bool OwnsExpressionBody(
         InvocationExpressionSyntax createMapInvocation,

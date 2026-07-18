@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.81] - 2026-07-18
+
+AM020 conditional block-body insertion safety.
+
+### Changed
+
+- **Conditional block safety**: AM020 now withholds nested-map insertion when the diagnosed `CreateMap` statement begins inside an open `#if` region or conditional directives split its fluent tokens, preventing a fix generated for one active symbol set from corrupting or omitting configuration in another.
+- **Owner parity**: the fail-closed boundary applies to both constructor and method blocks. Ordinary unconditional block statements—including mappings after a completed conditional region—and the safe expression-bodied paths from 2.30.79–2.30.80 retain their existing fixes.
+
+### Validation
+
+- AM020 analyzer, code-fix, and helper suite: **115** passed.
+- Clean-branch full solution suite: **1685** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.80] - 2026-07-18
 
 AM020 expression-bodied void-method fixer parity.
