@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>79</PatchVersion>
+        <PatchVersion>80</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.79 - AM020 expression-bodied Profile constructor fixer parity
-- Expression-bodied Profile constructors expand into blocks before the missing nested map is appended
-- The original root CreateMap remains first, preserving configuration order
-- Computed, property, conditional, and indexed receivers remain fixless; expression-bodied methods are unchanged
+                <PackageReleaseNotes>Version 2.30.80 - AM020 expression-bodied void-method fixer parity
+- Direct expression-bodied void methods expand into blocks before the missing nested map is appended
+- Semantic void return and direct arrow-expression ownership preserve executable configuration order
+- Non-void methods, local functions, deferred maps, and unstable receivers remain fixless; arrow and semicolon comments are retained
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

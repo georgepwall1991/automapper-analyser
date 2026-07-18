@@ -68,6 +68,7 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | AM041 mutually exclusive registration branches | Configuration | main | v2.30.77 | Opposite arms of the same `if`/`else` or one `else if` chain no longer conflict within a single executable body; independent and unconditional duplicates remain diagnostic. |
 | AM020 stable configuration receiver fixes | Complex Mappings | main | v2.30.78 | Missing nested-map actions preserve stable semantic `IMapperConfigurationExpression` parameters, locals, and fields in constructor or method blocks; computed receivers remain fixless. |
 | AM020 expression-bodied Profile constructor fixer parity | Complex Mappings | main | v2.30.79 | Expression-bodied Profile constructors expand into blocks that preserve the original root map before the generated nested registration; unstable receivers and expression-bodied methods remain fixless. |
+| AM020 expression-bodied void-method fixer parity | Complex Mappings | main | v2.30.80 | Direct expression-bodied `void` methods expand into blocks that preserve the original root map before the generated nested registration; non-void methods, local functions, deferred maps, and unstable receivers remain fixless, while meaningful trivia around the arrow and semicolon is retained for both expression-bodied owners. |
 
 ## In Progress
 

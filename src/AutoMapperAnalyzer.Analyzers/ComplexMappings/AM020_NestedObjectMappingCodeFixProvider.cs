@@ -136,8 +136,8 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
 
     /// <summary>
     ///     Locates a constructor or method and an expression statement that can host inserted
-    ///     CreateMap statements after the original. Expression-bodied constructors are expanded
-    ///     into blocks; methods must already have block bodies. Returns false when apply would no-op.
+    ///     CreateMap statements after the original. Expression-bodied constructors and void methods
+    ///     are expanded into blocks. Returns false when apply would no-op.
     ///     Profile-style bare/<c>this</c> calls and stable AutoMapper configuration receivers qualify.
     ///     Computed receivers remain excluded so applying the fix cannot repeat side effects.
     /// </summary>
@@ -168,14 +168,12 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         }
 
         if (constructor?.ExpressionBody != null &&
-            OwnsConstructorExpressionBody(createMapInvocation, constructor.ExpressionBody.Expression))
+            !HasConditionalDirectives(constructor.ExpressionBody, constructor.SemicolonToken) &&
+            OwnsExpressionBody(createMapInvocation, constructor.ExpressionBody.Expression))
         {
-            ExpressionSyntax originalExpression = constructor.ExpressionBody.Expression.WithLeadingTrivia(
-                constructor.ExpressionBody.ArrowToken.TrailingTrivia.AddRange(
-                    constructor.ExpressionBody.Expression.GetLeadingTrivia()));
-            originalStatement = SyntaxFactory.ExpressionStatement(originalExpression)
-                .WithSemicolonToken(constructor.SemicolonToken)
-                .WithAdditionalAnnotations(Formatter.Annotation);
+            originalStatement = CreateExpressionStatement(
+                constructor.ExpressionBody,
+                constructor.SemicolonToken);
             bodyOwner = constructor;
             return true;
         }
@@ -190,10 +188,52 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             return true;
         }
 
+        if (method?.ExpressionBody != null &&
+            semanticModel.GetDeclaredSymbol(method) is { ReturnsVoid: true } &&
+            !HasConditionalDirectives(method.ExpressionBody, method.SemicolonToken) &&
+            OwnsExpressionBody(createMapInvocation, method.ExpressionBody.Expression))
+        {
+            originalStatement = CreateExpressionStatement(
+                method.ExpressionBody,
+                method.SemicolonToken);
+            bodyOwner = method;
+            return true;
+        }
+
         return false;
     }
 
-    private static bool OwnsConstructorExpressionBody(
+    private static ExpressionStatementSyntax CreateExpressionStatement(
+        ArrowExpressionClauseSyntax expressionBody,
+        SyntaxToken semicolonToken)
+    {
+        SyntaxTriviaList meaningfulArrowLeadingTrivia = SyntaxFactory.TriviaList(
+            expressionBody.ArrowToken.LeadingTrivia.SkipWhile(IsStructuralTrivia));
+        ExpressionSyntax originalExpression = expressionBody.Expression.WithLeadingTrivia(
+            meaningfulArrowLeadingTrivia
+                .AddRange(expressionBody.ArrowToken.TrailingTrivia)
+                .AddRange(expressionBody.Expression.GetLeadingTrivia()));
+        return SyntaxFactory.ExpressionStatement(originalExpression)
+            .WithSemicolonToken(semicolonToken)
+            .WithAdditionalAnnotations(Formatter.Annotation);
+    }
+
+    private static bool IsStructuralTrivia(SyntaxTrivia trivia) =>
+        trivia.IsKind(SyntaxKind.WhitespaceTrivia) || trivia.IsKind(SyntaxKind.EndOfLineTrivia);
+
+    private static bool HasConditionalDirectives(
+        ArrowExpressionClauseSyntax expressionBody,
+        SyntaxToken semicolonToken) =>
+        expressionBody.DescendantTrivia(descendIntoTrivia: true)
+            .Concat(semicolonToken.LeadingTrivia)
+            .Concat(semicolonToken.TrailingTrivia)
+            .Any(trivia =>
+                trivia.IsKind(SyntaxKind.IfDirectiveTrivia) ||
+                trivia.IsKind(SyntaxKind.ElifDirectiveTrivia) ||
+                trivia.IsKind(SyntaxKind.ElseDirectiveTrivia) ||
+                trivia.IsKind(SyntaxKind.EndIfDirectiveTrivia));
+
+    private static bool OwnsExpressionBody(
         InvocationExpressionSyntax createMapInvocation,
         ExpressionSyntax expressionBody)
     {
@@ -346,6 +386,22 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
                 BlockSyntax newBody = method.Body.WithStatements(
                     method.Body.Statements.InsertRange(originalIndex + 1, newStatements));
                 return document.WithSyntaxRoot(root.ReplaceNode(method, method.WithBody(newBody)));
+            }
+            case MethodDeclarationSyntax { ExpressionBody: not null } method:
+            {
+                SyntaxTriviaList structuralTrailingTrivia = SyntaxFactory.TriviaList(
+                    method.GetTrailingTrivia().Where(t =>
+                        t.IsKind(SyntaxKind.WhitespaceTrivia) || t.IsKind(SyntaxKind.EndOfLineTrivia)));
+                BlockSyntax newBody = SyntaxFactory.Block(
+                        new[] { originalStatement }.Concat(newStatements))
+                    .WithAdditionalAnnotations(Formatter.Annotation);
+                MethodDeclarationSyntax expandedMethod = method
+                    .WithExpressionBody(null)
+                    .WithSemicolonToken(default)
+                    .WithBody(newBody)
+                    .WithTrailingTrivia(structuralTrailingTrivia)
+                    .WithAdditionalAnnotations(Formatter.Annotation);
+                return document.WithSyntaxRoot(root.ReplaceNode(method, expandedMethod));
             }
             default:
                 return document;
