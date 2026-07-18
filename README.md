@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1667%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1681%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,21 +14,22 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.79
+## 🎉 Latest Release: v2.30.80
 
-**AM020 expression-bodied Profile constructor fixer parity**
+**AM020 expression-bodied void-method fixer parity**
 
 ✅ **Highlights**
 
-- AM020 now expands an expression-bodied Profile constructor into a block, preserves its original root map first, and appends the missing nested `CreateMap<TSource, TDestination>()` registration.
-- The rewrite retains AM020's stable-receiver boundary; computed, property, conditional, and indexed receivers remain fixless, and expression-bodied methods are unchanged.
+- AM020 now expands a direct expression-bodied `void` method into a block, preserves its original root map first, and appends the missing nested `CreateMap<TSource, TDestination>()` registration.
+- The rewrite requires semantic `void` return, direct arrow-expression ownership, and a stable receiver; non-void methods, local functions, deferred maps, unstable receivers, and expression bodies split by conditional directives remain fixless. Comments around the arrow and semicolon are preserved.
 
 🧪 **Validation**
 
-- AM020 analyzer and code-fix suite: **104** passed; clean-branch full suite: **1674** passed, 0 skipped, 0 failed on `net10.0`.
+- AM020 analyzer, code-fix, and helper suite: **111** passed; clean-branch full suite: **1681** passed, 0 skipped, 0 failed on `net10.0`.
 
 ### Recent Releases
 
+- **v2.30.80**: AM020 converts direct expression-bodied `void` methods into executable blocks while retaining strict return, ownership, receiver, and trivia-safety gates.
 - **v2.30.79**: AM020 converts expression-bodied Profile constructors into executable blocks before appending a missing nested map.
 - **v2.30.78**: AM020 preserves stable external configuration receivers for missing nested-map fixes while withholding computed receiver rewrites.
 - **v2.30.77**: AM041 excludes proven mutually exclusive `if`/`else` registration alternatives while preserving diagnostics for independent or unconditional duplicates.
@@ -244,7 +245,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.79">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.80">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

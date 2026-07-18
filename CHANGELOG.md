@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.80] - 2026-07-18
+
+AM020 expression-bodied void-method fixer parity.
+
+### Changed
+
+- **Expression-bodied void-method fix**: AM020 now expands a direct expression-bodied `void` method into a block, preserves the original root `CreateMap<TSource, TDestination>()` call as the first statement, and appends the missing nested registration after it.
+- **Semantic safety boundary**: the rewrite requires Roslyn to resolve the method as returning `void`, requires the diagnosed map to own the complete arrow expression, and reuses AM020's stable receiver gate. Non-void methods, local functions, nested or deferred maps, computed/property/conditional/indexed receivers, and expression bodies split by `#if`/`#else` remain fixless. Comments before and after the arrow plus semicolon/trailing comments are retained.
+
+### Validation
+
+- AM020 analyzer, code-fix, and helper suite: **111** passed.
+- Clean-branch full solution suite: **1681** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.79] - 2026-07-18
 
 AM020 expression-bodied Profile constructor fixer parity.
