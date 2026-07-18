@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>83</PatchVersion>
+        <PatchVersion>84</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.83 - AM021 Stack conversion order safety
-- Preserve top-to-bottom LIFO order when generating exact BCL Stack&lt;T&gt; element conversions
-- Reverse the converted enumeration before Stack&lt;T&gt; construction
-- Leave all other collection conversions and v2.30.82 insertion-safety gates unchanged
+                <PackageReleaseNotes>Version 2.30.84 - AM021 nested collection element fix safety
+- Withhold ineffective element CreateMap actions for nested generic collections and arrays
+- Keep nested collection element mismatches on the explicit manual-review path
+- Preserve plain domain-object maps, executable primitive conversions, dictionary handling, and Stack order
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.84] - 2026-07-18
+
+AM021 nested collection element fix safety.
+
+### Changed
+
+- **Withhold ineffective nested maps**: AM021 no longer offers `CreateMap<TSourceElement, TDestinationElement>()` when either collection element is itself a generic collection or array. Registrations such as `CreateMap<List<string>, List<int>>()` do not supply the missing inner `string` to `int` conversion and could silence the diagnostic without making the mapping executable.
+- **Manual-review boundary**: nested generic and array element mismatches retain the explicit Ignore action. Plain domain-object element pairs retain their existing element `CreateMap` action, while executable primitive conversions and dictionary handling remain unchanged.
+
+### Validation
+
+- AM021 analyzer, code-fix, and helper suite: **72** passed.
+- Clean-branch full solution suite: **1693** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.83] - 2026-07-18
 
 AM021 Stack conversion order safety.

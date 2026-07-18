@@ -846,6 +846,11 @@ mapping, and complex value-only mismatches can offer a value `CreateMap<TSourceV
 does not offer `CreateMap<KeyValuePair<...>, KeyValuePair<...>>()`, because that registration is not a reliable
 executable rewrite.
 
+When either collection element is itself a generic collection or array, AM021 also keeps the mismatch on the
+manual-review path. An element registration such as `CreateMap<List<string>, List<int>>()` does not provide the
+missing inner conversion and can suppress the warning without making the mapping executable. Plain domain-object
+element pairs still receive the focused element `CreateMap` action.
+
 For simple element conversions, AM021 generates `global::System.Convert`, `global::System.DateTime`, and `global::System.Guid` calls so the fix remains stable even when the project contains types with the same short names.
 
 #### Solution
@@ -1655,7 +1660,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.83">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.84">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1694,5 +1699,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.83
+**Version**: 2.30.84
 **Maintainer**: George Wall

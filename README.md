@@ -14,21 +14,22 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.83
+## 🎉 Latest Release: v2.30.84
 
-**AM021 Stack conversion order safety**
+**AM021 nested collection element fix safety**
 
 ✅ **Highlights**
 
-- AM021 now preserves top-to-bottom LIFO order when converting an exact BCL `Stack<T>` by reversing the converted enumeration before construction.
-- Other collection conversions and the v2.30.82 direct-statement/conditional-region insertion gates remain unchanged.
+- AM021 now withholds ineffective `CreateMap<List<A>, List<B>>()` and array-element map actions that cannot supply the missing inner conversion.
+- Nested generic and array element mismatches retain Ignore; plain domain-object element maps, executable simple conversions, dictionaries, and Stack order preservation remain unchanged.
 
 🧪 **Validation**
 
-- AM021 analyzer, code-fix, and helper suite: **70** passed; clean-branch full suite: **1691** passed, 0 skipped, 0 failed on `net10.0`.
+- AM021 analyzer, code-fix, and helper suite: **72** passed; clean-branch full suite: **1693** passed, 0 skipped, 0 failed on `net10.0`.
 
 ### Recent Releases
 
+- **v2.30.84**: AM021 keeps nested generic and array element mismatches manual-only instead of offering ineffective element `CreateMap` registrations.
 - **v2.30.83**: AM021 preserves exact BCL `Stack<T>` LIFO order in generated element-conversion fixes.
 - **v2.30.82**: AM021 restricts complex element-map insertion to direct, unconditional constructor/method statements while retaining Ignore for nested, deferred, or conditional-region mappings.
 - **v2.30.81**: AM020 withholds constructor/method block insertion inside or across conditional regions while preserving fixes after completed conditional regions.
@@ -248,7 +249,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.83">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.84">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
