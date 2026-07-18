@@ -6,6 +6,7 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Formatting;
 
 namespace AutoMapperAnalyzer.Analyzers.ComplexMappings;
 
@@ -44,7 +45,12 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             }
 
             // Preflight: only advertise a fix when apply can insert into a block body.
-            if (!TryGetCreateMapInsertTarget(invocation, out _, out _))
+            if (!TryGetCreateMapInsertTarget(
+                    invocation,
+                    operationContext.SemanticModel,
+                    out _,
+                    out _,
+                    out _))
             {
                 continue;
             }
@@ -107,13 +113,23 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             return document;
         }
 
-        if (!TryGetCreateMapInsertTarget(createMapInvocation, out SyntaxNode? bodyOwner, out ExpressionStatementSyntax? originalStatement))
+        if (!TryGetCreateMapInsertTarget(
+                createMapInvocation,
+                semanticModel,
+                out SyntaxNode? bodyOwner,
+                out ExpressionStatementSyntax? originalStatement,
+                out ExpressionSyntax? receiver))
         {
             return document;
         }
 
         ExpressionStatementSyntax[] newStatements = missingMappings.Select(m =>
-            CreateCreateMapStatement(m.sourceType, m.destinationType, semanticModel, createMapInvocation.SpanStart)).ToArray();
+            CreateCreateMapStatement(
+                m.sourceType,
+                m.destinationType,
+                semanticModel,
+                createMapInvocation.SpanStart,
+                receiver)).ToArray();
 
         return InsertCreateMapStatements(document, root, bodyOwner!, originalStatement!, newStatements);
     }
@@ -121,17 +137,25 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
     /// <summary>
     ///     Locates a block body (constructor or method) and expression statement that can host
     ///     inserted CreateMap statements after the original. Returns false when apply would no-op.
-    ///     Method bodies only qualify when CreateMap is bare/<c>this</c> (Profile-style); receiver-qualified
-    ///     calls such as <c>cfg.CreateMap&lt;,&gt;()</c> are withheld because the fix emits unqualified CreateMap.
+    ///     Profile-style bare/<c>this</c> calls and stable AutoMapper configuration receivers qualify.
+    ///     Computed receivers remain excluded so applying the fix cannot repeat side effects.
     /// </summary>
     private static bool TryGetCreateMapInsertTarget(
         InvocationExpressionSyntax createMapInvocation,
+        SemanticModel semanticModel,
         out SyntaxNode? bodyOwner,
-        out ExpressionStatementSyntax? originalStatement)
+        out ExpressionStatementSyntax? originalStatement,
+        out ExpressionSyntax? receiver)
     {
         bodyOwner = null;
+        receiver = null;
         originalStatement = createMapInvocation.Ancestors().OfType<ExpressionStatementSyntax>().FirstOrDefault();
         if (originalStatement == null)
+        {
+            return false;
+        }
+
+        if (!TryGetCreateMapReceiver(createMapInvocation, semanticModel, out receiver))
         {
             return false;
         }
@@ -140,13 +164,6 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             createMapInvocation.Ancestors().OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
         if (constructor?.Body != null && constructor.Body.Statements.Contains(originalStatement))
         {
-            // Profile constructors almost always use bare CreateMap; still gate on unqualified form
-            // so cfg.CreateMap inside a ctor cannot produce a compile-breaking insert.
-            if (!IsUnqualifiedCreateMapInvocation(createMapInvocation))
-            {
-                return false;
-            }
-
             bodyOwner = constructor;
             return true;
         }
@@ -154,8 +171,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         MethodDeclarationSyntax? method =
             createMapInvocation.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
         if (method?.Body != null &&
-            method.Body.Statements.Contains(originalStatement) &&
-            IsUnqualifiedCreateMapInvocation(createMapInvocation))
+            method.Body.Statements.Contains(originalStatement))
         {
             bodyOwner = method;
             return true;
@@ -165,12 +181,16 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
     }
 
     /// <summary>
-    ///     True when the mapping chain roots at CreateMap without an external receiver (bare or <c>this</c>),
-    ///     so an unqualified <c>CreateMap&lt;,&gt;()</c> insert will compile. Peels fluent chains
-    ///     (e.g. diagnostics on <c>ReverseMap()</c>).
+    ///     Resolves the root CreateMap in a fluent chain and returns the stable configuration receiver
+    ///     that must be preserved. Bare and <c>this</c> Profile calls return a null receiver so the
+    ///     generated registration stays unqualified.
     /// </summary>
-    private static bool IsUnqualifiedCreateMapInvocation(InvocationExpressionSyntax invocation)
+    private static bool TryGetCreateMapReceiver(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel,
+        out ExpressionSyntax? receiver)
     {
+        receiver = null;
         InvocationExpressionSyntax? current = invocation;
         while (current != null)
         {
@@ -179,10 +199,46 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
                 return true;
             }
 
+            if (current.Expression is MemberAccessExpressionSyntax memberAccess &&
+                GetMemberName(memberAccess.Name) == "CreateMap" &&
+                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(current, semanticModel, "CreateMap") &&
+                IsStableConfigurationReceiver(memberAccess.Expression, semanticModel))
+            {
+                receiver = memberAccess.Expression.WithoutTrivia();
+                return true;
+            }
+
             current = (current.Expression as MemberAccessExpressionSyntax)?.Expression as InvocationExpressionSyntax;
         }
 
         return false;
+    }
+
+    private static bool IsStableConfigurationReceiver(ExpressionSyntax receiver, SemanticModel semanticModel)
+    {
+        ISymbol? receiverSymbol = semanticModel.GetSymbolInfo(receiver).Symbol;
+        bool isStableStorage = receiver switch
+        {
+            IdentifierNameSyntax => receiverSymbol is ILocalSymbol or IParameterSymbol or IFieldSymbol,
+            MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } => receiverSymbol is IFieldSymbol,
+            _ => false
+        };
+
+        if (!isStableStorage)
+        {
+            return false;
+        }
+
+        INamedTypeSymbol? configurationType = semanticModel.Compilation.GetTypeByMetadataName(
+            "AutoMapper.IMapperConfigurationExpression");
+        ITypeSymbol? receiverType = semanticModel.GetTypeInfo(receiver).Type;
+        if (configurationType == null || receiverType == null)
+        {
+            return false;
+        }
+
+        return SymbolEqualityComparer.Default.Equals(receiverType, configurationType) ||
+               receiverType.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i, configurationType));
     }
 
     private static bool IsDirectUnqualifiedCreateMap(InvocationExpressionSyntax invocation)
@@ -368,20 +424,33 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
     }
 
     private static ExpressionStatementSyntax CreateCreateMapStatement(INamedTypeSymbol sourceType,
-        INamedTypeSymbol destinationType, SemanticModel semanticModel, int position)
+        INamedTypeSymbol destinationType,
+        SemanticModel semanticModel,
+        int position,
+        ExpressionSyntax? receiver)
     {
+        GenericNameSyntax createMapName = SyntaxFactory.GenericName(SyntaxFactory.Identifier("CreateMap"))
+            .WithTypeArgumentList(
+                SyntaxFactory.TypeArgumentList(
+                    SyntaxFactory.SeparatedList(new[]
+                    {
+                        CreateTypeName(sourceType, semanticModel, position),
+                        CreateTypeName(destinationType, semanticModel, position)
+                    })));
+
+        ExpressionSyntax createMapExpression = receiver == null
+            ? createMapName
+            : SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                receiver,
+                createMapName);
+
         InvocationExpressionSyntax createMapCall = SyntaxFactory.InvocationExpression(
-                SyntaxFactory.GenericName(SyntaxFactory.Identifier("CreateMap"))
-                    .WithTypeArgumentList(
-                        SyntaxFactory.TypeArgumentList(
-                            SyntaxFactory.SeparatedList(new[]
-                            {
-                                CreateTypeName(sourceType, semanticModel, position),
-                                CreateTypeName(destinationType, semanticModel, position)
-                            }))))
+                createMapExpression)
             .WithArgumentList(SyntaxFactory.ArgumentList());
 
-        return SyntaxFactory.ExpressionStatement(createMapCall);
+        return SyntaxFactory.ExpressionStatement(createMapCall)
+            .WithAdditionalAnnotations(Formatter.Annotation);
     }
 
     private static TypeSyntax CreateTypeName(INamedTypeSymbol type, SemanticModel semanticModel, int position)

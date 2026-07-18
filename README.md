@@ -14,21 +14,22 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.77
+## 🎉 Latest Release: v2.30.78
 
-**AM041 mutually exclusive branch precision**
+**AM020 stable configuration receiver fixes**
 
 ✅ **Highlights**
 
-- AM041 no longer reports duplicate `CreateMap<TSource, TDestination>()` registrations that occupy opposite arms of the same `if`/`else` or one `if`/`else if`/`else` chain within a single executable body, because those registrations cannot execute together.
-- Independent `if` statements and registrations outside the mutually exclusive chain remain diagnostic, so the duplicate-removal fixer is withheld only for the proven non-conflicting branch shape.
+- AM020 now preserves a stable `IMapperConfigurationExpression` parameter, local, or field when inserting a missing nested `CreateMap<TSource, TDestination>()` from a constructor or method body.
+- Computed, property, conditional, and indexed receivers remain fixless, preventing repeated evaluation and ownership-changing rewrites.
 
 🧪 **Validation**
 
-- AM041 analyzer and code-fix suite: **49** passed; clean-branch full suite: **1667** passed, 0 skipped, 0 failed on `net10.0`.
+- AM020 analyzer and code-fix suite: **100** passed; clean-branch full suite: **1670** passed, 0 skipped, 0 failed on `net10.0`.
 
 ### Recent Releases
 
+- **v2.30.78**: AM020 preserves stable external configuration receivers for missing nested-map fixes while withholding computed receiver rewrites.
 - **v2.30.77**: AM041 excludes proven mutually exclusive `if`/`else` registration alternatives while preserving diagnostics for independent or unconditional duplicates.
 - **v2.30.76**: AM022 honors deferred root `MaxDepth`, `PreserveReferences`, and `ConvertUsing` configuration through direct mapping locals while retaining direction and duplicate ambiguity boundaries.
 - **v2.30.75**: AM022 follows direct constructor-owned recursion edges, distinguishes safe mixed-path `MaxDepth` from unsafe construction-only recursion, and withholds ineffective constructor-owned fixes.
@@ -189,8 +190,8 @@ var config = new MapperConfiguration(cfg =>
 
 ### 🧩 **Complex Mapping Intelligence**
 
-- **AM020**: Nested object mapping validation with CreateMap suggestions (supports internal properties & cross-profile
-  detection)
+- **AM020**: Nested object mapping validation with receiver-preserving CreateMap suggestions (supports internal properties,
+  cross-profile detection, and stable external configuration receivers)
 - **AM021**: Collection element type analysis with conversion strategies
 - **AM022**: Circular reference detection with MaxDepth recommendations
 - **AM030/AM032/AM033**: Custom type converter implementation, null safety, and usage validation
@@ -242,7 +243,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.77">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.78">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

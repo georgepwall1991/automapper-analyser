@@ -743,6 +743,10 @@ Diagnostics preserve constructed generic type arguments for nested object types,
 Built-in framework types such as `System.Guid`, `System.DateOnly`, `System.TimeOnly`, and `System.Uri` are excluded by
 namespace-aware classification; user-defined types with the same short names can still receive generated nested
 `CreateMap` registrations.
+When the diagnosed mapping is invoked through a stable `IMapperConfigurationExpression` parameter, local, or field in
+a constructor or method block, the code fix preserves that receiver on the generated nested registration. Computed,
+property, conditional, and indexed receivers remain fixless so the action never repeats potentially side-effecting
+receiver evaluation.
 
 #### Internal Property Support
 
@@ -1648,7 +1652,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.77">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.78">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1687,5 +1691,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.77
+**Version**: 2.30.78
 **Maintainer**: George Wall
