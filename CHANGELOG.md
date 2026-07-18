@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.83] - 2026-07-18
+
+AM021 Stack conversion order safety.
+
+### Fixed
+
+- **Preserve LIFO order**: AM021 now appends `Reverse()` to the converted sequence before constructing an exact BCL `Stack<T>`, preventing the generated element-conversion fix from silently reversing top-to-bottom order.
+- **Narrow collection semantics**: queue, array, list, set, immutable, dictionary, custom-collection, diagnostic-ownership, and v2.30.82 insertion-safety behavior remain unchanged.
+
+### Validation
+
+- AM021 analyzer, code-fix, and helper suite: **70** passed.
+- Clean-branch full solution suite: **1691** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.82] - 2026-07-18
 
 AM021 direct-statement and conditional-region safety.

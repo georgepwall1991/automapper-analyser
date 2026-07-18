@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>82</PatchVersion>
+        <PatchVersion>83</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.82 - AM021 direct-statement and conditional-region safety
-- Withhold complex element-map insertion when the diagnosed mapping is nested or deferred
-- Require direct, unconditional constructor or method block statement ownership before adding CreateMap
-- Share AM020's conditional-region guard and preserve Ignore plus safe direct/completed-region actions
+                <PackageReleaseNotes>Version 2.30.83 - AM021 Stack conversion order safety
+- Preserve top-to-bottom LIFO order when generating exact BCL Stack&lt;T&gt; element conversions
+- Reverse the converted enumeration before Stack&lt;T&gt; construction
+- Leave all other collection conversions and v2.30.82 insertion-safety gates unchanged
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
