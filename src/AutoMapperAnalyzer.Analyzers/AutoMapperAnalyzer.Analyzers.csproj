@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>77</PatchVersion>
+        <PatchVersion>78</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.77 - AM041 mutually exclusive branch precision
-- Duplicate CreateMap registrations in opposite arms of one if/else or else-if chain no longer report when they share one executable body
-- Independent if statements and registrations outside the mutually exclusive chain remain diagnostic
-- Prevents the SafeRewrite fixer from deleting a runtime configuration alternative that is not a duplicate
+                <PackageReleaseNotes>Version 2.30.78 - AM020 stable configuration receiver fixes
+- Missing nested-map actions preserve stable IMapperConfigurationExpression parameters, locals, and fields
+- Constructor and method block fixes emit the nested CreateMap through the original stable receiver
+- Computed, property, conditional, and indexed receivers remain fixless to avoid repeated evaluation
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.78] - 2026-07-18
+
+AM020 stable configuration receiver fixes.
+
+### Changed
+
+- **Receiver-preserving nested-map fix**: AM020 now offers its missing nested `CreateMap<TSource, TDestination>()` action for block-bodied constructor and method calls rooted at a stable `IMapperConfigurationExpression` parameter, local, or field, and emits the new registration through that same receiver.
+- **Side-effect boundary**: invocation, property, conditional, and indexed receivers remain fixless, so applying the action never repeats potentially side-effecting receiver evaluation or silently changes configuration ownership. Existing bare and `this.CreateMap(...)` Profile fixes retain their behavior.
+
+### Validation
+
+- AM020 analyzer and code-fix suite: **100** passed.
+- Clean-branch full solution suite: **1670** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.77] - 2026-07-18
 
 AM041 mutually exclusive branch precision.
