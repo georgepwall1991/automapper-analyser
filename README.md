@@ -14,21 +14,22 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.78
+## 🎉 Latest Release: v2.30.79
 
-**AM020 stable configuration receiver fixes**
+**AM020 expression-bodied Profile constructor fixer parity**
 
 ✅ **Highlights**
 
-- AM020 now preserves a stable `IMapperConfigurationExpression` parameter, local, or field when inserting a missing nested `CreateMap<TSource, TDestination>()` from a constructor or method body.
-- Computed, property, conditional, and indexed receivers remain fixless, preventing repeated evaluation and ownership-changing rewrites.
+- AM020 now expands an expression-bodied Profile constructor into a block, preserves its original root map first, and appends the missing nested `CreateMap<TSource, TDestination>()` registration.
+- The rewrite retains AM020's stable-receiver boundary; computed, property, conditional, and indexed receivers remain fixless, and expression-bodied methods are unchanged.
 
 🧪 **Validation**
 
-- AM020 analyzer and code-fix suite: **100** passed; clean-branch full suite: **1670** passed, 0 skipped, 0 failed on `net10.0`.
+- AM020 analyzer and code-fix suite: **104** passed; clean-branch full suite: **1674** passed, 0 skipped, 0 failed on `net10.0`.
 
 ### Recent Releases
 
+- **v2.30.79**: AM020 converts expression-bodied Profile constructors into executable blocks before appending a missing nested map.
 - **v2.30.78**: AM020 preserves stable external configuration receivers for missing nested-map fixes while withholding computed receiver rewrites.
 - **v2.30.77**: AM041 excludes proven mutually exclusive `if`/`else` registration alternatives while preserving diagnostics for independent or unconditional duplicates.
 - **v2.30.76**: AM022 honors deferred root `MaxDepth`, `PreserveReferences`, and `ConvertUsing` configuration through direct mapping locals while retaining direction and duplicate ambiguity boundaries.
@@ -191,7 +192,7 @@ var config = new MapperConfiguration(cfg =>
 ### 🧩 **Complex Mapping Intelligence**
 
 - **AM020**: Nested object mapping validation with receiver-preserving CreateMap suggestions (supports internal properties,
-  cross-profile detection, and stable external configuration receivers)
+  cross-profile detection, stable external configuration receivers, and expression-bodied Profile constructors)
 - **AM021**: Collection element type analysis with conversion strategies
 - **AM022**: Circular reference detection with MaxDepth recommendations
 - **AM030/AM032/AM033**: Custom type converter implementation, null safety, and usage validation
@@ -243,7 +244,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.78">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.79">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

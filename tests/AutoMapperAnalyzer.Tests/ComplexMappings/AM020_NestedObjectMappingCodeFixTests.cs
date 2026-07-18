@@ -1909,6 +1909,159 @@ public class AM020_NestedObjectMappingCodeFixTests
         Assert.Empty(actions);
     }
 
+    [Fact]
+    public async Task AM020_CodeFix_ShouldExpandExpressionBodiedProfileConstructor()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Address { }
+                                public class AddressDto { }
+                                public class Source { public Address HomeAddress { get; set; } }
+                                public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile() => CreateMap<Source, Destination>();
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         public class Address { }
+                                         public class AddressDto { }
+                                         public class Source { public Address HomeAddress { get; set; } }
+                                         public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                         public sealed class TestProfile : Profile
+                                         {
+                                             public TestProfile()
+                                             {
+                                                 CreateMap<Source, Destination>();
+                                                 CreateMap<Address, AddressDto>();
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(10, 29)
+                    .WithArguments("HomeAddress", "Address", "AddressDto"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldNotOfferFix_ForComputedReceiverInExpressionBodiedConstructor()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Address { }
+                                public class AddressDto { }
+                                public class Source { public Address HomeAddress { get; set; } }
+                                public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                public sealed class MappingInstaller
+                                {
+                                    private readonly IMapperConfigurationExpression _configuration;
+
+                                    public MappingInstaller(IMapperConfigurationExpression configuration)
+                                        => GetConfiguration().CreateMap<Source, Destination>();
+
+                                    private IMapperConfigurationExpression GetConfiguration() => _configuration;
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = Assert.Single(await compilation.WithAnalyzers(
+                [new AM020_NestedObjectMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync());
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldNotOfferFix_WhenExpressionBodiedConstructorDefersMapInCallback()
+    {
+        const string testCode = """
+                                using System;
+                                using AutoMapper;
+
+                                public class Address { }
+                                public class AddressDto { }
+                                public class Source { public Address HomeAddress { get; set; } }
+                                public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile() => Register(() => CreateMap<Source, Destination>());
+
+                                    private static void Register(Action callback) => callback();
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Compilation compilation = (await document.Project.GetCompilationAsync())!;
+        Diagnostic diagnostic = Assert.Single(await compilation.WithAnalyzers(
+                [new AM020_NestedObjectMappingAnalyzer()])
+            .GetAnalyzerDiagnosticsAsync());
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Empty(actions);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldPreserveArrowAndSemicolonComments_WhenExpandingConstructor()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Address { }
+                                public class AddressDto { }
+                                public class Source { public Address HomeAddress { get; set; } }
+                                public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile() => /* keep-arrow */ CreateMap<Source, Destination>() /* keep-semicolon */; // keep-trailing
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         public class Address { }
+                                         public class AddressDto { }
+                                         public class Source { public Address HomeAddress { get; set; } }
+                                         public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                         public sealed class TestProfile : Profile
+                                         {
+                                             public TestProfile()
+                                             {
+                                                 /* keep-arrow */
+                                                 CreateMap<Source, Destination>() /* keep-semicolon */; // keep-trailing
+                                                 CreateMap<Address, AddressDto>();
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(10, 46)
+                    .WithArguments("HomeAddress", "Address", "AddressDto"),
+                expectedFixedCode);
+    }
+
     private static Document CreateDocument(string source)
     {
         var workspace = new AdhocWorkspace();

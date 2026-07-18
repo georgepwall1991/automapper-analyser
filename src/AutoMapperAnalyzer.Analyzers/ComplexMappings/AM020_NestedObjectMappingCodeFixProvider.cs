@@ -135,8 +135,9 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
     }
 
     /// <summary>
-    ///     Locates a block body (constructor or method) and expression statement that can host
-    ///     inserted CreateMap statements after the original. Returns false when apply would no-op.
+    ///     Locates a constructor or method and an expression statement that can host inserted
+    ///     CreateMap statements after the original. Expression-bodied constructors are expanded
+    ///     into blocks; methods must already have block bodies. Returns false when apply would no-op.
     ///     Profile-style bare/<c>this</c> calls and stable AutoMapper configuration receivers qualify.
     ///     Computed receivers remain excluded so applying the fix cannot repeat side effects.
     /// </summary>
@@ -150,10 +151,6 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         bodyOwner = null;
         receiver = null;
         originalStatement = createMapInvocation.Ancestors().OfType<ExpressionStatementSyntax>().FirstOrDefault();
-        if (originalStatement == null)
-        {
-            return false;
-        }
 
         if (!TryGetCreateMapReceiver(createMapInvocation, semanticModel, out receiver))
         {
@@ -162,8 +159,23 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
 
         ConstructorDeclarationSyntax? constructor =
             createMapInvocation.Ancestors().OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
-        if (constructor?.Body != null && constructor.Body.Statements.Contains(originalStatement))
+        if (constructor?.Body != null &&
+            originalStatement != null &&
+            constructor.Body.Statements.Contains(originalStatement))
         {
+            bodyOwner = constructor;
+            return true;
+        }
+
+        if (constructor?.ExpressionBody != null &&
+            OwnsConstructorExpressionBody(createMapInvocation, constructor.ExpressionBody.Expression))
+        {
+            ExpressionSyntax originalExpression = constructor.ExpressionBody.Expression.WithLeadingTrivia(
+                constructor.ExpressionBody.ArrowToken.TrailingTrivia.AddRange(
+                    constructor.ExpressionBody.Expression.GetLeadingTrivia()));
+            originalStatement = SyntaxFactory.ExpressionStatement(originalExpression)
+                .WithSemicolonToken(constructor.SemicolonToken)
+                .WithAdditionalAnnotations(Formatter.Annotation);
             bodyOwner = constructor;
             return true;
         }
@@ -171,6 +183,7 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         MethodDeclarationSyntax? method =
             createMapInvocation.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
         if (method?.Body != null &&
+            originalStatement != null &&
             method.Body.Statements.Contains(originalStatement))
         {
             bodyOwner = method;
@@ -178,6 +191,44 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
         }
 
         return false;
+    }
+
+    private static bool OwnsConstructorExpressionBody(
+        InvocationExpressionSyntax createMapInvocation,
+        ExpressionSyntax expressionBody)
+    {
+        ExpressionSyntax mappingExpression = createMapInvocation;
+        while (true)
+        {
+            if (mappingExpression.Parent is ParenthesizedExpressionSyntax parenthesized)
+            {
+                mappingExpression = parenthesized;
+                continue;
+            }
+
+            if (mappingExpression.Parent is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Expression == mappingExpression &&
+                memberAccess.Parent is InvocationExpressionSyntax chainedInvocation &&
+                chainedInvocation.Expression == memberAccess)
+            {
+                mappingExpression = chainedInvocation;
+                continue;
+            }
+
+            break;
+        }
+
+        while (mappingExpression is ParenthesizedExpressionSyntax mappingParentheses)
+        {
+            mappingExpression = mappingParentheses.Expression;
+        }
+
+        while (expressionBody is ParenthesizedExpressionSyntax bodyParentheses)
+        {
+            expressionBody = bodyParentheses.Expression;
+        }
+
+        return mappingExpression == expressionBody;
     }
 
     /// <summary>
@@ -272,6 +323,22 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
                 BlockSyntax newBody = constructor.Body.WithStatements(
                     constructor.Body.Statements.InsertRange(originalIndex + 1, newStatements));
                 return document.WithSyntaxRoot(root.ReplaceNode(constructor, constructor.WithBody(newBody)));
+            }
+            case ConstructorDeclarationSyntax { ExpressionBody: not null } constructor:
+            {
+                SyntaxTriviaList structuralTrailingTrivia = SyntaxFactory.TriviaList(
+                    constructor.GetTrailingTrivia().Where(t =>
+                        t.IsKind(SyntaxKind.WhitespaceTrivia) || t.IsKind(SyntaxKind.EndOfLineTrivia)));
+                BlockSyntax newBody = SyntaxFactory.Block(
+                        new[] { originalStatement }.Concat(newStatements))
+                    .WithAdditionalAnnotations(Formatter.Annotation);
+                ConstructorDeclarationSyntax expandedConstructor = constructor
+                    .WithExpressionBody(null)
+                    .WithSemicolonToken(default)
+                    .WithBody(newBody)
+                    .WithTrailingTrivia(structuralTrailingTrivia)
+                    .WithAdditionalAnnotations(Formatter.Annotation);
+                return document.WithSyntaxRoot(root.ReplaceNode(constructor, expandedConstructor));
             }
             case MethodDeclarationSyntax method when method.Body != null:
             {
