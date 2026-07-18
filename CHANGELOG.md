@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## [2.30.75] - 2026-07-18
+
+AM022 constructor-parameter cycle ownership.
+
+### Changed
+
+- **AM022 `ForCtorParam` edges**: unique semantic AutoMapper constructor-parameter mappings with a direct source-property selector now participate in root and downstream recursion graphs when the selected constructor assigns that parameter to one destination property, whether writable, read-only, or the compiler-generated property of the same positional-record parameter.
+- **Member override replay**: when a writable constructor-owned destination property also has an explicit `ForMember(...MapFrom(...))`, AM022 retains both the construction edge and the later member edge so post-construction recursion cannot be hidden by constructor analysis.
+- **Deferred converter ownership**: `ConvertUsing` configured later through a direct local mapping variable remains authoritative for constrained constructor maps, matching the registry's existing deferred cycle-breaker model.
+- **Constructor-aware cycle breaking**: `ForMember(...Ignore())` and `PreserveReferences` no longer hide a constructor-owned recursive edge because AutoMapper resolves constructor arguments before member mapping and before a destination instance can participate in reference tracking. `MaxDepth` remains effective for mixed constructor/member cycles, but not for self-cycles or multi-type cycles whose complete return path is constructor-owned. Constructor-owned diagnostics withhold all automatic actions; `ConvertUsing` remains the explicit construction-ownership escape hatch.
+- **Conservative boundary**: duplicate constructor-parameter configuration, invalid parameter paths, transformed selectors, uninvoked local helpers, ambiguous/additional constructor uses, metadata-only ownership, and lookalike APIs remain outside inference. Ordinary member cycles still respect `MaxDepth` and `PreserveReferences`, and `ConvertUsing` continues to terminate every traversal shape.
+
+### Validation
+
+- AM022 analyzer and code-fix suite: **111** passed.
+- Clean-branch full solution suite: **1626** passed, 0 skipped, 0 failed on `net10.0`.
+- AutoMapper 14 runtime proofs: property Ignore left the constructor-created recursive value intact; `MaxDepth(2)` and `PreserveReferences()` both stack-overflowed on a self-cycle; `PreserveReferences()` also stack-overflowed on a mixed constructor/member cycle; `MaxDepth(2)` terminated mixed cycles but stack-overflowed when every cycle edge was constructor-owned. Reported constructor-owned diagnostics therefore expose no automatic fix.
+
 ## [2.30.74] - 2026-07-17
 
 AM002 constructor-parameter null-safety ownership.

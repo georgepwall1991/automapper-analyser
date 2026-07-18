@@ -2648,4 +2648,1207 @@ public class AM022_InfiniteRecursionTests
             .ExpectNoDiagnostics()
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenForCtorParamOwnsRenamedSelfReference()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Ancestor));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                24,
+                13,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldStillReportDiagnostic_WhenForMemberIgnoreCannotBreakConstructorOwnedCycle()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Ancestor))
+                                                .ForMember(destination => destination.Parent, options => options.Ignore());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                24,
+                13,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldStillReportDiagnostic_WhenWritableConstructorOwnedCycleIsIgnoredAfterConstruction()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Ancestor))
+                                                .ForMember(destination => destination.Parent, options => options.Ignore());
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                24,
+                13,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenForCtorParamTransformsTheSourceValue()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => SelectAncestor(source.Ancestor)));
+                                        }
+
+                                        private static SourceNode SelectAncestor(SourceNode node) => node;
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenForCtorParamCycleHasIneffectiveMaxDepth()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Ancestor))
+                                                .MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                24,
+                13,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenWritableForCtorParamCycleHasIneffectiveMaxDepth()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Ancestor))
+                                                .MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                24,
+                13,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenForCtorParamCycleHasIneffectivePreserveReferences()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Ancestor))
+                                                .PreserveReferences();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                24,
+                13,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenWritableForCtorParamCycleHasIneffectivePreserveReferences()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Ancestor))
+                                                .PreserveReferences();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                24,
+                13,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenConvertUsingOwnsForCtorParamCycle()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Ancestor))
+                                                .ConvertUsing(source => new DestinationNode(null));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenForCtorParamOwnershipIsAmbiguous()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                        public SourceNode OtherAncestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Ancestor))
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.OtherAncestor));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenForCtorParamMapFromIsInUninvokedLocalHelper()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode", options =>
+                                                {
+                                                    void Configure() =>
+                                                        options.MapFrom(source => source.Ancestor);
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenForCtorParamNameIsNotExact()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public SourceNode Ancestor { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationNode Parent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("parentNode.Path", options =>
+                                                    options.MapFrom(source => source.Ancestor));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostics_WhenDownstreamCycleUsesForCtorParamEdge()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Parent { get; set; }
+                                    }
+
+                                    public class DestinationA
+                                    {
+                                        public DestinationB Child { get; set; }
+                                    }
+
+                                    public class DestinationB
+                                    {
+                                        public DestinationB(DestinationA parentNode)
+                                        {
+                                            RenamedParent = parentNode;
+                                        }
+
+                                        public DestinationA RenamedParent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestinationA>();
+                                            CreateMap<SourceB, DestinationB>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Parent));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule,
+                34,
+                13,
+                "SourceA",
+                "DestinationA")
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule,
+                35,
+                13,
+                "SourceB",
+                "DestinationB")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostics_WhenDownstreamMaxDepthBreaksMixedMemberConstructorCycle()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Parent { get; set; }
+                                    }
+
+                                    public class DestinationA
+                                    {
+                                        public DestinationB Child { get; set; }
+                                    }
+
+                                    public class DestinationB
+                                    {
+                                        public DestinationB(DestinationA parentNode)
+                                        {
+                                            RenamedParent = parentNode;
+                                        }
+
+                                        public DestinationA RenamedParent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestinationA>();
+                                            CreateMap<SourceB, DestinationB>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Parent))
+                                                .MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenMaxDepthBreaksMixedConstructorMemberCycle()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Parent { get; set; }
+                                    }
+
+                                    public class DestinationA
+                                    {
+                                        public DestinationA(DestinationB childNode)
+                                        {
+                                            Child = childNode;
+                                        }
+
+                                        public DestinationB Child { get; }
+                                    }
+
+                                    public class DestinationB
+                                    {
+                                        public DestinationA Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestinationA>()
+                                                .ForCtorParam("childNode", options =>
+                                                    options.MapFrom(source => source.Child))
+                                                .MaxDepth(2);
+                                            CreateMap<SourceB, DestinationB>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostics_WhenPreserveReferencesCannotBreakMixedConstructorMemberCycle()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Parent { get; set; }
+                                    }
+
+                                    public class DestinationA
+                                    {
+                                        public DestinationA(DestinationB childNode)
+                                        {
+                                            Child = childNode;
+                                        }
+
+                                        public DestinationB Child { get; }
+                                    }
+
+                                    public class DestinationB
+                                    {
+                                        public DestinationA Parent { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestinationA>()
+                                                .ForCtorParam("childNode", options =>
+                                                    options.MapFrom(source => source.Child))
+                                                .PreserveReferences();
+                                            CreateMap<SourceB, DestinationB>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule,
+                34,
+                13,
+                "SourceA",
+                "DestinationA")
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule,
+                38,
+                13,
+                "SourceB",
+                "DestinationB")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostics_WhenMaxDepthCannotBreakConstructorOnlyCycle()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Parent { get; set; }
+                                    }
+
+                                    public class DestinationA
+                                    {
+                                        public DestinationA(DestinationB childNode)
+                                        {
+                                            Child = childNode;
+                                        }
+
+                                        public DestinationB Child { get; }
+                                    }
+
+                                    public class DestinationB
+                                    {
+                                        public DestinationB(DestinationA parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationA Parent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestinationA>()
+                                                .ForCtorParam("childNode", options =>
+                                                    options.MapFrom(source => source.Child))
+                                                .MaxDepth(2);
+                                            CreateMap<SourceB, DestinationB>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Parent));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule,
+                39,
+                13,
+                "SourceA",
+                "DestinationA")
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.InfiniteRecursionRiskRule,
+                43,
+                13,
+                "SourceB",
+                "DestinationB")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenConstructorOnlyCycleReachesConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Parent { get; set; }
+                                    }
+
+                                    public class DestinationA
+                                    {
+                                        public DestinationA(DestinationB childNode)
+                                        {
+                                            Child = childNode;
+                                        }
+
+                                        public DestinationB Child { get; }
+                                    }
+
+                                    public class DestinationB
+                                    {
+                                        public DestinationB(DestinationA parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationA Parent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestinationA>()
+                                                .ForCtorParam("childNode", options =>
+                                                    options.MapFrom(source => source.Child))
+                                                .MaxDepth(2);
+                                            CreateMap<SourceB, DestinationB>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Parent))
+                                                .ConvertUsing(source => new DestinationB(null));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenConstructorOnlyDownstreamDirectionIsAmbiguous()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Parent { get; set; }
+                                    }
+
+                                    public class DestinationA
+                                    {
+                                        public DestinationA(DestinationB childNode)
+                                        {
+                                            Child = childNode;
+                                        }
+
+                                        public DestinationB Child { get; }
+                                    }
+
+                                    public class DestinationB
+                                    {
+                                        public DestinationB(DestinationA parentNode)
+                                        {
+                                            Parent = parentNode;
+                                        }
+
+                                        public DestinationA Parent { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestinationA>()
+                                                .ForCtorParam("childNode", options =>
+                                                    options.MapFrom(source => source.Child))
+                                                .MaxDepth(2);
+                                            CreateMap<SourceB, DestinationB>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Parent));
+                                            CreateMap<SourceB, DestinationB>()
+                                                .ForCtorParam("parentNode", options =>
+                                                    options.MapFrom(source => source.Parent));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenConstructorTraversalEndsAtScalarParameter()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public string Label { get; set; }
+                                    }
+
+                                    public class DestinationA
+                                    {
+                                        public DestinationA(DestinationB childNode)
+                                        {
+                                            Child = childNode;
+                                        }
+
+                                        public DestinationB Child { get; }
+                                    }
+
+                                    public class DestinationB
+                                    {
+                                        public DestinationB(string label)
+                                        {
+                                            Label = label;
+                                        }
+
+                                        public string Label { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestinationA>()
+                                                .ForCtorParam("childNode", options =>
+                                                    options.MapFrom(source => source.Child))
+                                                .MaxDepth(2);
+                                            CreateMap<SourceB, DestinationB>()
+                                                .ForCtorParam("label", options =>
+                                                    options.MapFrom(source => source.Label));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenPositionalRecordOwnsForCtorParamCycle()
+    {
+        const string testCode = """
+                                using System.Collections.Generic;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceNode
+                                    {
+                                        public IReadOnlyList<SourceNode> Ancestors { get; set; }
+                                    }
+
+                                    public record DestinationNode(IReadOnlyList<DestinationNode> Parents);
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("Parents", options =>
+                                                    options.MapFrom(source => source.Ancestors))
+                                                .MaxDepth(2);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                17,
+                13,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldReportDiagnostic_WhenForMemberOverridesWritableConstructorOwnedProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceSeed
+                                    {
+                                    }
+
+                                    public class SourceNode
+                                    {
+                                        public SourceSeed SeedChild { get; set; }
+                                        public SourceNode RecursiveChild { get; set; }
+                                    }
+
+                                    public class DestinationNode
+                                    {
+                                        public DestinationNode(DestinationNode childNode)
+                                        {
+                                            Child = childNode;
+                                        }
+
+                                        public DestinationNode Child { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceSeed, DestinationNode>()
+                                                .ConvertUsing(_ => new DestinationNode(null));
+                                            CreateMap<SourceNode, DestinationNode>()
+                                                .ForCtorParam("childNode", options =>
+                                                    options.MapFrom(source => source.SeedChild))
+                                                .ForMember(
+                                                    destination => destination.Child,
+                                                    options => options.MapFrom(source => source.RecursiveChild));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM022_InfiniteRecursionAnalyzer.SelfReferencingTypeRule,
+                31,
+                13,
+                "SourceNode",
+                "DestinationNode")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM022_ShouldNotReportDiagnostic_WhenDeferredConvertUsingOwnsConstrainedConstructorMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class SourceA
+                                    {
+                                        public SourceB Child { get; set; }
+                                    }
+
+                                    public class SourceB
+                                    {
+                                        public SourceA Owner { get; set; }
+                                    }
+
+                                    public class DestinationA
+                                    {
+                                        public DestinationB Child { get; set; }
+                                    }
+
+                                    public class DestinationB
+                                    {
+                                        public DestinationB(DestinationA ownerNode)
+                                        {
+                                            Owner = ownerNode;
+                                        }
+
+                                        public DestinationA Owner { get; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<SourceA, DestinationA>();
+                                            var downstreamMap = CreateMap<SourceB, DestinationB>()
+                                                .ForCtorParam("ownerNode", options =>
+                                                    options.MapFrom(source => source.Owner))
+                                                .PreserveReferences();
+                                            downstreamMap.ConvertUsing(source => new DestinationB(null));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM022_InfiniteRecursionAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
 }

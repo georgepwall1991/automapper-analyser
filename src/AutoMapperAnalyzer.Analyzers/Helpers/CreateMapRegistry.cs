@@ -12,9 +12,6 @@ namespace AutoMapperAnalyzer.Analyzers.Helpers;
 internal sealed class CreateMapRegistry
 {
     private static readonly ConditionalWeakTable<Compilation, CreateMapRegistry> Cache = new();
-    private static readonly ImmutableHashSet<string> CycleBreakerMethodNames =
-        ImmutableHashSet.Create(StringComparer.Ordinal, "MaxDepth", "PreserveReferences", "ConvertUsing");
-
     private readonly Dictionary<InvocationExpressionSyntax, (string Source, string Dest, Location Location)>
         _duplicates;
 
@@ -92,6 +89,29 @@ internal sealed class CreateMapRegistry
     /// </summary>
     public bool IsCycleConstrained(ITypeSymbol? source, ITypeSymbol? destination)
     {
+        return IsConstrainedBy(source, destination, mapping => mapping.IsCycleConstrained);
+    }
+
+    public bool IsMaxDepthConstrained(ITypeSymbol? source, ITypeSymbol? destination)
+    {
+        return IsConstrainedBy(source, destination, mapping => mapping.HasMaxDepth);
+    }
+
+    public bool IsPreserveReferencesConstrained(ITypeSymbol? source, ITypeSymbol? destination)
+    {
+        return IsConstrainedBy(source, destination, mapping => mapping.HasPreserveReferences);
+    }
+
+    public bool IsConvertUsingConstrained(ITypeSymbol? source, ITypeSymbol? destination)
+    {
+        return IsConstrainedBy(source, destination, mapping => mapping.HasConvertUsing);
+    }
+
+    private bool IsConstrainedBy(
+        ITypeSymbol? source,
+        ITypeSymbol? destination,
+        Func<MappingInfo, bool> predicate)
+    {
         if (source == null || destination == null)
         {
             return false;
@@ -107,7 +127,7 @@ internal sealed class CreateMapRegistry
             }
 
             found = true;
-            if (!mapping.IsCycleConstrained)
+            if (!predicate(mapping))
             {
                 return false;
             }
@@ -177,6 +197,24 @@ internal sealed class CreateMapRegistry
                 {
                     InvocationExpressionSyntax? reverseMapInvocation =
                         AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
+                    bool hasMaxDepth = HasCycleBreaker(
+                        invocation,
+                        reverseMapInvocation,
+                        semanticModel,
+                        reverseDirection: false,
+                        methodName: "MaxDepth");
+                    bool hasPreserveReferences = HasCycleBreaker(
+                        invocation,
+                        reverseMapInvocation,
+                        semanticModel,
+                        reverseDirection: false,
+                        methodName: "PreserveReferences");
+                    bool hasConvertUsing = HasCycleBreaker(
+                        invocation,
+                        reverseMapInvocation,
+                        semanticModel,
+                        reverseDirection: false,
+                        methodName: "ConvertUsing");
                     mappings.Add(new MappingInfo
                     {
                         Source = sourceType,
@@ -185,11 +223,10 @@ internal sealed class CreateMapRegistry
                         Node = invocation,
                         SemanticModel = semanticModel,
                         IsReverseMap = false,
-                        IsCycleConstrained = HasCycleBreaker(
-                            invocation,
-                            reverseMapInvocation,
-                            semanticModel,
-                            reverseDirection: false)
+                        IsCycleConstrained = hasMaxDepth || hasPreserveReferences || hasConvertUsing,
+                        HasMaxDepth = hasMaxDepth,
+                        HasPreserveReferences = hasPreserveReferences,
+                        HasConvertUsing = hasConvertUsing
                     });
 
                     // Check for ReverseMap()
@@ -205,6 +242,24 @@ internal sealed class CreateMapRegistry
                             loc = reverseMapInvocation.GetLocation();
                         }
 
+                        bool hasReverseMaxDepth = HasCycleBreaker(
+                            invocation,
+                            reverseMapInvocation,
+                            semanticModel,
+                            reverseDirection: true,
+                            methodName: "MaxDepth");
+                        bool hasReversePreserveReferences = HasCycleBreaker(
+                            invocation,
+                            reverseMapInvocation,
+                            semanticModel,
+                            reverseDirection: true,
+                            methodName: "PreserveReferences");
+                        bool hasReverseConvertUsing = HasCycleBreaker(
+                            invocation,
+                            reverseMapInvocation,
+                            semanticModel,
+                            reverseDirection: true,
+                            methodName: "ConvertUsing");
                         mappings.Add(new MappingInfo
                         {
                             Source = destType,
@@ -213,11 +268,12 @@ internal sealed class CreateMapRegistry
                             Node = reverseMapInvocation,
                             SemanticModel = semanticModel,
                             IsReverseMap = true,
-                            IsCycleConstrained = HasCycleBreaker(
-                                invocation,
-                                reverseMapInvocation,
-                                semanticModel,
-                                reverseDirection: true)
+                            IsCycleConstrained = hasReverseMaxDepth ||
+                                                 hasReversePreserveReferences ||
+                                                 hasReverseConvertUsing,
+                            HasMaxDepth = hasReverseMaxDepth,
+                            HasPreserveReferences = hasReversePreserveReferences,
+                            HasConvertUsing = hasReverseConvertUsing
                         });
                     }
                     else
@@ -300,7 +356,8 @@ internal sealed class CreateMapRegistry
         InvocationExpressionSyntax createMapInvocation,
         InvocationExpressionSyntax? reverseMapInvocation,
         SemanticModel semanticModel,
-        bool reverseDirection)
+        bool reverseDirection,
+        string methodName)
     {
         for (SyntaxNode? parent = createMapInvocation.Parent; parent != null; parent = parent.Parent)
         {
@@ -316,12 +373,9 @@ internal sealed class CreateMapRegistry
                 continue;
             }
 
-            foreach (string methodName in CycleBreakerMethodNames)
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedCall, semanticModel, methodName))
             {
-                if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedCall, semanticModel, methodName))
-                {
-                    return true;
-                }
+                return true;
             }
         }
 
@@ -329,14 +383,16 @@ internal sealed class CreateMapRegistry
             createMapInvocation,
             reverseMapInvocation,
             semanticModel,
-            reverseDirection);
+            reverseDirection,
+            methodName);
     }
 
     private static bool HasDeferredCycleBreaker(
         InvocationExpressionSyntax createMapInvocation,
         InvocationExpressionSyntax? reverseMapInvocation,
         SemanticModel semanticModel,
-        bool reverseDirection)
+        bool reverseDirection,
+        string methodName)
     {
         VariableDeclaratorSyntax? declarator = createMapInvocation.Ancestors()
             .OfType<VariableDeclaratorSyntax>()
@@ -357,7 +413,10 @@ internal sealed class CreateMapRegistry
             foreach (InvocationExpressionSyntax candidate in statement.Expression.DescendantNodesAndSelf()
                          .OfType<InvocationExpressionSyntax>())
             {
-                if (!IsCycleBreaker(candidate, semanticModel) ||
+                if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                        candidate,
+                        semanticModel,
+                        methodName) ||
                     candidate.Expression is not MemberAccessExpressionSyntax memberAccess ||
                     !ReferencesLocal(memberAccess.Expression, mappingLocal, semanticModel))
                 {
@@ -451,19 +510,6 @@ internal sealed class CreateMapRegistry
         }
     }
 
-    private static bool IsCycleBreaker(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        foreach (string methodName in CycleBreakerMethodNames)
-        {
-            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, methodName))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private static bool ReferencesLocal(
         ExpressionSyntax expression,
         ILocalSymbol mappingLocal,
@@ -485,6 +531,9 @@ internal sealed class CreateMapRegistry
         public SemanticModel SemanticModel;
         public bool IsReverseMap;
         public bool IsCycleConstrained;
+        public bool HasMaxDepth;
+        public bool HasPreserveReferences;
+        public bool HasConvertUsing;
     }
 
     private class MappingComparer : IEqualityComparer<(ITypeSymbol Source, ITypeSymbol Destination)>
