@@ -130,7 +130,7 @@ public static class RuleCatalog
     /// <summary>
     ///     Current package version used by docs/package drift tests.
     /// </summary>
-    public const string CurrentPackageVersion = "2.30.73";
+    public const string CurrentPackageVersion = "2.30.74";
 
     /// <summary>
     ///     Implemented rules, grouped by public diagnostic ID.

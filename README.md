@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1450%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1600%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
@@ -14,22 +14,23 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.73
+## 🎉 Latest Release: v2.30.74
 
-**AM041 deferred `ReverseMap()` registration**
+**AM002 constructor-parameter null-safety ownership**
 
 ✅ **Highlights**
 
-- Direct locals rooted in `CreateMap<S, D>()`, including fluent configuration chains, now register later standalone same-block `mapping.ReverseMap()` calls for duplicate detection.
-- Aliases, conditionals, nested calls, and lookalike APIs remain conservatively excluded.
-- Removing a duplicate deferred `ReverseMap()` deletes the statement cleanly instead of leaving invalid `mapping;` code.
+- Semantic AutoMapper `ForCtorParam` mappings now own same-name destination members, including metadata-only types, plus uniquely inferred direct assignments to read-only properties. A direct-only writable alias is delegated only when its final post-construction value is guaranteed: an unvetoed property/field/method convention or the last effective top-level `ForMember`/`ForPath` using unconditional `MapFrom`/`ConvertUsing`; `Ignore`, `Condition`, and `PreCondition` keep the nullable constructor input under analysis, including directly executed map-wide `ForAllMembers` vetoes that run after targeted configuration; calls captured inside uninvoked lambdas or local functions do not veto assignment, while non-async local functions reached from the callback's synchronous execution region are followed with symbol-based recursion guards; iterator bodies participate only when a direct invocation or any local target in its enclosing assignment chain may still reach a source-ordered synchronous enumeration; conditional iterator-result reassignment preserves that runtime path unless Roslyn control-flow proves it dominates enumeration, while options aliases are replayed in source order at each executed call so assignments establish and reassignments invalidate ownership, options-valued local-function arguments bind their parameters, synchronously invoked helpers propagate captured receiver reassignments back to later caller-side configuration, argument-evaluation mutations feed the containing callee, `ref`/`out` parameter mutations flow back to caller aliases, nested helper calls follow C# child-before-container evaluation order, definite and conditional receiver aliases remain distinct, and reassignment removes provenance only when it dominates the call, and constructor `MapFrom` extraction uses the same symbol-based direct-execution provenance so aliases and invoked helpers count while deferred helpers and same-named non-AutoMapper extensions do not, conditional mapping branches remain alternatives unless a later unconditional mapping replaces them, parenthesized options aliases retain their semantic identity, `System.Linq.Enumerable.ToList`/`ToArray` materialization executes iterator-local vetoes, and per-member `NullSubstitute` suppresses diagnostics only when its semantic call executes unconditionally; options calls after an `await` are excluded while pre-suspension configuration remains active. Generic nullability traversal carries producer/consumer polarity through every variance boundary, so safe single-contravariant mappings such as `Action<string?>` to `Action<string>` stay quiet while double contravariance reports nullable loss. Exact property/field/method names take precedence over `GetX` aliases, nullable convention members report, method-backed fixes invoke the method even when appending `MapFrom` to existing non-veto member options, aliased constructor transformations are coalesced in place instead of reconstructed, alias/helper-aware `Condition` and `PreCondition` vetoes withhold unsafe default fixes, and configuration order is respected; any additional constructor use of that parameter, plus competing, other-instance, compound, or non-owned assignments, remains constructor-analyzed; constructed generic aliases compare through original symbol definitions.
+- Literal, `nameof(...)`, and const parameter names respect the effective `ReverseMap()` direction and must match the selected constructor parameter with ordinal casing; invalid names cannot override property analysis or fixer ownership; the longest resolvable constructor supplies the runtime nullability target, with selectability limited to public readable source properties plus inherited public fields, public parameterless method and `GetX()` conventions at root and flattened paths, semantic sibling configuration, optional/defaulted parameters, and `params`; incomplete calls remain exception-free during live editing, and recursive collection shapes are cycle-safe.
+- The default-value fix rewrites the existing constructor `MapFrom` expression, restores declared symbol nullability beneath `!`, and preserves ordinary parentheses/trivia around low-precedence bodies. Unsafe null-forgiven receiver chains, element-nullability mismatches, and constructor-only custom reference parameters without a provably non-null fallback expose no scaffold; property Ignore is withheld whenever it would reveal an unsafe aliased constructor value, while a proven non-null alias retains that explicit alternative.
 
 🧪 **Validation**
 
-- AM041 suite: **45** passed; clean-branch full suite: **1450** passed, 0 skipped, 0 failed on `net10.0`.
+- AM002 suite: **234** passed; clean-branch full suite: **1600** passed, 0 skipped, 0 failed on `net10.0`.
 
 ### Recent Releases
 
+- **v2.30.74**: AM002 respects exact semantic `ForCtorParam` null-safety ownership, propagates synchronous helper mutations and conditional iterator provenance, requires semantic/unconditional null-safety configuration, tracks nested variance polarity, and repairs unsafe constructor inputs in place.
 - **v2.30.73**: AM041 detects direct local deferred `ReverseMap()` registrations, including fluent initializers, and removes duplicate standalone calls safely.
 - **v2.30.72**: AM001 respects exact semantic `ForCtorParam` ownership for positional-record mismatches and withholds stale fixes.
 - **v2.30.71**: AM022 follows unique direct renamed member maps throughout the configured cycle graph while downstream `ForMember`/`ForPath` Ignore overrides remove broken edges.
@@ -239,7 +240,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.73">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.74">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

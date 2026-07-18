@@ -691,6 +691,72 @@ public class AM002_CodeFixTests
     }
 
     [Fact]
+    public async Task AM002_ShouldPreserveGetMethodConventionWhenAppendingMapFrom()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public sealed class Source
+                                    {
+                                        public string? GetName() => null;
+                                    }
+
+                                    public sealed class Destination
+                                    {
+                                        public string Name { get; set; } = string.Empty;
+                                    }
+
+                                    public sealed class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(destination => destination.Name, options => options.DoNotAllowNull());
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 namespace TestNamespace
+                                 {
+                                     public sealed class Source
+                                     {
+                                         public string? GetName() => null;
+                                     }
+
+                                     public sealed class Destination
+                                     {
+                                         public string Name { get; set; } = string.Empty;
+                                     }
+
+                                     public sealed class TestProfile : Profile
+                                     {
+                                         public TestProfile()
+                                         {
+                                             CreateMap<Source, Destination>()
+                                                 .ForMember(destination => destination.Name, options => { options.DoNotAllowNull(); options.MapFrom(src => src.GetName() ?? string.Empty); });
+                                         }
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(20, 13)
+            .WithArguments("Name", "Source", "GetName", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Name");
+    }
+
+    [Fact]
     public async Task AM002_ShouldAddTopLevelForMember_WhenChildForPathExists()
     {
         const string testCode = """
@@ -1483,6 +1549,39 @@ public class AM002_CodeFixTests
         Assert.Equal("AM002_Ignore_Tags", action.EquivalenceKey);
     }
 
+    [Fact]
+    public async Task AM002_ShouldNotRegisterCodeActions_ForCtorParamNullableElementCollection()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public sealed record Source(List<string?> Values);
+                                    public sealed record Destination(List<string> Values);
+
+                                    public sealed class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForCtorParam(nameof(Destination.Values), options =>
+                                                    options.MapFrom(source => source.Values));
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        Assert.Empty(actions);
+    }
+
     private static Document CreateDocument(string source)
     {
         var workspace = new AdhocWorkspace();
@@ -1536,4 +1635,1359 @@ public class AM002_CodeFixTests
         await provider.RegisterCodeFixesAsync(context);
         return actions;
     }
+
+    [Fact]
+    public async Task AM002_ShouldRewriteUnsafeForCtorParamMapFromWithNullCoalescing()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value);
+                                public sealed record Destination(string Value);
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam(nameof(Destination.Value), options =>
+                                                options.MapFrom(source => source.Value));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? Value);
+                                 public sealed record Destination(string Value);
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                             .ForCtorParam(nameof(Destination.Value), options =>
+                                                 options.MapFrom(source => source.Value ?? string.Empty));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(11, 9)
+            .WithArguments("Value", "Source", "Value", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldRewriteConstructorParameterWithoutDestinationProperty()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? token);
+
+                                public sealed class Destination
+                                {
+                                    private readonly string _token;
+
+                                    public Destination(string token)
+                                    {
+                                        _token = token;
+                                    }
+                                }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam("token", options =>
+                                                options.MapFrom(source => source.token));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? token);
+
+                                 public sealed class Destination
+                                 {
+                                     private readonly string _token;
+
+                                     public Destination(string token)
+                                     {
+                                         _token = token;
+                                     }
+                                 }
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                             .ForCtorParam("token", options =>
+                                                 options.MapFrom(source => source.token ?? string.Empty));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(20, 9)
+            .WithArguments("token", "Source", "token", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_token");
+    }
+
+
+    [Fact]
+    public async Task AM002_ShouldRewriteConstructorParameterWhenRequiredSiblingUsesFlattening()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Customer(string Name);
+                                public sealed record Source(string? token, Customer Customer);
+
+                                public sealed class Destination
+                                {
+                                    private readonly string _token;
+
+                                    public Destination(string token, string customerName)
+                                    {
+                                        _token = token;
+                                        CustomerName = customerName;
+                                    }
+
+                                    public string CustomerName { get; }
+                                }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam("token", options =>
+                                                options.MapFrom(source => source.token));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Customer(string Name);
+                                 public sealed record Source(string? token, Customer Customer);
+
+                                 public sealed class Destination
+                                 {
+                                     private readonly string _token;
+
+                                     public Destination(string token, string customerName)
+                                     {
+                                         _token = token;
+                                         CustomerName = customerName;
+                                     }
+
+                                     public string CustomerName { get; }
+                                 }
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                             .ForCtorParam("token", options =>
+                                                 options.MapFrom(source => source.token ?? string.Empty));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(24, 9)
+            .WithArguments("token", "Source", "token", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_token");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldRewriteNullForgivingForCtorParamMapFromWithNullCoalescing()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value);
+                                public sealed record Destination(string Value);
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam(nameof(Destination.Value), options =>
+                                                options.MapFrom(source => source.Value!));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? Value);
+                                 public sealed record Destination(string Value);
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                             .ForCtorParam(nameof(Destination.Value), options =>
+                                                 options.MapFrom(source => source.Value ?? string.Empty));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(11, 9)
+            .WithArguments("Value", "Source", "Value", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldOfferForCtorParamFixForNullForgivenNullableField()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed class Source;
+                                public sealed record Destination(string Value);
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    private readonly string? _value;
+
+                                    public TestProfile(string? value)
+                                    {
+                                        _value = value;
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam(nameof(Destination.Value), options =>
+                                                options.MapFrom(_ => _value!));
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        CodeAction action = Assert.Single(await RegisterActionsAsync(document, diagnostic));
+        Assert.Equal("AM002_DefaultValue_Value", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldOfferForCtorParamFixForNullForgivenNullableLocal()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed class Source;
+                                public sealed record Destination(string Value);
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        string? value = null;
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam(nameof(Destination.Value), options =>
+                                                options.MapFrom(_ => value!));
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        CodeAction action = Assert.Single(await RegisterActionsAsync(document, diagnostic));
+        Assert.Equal("AM002_DefaultValue_Value", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldOfferForCtorParamFixForNullForgivenNullableParameter()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed class Source;
+                                public sealed record Destination(string Value);
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile(string? value)
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam(nameof(Destination.Value), options =>
+                                                options.MapFrom(_ => value!));
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        CodeAction action = Assert.Single(await RegisterActionsAsync(document, diagnostic));
+        Assert.Equal("AM002_DefaultValue_Value", action.EquivalenceKey);
+    }
+
+
+    [Fact]
+    public async Task AM002_ShouldRewriteParenthesizedNullForgivingForCtorParamMapFromWithNullCoalescing()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value);
+                                public sealed record Destination(string Value);
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam(nameof(Destination.Value), options =>
+                                                options.MapFrom(source => (source.Value!)));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? Value);
+                                 public sealed record Destination(string Value);
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                             .ForCtorParam(nameof(Destination.Value), options =>
+                                                 options.MapFrom(source => source.Value ?? string.Empty));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(11, 9)
+            .WithArguments("Value", "Source", "Value", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldPreserveParenthesizedSwitchExpressionInForCtorParamFix()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using System;
+                                using AutoMapper;
+
+                                public sealed record Source(bool Flag, string? Value);
+                                public sealed record Destination(string Value);
+
+                                namespace AutoMapper
+                                {
+                                    public abstract class TestProfileBase
+                                    {
+                                        protected MappingExpression<TSource, TDestination> CreateMap<TSource, TDestination>() => new();
+                                    }
+
+                                    public sealed class MappingExpression<TSource, TDestination>
+                                    {
+                                        public MappingExpression<TSource, TDestination> ForCtorParam(
+                                            string name,
+                                            Action<CtorOptions<TSource>> configure) => this;
+                                    }
+
+                                    public sealed class CtorOptions<TSource>
+                                    {
+                                        public void MapFrom<TResult>(Func<TSource, TResult> selector) { }
+                                    }
+                                }
+
+                                public sealed class TestProfile : TestProfileBase
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam(nameof(Destination.Value), options =>
+                                                options.MapFrom(source =>
+                                                    (source.Flag switch { true => source.Value, false => null })));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using System;
+                                 using AutoMapper;
+
+                                 public sealed record Source(bool Flag, string? Value);
+                                 public sealed record Destination(string Value);
+
+                                 namespace AutoMapper
+                                 {
+                                     public abstract class TestProfileBase
+                                     {
+                                         protected MappingExpression<TSource, TDestination> CreateMap<TSource, TDestination>() => new();
+                                     }
+
+                                     public sealed class MappingExpression<TSource, TDestination>
+                                     {
+                                         public MappingExpression<TSource, TDestination> ForCtorParam(
+                                             string name,
+                                             Action<CtorOptions<TSource>> configure) => this;
+                                     }
+
+                                     public sealed class CtorOptions<TSource>
+                                     {
+                                         public void MapFrom<TResult>(Func<TSource, TResult> selector) { }
+                                     }
+                                 }
+
+                                 public sealed class TestProfile : TestProfileBase
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                             .ForCtorParam(nameof(Destination.Value), options =>
+                                                 options.MapFrom(source =>
+                                                     (source.Flag switch { true => source.Value, false => null }) ?? string.Empty));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(32, 9)
+            .WithArguments("Value", "Source", "Flag", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+
+
+    [Fact]
+    public async Task AM002_ShouldWithholdFixForNullForgivenNullableReceiverInForCtorParam()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record NestedSource(string? Value);
+                                public sealed record Source(NestedSource? Nested);
+                                public sealed record Destination(string Value);
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam(nameof(Destination.Value), options =>
+                                                options.MapFrom(source => source.Nested!.Value));
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        Assert.Empty(await RegisterActionsAsync(document, diagnostic));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldWithholdNullDefaultForConstructorOnlyReferenceParameter()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed class Widget;
+                                public sealed record Source(Widget? widget);
+
+                                public sealed class Destination
+                                {
+                                    private readonly Widget _widget;
+
+                                    public Destination(Widget widget)
+                                    {
+                                        _widget = widget;
+                                    }
+                                }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam("widget", options =>
+                                                options.MapFrom(source => source.widget));
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        Assert.Empty(await RegisterActionsAsync(document, diagnostic));
+    }
+
+    [Fact]
+    public async Task AM002_ShouldWithholdPropertyIgnoreForForCtorParam()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value);
+                                public sealed record Destination(string Value);
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam(nameof(Destination.Value), options =>
+                                                options.MapFrom(source => source.Value));
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        CodeAction action = Assert.Single(await RegisterActionsAsync(document, diagnostic));
+        Assert.Equal("AM002_DefaultValue_Value", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM002_ShouldAddForMemberForInvalidSameNameForCtorParam()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value);
+
+                                public sealed class Destination
+                                {
+                                    public Destination(string other)
+                                    {
+                                    }
+
+                                    public string Value { get; set; } = string.Empty;
+                                }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam("Value", options =>
+                                                options.MapFrom(source => source.Value));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? Value);
+
+                                 public sealed class Destination
+                                 {
+                                     public Destination(string other)
+                                     {
+                                     }
+
+                                     public string Value { get; set; } = string.Empty;
+                                 }
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                 .ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value ?? string.Empty)).ForCtorParam("Value", options =>
+                                                 options.MapFrom(source => source.Value));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(19, 9)
+            .WithArguments("Value", "Source", "Value", "string?", "Destination", "string");
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        CodeAction[] actions = (await RegisterActionsAsync(document, diagnostic)).ToArray();
+        Assert.Equal(
+            ["AM002_DefaultValue_Value", "AM002_Ignore_Value"],
+            actions.Select(action => action.EquivalenceKey));
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldAddForMemberForWrongCaseForCtorParam()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value, string Safe);
+
+                                public sealed class Destination
+                                {
+                                    public Destination(string value)
+                                    {
+                                        Value = value;
+                                    }
+
+                                    public string Value { get; set; } = string.Empty;
+                                }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam("Value", options =>
+                                                options.MapFrom(source => source.Safe));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? Value, string Safe);
+
+                                 public sealed class Destination
+                                 {
+                                     public Destination(string value)
+                                     {
+                                         Value = value;
+                                     }
+
+                                     public string Value { get; set; } = string.Empty;
+                                 }
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                 .ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value ?? string.Empty)).ForCtorParam("Value", options =>
+                                                 options.MapFrom(source => source.Safe));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(20, 9)
+            .WithArguments("Value", "Source", "Value", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldScaffoldGetMethodConventionForWritableAlias()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed class Source
+                                {
+                                    public string Input { get; set; } = string.Empty;
+                                    public string? GetValue() => null;
+                                }
+
+                                public sealed class Destination
+                                {
+                                    public Destination(string valueParam)
+                                    {
+                                        Value = valueParam;
+                                    }
+
+                                    public string Value { get; set; } = string.Empty;
+                                }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam("valueParam", options =>
+                                                options.MapFrom(source => source.Input));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed class Source
+                                 {
+                                     public string Input { get; set; } = string.Empty;
+                                     public string? GetValue() => null;
+                                 }
+
+                                 public sealed class Destination
+                                 {
+                                     public Destination(string valueParam)
+                                     {
+                                         Value = valueParam;
+                                     }
+
+                                     public string Value { get; set; } = string.Empty;
+                                 }
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                 .ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.GetValue() ?? string.Empty)).ForCtorParam("valueParam", options =>
+                                                 options.MapFrom(source => source.Input));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(24, 9)
+            .WithArguments("Value", "Source", "GetValue", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldRewriteUnsafeForCtorParamInsteadOfLaterSafeForMember()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value);
+                                public sealed record Destination(string Value);
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam(nameof(Destination.Value), options =>
+                                                options.MapFrom(source => source.Value))
+                                            .ForMember(destination => destination.Value, options =>
+                                                options.MapFrom(source => source.Value ?? string.Empty));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? Value);
+                                 public sealed record Destination(string Value);
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                             .ForCtorParam(nameof(Destination.Value), options =>
+                                                 options.MapFrom(source => source.Value ?? string.Empty))
+                                             .ForMember(destination => destination.Value, options =>
+                                                 options.MapFrom(source => source.Value ?? string.Empty));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(11, 9)
+            .WithArguments("Value", "Source", "Value", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldRewriteWritableConstructorAliasUsedDuringConstruction()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value);
+
+                                public sealed class Destination
+                                {
+                                    public Destination(string valueParam)
+                                    {
+                                        Value = valueParam;
+                                        Length = valueParam.Length;
+                                    }
+
+                                    public string Value { get; set; } = string.Empty;
+                                    public int Length { get; }
+                                }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam("valueParam", options =>
+                                                options.MapFrom(source => source.Value))
+                                            .ForMember(destination => destination.Value, options =>
+                                                options.MapFrom(source => source.Value ?? string.Empty));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? Value);
+
+                                 public sealed class Destination
+                                 {
+                                     public Destination(string valueParam)
+                                     {
+                                         Value = valueParam;
+                                         Length = valueParam.Length;
+                                     }
+
+                                     public string Value { get; set; } = string.Empty;
+                                     public int Length { get; }
+                                 }
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                             .ForCtorParam("valueParam", options =>
+                                                 options.MapFrom(source => source.Value ?? string.Empty))
+                                             .ForMember(destination => destination.Value, options =>
+                                                 options.MapFrom(source => source.Value ?? string.Empty));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(22, 9)
+            .WithArguments("valueParam", "Source", "Value", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_valueParam");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldAddForMemberForUnsafeAliasedCtorParam()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value);
+
+                                public sealed class Destination
+                                {
+                                    public Destination(string valueParam)
+                                    {
+                                        Value = valueParam;
+                                    }
+
+                                    public string Value { get; set; }
+                                }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam("valueParam", options =>
+                                                options.MapFrom(source => source.Value));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? Value);
+
+                                 public sealed class Destination
+                                 {
+                                     public Destination(string valueParam)
+                                     {
+                                         Value = valueParam;
+                                     }
+
+                                     public string Value { get; set; }
+                                 }
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                 .ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value ?? string.Empty)).ForCtorParam("valueParam", options =>
+                                                 options.MapFrom(source => source.Value));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(20, 9)
+            .WithArguments("Value", "Source", "Value", "string?", "Destination", "string");
+
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        CodeAction action = Assert.Single(await RegisterActionsAsync(document, diagnostic));
+        Assert.Equal("AM002_DefaultValue_Value", action.EquivalenceKey);
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldKeepPropertyIgnoreWhenConstructorAliasIsNonNullable()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string Input, string? Value);
+
+                                public sealed class Destination
+                                {
+                                    public Destination(string valueParam)
+                                    {
+                                        Value = valueParam;
+                                    }
+
+                                    public string Value { get; set; } = string.Empty;
+                                }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam("valueParam", options =>
+                                                options.MapFrom(source => source.Input));
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        CodeAction[] actions = (await RegisterActionsAsync(document, diagnostic)).ToArray();
+
+        Assert.Equal(
+            ["AM002_DefaultValue_Value", "AM002_Ignore_Value"],
+            actions.Select(action => action.EquivalenceKey));
+    }
+
+
+    [Fact]
+    public async Task AM002_ShouldRewriteUnsafeCtorAliasAssignedToReadOnlyDestinationProperty()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value);
+
+                                public sealed class Destination
+                                {
+                                    public Destination(string valueParam)
+                                    {
+                                        Value = valueParam;
+                                    }
+
+                                    public string Value { get; }
+                                }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam("valueParam", options =>
+                                                options.MapFrom(source => source.Value));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? Value);
+
+                                 public sealed class Destination
+                                 {
+                                     public Destination(string valueParam)
+                                     {
+                                         Value = valueParam;
+                                     }
+
+                                     public string Value { get; }
+                                 }
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                             .ForCtorParam("valueParam", options =>
+                                                 options.MapFrom(source => source.Value ?? string.Empty));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(20, 9)
+            .WithArguments("Value", "Source", "Value", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldAddForMemberForExpressionBodiedAliasedCtorParam()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value);
+
+                                public sealed class Destination
+                                {
+                                    public Destination(string valueParam) => Value = valueParam;
+
+                                    public string Value { get; set; }
+                                }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam("valueParam", options =>
+                                                options.MapFrom(source => source.Value ?? string.Empty));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? Value);
+
+                                 public sealed class Destination
+                                 {
+                                     public Destination(string valueParam) => Value = valueParam;
+
+                                     public string Value { get; set; }
+                                 }
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                 .ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value ?? string.Empty)).ForCtorParam("valueParam", options =>
+                                                 options.MapFrom(source => source.Value ?? string.Empty));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(17, 9)
+            .WithArguments("Value", "Source", "Value", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldAddForMemberWhenAliasedCtorPropertyRemainsWritable()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value);
+
+                                public sealed class Destination
+                                {
+                                    public Destination(string valueParam)
+                                    {
+                                        Value = valueParam;
+                                    }
+
+                                    public string Value { get; set; } = string.Empty;
+                                }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam("valueParam", options =>
+                                                options.MapFrom(source => source.Value ?? string.Empty));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? Value);
+
+                                 public sealed class Destination
+                                 {
+                                     public Destination(string valueParam)
+                                     {
+                                         Value = valueParam;
+                                     }
+
+                                     public string Value { get; set; } = string.Empty;
+                                 }
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                 .ForMember(dest => dest.Value, opt => opt.MapFrom(src => src.Value ?? string.Empty)).ForCtorParam("valueParam", options =>
+                                                 options.MapFrom(source => source.Value ?? string.Empty));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(20, 9)
+            .WithArguments("Value", "Source", "Value", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+
+    [Fact]
+    public async Task AM002_ShouldRewriteCtorParamSelectedByMemberAccessConstant()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value);
+                                public sealed record Destination(string Value);
+
+                                public static class ParameterNames
+                                {
+                                    public const string ValueConstructorParameter = nameof(Destination.Value);
+                                }
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam(ParameterNames.ValueConstructorParameter, options =>
+                                                options.MapFrom(source => source.Value));
+                                    }
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? Value);
+                                 public sealed record Destination(string Value);
+
+                                 public static class ParameterNames
+                                 {
+                                     public const string ValueConstructorParameter = nameof(Destination.Value);
+                                 }
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                             .ForCtorParam(ParameterNames.ValueConstructorParameter, options =>
+                                                 options.MapFrom(source => source.Value ?? string.Empty));
+                                     }
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(16, 9)
+            .WithArguments("Value", "Source", "Value", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+    [Fact]
+    public async Task AM002_ShouldPreserveAliasedConstructorMapFromTransformation()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Value);
+                                public sealed record Destination(string Value);
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForCtorParam(nameof(Destination.Value), options =>
+                                            {
+                                                var alias = options;
+                                                alias.MapFrom(source => Normalize(source.Value));
+                                            });
+                                    }
+
+                                    private static string? Normalize(string? value) => value;
+                                }
+                                """;
+
+        const string fixedCode = """
+                                 #nullable enable
+                                 using AutoMapper;
+
+                                 public sealed record Source(string? Value);
+                                 public sealed record Destination(string Value);
+
+                                 public sealed class TestProfile : Profile
+                                 {
+                                     public TestProfile()
+                                     {
+                                         CreateMap<Source, Destination>()
+                                             .ForCtorParam(nameof(Destination.Value), options =>
+                                             {
+                                                 var alias = options;
+                                                 alias.MapFrom(source => Normalize(source.Value) ?? string.Empty);
+                                             });
+                                     }
+
+                                     private static string? Normalize(string? value) => value;
+                                 }
+                                 """;
+
+        DiagnosticResult expected = new DiagnosticResult(
+                AM002_NullableCompatibilityAnalyzer.NullableToNonNullableRule)
+            .WithLocation(11, 9)
+            .WithArguments("Value", "Source", "Value", "string?", "Destination", "string");
+
+        await CodeFixVerifier<AM002_NullableCompatibilityAnalyzer, AM002_NullableCompatibilityCodeFixProvider>
+            .VerifyFixByKeyAsync(testCode, expected, fixedCode, "AM002_DefaultValue_Value");
+    }
+    [Fact]
+    public async Task AM002_ShouldWithholdDefaultFixWhenInvokedHelperAliasesCondition()
+    {
+        const string testCode = """
+                                #nullable enable
+                                using AutoMapper;
+
+                                public sealed record Source(string? Name);
+                                public sealed record Destination(string Name);
+
+                                public sealed class TestProfile : Profile
+                                {
+                                    public TestProfile()
+                                    {
+                                        CreateMap<Source, Destination>()
+                                            .ForMember(destination => destination.Name, options =>
+                                            {
+                                                var current = options;
+
+                                                void Apply()
+                                                {
+                                                    current.Condition((Source source) => source.Name != null);
+                                                    current.MapFrom(source => source.Name);
+                                                }
+
+                                                Apply();
+                                            });
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+
+        CodeAction action = Assert.Single(await RegisterActionsAsync(document, diagnostic));
+
+        Assert.Equal("AM002_Ignore_Name", action.EquivalenceKey);
+    }
+
 }

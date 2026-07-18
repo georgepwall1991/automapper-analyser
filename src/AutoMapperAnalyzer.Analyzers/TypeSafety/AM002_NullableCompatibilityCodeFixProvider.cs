@@ -68,8 +68,18 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
                 continue;
             }
 
-            string? destinationType = ExtractDestinationTypeFromDiagnostic(diagnostic);
-            string defaultValue = GetDefaultValueForDestination(invocation, propertyName!, destinationType, operationContext.SemanticModel);
+            string sourceMemberName =
+                diagnostic.Properties.TryGetValue(
+                    AM002_NullableCompatibilityAnalyzer.SourcePropertyNamePropertyName,
+                    out string? configuredSourceMemberName) &&
+                !string.IsNullOrWhiteSpace(configuredSourceMemberName)
+                    ? configuredSourceMemberName!
+                    : propertyName!;
+            bool sourceMemberRequiresInvocation =
+                diagnostic.Properties.TryGetValue(
+                    AM002_NullableCompatibilityAnalyzer.SourceMemberRequiresInvocationPropertyName,
+                    out string? invocationFlag) &&
+                string.Equals(invocationFlag, "true", StringComparison.Ordinal);
 
             // A "src.X ?? default" coalesce scaffold cannot fix element-level nullability (the elements of
             // List<string?> are still nullable), so the element-nullability diagnostic gets only the
@@ -79,10 +89,38 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
                     AM002_NullableCompatibilityAnalyzer.ElementNullabilityPropertyName, out string? elementFlag) &&
                 string.Equals(elementFlag, "true", StringComparison.Ordinal);
 
-            InvocationExpressionSyntax? existingConfiguration = FindDestinationConfiguration(invocation, propertyName!);
+            InvocationExpressionSyntax? existingConfiguration = FindDestinationConfiguration(
+                invocation,
+                propertyName!,
+                operationContext.SemanticModel);
+            bool isConstructorParameterConfiguration = existingConfiguration != null &&
+                                                       MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                                                           existingConfiguration,
+                                                           operationContext.SemanticModel,
+                                                           "ForCtorParam");
+            (ITypeSymbol? sourceMapType, ITypeSymbol? destinationMapType) =
+                ResolveCreateMapTypesWithReverse(invocation, operationContext.SemanticModel);
+            bool ignoreWouldExposeUnsafeConstructorAlias =
+                sourceMapType != null &&
+                destinationMapType != null &&
+                AM002_NullableCompatibilityAnalyzer
+                    .HasNullableConfiguredConstructorInputForDestinationProperty(
+                        invocation,
+                        propertyName!,
+                        sourceMapType,
+                        destinationMapType,
+                        operationContext.SemanticModel);
+            string? destinationType = ExtractDestinationTypeFromDiagnostic(diagnostic);
+            string? defaultValue = GetDefaultValueForDestination(
+                invocation,
+                propertyName!,
+                destinationType,
+                existingConfiguration,
+                operationContext.SemanticModel);
             if (!isElementNullability &&
+                defaultValue != null &&
                 (existingConfiguration == null ||
-                (!ConfigurationCanVetoAssignment(existingConfiguration) &&
+                (!ConfigurationCanVetoAssignment(existingConfiguration, operationContext.SemanticModel) &&
                  ConfigurationCanAcceptDefaultValueFix(existingConfiguration, operationContext.SemanticModel))))
             {
                 // Option 1: Map with default value
@@ -90,25 +128,38 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
                     CodeAction.Create(
                         $"Scaffold default mapping for '{propertyName}' ({defaultValue})",
                         cancellationToken => AddMapFromAsync(context.Document, invocation, propertyName!,
-                            $"src.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName!)} ?? {defaultValue}", defaultValue, operationContext.SemanticModel, cancellationToken),
+                            $"src.{CodeFixSyntaxHelper.EscapeIdentifier(sourceMemberName)}{(sourceMemberRequiresInvocation ? "()" : string.Empty)} ?? {defaultValue}",
+                            defaultValue,
+                            operationContext.SemanticModel,
+                            cancellationToken),
                         $"AM002_DefaultValue_{propertyName}"),
                     diagnostic);
             }
 
             // Option 2: Ignore property
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Ignore property '{propertyName}' (manual review)",
-                    cancellationToken => AddIgnoreAsync(context.Document, invocation, propertyName!, cancellationToken),
-                    $"AM002_Ignore_{propertyName}"),
-                diagnostic);
+            if (!isConstructorParameterConfiguration &&
+                !ignoreWouldExposeUnsafeConstructorAlias)
+            {
+                context.RegisterCodeFix(
+                    CodeAction.Create(
+                        $"Ignore property '{propertyName}' (manual review)",
+                        cancellationToken => AddIgnoreAsync(
+                            context.Document,
+                            invocation,
+                            propertyName!,
+                            operationContext.SemanticModel,
+                            cancellationToken),
+                        $"AM002_Ignore_{propertyName}"),
+                    diagnostic);
+            }
         }
     }
 
-    private static string GetDefaultValueForDestination(
+    private static string? GetDefaultValueForDestination(
         InvocationExpressionSyntax invocation,
         string propertyName,
         string? destinationType,
+        InvocationExpressionSyntax? existingConfiguration,
         SemanticModel semanticModel)
     {
         string defaultValue = TypeConversionHelper.GetDefaultValueForType(destinationType ?? string.Empty);
@@ -121,7 +172,38 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
             ResolveCreateMapTypesWithReverse(invocation, semanticModel);
         if (destinationMapType == null)
         {
-            return defaultValue;
+            return null;
+        }
+
+        bool isConstructorParameterConfiguration = existingConfiguration != null &&
+                                                   MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                                                       existingConfiguration,
+                                                       semanticModel,
+                                                       "ForCtorParam");
+        if (isConstructorParameterConfiguration)
+        {
+            if (destinationMapType is not INamedTypeSymbol namedDestinationType ||
+                existingConfiguration!.ArgumentList.Arguments.Count == 0)
+            {
+                return null;
+            }
+
+            string? constructorParameterName =
+                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                    existingConfiguration.ArgumentList.Arguments[0].Expression,
+                    semanticModel);
+            ITypeSymbol[] matchingParameterTypes = namedDestinationType.InstanceConstructors
+                .SelectMany(constructor => constructor.Parameters)
+                .Where(parameter => string.Equals(
+                    parameter.Name,
+                    constructorParameterName,
+                    StringComparison.Ordinal))
+                .Select(parameter => parameter.Type)
+                .ToArray();
+            return matchingParameterTypes.Length > 0 &&
+                   matchingParameterTypes.All(IsDefinitelyNonNullableValueType)
+                ? defaultValue
+                : null;
         }
 
         IPropertySymbol? destinationProperty = AutoMapperAnalysisHelpers
@@ -134,6 +216,18 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
         }
 
         return NeedsNullForgivingDefault(destinationProperty.Type) ? "default!" : defaultValue;
+    }
+
+    private static bool IsDefinitelyNonNullableValueType(ITypeSymbol type)
+    {
+        if (type is ITypeParameterSymbol typeParameter)
+        {
+            return typeParameter.HasValueTypeConstraint;
+        }
+
+        return type.IsValueType &&
+               !(type is INamedTypeSymbol namedType &&
+                 namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T);
     }
 
     private static bool NeedsNullForgivingDefault(ITypeSymbol destinationPropertyType)
@@ -162,10 +256,13 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
             return document;
         }
 
-        InvocationExpressionSyntax? existingConfiguration = FindDestinationConfiguration(invocation, propertyName);
+        InvocationExpressionSyntax? existingConfiguration = FindDestinationConfiguration(
+            invocation,
+            propertyName,
+            semanticModel);
         if (existingConfiguration != null)
         {
-            if (ConfigurationCanVetoAssignment(existingConfiguration))
+            if (ConfigurationCanVetoAssignment(existingConfiguration, semanticModel))
             {
                 return document;
             }
@@ -180,7 +277,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
                 return await ReplaceNodeAsync(document, root, existingConfiguration, mapFromReplacement);
             }
 
-            if (TryAppendMapFromExpression(existingConfiguration, propertyName, defaultValue, out InvocationExpressionSyntax? appendedMapFrom) &&
+            if (TryAppendMapFromExpression(existingConfiguration, mapFromExpression, out InvocationExpressionSyntax? appendedMapFrom) &&
                 appendedMapFrom != null)
             {
                 return await ReplaceNodeAsync(document, root, existingConfiguration, appendedMapFrom);
@@ -198,6 +295,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
         Document document,
         InvocationExpressionSyntax invocation,
         string propertyName,
+        SemanticModel semanticModel,
         CancellationToken cancellationToken)
     {
         SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
@@ -206,7 +304,10 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
             return document;
         }
 
-        InvocationExpressionSyntax? existingConfiguration = FindDestinationConfiguration(invocation, propertyName);
+        InvocationExpressionSyntax? existingConfiguration = FindDestinationConfiguration(
+            invocation,
+            propertyName,
+            semanticModel);
         if (existingConfiguration != null)
         {
             InvocationExpressionSyntax replacement =
@@ -221,83 +322,184 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
 
     private static InvocationExpressionSyntax? FindDestinationConfiguration(
         InvocationExpressionSyntax createMapInvocation,
-        string propertyName)
+        string propertyName,
+        SemanticModel semanticModel)
     {
+        (ITypeSymbol? sourceType, ITypeSymbol? destinationType) =
+            ResolveCreateMapTypesWithReverse(createMapInvocation, semanticModel);
+        var configuredConstructorParameterNames = new HashSet<string>(StringComparer.Ordinal);
+        SyntaxNode? configurationNode = createMapInvocation.Parent;
+        while (configurationNode is MemberAccessExpressionSyntax configurationMemberAccess &&
+               configurationMemberAccess.Parent is InvocationExpressionSyntax configurationInvocation)
+        {
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                    configurationInvocation,
+                    semanticModel,
+                    "ReverseMap"))
+            {
+                break;
+            }
+
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                    configurationInvocation,
+                    semanticModel,
+                    "ForCtorParam") &&
+                configurationInvocation.ArgumentList.Arguments.Count > 0)
+            {
+                string? configuredConstructorParameterName =
+                    AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                        configurationInvocation.ArgumentList.Arguments[0].Expression,
+                        semanticModel);
+                if (!string.IsNullOrWhiteSpace(configuredConstructorParameterName))
+                {
+                    configuredConstructorParameterNames.Add(configuredConstructorParameterName!);
+                }
+            }
+
+            configurationNode = configurationInvocation.Parent;
+        }
+
         SyntaxNode? currentNode = createMapInvocation.Parent;
         InvocationExpressionSyntax? effectiveConfiguration = null;
+        InvocationExpressionSyntax? effectiveConstructorParameterConfiguration = null;
 
         while (currentNode is MemberAccessExpressionSyntax memberAccess &&
                memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
         {
-            string methodName = memberAccess.Name.Identifier.ValueText;
-            if (methodName == "ReverseMap")
+            if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                    chainedInvocation,
+                    semanticModel,
+                    "ReverseMap"))
             {
                 break;
             }
 
             if (chainedInvocation.ArgumentList.Arguments.Count > 0 &&
-                DestinationConfigurationTargetsTopLevelMember(chainedInvocation, methodName, propertyName))
+                DestinationConfigurationTargetsTopLevelMember(
+                    chainedInvocation,
+                    semanticModel,
+                    sourceType,
+                    destinationType,
+                    configuredConstructorParameterNames,
+                    propertyName))
             {
-                effectiveConfiguration = chainedInvocation;
+                if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(
+                        chainedInvocation,
+                        semanticModel,
+                        "ForCtorParam"))
+                {
+                    effectiveConstructorParameterConfiguration = chainedInvocation;
+                }
+                else
+                {
+                    effectiveConfiguration = chainedInvocation;
+                }
             }
 
             currentNode = chainedInvocation.Parent;
         }
 
-        return effectiveConfiguration;
+        return effectiveConstructorParameterConfiguration ?? effectiveConfiguration;
     }
 
-    private static bool ConfigurationCanVetoAssignment(InvocationExpressionSyntax existingConfiguration)
+    private static bool ConfigurationCanVetoAssignment(
+        InvocationExpressionSyntax existingConfiguration,
+        SemanticModel semanticModel)
     {
-        if (existingConfiguration.ArgumentList.Arguments.Count <= 1 ||
-            existingConfiguration.ArgumentList.Arguments[1].Expression is not LambdaExpressionSyntax optionsLambda)
-        {
-            return false;
-        }
-
-        string? optionParameterName = GetSingleParameterName(optionsLambda);
-        if (string.IsNullOrEmpty(optionParameterName))
-        {
-            return false;
-        }
-
-        return optionsLambda
-            .DescendantNodesAndSelf()
-            .OfType<InvocationExpressionSyntax>()
-            .Any(invocation =>
-                invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-                memberAccess.Expression is IdentifierNameSyntax receiver &&
-                string.Equals(receiver.Identifier.ValueText, optionParameterName, StringComparison.Ordinal) &&
-                memberAccess.Name.Identifier.ValueText is "Condition" or "PreCondition");
+        return AM002_NullableCompatibilityAnalyzer.GetDirectlyExecutedOptionMethodInvocations(
+                   existingConfiguration,
+                   "Condition",
+                   semanticModel).Count > 0 ||
+               AM002_NullableCompatibilityAnalyzer.GetDirectlyExecutedOptionMethodInvocations(
+                   existingConfiguration,
+                   "PreCondition",
+                   semanticModel).Count > 0;
     }
 
     private static bool ConfigurationCanAcceptDefaultValueFix(
         InvocationExpressionSyntax existingConfiguration,
         SemanticModel semanticModel)
     {
-        if (!TryGetMapFromArgument(existingConfiguration, out ExpressionSyntax? mapFromArgument) ||
-            mapFromArgument == null)
+        IReadOnlyList<InvocationExpressionSyntax> mapFromInvocations =
+            AM002_NullableCompatibilityAnalyzer.GetDirectlyExecutedOptionMethodInvocations(
+                existingConfiguration,
+                "MapFrom",
+                semanticModel);
+        if (mapFromInvocations.Count == 0)
         {
             return true;
         }
+
+        if (mapFromInvocations.Count != 1 ||
+            mapFromInvocations[0].ArgumentList.Arguments.Count == 0)
+        {
+            return false;
+        }
+
+        ExpressionSyntax mapFromArgument =
+            mapFromInvocations[0].ArgumentList.Arguments[0].Expression;
 
         return MapFromArgumentCanBeCoalesced(mapFromArgument, semanticModel);
     }
 
     private static bool DestinationConfigurationTargetsTopLevelMember(
         InvocationExpressionSyntax chainedInvocation,
-        string methodName,
+        SemanticModel semanticModel,
+        ITypeSymbol? sourceType,
+        ITypeSymbol? destinationType,
+        IReadOnlyCollection<string> configuredConstructorParameterNames,
         string propertyName)
     {
         ExpressionSyntax destinationExpression = chainedInvocation.ArgumentList.Arguments[0].Expression;
-        if (methodName == "ForMember")
+        if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForMember"))
         {
             string? selectedMember =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberName(destinationExpression);
+                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                    destinationExpression,
+                    semanticModel);
             return string.Equals(selectedMember, propertyName, StringComparison.OrdinalIgnoreCase);
         }
 
-        return methodName == "ForPath" &&
+        if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForCtorParam"))
+        {
+            string? selectedConstructorParameter =
+                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                    destinationExpression,
+                    semanticModel);
+            if (sourceType == null || destinationType == null)
+            {
+                return false;
+            }
+
+            if (string.Equals(
+                    selectedConstructorParameter,
+                    propertyName,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return AM020MappingConfigurationHelpers.GetConstructorParameterTypes(
+                    destinationType,
+                    sourceType,
+                    selectedConstructorParameter ?? string.Empty,
+                    configuredConstructorParameterNames).Count > 0;
+            }
+
+            string? assignedPropertyName =
+                AM020MappingConfigurationHelpers.GetDestinationPropertyNameForConstructorParameter(
+                    destinationType,
+                    sourceType,
+                    selectedConstructorParameter ?? string.Empty,
+                    configuredConstructorParameterNames,
+                    semanticModel);
+            return string.Equals(
+                       assignedPropertyName,
+                       propertyName,
+                       StringComparison.OrdinalIgnoreCase) &&
+                   !AM020MappingConfigurationHelpers.CanMapDestinationPropertyAfterConstruction(
+                       destinationType,
+                       propertyName);
+        }
+
+        return MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForPath") &&
                TryGetSelectedMemberPath(destinationExpression, out string memberPath) &&
                !memberPath.Contains('.') &&
                string.Equals(memberPath, propertyName, StringComparison.OrdinalIgnoreCase);
@@ -343,7 +545,10 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
         out InvocationExpressionSyntax? replacement)
     {
         replacement = null;
-        if (!TryGetMapFromArgument(existingConfiguration, out ExpressionSyntax? mapFromArgument) ||
+        if (!TryGetMapFromArgument(
+                existingConfiguration,
+                semanticModel,
+                out ExpressionSyntax? mapFromArgument) ||
             mapFromArgument == null)
         {
             return false;
@@ -376,37 +581,22 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
 
     private static bool TryGetMapFromArgument(
         InvocationExpressionSyntax existingConfiguration,
+        SemanticModel semanticModel,
         out ExpressionSyntax? mapFromArgument)
     {
         mapFromArgument = null;
-        if (existingConfiguration.ArgumentList.Arguments.Count <= 1 ||
-            existingConfiguration.ArgumentList.Arguments[1].Expression is not LambdaExpressionSyntax optionsLambda)
+        IReadOnlyList<InvocationExpressionSyntax> mapFromInvocations =
+            AM002_NullableCompatibilityAnalyzer.GetDirectlyExecutedOptionMethodInvocations(
+                existingConfiguration,
+                "MapFrom",
+                semanticModel);
+        if (mapFromInvocations.Count != 1 ||
+            mapFromInvocations[0].ArgumentList.Arguments.Count == 0)
         {
             return false;
         }
 
-        string? optionParameterName = GetSingleParameterName(optionsLambda);
-        if (string.IsNullOrEmpty(optionParameterName))
-        {
-            return false;
-        }
-
-        InvocationExpressionSyntax? effectiveMapFromInvocation = null;
-        foreach (InvocationExpressionSyntax invocation in optionsLambda
-                     .DescendantNodesAndSelf()
-                     .OfType<InvocationExpressionSyntax>())
-        {
-            if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-                memberAccess.Expression is IdentifierNameSyntax receiver &&
-                string.Equals(receiver.Identifier.ValueText, optionParameterName, StringComparison.Ordinal) &&
-                memberAccess.Name.Identifier.ValueText == "MapFrom" &&
-                invocation.ArgumentList.Arguments.Count > 0)
-            {
-                effectiveMapFromInvocation = invocation;
-            }
-        }
-
-        mapFromArgument = effectiveMapFromInvocation?.ArgumentList.Arguments[0].Expression;
+        mapFromArgument = mapFromInvocations[0].ArgumentList.Arguments[0].Expression;
         return mapFromArgument != null;
     }
 
@@ -425,11 +615,19 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
             return false;
         }
 
-        TypeInfo typeInfo = semanticModel.GetTypeInfo(body);
+        ExpressionSyntax coalescingOperand = UnwrapNullForgivingExpression(
+            body,
+            out bool removedNullForgivingOperator);
+        ITypeSymbol? declaredSymbolType = GetDeclaredSymbolType(
+            semanticModel.GetSymbolInfo(coalescingOperand).Symbol);
+        bool isNullForgivenNullableSymbol = removedNullForgivingOperator &&
+                                             declaredSymbolType != null &&
+                                             IsNullableType(declaredSymbolType);
+        TypeInfo typeInfo = semanticModel.GetTypeInfo(coalescingOperand);
         ITypeSymbol? bodyType = typeInfo.Type ?? typeInfo.ConvertedType;
         return bodyType != null &&
-               IsNullableType(bodyType) &&
-               !ExpressionDereferencesNullableReceiver(body, semanticModel);
+               (IsNullableType(bodyType) || isNullForgivenNullableSymbol) &&
+               !ExpressionDereferencesNullableReceiver(coalescingOperand, semanticModel);
     }
 
     private static bool ExpressionDereferencesNullableReceiver(
@@ -472,9 +670,33 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
         ExpressionSyntax expression,
         SemanticModel semanticModel)
     {
-        TypeInfo typeInfo = semanticModel.GetTypeInfo(expression);
+        ExpressionSyntax nullableTransparentExpression = UnwrapNullForgivingExpression(
+            expression,
+            out bool removedNullForgivingOperator);
+        TypeInfo typeInfo = semanticModel.GetTypeInfo(nullableTransparentExpression);
         ITypeSymbol? expressionType = typeInfo.Type ?? typeInfo.ConvertedType;
-        return expressionType != null && IsNullableType(expressionType);
+        if (expressionType != null && IsNullableType(expressionType))
+        {
+            return true;
+        }
+
+        ITypeSymbol? declaredSymbolType = GetDeclaredSymbolType(
+            semanticModel.GetSymbolInfo(nullableTransparentExpression).Symbol);
+        return removedNullForgivingOperator &&
+               declaredSymbolType != null &&
+               IsNullableType(declaredSymbolType);
+    }
+
+    private static ITypeSymbol? GetDeclaredSymbolType(ISymbol? symbol)
+    {
+        return symbol switch
+        {
+            IPropertySymbol propertySymbol => propertySymbol.Type,
+            IFieldSymbol fieldSymbol => fieldSymbol.Type,
+            ILocalSymbol localSymbol => localSymbol.Type,
+            IParameterSymbol parameterSymbol => parameterSymbol.Type,
+            _ => null
+        };
     }
 
     private static bool IsNullableType(ITypeSymbol type)
@@ -529,10 +751,38 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
         ExpressionSyntax body,
         string defaultValue)
     {
+        body = UnwrapNullForgivingExpression(body, out _);
         string expressionText = NeedsParenthesesForCoalesce(body)
             ? $"({body}) ?? {defaultValue}"
             : $"{body} ?? {defaultValue}";
-        return SyntaxFactory.ParseExpression(expressionText);
+        return SyntaxFactory.ParseExpression(expressionText).WithTriviaFrom(body);
+    }
+
+    private static ExpressionSyntax UnwrapNullForgivingExpression(
+        ExpressionSyntax expression,
+        out bool removedNullForgivingOperator)
+    {
+        if (expression is PostfixUnaryExpressionSyntax postfixUnary &&
+            postfixUnary.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+        {
+            removedNullForgivingOperator = true;
+            return UnwrapNullForgivingExpression(postfixUnary.Operand, out _);
+        }
+
+        if (expression is ParenthesizedExpressionSyntax parenthesized)
+        {
+            ExpressionSyntax unwrappedExpression = UnwrapNullForgivingExpression(
+                parenthesized.Expression,
+                out bool removedInsideParentheses);
+            if (removedInsideParentheses)
+            {
+                removedNullForgivingOperator = true;
+                return unwrappedExpression;
+            }
+        }
+
+        removedNullForgivingOperator = false;
+        return expression;
     }
 
     private static bool NeedsParenthesesForCoalesce(ExpressionSyntax expression)
@@ -543,8 +793,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
 
     private static bool TryAppendMapFromExpression(
         InvocationExpressionSyntax existingConfiguration,
-        string propertyName,
-        string defaultValue,
+        string mapFromExpression,
         out InvocationExpressionSyntax? replacement)
     {
         replacement = null;
@@ -563,7 +812,11 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
         string sourceParameterName = string.Equals(optionParameterName, "src", StringComparison.Ordinal)
             ? "source"
             : "src";
-        string mapFromExpression = $"{sourceParameterName}.{CodeFixSyntaxHelper.EscapeIdentifier(propertyName)} ?? {defaultValue}";
+        if (!string.Equals(sourceParameterName, "src", StringComparison.Ordinal) &&
+            mapFromExpression.StartsWith("src.", StringComparison.Ordinal))
+        {
+            mapFromExpression = sourceParameterName + mapFromExpression.Substring("src".Length);
+        }
         StatementSyntax mapFromStatement =
             SyntaxFactory.ParseStatement($"{optionParameterName}.MapFrom({sourceParameterName} => {mapFromExpression});");
         BlockSyntax? replacementBlock = optionsLambda.Body switch
