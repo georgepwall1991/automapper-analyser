@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.77] - 2026-07-18
+
+AM041 mutually exclusive branch precision.
+
+### Changed
+
+- **Mutually exclusive registrations**: duplicate `CreateMap<TSource, TDestination>()` calls in opposite arms of the same `if`/`else`, including one `if`/`else if`/`else` chain, no longer emit AM041 when they share one executable body and therefore cannot run together.
+- **Conservative conflict boundary**: independent `if` statements, registrations outside the branch chain, and registrations in different executable bodies still participate in duplicate detection. When an unconditional registration follows mutually exclusive alternatives, AM041 continues to report that real conflict and retains its removal fix.
+
+### Validation
+
+- AM041 analyzer and code-fix suite: **49** passed.
+- Clean-branch full solution suite: **1667** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.76] - 2026-07-18
 
 AM022 deferred root cycle-breaker parity.

@@ -65,6 +65,7 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | AM050 preserve sibling configuration | Configuration | _branch_ | v2.30.23 | Withheld the AM050 automatic `ForMember`-removal code action when the options lambda carries sibling configuration (`Condition`, `NullSubstitute`, `PreCondition`, `UseDestinationValue`, `Ignore`, etc.) so the redundant-`MapFrom` cleanup no longer silently drops policy overrides. |
 | AM022 constructor-owned cycle edges | Complex Mappings | main | v2.30.75 | Added unique direct semantic `ForCtorParam` edges for writable, read-only, and exact positional-record constructor-owned destination properties, replayed them downstream, retained `ConvertUsing` ownership, prevented ineffective Ignore/PreserveReferences suppression, and kept mixed-path MaxDepth effective while construction-only cycles still report. |
 | AM022 deferred root cycle breakers | Complex Mappings | main | v2.30.76 | Reused the direction-aware registry at the root so later same-block `MaxDepth`, `PreserveReferences`, and `ConvertUsing` calls through a direct mapping local suppress only the exact constrained direction; reverse-only and duplicate-ambiguous registrations remain diagnostic. |
+| AM041 mutually exclusive registration branches | Configuration | main | v2.30.77 | Opposite arms of the same `if`/`else` or one `else if` chain no longer conflict within a single executable body; independent and unconditional duplicates remain diagnostic. |
 
 ## In Progress
 

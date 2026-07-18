@@ -329,4 +329,131 @@ public class AM041_DuplicateMappingTests
         await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
+    [Fact]
+    public async Task Should_NotReportDiagnostic_WhenRegistrationsAreInOppositeIfElseBranches()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile(bool useAlternative)
+                                    {
+                                        if (useAlternative)
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                        else
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_WhenRegistrationsAreInIndependentIfStatements()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile(bool first, bool second)
+                                    {
+                                        if (first)
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+
+                                        if (second)
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(17, 13)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_WhenRegistrationsAreInOneIfElseIfChain()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile(bool first, bool second)
+                                    {
+                                        if (first)
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                        else if (second)
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                        else
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_WhenUnconditionalRegistrationFollowsIfElseRegistrations()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile(bool useAlternative)
+                                    {
+                                        if (useAlternative)
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                        else
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+
+                                        CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(19, 9)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
 }

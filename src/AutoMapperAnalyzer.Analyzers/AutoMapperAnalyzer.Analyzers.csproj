@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>76</PatchVersion>
+        <PatchVersion>77</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,12 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.76 - AM022 deferred root cycle-breaker parity
-- Direct local mapping variables configured later with MaxDepth, PreserveReferences, or ConvertUsing now constrain the root map as well as downstream traversal
-- Deferred policies require a straight-line same-block path and direct fluent statement chain so conditional exits or expressions cannot hide an unconstrained map
-- Cycle-breaker ownership remains direction-aware; reverse-only policies do not suppress the forward diagnostic
-- Duplicate mapping directions remain conservative unless every registration carries the same constraint
-- Automatic pull-request review now uses GitHub Codex; the obsolete Claude review workflow is removed
+                <PackageReleaseNotes>Version 2.30.77 - AM041 mutually exclusive branch precision
+- Duplicate CreateMap registrations in opposite arms of one if/else or else-if chain no longer report when they share one executable body
+- Independent if statements and registrations outside the mutually exclusive chain remain diagnostic
+- Prevents the SafeRewrite fixer from deleting a runtime configuration alternative that is not a duplicate
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

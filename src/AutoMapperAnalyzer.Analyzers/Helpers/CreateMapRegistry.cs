@@ -319,6 +319,11 @@ internal sealed class CreateMapRegistry
                 for (int i = 1; i < sorted.Count; i++)
                 {
                     MappingInfo duplicate = sorted[i];
+                    if (sorted.Take(i).All(previous => AreMutuallyExclusiveByIfElse(previous, duplicate)))
+                    {
+                        continue;
+                    }
+
                     duplicates[duplicate.Node] = (
                         Source: FormatMappingTypeName(duplicate.Source),
                         Dest: FormatMappingTypeName(duplicate.Destination),
@@ -329,6 +334,46 @@ internal sealed class CreateMapRegistry
         }
 
         return new CreateMapRegistry(mappings.ToImmutableArray(), duplicates);
+    }
+
+    private static bool AreMutuallyExclusiveByIfElse(MappingInfo first, MappingInfo second)
+    {
+        SyntaxNode? firstBoundary = GetContainingExecutableBoundary(first.Node);
+        SyntaxNode? secondBoundary = GetContainingExecutableBoundary(second.Node);
+        if (firstBoundary == null || !ReferenceEquals(firstBoundary, secondBoundary))
+        {
+            return false;
+        }
+
+        foreach (IfStatementSyntax ifStatement in first.Node.Ancestors().OfType<IfStatementSyntax>())
+        {
+            if (ifStatement.Else is not { Statement: StatementSyntax elseStatement } ||
+                !ifStatement.Span.Contains(second.Node.Span))
+            {
+                continue;
+            }
+
+            bool firstInThen = ifStatement.Statement.Span.Contains(first.Node.Span);
+            bool firstInElse = elseStatement.Span.Contains(first.Node.Span);
+            bool secondInThen = ifStatement.Statement.Span.Contains(second.Node.Span);
+            bool secondInElse = elseStatement.Span.Contains(second.Node.Span);
+            if ((firstInThen && secondInElse) || (firstInElse && secondInThen))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static SyntaxNode? GetContainingExecutableBoundary(SyntaxNode node)
+    {
+        return node.Ancestors().FirstOrDefault(ancestor =>
+            ancestor is BaseMethodDeclarationSyntax or
+                AccessorDeclarationSyntax or
+                LocalFunctionStatementSyntax or
+                AnonymousFunctionExpressionSyntax or
+                GlobalStatementSyntax);
     }
 
     public static CreateMapRegistry FromCompilation(Compilation compilation)
