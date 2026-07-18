@@ -14,14 +14,14 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.82
+## 🎉 Latest Release: v2.30.83
 
-**AM021 direct-statement and conditional-region safety**
+**AM021 Stack conversion order safety**
 
 ✅ **Highlights**
 
-- AM021 now withholds its complex element-map registration when the diagnosed mapping is nested or deferred, preventing a generated `CreateMap` from being hoisted outside a callback or local execution scope.
-- Direct statements inside or split by conditional-compilation regions also keep only Ignore. Direct constructor/method statements, parenthesized fluent chains, and mappings after completed conditional regions retain the complex action.
+- AM021 now preserves top-to-bottom LIFO order when converting an exact BCL `Stack<T>` by reversing the converted enumeration before construction.
+- Other collection conversions and the v2.30.82 direct-statement/conditional-region insertion gates remain unchanged.
 
 🧪 **Validation**
 
@@ -29,6 +29,7 @@ prevention*
 
 ### Recent Releases
 
+- **v2.30.83**: AM021 preserves exact BCL `Stack<T>` LIFO order in generated element-conversion fixes.
 - **v2.30.82**: AM021 restricts complex element-map insertion to direct, unconditional constructor/method statements while retaining Ignore for nested, deferred, or conditional-region mappings.
 - **v2.30.81**: AM020 withholds constructor/method block insertion inside or across conditional regions while preserving fixes after completed conditional regions.
 - **v2.30.80**: AM020 converts direct expression-bodied `void` methods into executable blocks while retaining strict return, ownership, receiver, and trivia-safety gates.
@@ -247,7 +248,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.82">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.83">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

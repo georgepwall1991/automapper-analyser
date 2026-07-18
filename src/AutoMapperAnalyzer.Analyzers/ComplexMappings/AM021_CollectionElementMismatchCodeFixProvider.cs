@@ -600,7 +600,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
 
         if (IsConstructedFromType(destProperty.Type, "System.Collections.Generic.Stack<T>"))
         {
-            return $"new {destinationTypeName}({selectExpression})";
+            return $"new {destinationTypeName}({selectExpression}.Reverse())";
         }
 
         if (IsConstructedFromType(destProperty.Type, "System.Collections.Immutable.ImmutableList<T>"))

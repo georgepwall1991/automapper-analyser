@@ -677,7 +677,7 @@ public class AM021_CodeFixTests
                                              {
                                                  public TestProfile()
                                                  {
-                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new Stack<int>(src.Values.Select(x => global::System.Convert.ToInt32(x)))));
+                                                     CreateMap<Source, Destination>().ForMember(dest => dest.Values, opt => opt.MapFrom(src => new Stack<int>(src.Values.Select(x => global::System.Convert.ToInt32(x)).Reverse())));
                                                  }
                                              }
                                          }
@@ -690,6 +690,14 @@ public class AM021_CodeFixTests
                     .WithLocation(20, 13)
                     .WithArguments("Values", "Source", "string", "Destination", "Values", "int"),
                 expectedFixedCode);
+
+        var source = new Stack<string>(new[] { "1", "2", "3" });
+        var converted = new Stack<int>(source.Select(int.Parse).Reverse());
+        Assert.Equal(new[] { 3, 2, 1 }, converted);
+
+        Assert.Empty(new Stack<int>(new Stack<string>().Select(int.Parse).Reverse()));
+        var singleSource = new Stack<string>(new[] { "1" });
+        Assert.Equal(new[] { 1 }, new Stack<int>(singleSource.Select(int.Parse).Reverse()));
     }
 
     [Fact]
