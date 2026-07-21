@@ -3,8 +3,9 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1691%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1762%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
+[![Compatibility](https://img.shields.io/badge/Verified-net48%20%7C%20net6%20%7C%20net8%20%7C%20net9%20%7C%20net10-512BD4?style=flat-square&logo=dotnet)](docs/COMPATIBILITY.md)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Coverage](https://img.shields.io/codecov/c/github/georgepwall1991/automapper-analyser?style=flat-square&logo=codecov&label=Coverage)](https://codecov.io/gh/georgepwall1991/automapper-analyser)
 
@@ -14,21 +15,22 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.83
+## 🎉 Latest Release: v2.30.84
 
-**AM021 Stack conversion order safety**
+**Two new rules: AM060 unregistered type maps + AM061 enum member mismatches**
 
 ✅ **Highlights**
 
-- AM021 now preserves top-to-bottom LIFO order when converting an exact BCL `Stack<T>` by reversing the converted enumeration before construction.
-- Other collection conversions and the v2.30.82 direct-statement/conditional-region insertion gates remain unchanged.
+- **AM060 (Warning)** surfaces AutoMapper's most common runtime failure — `AutoMapperMappingException: Missing type map configuration` — at compile time. Every semantic `Map`/`ProjectTo` call site is checked against the compilation's `CreateMap` registry (including `ReverseMap()` directions, base-type/interface registrations, assignable pairs, and collection element maps), failing closed when registrations live outside the compilation, use open-generic typeof forms, or come from generic registration helpers. Warning severity keeps externally configured solutions honest; escalate to `error` in closed-world repos. The code fix scaffolds the missing `CreateMap` into a `Profile` constructor in the same document.
+- **AM061 (Warning)** catches silent enum data corruption: AutoMapper maps enums by numeric value, so misaligned member names/values quietly produce wrong data. Every registered mapping direction is checked for convention and explicit direct member pairs, honoring `Ignore`, `ConvertUsing`, non-trivial `MapFrom`, and `[Flags]` enums. Fixes offer a name-based `Enum.Parse` conversion or an explicit `Ignore`.
 
 🧪 **Validation**
 
-- AM021 analyzer, code-fix, and helper suite: **70** passed; clean-branch full suite: **1691** passed, 0 skipped, 0 failed on `net10.0`.
+- AM060 + AM061 suites: **50** passed; full suite green on `net10.0`; catalog, sample snapshots, and compatibility contract regenerated. Cross-reviewed with Codex CLI (two rounds).
 
 ### Recent Releases
 
+- **v2.30.84**: New AM060 flags `Map`/`ProjectTo` calls with no reachable `CreateMap` registration (with a profile-scaffolding fix); new AM061 flags enum member name/value misalignment that silently corrupts mapped data.
 - **v2.30.83**: AM021 preserves exact BCL `Stack<T>` LIFO order in generated element-conversion fixes.
 - **v2.30.82**: AM021 restricts complex element-map insertion to direct, unconditional constructor/method statements while retaining Ignore for nested, deferred, or conditional-region mappings.
 - **v2.30.81**: AM020 withholds constructor/method block insertion inside or across conditional regions while preserving fixes after completed conditional regions.
@@ -165,6 +167,8 @@ Install-Package AutoMapperAnalyzer.Analyzers
 That's it! The analyzer automatically activates and starts checking your AutoMapper configurations. Open any file with
 AutoMapper mappings and see diagnostics appear instantly.
 
+See the [executable package compatibility contract](docs/COMPATIBILITY.md) for the exact target-framework and AutoMapper version pairings verified before release.
+
 **See it work:**
 
 ```csharp
@@ -248,7 +252,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.83">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.84">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -366,6 +370,7 @@ public void ConfigureSafeUserMapping() { }
 | AM001                   | Property Type Mismatch         | ✅        | ✅        | Error    |
 | AM002                   | Nullable→Non-nullable          | ✅        | ✅        | Error / Info |
 | AM003                   | Collection Incompatibility     | ✅        | ✅        | Error    |
+| AM061                   | Enum Member Mismatch           | ✅        | ✅        | Warning  |
 | **📊 Data Integrity**   |                                |          |          |
 | AM004                   | Missing Destination Property   | ✅        | ✅        | Warning  |
 | AM005                   | Case Sensitivity Issues        | ✅        | ✅        | Warning  |
@@ -388,6 +393,7 @@ public void ConfigureSafeUserMapping() { }
 | **⚙️ Configuration**    |                                |          |          |
 | AM041                   | Duplicate Mapping Registration | ✅        | ✅        | Warning  |
 | AM050                   | Redundant MapFrom              | ✅        | ✅        | Info     |
+| AM060                   | Unregistered Type Map          | ✅        | ✅        | Warning  |
 | **🚀 Future**           |                                |          |          |
 | AM040+                  | Additional configuration rules | 🔮       | 🔮       | -        |
 | AM050+                  | Advanced Optimizations         | 🔮       | 🔮       | -        |

@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## [2.30.84] - 2026-07-21
+
+Two new rules: AM060 unregistered type maps and AM061 enum member mismatches.
+
+### Added
+
+- **AM060 — Unregistered type map at mapping call site (Warning).** Semantic `IMapper.Map` (single-generic, two-generic, and non-generic `typeof` forms) and `ProjectTo` invocations are checked against the compilation-wide `CreateMap` registry. A call whose source/destination pair has no reachable registration — exact pair, base type, interface, `ReverseMap()` direction, assignable pair, or collection element map — is reported at the call site, surfacing AutoMapper's most common runtime failure (`AutoMapperMappingException: Missing type map configuration`) at compile time. Severity is Warning because profiles contributed by other assemblies are invisible to the rule; closed-world solutions can escalate via `.editorconfig`.
+- **AM060 conservative boundary.** The rule stays silent when absence cannot be proven: compilations with no registrations at all (externally configured projects), open-generic `CreateMap(typeof(S<>), typeof(D<>))` registrations, generic registration helpers (`CreateMap<TS, TD>()` inside a generic method), assignable source/destination pairs served by AutoMapper's built-in assignable mapper, both-endpoint simple/enum pairs, dictionary pairs, generic type parameters, error types, and `object`-typed sources. Closed `typeof` registrations resolve normally. Cross-assembly profiles are a documented non-goal.
+- **AM060 code fix (Scaffold).** Scaffolds the missing `CreateMap<TSource, TDestination>()` into a `Profile` constructor in the same document, using minimal type names valid at the insertion point. Withheld when the document has no profile with an explicit constructor.
+- **AM061 — Enum member mismatch in mapping (Warning).** Every registered mapping direction (forward and `ReverseMap()`-generated) is checked for enum-to-enum property pairs — convention same-name pairs and explicit direct `ForMember(...MapFrom(src => src.Member))` pairs — whose members misalign by name/value. One diagnostic per misaligned source member, on the owning registration.
+- **AM061 conservative boundary.** Same-enum pairs, aligned members (cross-underlying-type and alias-safe via decimal value normalization), `Ignore`d members (lambda/string/`nameof` selectors), member/map-level `ConvertUsing`, dedicated enum-pair converters (`ConvertUsing`/`ConvertUsingEnumMapping`), non-trivial `MapFrom` expressions, deferred local-variable configuration, nested `ForPath` leaf names, and `[Flags]` enums stay quiet; nullable enum properties are unwrapped before comparison. Reverse directions inherit proven direct forward `MapFrom` pairs inverted.
+- **AM061 code fixes (Scaffold).** "Map by name via `Enum.Parse`" is offered only when every source member name exists in the destination enum, the source member is non-nullable, and the source enum has no duplicate-valued aliases, so the generated parse cannot throw or map non-deterministically; "Ignore" makes the data loss an explicit decision. Diagnostics produced from an explicit direct `MapFrom` rewrite that `ForMember` in place instead of appending a duplicate that last-wins ordering would override. Withheld for registrations that are not in an extendable fluent statement position.
+
+### Changed
+
+- `CreateMapRegistry` exposes `AllMappings`, `IsEmpty`, and `HasUnresolvedCreateMapRegistrations` for absence-reasoning rules; closed `typeof` registrations now resolve for all registry consumers. Existing rule behavior is unchanged.
+- Rule count 21 → 23; samples, rule catalog, sample diagnostics snapshot, and docs updated for AM060/AM061.
+
+### Validation
+
+- AM060 + AM061 analyzer and code-fix suites: **50** passed.
+- Full local solution suite green on `net10.0`; `--check-catalog --check-snapshots --check-compatibility` artifacts regenerated.
+- Cross-reviewed with Codex CLI (two rounds; all blocking findings resolved or documented as Scaffold-trust residuals).
+
 ## [2.30.83] - 2026-07-18
 
 AM021 Stack conversion order safety.

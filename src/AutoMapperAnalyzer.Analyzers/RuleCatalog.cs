@@ -130,7 +130,7 @@ public static class RuleCatalog
     /// <summary>
     ///     Current package version used by docs/package drift tests.
     /// </summary>
-    public const string CurrentPackageVersion = "2.30.83";
+    public const string CurrentPackageVersion = "2.30.84";
 
     /// <summary>
     ///     Implemented rules, grouped by public diagnostic ID.
@@ -321,6 +321,22 @@ public static class RuleCatalog
             typeof(AM050_RedundantMapFromAnalyzer),
             typeof(AM050_RedundantMapFromCodeFixProvider),
             CodeFixTrustLevel.SafeRewrite,
-            [AM050_RedundantMapFromAnalyzer.RedundantMapFromRule])
+            [AM050_RedundantMapFromAnalyzer.RedundantMapFromRule]),
+        new(
+            "AM060",
+            "### AM060: Unregistered Type Map",
+            "samples/AutoMapperAnalyzer.Samples/Configuration/AM060_UnregisteredTypeMapExamples.cs",
+            typeof(AM060_UnregisteredTypeMapAnalyzer),
+            typeof(AM060_UnregisteredTypeMapCodeFixProvider),
+            CodeFixTrustLevel.Scaffold,
+            [AM060_UnregisteredTypeMapAnalyzer.UnregisteredTypeMapRule]),
+        new(
+            "AM061",
+            "### AM061: Enum Member Mismatch",
+            "samples/AutoMapperAnalyzer.Samples/TypeSafety/AM061_EnumMismatchExamples.cs",
+            typeof(AM061_EnumMemberMismatchAnalyzer),
+            typeof(AM061_EnumMemberMismatchCodeFixProvider),
+            CodeFixTrustLevel.Scaffold,
+            [AM061_EnumMemberMismatchAnalyzer.EnumMemberMismatchRule])
     ];
 }

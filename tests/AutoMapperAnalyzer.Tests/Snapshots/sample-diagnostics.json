@@ -48,6 +48,17 @@
     "severity": "Warning",
     "title": "Property type mismatch in AutoMapper configuration",
     "category": "AutoMapper.TypeSafety",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/AM061_EnumMismatchExamples.cs",
+    "line": 32,
+    "column": 35,
+    "message": "Property 'Status' has incompatible types: AM061Account.Status (AutoMapperAnalyzer.Samples.TypeSafety.AM061SourceStatus) cannot be mapped to AM061AccountDto.Status (AutoMapperAnalyzer.Samples.TypeSafety.AM061DestinationStatus) without explicit conversion",
+    "fixTrustLevel": "LikelyRewrite"
+  },
+  {
+    "ruleId": "AM001",
+    "severity": "Warning",
+    "title": "Property type mismatch in AutoMapper configuration",
+    "category": "AutoMapper.TypeSafety",
     "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/TypeSafetyExamples.cs",
     "line": 106,
     "column": 16,
@@ -371,6 +382,17 @@
     "line": 22,
     "column": 23,
     "message": "Source property 'Extra5' will not be mapped - potential data loss",
+    "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM004",
+    "severity": "Warning",
+    "title": "Source property has no corresponding destination property",
+    "category": "AutoMapper.MissingProperty",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Configuration/AM060_UnregisteredTypeMapExamples.cs",
+    "line": 17,
+    "column": 19,
+    "message": "Source property 'Customer' will not be mapped - potential data loss",
     "fixTrustLevel": "Scaffold"
   },
   {
@@ -1153,5 +1175,38 @@
     "column": 50,
     "message": "Explicit mapping for 'Name' is redundant because the property name matches the source",
     "fixTrustLevel": "SafeRewrite"
+  },
+  {
+    "ruleId": "AM060",
+    "severity": "Warning",
+    "title": "Unregistered type map at mapping call site",
+    "category": "AutoMapper.Configuration",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/Configuration/AM060_UnregisteredTypeMapExamples.cs",
+    "line": 53,
+    "column": 24,
+    "message": "No CreateMap<AM060Order, AM060OrderDto> registration was found in this compilation; this call throws AutoMapperMappingException at runtime unless the pair is registered in a profile outside this compilation",
+    "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM061",
+    "severity": "Warning",
+    "title": "Enum member mismatch in mapping",
+    "category": "AutoMapper.TypeSafety",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/AM061_EnumMismatchExamples.cs",
+    "line": 41,
+    "column": 9,
+    "message": "Enum property 'Status' maps 'AM061SourceStatus' to 'AM061DestinationStatus' by numeric value, but source member 'Active' (value 1) has no same-named destination member with that value",
+    "fixTrustLevel": "Scaffold"
+  },
+  {
+    "ruleId": "AM061",
+    "severity": "Warning",
+    "title": "Enum member mismatch in mapping",
+    "category": "AutoMapper.TypeSafety",
+    "filePath": "samples/AutoMapperAnalyzer.Samples/TypeSafety/AM061_EnumMismatchExamples.cs",
+    "line": 41,
+    "column": 9,
+    "message": "Enum property 'Status' maps 'AM061SourceStatus' to 'AM061DestinationStatus' by numeric value, but source member 'Inactive' (value 2) has no same-named destination member with that value",
+    "fixTrustLevel": "Scaffold"
   }
 ]

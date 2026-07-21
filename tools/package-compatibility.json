@@ -1,0 +1,34 @@
+{
+  "include": [
+    {
+      "id": "net48-am10",
+      "runner": "windows-latest",
+      "targetFramework": "net48",
+      "autoMapperVersion": "10.1.1"
+    },
+    {
+      "id": "net6-am12",
+      "runner": "ubuntu-latest",
+      "targetFramework": "net6.0",
+      "autoMapperVersion": "12.0.1"
+    },
+    {
+      "id": "net8-am14",
+      "runner": "ubuntu-latest",
+      "targetFramework": "net8.0",
+      "autoMapperVersion": "14.0.0"
+    },
+    {
+      "id": "net9-am14",
+      "runner": "ubuntu-latest",
+      "targetFramework": "net9.0",
+      "autoMapperVersion": "14.0.0"
+    },
+    {
+      "id": "net10-am14",
+      "runner": "ubuntu-latest",
+      "targetFramework": "net10.0",
+      "autoMapperVersion": "14.0.0"
+    }
+  ]
+}

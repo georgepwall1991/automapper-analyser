@@ -18,13 +18,35 @@ internal sealed class CreateMapRegistry
 
     private readonly ImmutableArray<MappingInfo> _mappings;
 
+    private readonly bool _hasUnresolvedRegistrations;
+
     private CreateMapRegistry(
         ImmutableArray<MappingInfo> mappings,
-        Dictionary<InvocationExpressionSyntax, (string Source, string Dest, Location Location)> duplicates)
+        Dictionary<InvocationExpressionSyntax, (string Source, string Dest, Location Location)> duplicates,
+        bool hasUnresolvedRegistrations)
     {
         _mappings = mappings;
         _duplicates = duplicates;
+        _hasUnresolvedRegistrations = hasUnresolvedRegistrations;
     }
+
+    /// <summary>
+    ///     True when the compilation contains no resolved CreateMap registrations at all.
+    /// </summary>
+    public bool IsEmpty => _mappings.IsEmpty;
+
+    /// <summary>
+    ///     True when the compilation contains a semantic AutoMapper CreateMap registration whose
+    ///     source/destination types could not be resolved (for example open-generic typeof forms
+    ///     or generic registration helpers). Rules that reason about registration absence must
+    ///     fail closed while this is set.
+    /// </summary>
+    public bool HasUnresolvedCreateMapRegistrations => _hasUnresolvedRegistrations;
+
+    /// <summary>
+    ///     Every resolved registration, including reverse-generated directions.
+    /// </summary>
+    internal ImmutableArray<MappingInfo> AllMappings => _mappings;
 
     public bool Contains(ITypeSymbol? source, ITypeSymbol? destination)
     {
@@ -172,6 +194,7 @@ internal sealed class CreateMapRegistry
     public static CreateMapRegistry Build(Compilation compilation)
     {
         var mappings = new List<MappingInfo>();
+        bool hasUnresolvedRegistrations = false;
 
         foreach (SyntaxTree? syntaxTree in compilation.SyntaxTrees)
         {
@@ -194,6 +217,21 @@ internal sealed class CreateMapRegistry
 
                 (ITypeSymbol? sourceType, ITypeSymbol? destType) =
                     AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+                if (sourceType == null || destType == null)
+                {
+                    // Non-generic CreateMap(typeof(S), typeof(D)) with closed typeof operands is a
+                    // real resolved registration; open generics and non-literal Type arguments are
+                    // not, and make any "registration absent" conclusion unsafe compilation-wide.
+                    (sourceType, destType) = GetTypeArgumentsFromTypeOfLiterals(invocation, semanticModel);
+                }
+
+                if (sourceType == null || destType == null ||
+                    ContainsTypeParameter(sourceType) || ContainsTypeParameter(destType))
+                {
+                    hasUnresolvedRegistrations = true;
+                    continue;
+                }
+
                 if (sourceType != null && destType != null)
                 {
                     InvocationExpressionSyntax? reverseMapInvocation =
@@ -333,7 +371,70 @@ internal sealed class CreateMapRegistry
             }
         }
 
-        return new CreateMapRegistry(mappings.ToImmutableArray(), duplicates);
+        return new CreateMapRegistry(mappings.ToImmutableArray(), duplicates, hasUnresolvedRegistrations);
+    }
+
+    /// <summary>
+    ///     Resolves source/destination types from a non-generic <c>CreateMap(typeof(S), typeof(D))</c>
+    ///     invocation when both arguments are typeof literals. Non-literal Type arguments and open
+    ///     generic operands return (null, null) so the caller can fail closed.
+    /// </summary>
+    private static (ITypeSymbol? sourceType, ITypeSymbol? destType) GetTypeArgumentsFromTypeOfLiterals(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        if (semanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method)
+        {
+            return (null, null);
+        }
+
+        ITypeSymbol? sourceType = null;
+        ITypeSymbol? destType = null;
+
+        for (int i = 0; i < invocation.ArgumentList.Arguments.Count; i++)
+        {
+            ArgumentSyntax argument = invocation.ArgumentList.Arguments[i];
+
+            // Bind by name (NameColon first, then positional) so reordered named arguments cannot
+            // swap the pair, and non-Type parameters (e.g. MemberList) are skipped.
+            string? parameterName = argument.NameColon?.Name.Identifier.Text
+                                    ?? (i < method.Parameters.Length ? method.Parameters[i].Name : null);
+            if (parameterName is not ("sourceType" or "destinationType"))
+            {
+                continue;
+            }
+
+            // A Type-typed argument that is not a typeof literal cannot be resolved statically.
+            if (argument.Expression is not TypeOfExpressionSyntax typeOfExpression)
+            {
+                return (null, null);
+            }
+
+            ITypeSymbol? type = semanticModel.GetTypeInfo(typeOfExpression.Type).Type;
+            if (type == null || type.TypeKind == TypeKind.Error)
+            {
+                return (null, null);
+            }
+
+            if (parameterName == "sourceType")
+            {
+                sourceType = type;
+            }
+            else
+            {
+                destType = type;
+            }
+        }
+
+        return sourceType != null && destType != null ? (sourceType, destType) : (null, null);
+    }
+
+    private static bool ContainsTypeParameter(ITypeSymbol type)
+    {
+        return type.TypeKind == TypeKind.TypeParameter ||
+               (type is INamedTypeSymbol namedType &&
+                (namedType.IsUnboundGenericType || namedType.TypeArguments.Any(ContainsTypeParameter))) ||
+               (type is IArrayTypeSymbol arrayType && ContainsTypeParameter(arrayType.ElementType));
     }
 
     private static bool AreMutuallyExclusiveByIfElse(MappingInfo first, MappingInfo second)
