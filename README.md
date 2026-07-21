@@ -15,7 +15,7 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.84
+## 🎉 Latest Release: v2.30.85
 
 **Two new rules: AM060 unregistered type maps + AM061 enum member mismatches**
 
@@ -252,7 +252,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.84">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.85">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
