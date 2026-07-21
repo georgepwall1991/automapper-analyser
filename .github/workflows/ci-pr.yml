@@ -1,11 +1,12 @@
-name: CI/CD Pipeline
+name: CI/CD Pipeline (PR)
 
-# Push-only: pull requests run the same build/package jobs from ci-pr.yml.
-# The compatibility job calls a local reusable workflow, which GitHub cannot
-# resolve from pull_request merge refs (startup_failure); the reusable call is
-# safe on push events (release.yml uses the identical call before publish).
+# Pull-request validation: the same build/package jobs as ci.yml, without the
+# package compatibility job. The compatibility contract calls a local reusable
+# workflow, which GitHub cannot resolve from pull_request merge refs
+# (startup_failure); it runs on pushes to main (ci.yml) and gates every
+# release publish (release.yml).
 on:
-  push:
+  pull_request:
     branches: [ main, develop ]
 
 env:
@@ -76,8 +77,6 @@ jobs:
     name: Package Analyzer
     needs: build
     runs-on: ubuntu-latest
-    outputs:
-      package-sha256: ${{ steps.package.outputs.sha256 }}
 
     steps:
       - name: Checkout code
@@ -100,7 +99,6 @@ jobs:
         run: dotnet pack src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj --no-build --configuration Release --output ./packages
 
       - name: Verify package contents
-        id: package
         shell: bash
         run: |
           shopt -s nullglob
@@ -114,18 +112,3 @@ jobs:
           case "$contents" in *"analyzers/dotnet/cs/AutoMapperAnalyzer.Analyzers.dll"*) ;; *) exit 1 ;; esac
           case "$contents" in *"README.md"*) ;; *) exit 1 ;; esac
           case "$contents" in *"icon.png"*) ;; *) exit 1 ;; esac
-          echo "sha256=$(sha256sum "$package" | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
-
-      - name: Upload packages as artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: nuget-package
-          path: ./packages/*.nupkg
-
-  compatibility:
-    name: Package Compatibility
-    needs: package
-    uses: ./.github/workflows/package-compatibility.yml
-    with:
-      artifact-name: nuget-package
-      package-sha256: ${{ needs.package.outputs.package-sha256 }}
