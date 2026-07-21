@@ -122,6 +122,10 @@ jobs:
 
   compatibility:
     name: Package Compatibility
+    # Local reusable workflows cannot be resolved from pull_request merge refs
+    # (startup_failure); the contract still gates every push to main and every
+    # release-tag publish (release.yml calls the same workflow before publish).
+    if: github.event_name == 'push'
     needs: package
     uses: ./.github/workflows/package-compatibility.yml
     with:
