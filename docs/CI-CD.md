@@ -6,12 +6,14 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 
 ## 🔄 Workflows
 
-### 1. Main CI/CD Pipeline (`.github/workflows/ci.yml`)
+### 1. Main CI/CD Pipeline (`.github/workflows/ci.yml` + `.github/workflows/ci-pr.yml`)
 
 **Triggers:**
 
-- Push to `main` and `develop` branches
-- Pull requests to `main` and `develop` branches
+- `ci.yml`: push to `main` and `develop` branches (includes the package compatibility contract)
+- `ci-pr.yml`: pull requests to `main` and `develop` branches (same Build and Test + Package Analyzer jobs, without the compatibility contract)
+
+The split exists because GitHub cannot resolve local reusable workflows (`uses: ./.github/workflows/...`) from `pull_request` merge refs — including the compatibility job in the PR workflow makes every PR run die with `startup_failure`. Pushes to `main` still run the full contract, and `release.yml` gates every publish on it as well.
 
 **Jobs:**
 
@@ -34,6 +36,7 @@ The AutoMapper Roslyn Analyzer project uses GitHub Actions for continuous integr
 
 #### Package Compatibility Contract
 
+- Runs on pushes to `main`/`develop` only (not on pull requests — see the trigger note above)
 - Reusable workflow: `.github/workflows/package-compatibility.yml` (also called from the release workflow before publish)
 - Reads the verified matrix from `tools/package-compatibility.json` (currently `net48`/AutoMapper 10.1.1, `net6.0`/12.0.1, and `net8.0`/`net9.0`/`net10.0` with AutoMapper 14.0.0)
 - Downloads the exact packed `.nupkg` artifact and verifies its SHA-256 against the value recorded at pack time
