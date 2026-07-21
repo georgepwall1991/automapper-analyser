@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.30.85] - 2026-07-21
+
+AM021 nested collection element fix safety + dependency updates.
+
+### Fixed
+
+- **AM021 nested collection safety**: AM021 now withholds its ordinary complex element `CreateMap` action when either element is a nested generic collection or array, keeping those shapes on the explicit manual-review Ignore path. Plain domain-object element maps, executable primitive conversions, dictionary behavior, and Stack LIFO order safety are preserved.
+
+### Changed
+
+- Bump Microsoft.NET.Test.Sdk from 18.0.1 to 18.8.1.
+- Bump coverlet.collector from 6.0.4 to 10.0.1.
+- Bump codecov/codecov-action from v6 to v7.
+
 ## [2.30.84] - 2026-07-21
 
 Two new rules: AM060 unregistered type maps and AM061 enum member mismatches.
