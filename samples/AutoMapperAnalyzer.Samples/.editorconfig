@@ -36,6 +36,8 @@ dotnet_diagnostic.AM042.severity = warning # Ignore vs MapFrom Conflict
 dotnet_diagnostic.AM050.severity = warning # Redundant MapFrom Configuration
 dotnet_diagnostic.AM051.severity = warning # Repeated Mapping Configuration
 dotnet_diagnostic.AM052.severity = warning # Missing Null Propagation
+dotnet_diagnostic.AM060.severity = warning # Unregistered Type Map
+dotnet_diagnostic.AM061.severity = warning # Enum Member Mismatch
 
 # Suppress CS warnings that are expected in sample code
 dotnet_diagnostic.CS8618.severity = none # Non-nullable field uninitialized

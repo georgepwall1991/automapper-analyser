@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>83</PatchVersion>
+        <PatchVersion>84</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -25,17 +25,19 @@
         <PackageVersion Condition="'$(PackageVersion)' == ''">$(MajorVersion).$(MinorVersion).$(PatchVersion)</PackageVersion>
         <Title>AutoMapper Roslyn Analyzer</Title>
         <Authors>George Wall</Authors>
-        <Description>Catch AutoMapper configuration errors at compile-time before they cause runtime chaos! This Roslyn analyzer detects type mismatches, nullable issues, missing properties, collection incompatibilities, and complex mapping problems - all with intelligent code fixes. Transform AutoMapper development from reactive debugging to proactive prevention. Features 21 analyzer rules with smart fixes for type safety, data integrity, complex mappings, performance, and configuration. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, 9.0+, 10.0+.</Description>
+        <Description>Catch AutoMapper configuration errors at compile-time before they cause runtime chaos! This Roslyn analyzer detects type mismatches, nullable issues, missing properties, collection incompatibilities, and complex mapping problems - all with intelligent code fixes. Transform AutoMapper development from reactive debugging to proactive prevention. Features 23 analyzer rules with smart fixes for type safety, data integrity, complex mappings, performance, and configuration. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, 9.0+, 10.0+.</Description>
         <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis;code-quality;diagnostics;code-fix;type-safety;compile-time;netframework;netcore;dotnet;dotnet6;dotnet8;dotnet9;dotnet10</PackageTags>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/georgepwall1991/automapper-analyser</PackageProjectUrl>
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.83 - AM021 Stack conversion order safety
-- Preserve top-to-bottom LIFO order when generating exact BCL Stack&lt;T&gt; element conversions
-- Reverse the converted enumeration before Stack&lt;T&gt; construction
-- Leave all other collection conversions and v2.30.82 insertion-safety gates unchanged
+                <PackageReleaseNotes>Version 2.30.84 - AM060 unregistered type maps + AM061 enum member mismatches
+- New AM060 (Warning): Map/ProjectTo call sites with no reachable CreateMap registration are surfaced at compile time instead of throwing AutoMapperMappingException at runtime
+- Registry-aware reachability: ReverseMap directions, base-type/interface registrations, assignable pairs, and collection element maps all count; open-generic, generic-helper, and cross-assembly configurations stay conservatively silent
+- AM060 code fix scaffolds the missing CreateMap into a Profile constructor in the same document
+- New AM061 (Warning): enum-to-enum property pairs whose members misalign by name/value are flagged before they silently corrupt data
+- AM061 honors Ignore, ConvertUsing, non-trivial MapFrom, and [Flags] enums; fixes offer name-based Enum.Parse conversion or explicit Ignore
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

@@ -2,7 +2,7 @@
 
 This file is generated from `RuleCatalog`.
 
-Package version: `2.30.83`
+Package version: `2.30.84`
 
 | Rule ID | Descriptor Title | Severity | Category | Analyzer | Code Fix | Trust | Sample | Docs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -29,3 +29,5 @@ Package version: `2.30.83`
 | `AM038` | Non-deterministic operation in mapping | `Info` | `AutoMapper.Performance` | `AM031_PerformanceWarningAnalyzer` | `AM031_PerformanceWarningCodeFixProvider` | `Scaffold` | [`samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs`](../samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs) | [docs](DIAGNOSTIC_RULES.md#am038-non-deterministic-operation) |
 | `AM041` | Duplicate mapping registration | `Warning` | `AutoMapper.Configuration` | `AM041_DuplicateMappingAnalyzer` | `AM041_DuplicateMappingCodeFixProvider` | `SafeRewrite` | [`samples/AutoMapperAnalyzer.Samples/Configuration/AM041_DuplicateMappingExamples.cs`](../samples/AutoMapperAnalyzer.Samples/Configuration/AM041_DuplicateMappingExamples.cs) | [docs](DIAGNOSTIC_RULES.md#am041-duplicate-mapping-registration) |
 | `AM050` | Redundant MapFrom configuration | `Info` | `AutoMapper.Configuration` | `AM050_RedundantMapFromAnalyzer` | `AM050_RedundantMapFromCodeFixProvider` | `SafeRewrite` | [`samples/AutoMapperAnalyzer.Samples/Configuration/AM050_RedundantMapFromExamples.cs`](../samples/AutoMapperAnalyzer.Samples/Configuration/AM050_RedundantMapFromExamples.cs) | [docs](DIAGNOSTIC_RULES.md#am050-redundant-mapfrom-configuration) |
+| `AM060` | Unregistered type map at mapping call site | `Warning` | `AutoMapper.Configuration` | `AM060_UnregisteredTypeMapAnalyzer` | `AM060_UnregisteredTypeMapCodeFixProvider` | `Scaffold` | [`samples/AutoMapperAnalyzer.Samples/Configuration/AM060_UnregisteredTypeMapExamples.cs`](../samples/AutoMapperAnalyzer.Samples/Configuration/AM060_UnregisteredTypeMapExamples.cs) | [docs](DIAGNOSTIC_RULES.md#am060-unregistered-type-map) |
+| `AM061` | Enum member mismatch in mapping | `Warning` | `AutoMapper.TypeSafety` | `AM061_EnumMemberMismatchAnalyzer` | `AM061_EnumMemberMismatchCodeFixProvider` | `Scaffold` | [`samples/AutoMapperAnalyzer.Samples/TypeSafety/AM061_EnumMismatchExamples.cs`](../samples/AutoMapperAnalyzer.Samples/TypeSafety/AM061_EnumMismatchExamples.cs) | [docs](DIAGNOSTIC_RULES.md#am061-enum-member-mismatch) |

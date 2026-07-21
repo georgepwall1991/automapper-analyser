@@ -1,283 +1,74 @@
-# AutoMapper Analyzer - Framework Compatibility Guide
+# AutoMapper Analyzer compatibility contract
 
-This document provides detailed information about framework compatibility and installation requirements for the AutoMapper Analyzer.
+Framework support is a release-blocking, package-level contract. CI builds one `.nupkg`, then installs and builds consumers against these exact target-framework and AutoMapper combinations before the same package bytes can be published.
 
-## 🎯 Supported Frameworks
+## Supported combinations
 
-### Summary
+This table is generated from [`tools/package-compatibility.json`](../tools/package-compatibility.json). Edit the manifest, then run the update command below; do not edit the table directly.
 
-| Framework | Min Version | Status | AutoMapper Version | Notes |
-|-----------|-------------|--------|-------------------|-------|
-| .NET Framework | 4.8 | ✅ Fully Supported | 10.1.1+ | Requires C# 8.0+ for full features |
-| .NET | 6.0 | ✅ Fully Supported | 12.0.1+ | LTS version recommended |
-| .NET | 5.0 | ✅ Fully Supported | 13.0.0+ | Modern .NET, all features |
-| .NET | 6.0 | ✅ Fully Supported | 13.0.0+ | LTS version |
-| .NET | 7.0 | ✅ Fully Supported | 13.0.0+ | Latest features |
-| .NET | 8.0 | ✅ Fully Supported | 14.0.0+ | LTS version |
-| .NET | 9.0 | ✅ Fully Supported | 14.0.0+ | Current version |
-| .NET | 10.0 | ✅ Fully Supported | 14.0.0+ | Latest version |
+<!-- compatibility-matrix:start -->
+| Case | Runner | Target | AutoMapper |
+| --- | --- | --- | --- |
+| `net48-am10` | `windows-latest` | `net48` | `10.1.1` |
+| `net6-am12` | `ubuntu-latest` | `net6.0` | `12.0.1` |
+| `net8-am14` | `ubuntu-latest` | `net8.0` | `14.0.0` |
+| `net9-am14` | `ubuntu-latest` | `net9.0` | `14.0.0` |
+| `net10-am14` | `ubuntu-latest` | `net10.0` | `14.0.0` |
+<!-- compatibility-matrix:end -->
 
-### Analyzer Target Framework
+The analyzer package targets `netstandard2.0`. The matrix above verifies that the packaged analyzer loads and behaves correctly for each consumer target when built by the configured CI SDK. It does not claim coverage for historical Visual Studio, Rider, OmniSharp, or other IDE hosts that the workflow does not run.
 
-The AutoMapper Analyzer targets **.NET Standard 2.0**, which provides compatibility with:
-- .NET Framework 4.6.1+
-- .NET Core 2.0+
-- .NET 5.0+
-- Mono 5.4+
-- Xamarin.iOS 10.14+
-- Xamarin.Mac 3.8+
-- Xamarin.Android 8.0+
-- UWP 10.0.16299+
+## What each case proves
 
-## 🔧 Installation Instructions
+For every case, the verifier reads the package ID and version from the `.nuspec` inside the supplied `.nupkg`, then creates two isolated consumers under `artifacts/package-compatibility/`:
 
-### .NET Framework 4.8
+- A healthy string-to-string mapping must build successfully without any `AM###`, `AD0001`, or `CS8032` diagnostics.
+- An intentionally broken string-to-int mapping must fail with `AM001` and without analyzer exception or load failures.
+
+Unrelated SDK lifecycle and NuGet advisory warnings do not fail the contract. Analyzer diagnostics and analyzer-load failures do.
+
+## Local verification
+
+Check manifest validation and documentation drift:
+
+```bash
+dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj -- \
+  --check-compatibility
+```
+
+Regenerate this table after an intentional manifest change:
+
+```bash
+dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj -- \
+  --update-compatibility
+```
+
+Print the GitHub Actions matrix:
+
+```bash
+dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj -- \
+  --print-compatibility-matrix
+```
+
+Verify one case against an already packed artifact:
+
+```bash
+dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj -- \
+  --verify-package-compatibility artifacts/package/AutoMapperAnalyzer.Analyzers.999.0.0-smoke.nupkg \
+  --case net10-am14
+```
+
+The verifier consumes the supplied package; it does not repack the analyzer. This preserves the release invariant that all compatibility evidence and publication refer to the same artifact bytes.
+
+## Installation
+
+Reference an AutoMapper version from the supported table and install the analyzer as a private development asset:
 
 ```xml
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="10.1.1" />
-    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.83">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
-</Project>
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="&lt;version&gt;">
+  <PrivateAssets>all</PrivateAssets>
+  <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+</PackageReference>
 ```
 
-**Important Notes:**
-- Use AutoMapper 10.x series for .NET Framework compatibility
-- Enable nullable reference types for best analyzer performance
-- Requires Visual Studio 2019 16.8+ or .NET SDK 5.0+
-
-### .NET 6.0 (LTS)
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="12.0.1" />
-    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.83">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
-</Project>
-```
-
-### .NET 5.0+
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="14.0.0" />
-    <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.83">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
-</Project>
-```
-
-## 🧪 Testing Compatibility
-
-### Automated Testing
-
-The project includes automated compatibility tests that run on every CI build:
-
-```powershell
-# Run the comprehensive compatibility test
-cd test-install
-pwsh test-compatibility.ps1
-
-# Test specific framework
-dotnet build NetFrameworkTest/NetFrameworkTest.csproj
-dotnet build NetCoreTest/NetCoreTest.csproj
-dotnet build TestPackage/TestPackage.csproj
-```
-
-### Manual Verification
-
-Create a test project to verify the analyzer works correctly:
-
-```csharp
-using AutoMapper;
-
-public class TestProgram
-{
-    public static void Main()
-    {
-        var config = new MapperConfiguration(cfg =>
-        {
-            // This should trigger AM001 - Property Type Mismatch
-            cfg.CreateMap<Source, Destination>();
-        });
-        
-        var mapper = config.CreateMapper();
-        var result = mapper.Map<Destination>(new Source());
-    }
-}
-
-public class Source
-{
-    public string Age { get; set; } = "25"; // String
-    public string ExtraData { get; set; } = "test"; // Missing in destination
-}
-
-public class Destination
-{
-    public int Age { get; set; } // Int - should trigger AM001
-}
-```
-
-**Expected Results:**
-- **AM001 Error**: Property 'Age' has incompatible types
-- **AM004 Warning**: Source property 'ExtraData' will not be mapped
-
-## 📋 Feature Support Matrix
-
-| Feature | .NET Framework 4.8 | .NET 6.0 | .NET 8.0+ |
-|---------|-------------------|---------------|-----------|
-| Type Safety Analysis (AM001-AM003) | ✅ | ✅ | ✅ |
-| Missing Property Detection (AM004, AM010-AM012) | ✅ | ✅ | ✅ |
-| Complex Type Mapping (AM020) | ✅ | ✅ | ✅ |
-| Nullable Reference Types | ✅* | ✅ | ✅ |
-| Generic Type Analysis | ✅ | ✅ | ✅ |
-| Collection Type Validation | ✅ | ✅ | ✅ |
-| Performance Optimizations | ⚠️ | ✅ | ✅ |
-
-*Requires C# 8.0+ and nullable context enabled
-
-## 🔍 IDE Support
-
-### Visual Studio
-
-| Version | .NET Framework | .NET Core | .NET 5+ |
-|---------|---------------|-----------|---------|
-| VS 2019 16.8+ | ✅ | ✅ | ✅ |
-| VS 2022 | ✅ | ✅ | ✅ |
-
-### JetBrains Rider
-
-| Version | Support Level |
-|---------|--------------|
-| 2021.3+ | ✅ Full Support |
-| 2022.x | ✅ Full Support |
-| 2023.x+ | ✅ Full Support |
-
-### Visual Studio Code
-
-| Extension | Support Level |
-|-----------|--------------|
-| C# Extension | ✅ Full Support |
-| OmniSharp | ✅ Full Support |
-
-## 🚨 Known Issues
-
-### .NET Framework Specific
-
-1. **AutoMapper Version Constraint**
-   - Use AutoMapper 10.x for .NET Framework 4.8
-   - AutoMapper 12.0+ requires .NET Standard 2.1 (not supported by .NET Framework)
-
-2. **Nullable Reference Types**
-   - Requires Visual Studio 2019 16.8+ for full support
-   - May show additional warnings in older tooling
-
-### .NET 6.0+ Specific
-
-1. **LTS Support**
-   - .NET 6.0 and .NET 8.0 are Long Term Support versions
-   - Recommended for production applications
-
-## 🛠️ Troubleshooting
-
-### Analyzer Not Working
-
-1. **Check Project Reference**
-   ```xml
-   <ProjectReference Include="path/to/AutoMapperAnalyzer.Analyzers.csproj" 
-                     OutputItemType="Analyzer" 
-                     ReferenceOutputAssembly="false" />
-   ```
-
-2. **Verify Package Installation**
-   ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.83">
-     <PrivateAssets>all</PrivateAssets>
-     <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-   </PackageReference>
-   ```
-
-3. **Clean and Rebuild**
-   ```bash
-   dotnet clean
-   dotnet restore
-   dotnet build
-   ```
-
-### Version Conflicts
-
-1. **AutoMapper Version Mismatch**
-   - Ensure AutoMapper version is compatible with your target framework
-   - Check the compatibility matrix above
-
-2. **Multiple Analyzer Versions**
-   - Remove old analyzer references
-   - Use consistent versioning across projects
-
-### IDE Issues
-
-1. **Visual Studio Not Showing Diagnostics**
-   - Restart Visual Studio
-   - Check Tools → Options → Text Editor → C# → Advanced → Enable analysis
-
-2. **Rider Not Showing Analyzers**
-   - Invalidate caches and restart
-   - Check Settings → Languages & Frameworks → .NET → Code Analysis
-
-## 📞 Support
-
-For compatibility issues:
-
-1. **Check Issues**: [GitHub Issues](https://github.com/georgepwall1991/automapper-analyser/issues)
-2. **Create Issue**: Include framework version, AutoMapper version, and project file
-3. **Run Diagnostics**: Use the compatibility test script for detailed information
-
-## 🔄 Migration Guide
-
-### From .NET Framework to .NET Core/5+
-
-1. Update target framework in project file
-2. Update AutoMapper to latest compatible version
-3. Test analyzer functionality with build
-4. Update any framework-specific code
-
-### Upgrading AutoMapper Versions
-
-1. Check compatibility matrix for your target framework
-2. Update package reference
-3. Test existing mappings
-4. Address any new analyzer warnings
-
-This guide ensures smooth installation and usage across all supported .NET frameworks.
-
----
-
-**Last Updated**: 2026-05-15
-**Version**: 2.30.83
+For a compatibility failure, report the case ID, target framework, AutoMapper version, build SDK version, and complete build output in a [GitHub issue](https://github.com/georgepwall1991/automapper-analyser/issues).

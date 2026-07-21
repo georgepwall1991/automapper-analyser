@@ -37,14 +37,77 @@ internal static class Program
             return 1;
         }
 
+        string manifestPath = Path.Combine(repoRoot, "tools", "package-compatibility.json");
+        CompatibilityContract compatibilityContract;
+        try
+        {
+            compatibilityContract = CompatibilityContract.Load(manifestPath);
+        }
+        catch (Exception exception) when (exception is IOException or JsonException)
+        {
+            Console.Error.WriteLine($"Invalid compatibility manifest: {exception.Message}");
+            return 1;
+        }
+
+        bool printCompatibilityMatrix = args.Contains("--print-compatibility-matrix", StringComparer.Ordinal);
+        int verifyPackageIndex = Array.IndexOf(args, "--verify-package-compatibility");
+        bool verifyPackageCompatibility = verifyPackageIndex >= 0;
+        if (printCompatibilityMatrix || verifyPackageCompatibility)
+        {
+            if (printCompatibilityMatrix && verifyPackageCompatibility)
+            {
+                PrintUsage();
+                return 2;
+            }
+
+            if (printCompatibilityMatrix)
+            {
+                if (args.Length != 1)
+                {
+                    PrintUsage();
+                    return 2;
+                }
+
+                Console.WriteLine(compatibilityContract.ToGitHubMatrixJson());
+                return 0;
+            }
+
+            int caseIndex = Array.IndexOf(args, "--case");
+            if (args.Length != 4 || verifyPackageIndex + 1 >= args.Length || caseIndex < 0 || caseIndex + 1 >= args.Length)
+            {
+                PrintUsage();
+                return 2;
+            }
+
+            try
+            {
+                CompatibilityCase compatibilityCase = compatibilityContract.GetCase(args[caseIndex + 1]);
+                PackageCompatibilityResult result = await PackageCompatibilityVerifier.VerifyAsync(
+                    repoRoot,
+                    args[verifyPackageIndex + 1],
+                    compatibilityCase);
+                PrintCompatibilityResult(result);
+                return result.IsSuccess ? 0 : 1;
+            }
+            catch (Exception exception) when (exception is IOException or InvalidOperationException)
+            {
+                Console.Error.WriteLine($"Package compatibility verification failed: {exception.Message}");
+                return 1;
+            }
+        }
+
         bool checkCatalog = args.Contains("--check-catalog", StringComparer.Ordinal);
         bool updateCatalog = args.Contains("--update-catalog", StringComparer.Ordinal);
         bool checkSnapshots = args.Contains("--check-snapshots", StringComparer.Ordinal);
         bool updateSnapshots = args.Contains("--update-snapshots", StringComparer.Ordinal);
+        bool checkCompatibility = args.Contains("--check-compatibility", StringComparer.Ordinal);
+        bool updateCompatibility = args.Contains("--update-compatibility", StringComparer.Ordinal);
 
-        if ((!checkCatalog && !updateCatalog && !checkSnapshots && !updateSnapshots) ||
+        if ((!checkCatalog && !updateCatalog && !checkSnapshots && !updateSnapshots &&
+             !checkCompatibility && !updateCompatibility) ||
             (checkCatalog && updateCatalog) ||
-            (checkSnapshots && updateSnapshots))
+            (checkSnapshots && updateSnapshots) ||
+            (checkCompatibility && updateCompatibility))
         {
             PrintUsage();
             return 2;
@@ -72,6 +135,20 @@ internal static class Program
             failures += WriteOrCheckFile(snapshotPath, content, updateSnapshots, "sample diagnostics snapshot");
         }
 
+        if (checkCompatibility || updateCompatibility)
+        {
+            string compatibilityPath = Path.Combine(repoRoot, "docs", "COMPATIBILITY.md");
+            string currentContent = File.ReadAllText(compatibilityPath, Utf8NoBom);
+            string content = CompatibilityDocumentation.ReplaceGeneratedTable(
+                currentContent,
+                compatibilityContract.ToMarkdownTable());
+            failures += WriteOrCheckFile(
+                compatibilityPath,
+                content,
+                updateCompatibility,
+                "compatibility documentation");
+        }
+
         return failures == 0 ? 0 : 1;
     }
 
@@ -84,8 +161,31 @@ internal static class Program
         Console.WriteLine("  dotnet run --project tools/AnalyzerVerifier -- --update-catalog");
         Console.WriteLine("  dotnet run --project tools/AnalyzerVerifier -- --check-snapshots");
         Console.WriteLine("  dotnet run --project tools/AnalyzerVerifier -- --update-snapshots");
+        Console.WriteLine("  dotnet run --project tools/AnalyzerVerifier -- --check-compatibility");
+        Console.WriteLine("  dotnet run --project tools/AnalyzerVerifier -- --update-compatibility");
+        Console.WriteLine("  dotnet run --project tools/AnalyzerVerifier -- --print-compatibility-matrix");
+        Console.WriteLine(
+            "  dotnet run --project tools/AnalyzerVerifier -- --verify-package-compatibility <nupkg> --case <id>");
         Console.WriteLine();
-        Console.WriteLine("Modes can be combined, for example: --check-catalog --check-snapshots.");
+        Console.WriteLine(
+            "Check/update modes can be combined, for example: "
+            + "--check-catalog --check-snapshots --check-compatibility.");
+    }
+
+    private static void PrintCompatibilityResult(PackageCompatibilityResult result)
+    {
+        Console.WriteLine($"Compatibility case: {result.Case.Id}");
+        Console.WriteLine($"Package: {result.Package.Id} {result.Package.Version}");
+        Console.WriteLine($"SHA-256: {result.Sha256}");
+        Console.WriteLine($"Artifacts: {result.WorkRoot}");
+        Console.WriteLine();
+        Console.WriteLine("Healthy consumer output:");
+        Console.WriteLine(result.HealthyBuild.Output);
+        Console.WriteLine(result.HealthyValidation.Message);
+        Console.WriteLine();
+        Console.WriteLine("Broken consumer output:");
+        Console.WriteLine(result.BrokenBuild.Output);
+        Console.WriteLine(result.BrokenValidation.Message);
     }
 
     private static int WriteOrCheckFile(string path, string expectedContent, bool update, string description)
@@ -178,7 +278,7 @@ internal static class Program
                 rule.GetFixTrustLevel(descriptor))))
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-        return diagnostics
+        DiagnosticSnapshot[] snapshots = diagnostics
             .Where(diagnostic => diagnostic.Id.StartsWith("AM", StringComparison.Ordinal))
             .Select(diagnostic => ToSnapshot(repoRoot, diagnostic, trustByDescriptor))
             .OrderBy(snapshot => snapshot.RuleId, StringComparer.Ordinal)
@@ -187,6 +287,17 @@ internal static class Program
             .ThenBy(snapshot => snapshot.Column)
             .ThenBy(snapshot => snapshot.Message, StringComparer.Ordinal)
             .ToArray();
+
+        string failureContext = string.Join(
+            Environment.NewLine,
+            workspace.Diagnostics.Select(diagnostic => diagnostic.ToString())
+                .Concat(compilation.GetDiagnostics()
+                    .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+                    .Select(diagnostic => diagnostic.ToString())));
+        SnapshotBaseline.EnsurePopulated(
+            snapshots.Length,
+            failureContext.Length == 0 ? "No workspace or compiler errors were reported." : failureContext);
+        return snapshots;
     }
 
     private static async Task<Project> AddAnalyzerOnlySampleDocumentsAsync(Project project, string repoRoot)

@@ -5,11 +5,12 @@ Complete reference guide for all AutoMapper Analyzer diagnostic rules, including
 ## Table of Contents
 
 - [Overview](#overview)
-- [Type Safety Rules (AM001-AM003)](#type-safety-rules)
+- [Type Safety Rules (AM001-AM003, AM061)](#type-safety-rules)
 - [Data Integrity Rules (AM004-AM006, AM011)](#data-integrity-rules)
 - [Complex Mapping Rules (AM020-AM022)](#complex-mapping-rules)
 - [Custom Conversion Rules (AM030, AM032-AM033)](#custom-conversion-rules)
 - [Performance Rules (AM031, AM034–AM038)](#performance-rules)
+- [Configuration Analysis Rules (AM041, AM050, AM060)](#configuration-analysis-rules)
 - [Configuration](#configuration)
 - [Suppression](#suppression)
 
@@ -21,11 +22,12 @@ Complete reference guide for all AutoMapper Analyzer diagnostic rules, including
 
 | Category | Rules | Purpose |
 |----------|-------|---------|
-| **Type Safety** | AM001-AM003 | Prevent type mismatches and conversion errors |
+| **Type Safety** | AM001-AM003, AM061 | Prevent type mismatches, conversion errors, and silent enum corruption |
 | **Data Integrity** | AM004-AM006, AM011 | Ensure complete data mapping |
 | **Complex Mappings** | AM020-AM022 | Handle nested objects and collections |
 | **Custom Conversions** | AM030, AM032-AM033 | Validate custom type converters |
 | **Performance** | AM031, AM034–AM038 | Multiple enumeration, expensive ops, computation, sync-over-async, complex LINQ, non-determinism |
+| **Configuration** | AM041, AM050, AM060 | Duplicate, redundant, and missing mapping registrations |
 
 ### Severity Levels
 
@@ -47,6 +49,8 @@ To avoid duplicate/conflicting diagnostics, each issue pattern has a single prim
 | Invalid converter implementation/signature | `AM030` | none |
 | Nullable-source converter missing null handling | `AM032` | none |
 | Declared converter not used by any `ConvertUsing` configuration | `AM033` | none |
+| `Map`/`ProjectTo` call with no reachable `CreateMap` registration | `AM060` | none |
+| Enum members misaligned by name/value across a mapped property pair | `AM061` | none (complements `AM001`'s type-level view) |
 
 ### Code Fix Trust Levels
 
@@ -305,6 +309,90 @@ generated mappings remain executable without depending on user imports.
 
 ```ini
 dotnet_diagnostic.AM003.severity = error
+```
+
+---
+
+### AM061: Enum Member Mismatch
+
+**Severity**: Warning 🟡
+**Category**: AutoMapper.TypeSafety
+
+#### Description
+
+Detects enum-to-enum property mappings where the source and destination enum members do not align by name **and** numeric value. AutoMapper maps enums by numeric value by default, so a source member whose value corresponds to a differently named (or nonexistent) destination member is silently converted into wrong data — no exception, no log, just corruption.
+
+The analyzer inspects every registered `CreateMap` direction (including `ReverseMap()`-generated directions, which inherit proven direct forward `MapFrom` pairs inverted) and checks convention-mapped same-name property pairs plus explicit direct `ForMember(...MapFrom(src => src.Member))` pairs. One diagnostic is reported per misaligned source member on the registration that owns the mapping.
+
+AM061 stays quiet when the pair is safe or intentionally custom:
+
+- ✅ Same enum type on both sides, or members aligned by name and value (cross-underlying-type safe via decimal value normalization; duplicate-valued aliases matched by every name)
+- ✅ Member excluded via `ForMember(...Ignore())` (lambda, string, or `nameof` selectors) or a member/map-level `ConvertUsing`
+- ✅ A dedicated enum-pair registration with `ConvertUsing`/`ConvertUsingEnumMapping` (global conversion owner)
+- ✅ Non-trivial `MapFrom` expressions (the developer already owns the conversion)
+- ✅ `[Flags]` enums (combined values legitimately have no named member)
+- ✅ Deferred local-variable configuration (`var map = CreateMap<S, D>(); map.ForMember(...);`) — the full configuration cannot be proven, so the rule fails closed
+- ✅ Nested `ForPath(d => d.Nested.Member, ...)` selectors are never confused with a top-level property of the same leaf name
+- ✅ Nullable enum properties are unwrapped and analyzed the same way
+
+#### Problem
+
+```csharp
+public enum SourceStatus { Active = 1, Inactive = 2 }
+public enum DestinationStatus { Inactive = 1, Active = 2 } // same names, swapped values
+
+public class Account
+{
+    public SourceStatus Status { get; set; }
+}
+
+public class AccountDto
+{
+    public DestinationStatus Status { get; set; }
+}
+
+public class MyProfile : Profile
+{
+    public MyProfile()
+    {
+        CreateMap<Account, AccountDto>();
+        // ❌ AM061: 'Active' (1) maps by value to DestinationStatus.Inactive
+        // ❌ AM061: 'Inactive' (2) maps by value to DestinationStatus.Active
+    }
+}
+```
+
+#### Solution
+
+**Code Fix 1: Map By Name (Scaffold)**
+
+Appends a name-based conversion so mismatched names fail loudly instead of corrupting silently:
+
+```csharp
+CreateMap<Account, AccountDto>()
+    .ForMember(dest => dest.Status, opt => opt.MapFrom(src =>
+        (DestinationStatus)Enum.Parse(typeof(DestinationStatus), src.Status.ToString())));
+```
+
+The Map-by-name action is offered only when every source member name exists in the destination enum, the source member is non-nullable, and the source enum has no duplicate-valued aliases — otherwise the generated `Enum.Parse` could throw or map non-deterministically. In those cases only the Ignore action is offered. Diagnostics produced from an explicit direct `MapFrom` rewrite that `ForMember` in place rather than appending a duplicate.
+
+**Code Fix 2: Ignore (Scaffold)**
+
+Makes the data loss an explicit, reviewed decision:
+
+```csharp
+CreateMap<Account, AccountDto>()
+    .ForMember(dest => dest.Status, opt => opt.Ignore());
+```
+
+Alternatively, align the enum definitions so names and values agree, or register a dedicated converter.
+
+The automatic actions are withheld when the registration is not in an extendable fluent statement position (for example nested inside another call's argument list); the diagnostic still reports so the member can be configured manually. Both actions are scaffolds: runtime enum values cast from integers without a declared name are beyond any static guarantee, so review the generated conversion against your data.
+
+#### Configuration
+
+```ini
+dotnet_diagnostic.AM061.severity = warning
 ```
 
 ---
@@ -1552,6 +1640,83 @@ dotnet_diagnostic.AM050.severity = suggestion
 
 ---
 
+### AM060: Unregistered Type Map
+
+**Severity**: Warning 🟡
+**Category**: AutoMapper.Configuration
+
+#### Description
+
+Detects `Map`/`ProjectTo` call sites whose source/destination pair has no reachable `CreateMap` registration anywhere in the compilation. These calls compile cleanly and then throw `AutoMapperMappingException` ("Missing type map configuration or unsupported mapping") the first time they execute — one of the most common AutoMapper runtime failures. The rule is a Warning (not an Error) because registrations contributed by profile assemblies outside the current compilation are invisible to it; escalate to `error` via `.editorconfig` in closed-world solutions.
+
+Covered call shapes (resolved semantically, so lookalike `Map` methods are ignored):
+
+- `mapper.Map<TDestination>(source)` and `mapper.Map<TSource, TDestination>(source)` on `IMapper`
+- Non-generic `mapper.Map(source, typeof(TSource), typeof(TDestination))` with `typeof` literals (named-argument reorder safe)
+- `queryable.ProjectTo<TDestination>(...)` (instance and extension forms)
+- Collection pairs: the rule reports the missing **element** map (`List<A>` → `List<B>` needs `CreateMap<A, B>`)
+
+A registration is considered reachable when it exists for the exact pair, any base type, or any interface of the static source type — matching AutoMapper's runtime type resolution. `ReverseMap()`-generated directions count too, as do assignable pairs (derived → base, class → implemented interface) served by AutoMapper's built-in assignable mapper.
+
+AM060 fails closed (stays silent) wherever absence cannot be proven:
+
+- ✅ Compilations with **no** `CreateMap` registrations at all (maps configured in another assembly)
+- ✅ Open-generic `CreateMap(typeof(S<>), typeof(D<>))` registrations and generic registration helpers (`CreateMap<TS, TD>()` inside a generic method) — these could cover any pair
+- ✅ Both-endpoint built-in/enum pairs and dictionary pairs (AutoMapper handles these without registration)
+- ✅ Generic type parameters, error types, and `object`-typed sources
+
+Closed `typeof` registrations (`CreateMap(typeof(S), typeof(D))`) resolve normally.
+
+**Non-goal:** registrations that live in referenced assemblies are not visible to the rule; suppress AM060 in composition-root scenarios where profiles are contributed externally.
+
+#### Problem
+
+```csharp
+public class MyProfile : Profile
+{
+    public MyProfile()
+    {
+        CreateMap<Order, OrderSummaryDto>();
+    }
+}
+
+public class OrderService
+{
+    public OrderDto GetDto(IMapper mapper, Order order)
+    {
+        return mapper.Map<OrderDto>(order);
+        // ❌ AM060: no CreateMap<Order, OrderDto> exists — throws at runtime
+    }
+}
+```
+
+#### Solution
+
+**Code Fix: Create The Missing Registration (Scaffold)**
+
+Adds the missing `CreateMap` to a `Profile` constructor in the same document:
+
+```csharp
+public class MyProfile : Profile
+{
+    public MyProfile()
+    {
+        CreateMap<Order, OrderSummaryDto>();
+        CreateMap<Order, OrderDto>();
+    }
+}
+```
+
+The scaffold is withheld when the diagnostic's document contains no `Profile` subclass with an explicit constructor; register the map manually (or verify the intended profile assembly is scanned) in that case. Batch FixAll is disabled for this fix to avoid overlapping scaffolds and duplicate registrations across profiles.
+
+#### Configuration
+
+```ini
+dotnet_diagnostic.AM060.severity = warning
+```
+
+---
+
 ## Configuration
 
 ### Global Configuration
@@ -1588,6 +1753,14 @@ dotnet_diagnostic.AM035.severity = warning
 dotnet_diagnostic.AM036.severity = warning
 dotnet_diagnostic.AM037.severity = warning
 dotnet_diagnostic.AM038.severity = suggestion
+
+# Configuration
+dotnet_diagnostic.AM041.severity = warning
+dotnet_diagnostic.AM050.severity = suggestion
+dotnet_diagnostic.AM060.severity = warning
+
+# Enum safety
+dotnet_diagnostic.AM061.severity = warning
 ```
 
 ### Project-Level Configuration
@@ -1655,7 +1828,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.83">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.84">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1694,5 +1867,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.83
+**Version**: 2.30.84
 **Maintainer**: George Wall

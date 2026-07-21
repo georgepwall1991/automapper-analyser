@@ -41,6 +41,7 @@
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="../../src/AutoMapperAnalyzer.Analyzers/AutoMapperAnalyzer.Analyzers.csproj"/>
+        <ProjectReference Include="../../tools/AnalyzerVerifier/AnalyzerVerifier.csproj"/>
     </ItemGroup>
     <ItemGroup>
         <Using Include="Xunit"/>

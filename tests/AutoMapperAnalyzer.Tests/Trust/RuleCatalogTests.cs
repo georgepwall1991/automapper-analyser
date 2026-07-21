@@ -407,8 +407,18 @@ public partial class RuleCatalogTests
         Assert.Contains("DOTNET_VERSION: '10.0.x'", ci, StringComparison.Ordinal);
         Assert.Contains("-warnaserror", ci, StringComparison.Ordinal);
         Assert.Contains("Verify package contents", ci, StringComparison.Ordinal);
-        Assert.Contains("--check-catalog --check-snapshots", ci, StringComparison.Ordinal);
-        Assert.Contains("tools/package-smoke.sh", ci, StringComparison.Ordinal);
+        Assert.Contains("--check-catalog --check-snapshots --check-compatibility", ci, StringComparison.Ordinal);
+        Assert.Contains("uses: ./.github/workflows/package-compatibility.yml", ci, StringComparison.Ordinal);
+
+        string compatibilityWorkflow = File.ReadAllText(
+            Path.Combine(repoRoot, ".github", "workflows", "package-compatibility.yml"));
+        Assert.Contains("--print-compatibility-matrix", compatibilityWorkflow, StringComparison.Ordinal);
+        Assert.Contains("--verify-package-compatibility", compatibilityWorkflow, StringComparison.Ordinal);
+        Assert.Contains("Verify package SHA-256", compatibilityWorkflow, StringComparison.Ordinal);
+
+        string release = File.ReadAllText(Path.Combine(repoRoot, ".github", "workflows", "release.yml"));
+        Assert.Contains("needs: [package, compatibility]", release, StringComparison.Ordinal);
+        Assert.Contains("Reverify package SHA-256", release, StringComparison.Ordinal);
 
         string shippedReleasePath = Path.Combine(repoRoot, "src", "AutoMapperAnalyzer.Analyzers", "AnalyzerReleases.Shipped.md");
         string unshippedReleasePath = Path.Combine(repoRoot, "src", "AutoMapperAnalyzer.Analyzers", "AnalyzerReleases.Unshipped.md");

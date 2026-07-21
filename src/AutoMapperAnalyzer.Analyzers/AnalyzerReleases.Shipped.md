@@ -1,3 +1,17 @@
+## Release 2.30.84
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|------
+AM060 | AutoMapper.Configuration | Warning | Unregistered type map at mapping call site
+AM061 | AutoMapper.TypeSafety | Warning | Enum member mismatch in mapping
+
+### Removed Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|------
+
 ## Release 2.30.83
 
 ### New Rules

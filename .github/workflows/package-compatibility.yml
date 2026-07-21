@@ -1,0 +1,90 @@
+name: Package Compatibility Contract
+
+on:
+  workflow_call:
+    inputs:
+      artifact-name:
+        description: Name of the artifact containing exactly one analyzer nupkg
+        required: true
+        type: string
+      package-sha256:
+        description: SHA-256 of the nupkg before artifact upload
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  matrix:
+    name: Load compatibility manifest
+    runs-on: ubuntu-latest
+    outputs:
+      compatibility: ${{ steps.matrix.outputs.compatibility }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build compatibility verifier
+        run: |
+          dotnet restore tools/AnalyzerVerifier/AnalyzerVerifier.csproj
+          dotnet build tools/AnalyzerVerifier/AnalyzerVerifier.csproj --no-restore --configuration Release -warnaserror
+
+      - name: Render matrix from manifest
+        id: matrix
+        shell: bash
+        run: |
+          compatibility=$(dotnet tools/AnalyzerVerifier/bin/Release/net10.0/AnalyzerVerifier.dll --print-compatibility-matrix)
+          echo "compatibility=$compatibility" >> "$GITHUB_OUTPUT"
+
+  verify:
+    name: Verify ${{ matrix.id }}
+    needs: matrix
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.compatibility) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Download packed artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ./packages
+
+      - name: Verify package SHA-256
+        id: package
+        shell: pwsh
+        run: |
+          $packages = @(Get-ChildItem ./packages -Filter *.nupkg -File)
+          if ($packages.Count -ne 1) {
+            throw "Expected exactly one .nupkg in the artifact; found $($packages.Count)."
+          }
+          $actual = (Get-FileHash $packages[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = '${{ inputs.package-sha256 }}'.ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "Package SHA-256 mismatch. Expected $expected; got $actual."
+          }
+          "path=$($packages[0].FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Verify package compatibility
+        run: >-
+          dotnet run --project tools/AnalyzerVerifier/AnalyzerVerifier.csproj
+          --configuration Release --
+          --verify-package-compatibility "${{ steps.package.outputs.path }}"
+          --case "${{ matrix.id }}"
