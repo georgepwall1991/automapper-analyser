@@ -120,3 +120,10 @@ jobs:
           name: nuget-package
           path: ./packages/*.nupkg
 
+  compatibility:
+    name: Package Compatibility
+    needs: package
+    uses: ./.github/workflows/package-compatibility.yml
+    with:
+      artifact-name: nuget-package
+      package-sha256: ${{ needs.package.outputs.package-sha256 }}
