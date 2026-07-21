@@ -8,6 +8,9 @@ on:
   push:
     branches: [ main, develop ]
 
+# Required, not cosmetic: without an explicit top-level permissions block the
+# reusable compatibility call below dies with startup_failure on branch pushes
+# (release.yml declares permissions for the same reason).
 permissions:
   actions: read
   contents: read
