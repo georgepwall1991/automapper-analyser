@@ -8,6 +8,10 @@ on:
   push:
     branches: [ main, develop ]
 
+permissions:
+  actions: read
+  contents: read
+
 env:
   DOTNET_VERSION: '10.0.x'
   SOLUTION_FILE: 'automapper-analyser.sln'
