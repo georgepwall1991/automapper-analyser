@@ -108,7 +108,9 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             }
 
             // Determine if this is a simple type conversion or complex mapping
-            bool isSimpleConversion = IsSimpleTypeConversion(sourceElementType!, destElementType!);
+            bool isSimpleConversion = !IsArrayTypeName(sourceElementType!) &&
+                                      !IsArrayTypeName(destElementType!) &&
+                                      IsSimpleTypeConversion(sourceElementType!, destElementType!);
 
             if (isSimpleConversion)
             {
@@ -118,7 +120,8 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
             }
             else
             {
-                if (!IsKeyValuePairType(sourceElementType!) && !IsKeyValuePairType(destElementType!))
+                if (!IsKeyValuePairType(sourceElementType!) && !IsKeyValuePairType(destElementType!) &&
+                    IsPlainNamedTypeName(sourceElementType!) && IsPlainNamedTypeName(destElementType!))
                 {
                     RegisterComplexMappingFix(context, operationContext.Root, invocation, destinationPropertyNameValue, sourceElementType!,
                         destElementType!, diagnostic, operationContext.SemanticModel);
@@ -305,6 +308,8 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
                !value.Contains('[') &&
                !IsSimpleConversionType(value);
     }
+
+    private static bool IsArrayTypeName(string typeName) => typeName.Contains('[');
 
     private void RegisterComplexMappingFix(
         CodeFixContext context,

@@ -934,6 +934,11 @@ mapping, and complex value-only mismatches can offer a value `CreateMap<TSourceV
 does not offer `CreateMap<KeyValuePair<...>, KeyValuePair<...>>()`, because that registration is not a reliable
 executable rewrite.
 
+When either collection element is itself a generic collection or array, AM021 also keeps the mismatch on the
+manual-review path. An element registration such as `CreateMap<List<string>, List<int>>()` does not provide the
+missing inner conversion and can suppress the warning without making the mapping executable. Plain domain-object
+element pairs still receive the focused element `CreateMap` action.
+
 For simple element conversions, AM021 generates `global::System.Convert`, `global::System.DateTime`, and `global::System.Guid` calls so the fix remains stable even when the project contains types with the same short names.
 
 #### Solution

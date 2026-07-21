@@ -217,6 +217,80 @@ public class AM021_CodeFixTests
     }
 
     [Fact]
+    public async Task AM021_ShouldOfferOnlyIgnore_WhenComplexElementTypesAreNestedGenericCollections()
+    {
+        const string testCode = """
+                                using System.Collections.Generic;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<List<string>> Matrix { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<List<int>> Matrix { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("AM021_Ignore_Matrix", action.EquivalenceKey);
+    }
+
+    [Fact]
+    public async Task AM021_ShouldOfferOnlyIgnore_WhenComplexElementTypesAreArrays()
+    {
+        const string testCode = """
+                                using System.Collections.Generic;
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<string[]> Matrix { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<int[]> Matrix { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        Diagnostic diagnostic = Assert.Single(await GetDiagnosticsAsync(document));
+        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+
+        CodeAction action = Assert.Single(actions);
+        Assert.Equal("AM021_Ignore_Matrix", action.EquivalenceKey);
+    }
+
+    [Fact]
     public async Task AM021_ShouldOfferComplexMapping_WhenDirectFluentStatementIsParenthesized()
     {
         const string testCode = """
