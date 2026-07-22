@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
 using Microsoft.CodeAnalysis.Text;
@@ -1949,7 +1950,7 @@ public class AM020_NestedObjectMappingCodeFixTests
     }
 
     [Fact]
-    public async Task AM020_CodeFix_ShouldNotOfferFix_ForComputedReceiverInExpressionBodiedVoidMethod()
+    public async Task AM020_CodeFix_ShouldCaptureComputedReceiverInExpressionBodiedVoidMethod()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -1975,15 +1976,41 @@ public class AM020_NestedObjectMappingCodeFixTests
                                 }
                                 """;
 
-        Document document = CreateDocument(testCode);
-        Compilation compilation = (await document.Project.GetCompilationAsync())!;
-        Diagnostic diagnostic = Assert.Single(await compilation.WithAnalyzers(
-                [new AM020_NestedObjectMappingAnalyzer()])
-            .GetAnalyzerDiagnosticsAsync());
+        const string expectedFixedCode = """
+                                         using AutoMapper;
 
-        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+                                         public class Address { }
+                                         public class AddressDto { }
+                                         public class Source { public Address HomeAddress { get; set; } }
+                                         public class Destination { public AddressDto HomeAddress { get; set; } }
 
-        Assert.Empty(actions);
+                                         public sealed class MappingInstaller
+                                         {
+                                             private readonly IMapperConfigurationExpression _configuration;
+
+                                             public MappingInstaller(IMapperConfigurationExpression configuration)
+                                             {
+                                                 _configuration = configuration;
+                                             }
+
+                                             public void Configure()
+                                             {
+                                                 var mappingConfiguration = GetConfiguration();
+                                                 mappingConfiguration.CreateMap<Source, Destination>();
+                                                 mappingConfiguration.CreateMap<Address, AddressDto>();
+                                             }
+
+                                             private IMapperConfigurationExpression GetConfiguration() => _configuration;
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(18, 12)
+                    .WithArguments("HomeAddress", "Address", "AddressDto"),
+                expectedFixedCode);
     }
 
     [Fact]
@@ -2240,7 +2267,7 @@ public class AM020_NestedObjectMappingCodeFixTests
     }
 
     [Fact]
-    public async Task AM020_CodeFix_ShouldNotOfferFix_ForComputedConfigurationReceiver()
+    public async Task AM020_CodeFix_ShouldCaptureComputedConfigurationReceiver()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -2264,15 +2291,37 @@ public class AM020_NestedObjectMappingCodeFixTests
                                 }
                                 """;
 
-        Document document = CreateDocument(testCode);
-        Compilation compilation = (await document.Project.GetCompilationAsync())!;
-        Diagnostic diagnostic = Assert.Single(await compilation.WithAnalyzers(
-                [new AM020_NestedObjectMappingAnalyzer()])
-            .GetAnalyzerDiagnosticsAsync());
+        const string expectedFixedCode = """
+                                         using AutoMapper;
 
-        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+                                         public class Address { }
+                                         public class AddressDto { }
+                                         public class Source { public Address HomeAddress { get; set; } }
+                                         public class Destination { public AddressDto HomeAddress { get; set; } }
 
-        Assert.Empty(actions);
+                                         public sealed class MappingInstaller
+                                         {
+                                             private readonly IMapperConfigurationExpression _configuration;
+
+                                             public MappingInstaller(IMapperConfigurationExpression configuration)
+                                             {
+                                                 _configuration = configuration;
+                                                 var mappingConfiguration = GetConfiguration();
+                                                 mappingConfiguration.CreateMap<Source, Destination>();
+                                                 mappingConfiguration.CreateMap<Address, AddressDto>();
+                                             }
+
+                                             private IMapperConfigurationExpression GetConfiguration() => _configuration;
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(15, 9)
+                    .WithArguments("HomeAddress", "Address", "AddressDto"),
+                expectedFixedCode);
     }
 
     [Fact]
@@ -2320,7 +2369,7 @@ public class AM020_NestedObjectMappingCodeFixTests
     }
 
     [Fact]
-    public async Task AM020_CodeFix_ShouldNotOfferFix_ForComputedReceiverInExpressionBodiedConstructor()
+    public async Task AM020_CodeFix_ShouldCaptureComputedReceiverInExpressionBodiedConstructor()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -2341,15 +2390,36 @@ public class AM020_NestedObjectMappingCodeFixTests
                                 }
                                 """;
 
-        Document document = CreateDocument(testCode);
-        Compilation compilation = (await document.Project.GetCompilationAsync())!;
-        Diagnostic diagnostic = Assert.Single(await compilation.WithAnalyzers(
-                [new AM020_NestedObjectMappingAnalyzer()])
-            .GetAnalyzerDiagnosticsAsync());
+        const string expectedFixedCode = """
+                                         using AutoMapper;
 
-        List<CodeAction> actions = await RegisterActionsAsync(document, diagnostic);
+                                         public class Address { }
+                                         public class AddressDto { }
+                                         public class Source { public Address HomeAddress { get; set; } }
+                                         public class Destination { public AddressDto HomeAddress { get; set; } }
 
-        Assert.Empty(actions);
+                                         public sealed class MappingInstaller
+                                         {
+                                             private readonly IMapperConfigurationExpression _configuration;
+
+                                             public MappingInstaller(IMapperConfigurationExpression configuration)
+                                             {
+                                                 var mappingConfiguration = GetConfiguration();
+                                                 mappingConfiguration.CreateMap<Source, Destination>();
+                                                 mappingConfiguration.CreateMap<Address, AddressDto>();
+                                             }
+
+                                             private IMapperConfigurationExpression GetConfiguration() => _configuration;
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(13, 12)
+                    .WithArguments("HomeAddress", "Address", "AddressDto"),
+                expectedFixedCode);
     }
 
     [Fact]
@@ -2498,6 +2568,337 @@ public class AM020_NestedObjectMappingCodeFixTests
                     .WithLocation(12, 29)
                     .WithArguments("HomeAddress", "Address", "AddressDto"),
                 expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldCaptureConditionalIndexerOnce_WithUniqueNameAndMultipleMappings()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Address { }
+                                public class AddressDto { }
+                                public class Contact { }
+                                public class ContactDto { }
+                                public class Source { public Address HomeAddress { get; set; } public Contact Contact { get; set; } }
+                                public class Destination { public AddressDto HomeAddress { get; set; } public ContactDto Contact { get; set; } }
+
+                                public sealed class MappingInstaller
+                                {
+                                    private readonly IMapperConfigurationExpression[] _configurations;
+                                    private readonly bool _useFirst;
+
+                                    public MappingInstaller(IMapperConfigurationExpression first, IMapperConfigurationExpression second)
+                                    {
+                                        _configurations = new[] { first, second };
+                                        _useFirst = true;
+                                    }
+
+                                    public void Configure()
+                                    {
+                                        var mappingConfiguration = 0;
+                                        (_useFirst ? _configurations[0] : _configurations[1]).CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         public class Address { }
+                                         public class AddressDto { }
+                                         public class Contact { }
+                                         public class ContactDto { }
+                                         public class Source { public Address HomeAddress { get; set; } public Contact Contact { get; set; } }
+                                         public class Destination { public AddressDto HomeAddress { get; set; } public ContactDto Contact { get; set; } }
+
+                                         public sealed class MappingInstaller
+                                         {
+                                             private readonly IMapperConfigurationExpression[] _configurations;
+                                             private readonly bool _useFirst;
+
+                                             public MappingInstaller(IMapperConfigurationExpression first, IMapperConfigurationExpression second)
+                                             {
+                                                 _configurations = new[] { first, second };
+                                                 _useFirst = true;
+                                             }
+
+                                             public void Configure()
+                                             {
+                                                 var mappingConfiguration = 0;
+                                                 var mappingConfiguration1 = (_useFirst ? _configurations[0] : _configurations[1]);
+                                                 mappingConfiguration1.CreateMap<Source, Destination>();
+                                                 mappingConfiguration1.CreateMap<Address, AddressDto>();
+                                                 mappingConfiguration1.CreateMap<Contact, ContactDto>();
+                                             }
+                                         }
+                                         """;
+
+        DiagnosticResult[] diagnostics =
+        [
+            new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                .WithLocation(24, 9)
+                .WithArguments("HomeAddress", "Address", "AddressDto"),
+            new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                .WithLocation(24, 9)
+                .WithArguments("Contact", "Contact", "ContactDto")
+        ];
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixWithIterationsAsync(testCode, diagnostics, expectedFixedCode, iterations: 1);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldCapturePropertyReceiverAndPreserveCommentsForGenericNestedMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Box<T> { }
+                                public class Address { }
+                                public class AddressDto { }
+                                public class Source { public Box<Address> HomeAddress { get; set; } }
+                                public class Destination { public Box<AddressDto> HomeAddress { get; set; } }
+
+                                public sealed class MappingInstaller
+                                {
+                                    private readonly IMapperConfigurationExpression _configuration;
+                                    private IMapperConfigurationExpression Configuration => _configuration;
+
+                                    public MappingInstaller(IMapperConfigurationExpression configuration)
+                                    {
+                                        _configuration = configuration;
+                                    }
+
+                                    public void Configure()
+                                    {
+                                        // keep-before
+                                        Configuration /* keep-receiver */ .CreateMap<Source, Destination>(); // keep-trailing
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         public class Box<T> { }
+                                         public class Address { }
+                                         public class AddressDto { }
+                                         public class Source { public Box<Address> HomeAddress { get; set; } }
+                                         public class Destination { public Box<AddressDto> HomeAddress { get; set; } }
+
+                                         public sealed class MappingInstaller
+                                         {
+                                             private readonly IMapperConfigurationExpression _configuration;
+                                             private IMapperConfigurationExpression Configuration => _configuration;
+
+                                             public MappingInstaller(IMapperConfigurationExpression configuration)
+                                             {
+                                                 _configuration = configuration;
+                                             }
+
+                                             public void Configure()
+                                             {
+                                                 // keep-before
+                                                 var mappingConfiguration = Configuration /* keep-receiver */;
+                                                 mappingConfiguration.CreateMap<Source, Destination>(); // keep-trailing
+                                                 mappingConfiguration.CreateMap<Box<Address>, Box<AddressDto>>();
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(22, 9)
+                    .WithArguments("HomeAddress", "Box<Address>", "Box<AddressDto>"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldCaptureComputedReceiverForReverseMap()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class SourceValue
+                                {
+                                    public static implicit operator DestinationValue(SourceValue source) => new();
+                                }
+                                public class DestinationValue { }
+                                public class Source { public SourceValue Value { get; set; } }
+                                public class Destination { public DestinationValue Value { get; set; } }
+
+                                public sealed class MappingInstaller
+                                {
+                                    private readonly IMapperConfigurationExpression _configuration;
+
+                                    public MappingInstaller(IMapperConfigurationExpression configuration)
+                                    {
+                                        _configuration = configuration;
+                                    }
+
+                                    public void Configure()
+                                    {
+                                        GetConfiguration().CreateMap<Source, Destination>().ReverseMap();
+                                    }
+
+                                    private IMapperConfigurationExpression GetConfiguration() => _configuration;
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+
+                                         public class SourceValue
+                                         {
+                                             public static implicit operator DestinationValue(SourceValue source) => new();
+                                         }
+                                         public class DestinationValue { }
+                                         public class Source { public SourceValue Value { get; set; } }
+                                         public class Destination { public DestinationValue Value { get; set; } }
+
+                                         public sealed class MappingInstaller
+                                         {
+                                             private readonly IMapperConfigurationExpression _configuration;
+
+                                             public MappingInstaller(IMapperConfigurationExpression configuration)
+                                             {
+                                                 _configuration = configuration;
+                                             }
+
+                                             public void Configure()
+                                             {
+                                                 var mappingConfiguration = GetConfiguration();
+                                                 mappingConfiguration.CreateMap<Source, Destination>().ReverseMap();
+                                                 mappingConfiguration.CreateMap<DestinationValue, SourceValue>();
+                                             }
+
+                                             private IMapperConfigurationExpression GetConfiguration() => _configuration;
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM020_NestedObjectMappingAnalyzer, AM020_NestedObjectMappingCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule)
+                    .WithLocation(22, 9)
+                    .WithArguments("Value", "DestinationValue", "SourceValue"),
+                expectedFixedCode);
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldNotOfferFix_ForStaleComputedReceiverDiagnostic()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Address { }
+                                public class AddressDto { }
+                                public class Source { public Address HomeAddress { get; set; } }
+                                public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                public sealed class MappingInstaller
+                                {
+                                    private readonly IMapperConfigurationExpression _configuration;
+
+                                    public MappingInstaller(IMapperConfigurationExpression configuration)
+                                    {
+                                        _configuration = configuration;
+                                        GetConfiguration().CreateMap<Source, Destination>();
+                                        GetConfiguration().CreateMap<Address, AddressDto>();
+                                    }
+
+                                    private IMapperConfigurationExpression GetConfiguration() => _configuration;
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        SyntaxNode root = (await document.GetSyntaxRootAsync())!;
+        InvocationExpressionSyntax invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .First(candidate => candidate.Expression.ToString().Contains("CreateMap<Source", StringComparison.Ordinal));
+        Diagnostic staleDiagnostic = Diagnostic.Create(
+            AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule,
+            invocation.GetLocation(),
+            "HomeAddress",
+            "Address",
+            "AddressDto");
+
+        Assert.Empty(await RegisterActionsAsync(document, staleDiagnostic));
+    }
+
+    [Fact]
+    public async Task AM020_CodeFix_ShouldNotOfferFix_ForConditionalAccessReceiver()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Address { }
+                                public class AddressDto { }
+                                public class Source { public Address HomeAddress { get; set; } }
+                                public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                                public sealed class MappingInstaller
+                                {
+                                    public void Configure(IMapperConfigurationExpression configuration)
+                                    {
+                                        configuration?.CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        Document document = CreateDocument(testCode);
+        SyntaxNode root = (await document.GetSyntaxRootAsync())!;
+        InvocationExpressionSyntax invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+        Diagnostic diagnostic = Diagnostic.Create(
+            AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule,
+            invocation.GetLocation(),
+            "HomeAddress",
+            "Address",
+            "AddressDto");
+
+        Assert.Empty(await RegisterActionsAsync(document, diagnostic));
+    }
+
+    [Theory]
+    [InlineData("dynamic")]
+    [InlineData("MissingConfiguration")]
+    public async Task AM020_CodeFix_ShouldNotOfferFix_ForUnprovenReceiverType(string receiverType)
+    {
+        string testCode = $$"""
+                            using AutoMapper;
+
+                            public class Address { }
+                            public class AddressDto { }
+                            public class Source { public Address HomeAddress { get; set; } }
+                            public class Destination { public AddressDto HomeAddress { get; set; } }
+
+                            public sealed class MappingInstaller
+                            {
+                                public void Configure({{receiverType}} configuration)
+                                {
+                                    configuration.CreateMap<Source, Destination>();
+                                }
+                            }
+                            """;
+
+        Document document = CreateDocument(testCode);
+        SyntaxNode root = (await document.GetSyntaxRootAsync())!;
+        InvocationExpressionSyntax invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+        Diagnostic diagnostic = Diagnostic.Create(
+            AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule,
+            invocation.GetLocation(),
+            "HomeAddress",
+            "Address",
+            "AddressDto");
+
+        Assert.Empty(await RegisterActionsAsync(document, diagnostic));
     }
 
     private static Document CreateDocument(string source, params string[] preprocessorSymbols)

@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=NuGet)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AutoMapperAnalyzer.Analyzers.svg?style=flat-square&logo=nuget&label=Downloads)](https://www.nuget.org/packages/AutoMapperAnalyzer.Analyzers/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/georgepwall1991/automapper-analyser/ci.yml?style=flat-square&logo=github&label=Build)](https://github.com/georgepwall1991/automapper-analyser/actions)
-[![Tests](https://img.shields.io/badge/Tests-1762%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
+[![Tests](https://img.shields.io/badge/Tests-1771%20passing%2C%200%20skipped-success?style=flat-square&logo=checkmarx)](https://github.com/georgepwall1991/automapper-analyser/actions)
 [![.NET](https://img.shields.io/badge/.NET-4.8+%20%7C%206.0+%20%7C%208.0+%20%7C%209.0+%20%7C%2010.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![Compatibility](https://img.shields.io/badge/Verified-net48%20%7C%20net6%20%7C%20net8%20%7C%20net9%20%7C%20net10-512BD4?style=flat-square&logo=dotnet)](docs/COMPATIBILITY.md)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
@@ -15,21 +15,23 @@ prevention*
 
 ---
 
-## 🎉 Latest Release: v2.30.85
+## 🎉 Latest Release: v2.30.86
 
-**Two new rules: AM060 unregistered type maps + AM061 enum member mismatches**
+**AM020 side-effect-safe computed-receiver fixes**
 
 ✅ **Highlights**
 
-- **AM060 (Warning)** surfaces AutoMapper's most common runtime failure — `AutoMapperMappingException: Missing type map configuration` — at compile time. Every semantic `Map`/`ProjectTo` call site is checked against the compilation's `CreateMap` registry (including `ReverseMap()` directions, base-type/interface registrations, assignable pairs, and collection element maps), failing closed when registrations live outside the compilation, use open-generic typeof forms, or come from generic registration helpers. Warning severity keeps externally configured solutions honest; escalate to `error` in closed-world repos. The code fix scaffolds the missing `CreateMap` into a `Profile` constructor in the same document.
-- **AM061 (Warning)** catches silent enum data corruption: AutoMapper maps enums by numeric value, so misaligned member names/values quietly produce wrong data. Every registered mapping direction is checked for convention and explicit direct member pairs, honoring `Ignore`, `ConvertUsing`, non-trivial `MapFrom`, and `[Flags]` enums. Fixes offer a name-based `Enum.Parse` conversion or an explicit `Ignore`.
+- **AM020** now captures semantically proven computed `IMapperConfigurationExpression` receivers exactly once before replaying the original map and appending missing nested registrations. Property, method-call, indexer, parenthesized, conditional, and `ReverseMap()` receiver shapes are supported without duplicating side effects.
+- Stable receivers remain unchanged, while conditional access, unresolved/dynamic receivers, deferred or nested mappings, non-void expression bodies, stale diagnostics, and conditional-compilation regions remain conservatively fixless.
 
 🧪 **Validation**
 
-- AM060 + AM061 suites: **50** passed; full suite green on `net10.0`; catalog, sample snapshots, and compatibility contract regenerated. Cross-reviewed with Codex CLI (two rounds).
+- AM020 suite: **122** passed; full suite: **1771** passed on `net10.0`; catalog, sample snapshots, and compatibility checks passed.
 
 ### Recent Releases
 
+- **v2.30.86**: AM020 captures computed `IMapperConfigurationExpression` receivers exactly once before adding missing nested maps, extending safe fixes to property, method-call, indexed, parenthesized, and conditional receiver shapes.
+- **v2.30.85**: AM021 withholds ineffective element-map fixes for nested collection and array element shapes; test and coverage dependencies were refreshed.
 - **v2.30.84**: New AM060 flags `Map`/`ProjectTo` calls with no reachable `CreateMap` registration (with a profile-scaffolding fix); new AM061 flags enum member name/value misalignment that silently corrupts mapped data.
 - **v2.30.83**: AM021 preserves exact BCL `Stack<T>` LIFO order in generated element-conversion fixes.
 - **v2.30.82**: AM021 restricts complex element-map insertion to direct, unconditional constructor/method statements while retaining Ignore for nested, deferred, or conditional-region mappings.
@@ -200,7 +202,7 @@ var config = new MapperConfiguration(cfg =>
 ### 🧩 **Complex Mapping Intelligence**
 
 - **AM020**: Nested object mapping validation with receiver-preserving CreateMap suggestions (supports internal properties,
-  cross-profile detection, stable external configuration receivers, and expression-bodied Profile constructors)
+  cross-profile detection, stable and capture-once external configuration receivers, and direct expression-bodied constructors/void methods)
 - **AM021**: Collection element type analysis with conversion strategies
 - **AM022**: Circular reference detection with MaxDepth recommendations
 - **AM030/AM032/AM033**: Custom type converter implementation, null safety, and usage validation
@@ -252,7 +254,7 @@ Install-Package AutoMapperAnalyzer.Analyzers
 ### Project File (For CI/CD)
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.85">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.86">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
