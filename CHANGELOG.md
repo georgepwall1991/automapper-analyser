@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [2.30.86] - 2026-07-22
+
+AM020 side-effect-safe computed-receiver fixes.
+
+### Changed
+
+- **AM020 computed receiver fixes**: missing nested-map actions now capture semantically proven property, method-call, indexed, parenthesized, and conditional `IMapperConfigurationExpression` receivers in a collision-free local before replaying the original map and generated registrations. The receiver is evaluated exactly once, original ordering and trivia are preserved, and multiple missing nested maps share the same capture.
+- **AM020 safety boundary**: conditional-access and unresolved/dynamic receivers, non-void expression-bodied methods, deferred or nested mappings, non-statement ownership, stale diagnostics, and conditional-compilation regions remain fixless. Existing bare, `this`, parameter, local, and field receiver output is unchanged.
+
+### Validation
+
+- AM020 analyzer and code-fix suite: **122** passed, 0 skipped, 0 failed on `net10.0`.
+- Full solution suite: **1771** passed, 0 skipped, 0 failed on `net10.0`.
+- Rule catalog, sample diagnostic snapshot, and compatibility documentation checks passed.
+
 ## [2.30.85] - 2026-07-21
 
 AM021 nested collection element fix safety + dependency updates.

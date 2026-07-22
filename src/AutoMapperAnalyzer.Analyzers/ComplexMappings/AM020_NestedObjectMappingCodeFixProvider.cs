@@ -118,9 +118,34 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
                 semanticModel,
                 out SyntaxNode? bodyOwner,
                 out ExpressionStatementSyntax? originalStatement,
-                out ExpressionSyntax? receiver))
+                out ConfigurationReceiverPlan receiverPlan))
         {
             return document;
+        }
+
+        ExpressionStatementSyntax effectiveOriginalStatement = originalStatement!;
+        StatementSyntax? receiverCapture = null;
+        ExpressionSyntax? generatedReceiver = receiverPlan.Expression;
+        if (receiverPlan.Kind == ConfigurationReceiverKind.CaptureOnce)
+        {
+            ExpressionSyntax? statementReceiver = FindEquivalentReceiver(
+                effectiveOriginalStatement,
+                receiverPlan.Expression!);
+            if (statementReceiver == null)
+            {
+                return document;
+            }
+
+            string receiverLocalName = GetUniqueReceiverLocalName(bodyOwner!, semanticModel, createMapInvocation.SpanStart);
+            receiverCapture = CreateReceiverCaptureStatement(
+                receiverLocalName,
+                statementReceiver,
+                effectiveOriginalStatement);
+            effectiveOriginalStatement = RewriteCreateMapReceiver(
+                effectiveOriginalStatement,
+                statementReceiver,
+                receiverLocalName);
+            generatedReceiver = SyntaxFactory.IdentifierName(receiverLocalName);
         }
 
         ExpressionStatementSyntax[] newStatements = missingMappings.Select(m =>
@@ -129,9 +154,16 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
                 m.destinationType,
                 semanticModel,
                 createMapInvocation.SpanStart,
-                receiver)).ToArray();
+                generatedReceiver)).ToArray();
 
-        return InsertCreateMapStatements(document, root, bodyOwner!, originalStatement!, newStatements);
+        return InsertCreateMapStatements(
+            document,
+            root,
+            bodyOwner!,
+            originalStatement!,
+            effectiveOriginalStatement,
+            receiverCapture,
+            newStatements);
     }
 
     /// <summary>
@@ -139,20 +171,20 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
     ///     CreateMap statements after the original. Expression-bodied constructors and void methods
     ///     are expanded into blocks. Returns false when apply would no-op.
     ///     Profile-style bare/<c>this</c> calls and stable AutoMapper configuration receivers qualify.
-    ///     Computed receivers remain excluded so applying the fix cannot repeat side effects.
+    ///     Computed semantic configuration receivers also qualify and are captured exactly once.
     /// </summary>
     private static bool TryGetCreateMapInsertTarget(
         InvocationExpressionSyntax createMapInvocation,
         SemanticModel semanticModel,
         out SyntaxNode? bodyOwner,
         out ExpressionStatementSyntax? originalStatement,
-        out ExpressionSyntax? receiver)
+        out ConfigurationReceiverPlan receiverPlan)
     {
         bodyOwner = null;
-        receiver = null;
+        receiverPlan = default;
         originalStatement = createMapInvocation.Ancestors().OfType<ExpressionStatementSyntax>().FirstOrDefault();
 
-        if (!TryGetCreateMapReceiver(createMapInvocation, semanticModel, out receiver))
+        if (!TryGetCreateMapReceiver(createMapInvocation, semanticModel, out receiverPlan))
         {
             return false;
         }
@@ -276,30 +308,37 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
     }
 
     /// <summary>
-    ///     Resolves the root CreateMap in a fluent chain and returns the stable configuration receiver
-    ///     that must be preserved. Bare and <c>this</c> Profile calls return a null receiver so the
-    ///     generated registration stays unqualified.
+    ///     Resolves the root CreateMap in a fluent chain and classifies its configuration receiver.
+    ///     Bare and <c>this</c> Profile calls stay unqualified, stable storage is reused, and other
+    ///     semantic configuration expressions are captured once before the original mapping.
     /// </summary>
     private static bool TryGetCreateMapReceiver(
         InvocationExpressionSyntax invocation,
         SemanticModel semanticModel,
-        out ExpressionSyntax? receiver)
+        out ConfigurationReceiverPlan receiverPlan)
     {
-        receiver = null;
+        receiverPlan = default;
         InvocationExpressionSyntax? current = invocation;
         while (current != null)
         {
             if (IsDirectUnqualifiedCreateMap(current))
             {
+                receiverPlan = new ConfigurationReceiverPlan(ConfigurationReceiverKind.Unqualified, null);
                 return true;
             }
 
             if (current.Expression is MemberAccessExpressionSyntax memberAccess &&
                 GetMemberName(memberAccess.Name) == "CreateMap" &&
                 MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(current, semanticModel, "CreateMap") &&
-                IsStableConfigurationReceiver(memberAccess.Expression, semanticModel))
+                IsConfigurationReceiver(memberAccess.Expression, semanticModel))
             {
-                receiver = memberAccess.Expression.WithoutTrivia();
+                ConfigurationReceiverKind kind = IsStableConfigurationReceiver(memberAccess.Expression, semanticModel)
+                    ? ConfigurationReceiverKind.Reusable
+                    : ConfigurationReceiverKind.CaptureOnce;
+                ExpressionSyntax receiver = kind == ConfigurationReceiverKind.Reusable
+                    ? memberAccess.Expression.WithoutTrivia()
+                    : memberAccess.Expression;
+                receiverPlan = new ConfigurationReceiverPlan(kind, receiver);
                 return true;
             }
 
@@ -324,10 +363,20 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
             return false;
         }
 
+        return IsConfigurationReceiver(receiver, semanticModel);
+    }
+
+    private static bool IsConfigurationReceiver(ExpressionSyntax receiver, SemanticModel semanticModel)
+    {
+        ITypeSymbol? receiverType = semanticModel.GetTypeInfo(receiver).Type;
+        if (receiverType == null || receiverType.TypeKind is TypeKind.Dynamic or TypeKind.Error)
+        {
+            return false;
+        }
+
         INamedTypeSymbol? configurationType = semanticModel.Compilation.GetTypeByMetadataName(
             "AutoMapper.IMapperConfigurationExpression");
-        ITypeSymbol? receiverType = semanticModel.GetTypeInfo(receiver).Type;
-        if (configurationType == null || receiverType == null)
+        if (configurationType == null)
         {
             return false;
         }
@@ -352,64 +401,171 @@ public class AM020_NestedObjectMappingCodeFixProvider : AutoMapperCodeFixProvide
     private static string GetMemberName(SimpleNameSyntax name) =>
         name is GenericNameSyntax generic ? generic.Identifier.ValueText : name.Identifier.ValueText;
 
+    private static string GetUniqueReceiverLocalName(
+        SyntaxNode bodyOwner,
+        SemanticModel semanticModel,
+        int position)
+    {
+        var usedNames = new HashSet<string>(
+            bodyOwner.DescendantTokens()
+                .Where(token => token.IsKind(SyntaxKind.IdentifierToken))
+                .Select(token => token.ValueText),
+            StringComparer.Ordinal);
+        usedNames.UnionWith(semanticModel.LookupSymbols(position).Select(symbol => symbol.Name));
+
+        const string baseName = "mappingConfiguration";
+        string candidate = baseName;
+        for (int suffix = 1; usedNames.Contains(candidate); suffix++)
+        {
+            candidate = baseName + suffix;
+        }
+
+        return candidate;
+    }
+
+    private static LocalDeclarationStatementSyntax CreateReceiverCaptureStatement(
+        string receiverLocalName,
+        ExpressionSyntax receiver,
+        ExpressionStatementSyntax originalStatement)
+    {
+        ExpressionSyntax initializer = receiver
+            .WithoutLeadingTrivia()
+            .WithTrailingTrivia(TrimReceiverTrailingWhitespace(receiver.GetTrailingTrivia()));
+        return SyntaxFactory.LocalDeclarationStatement(
+                SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var"))
+                    .WithVariables(
+                        SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(receiverLocalName))
+                                .WithInitializer(SyntaxFactory.EqualsValueClause(initializer)))))
+            .WithLeadingTrivia(originalStatement.GetLeadingTrivia())
+            .WithAdditionalAnnotations(Formatter.Annotation);
+    }
+
+    private static SyntaxTriviaList TrimReceiverTrailingWhitespace(SyntaxTriviaList trivia)
+    {
+        int lastMeaningfulIndex = trivia.Count - 1;
+        while (lastMeaningfulIndex >= 0 && IsStructuralTrivia(trivia[lastMeaningfulIndex]))
+        {
+            lastMeaningfulIndex--;
+        }
+
+        if (lastMeaningfulIndex >= 0 &&
+            trivia[lastMeaningfulIndex].IsKind(SyntaxKind.SingleLineCommentTrivia))
+        {
+            return trivia;
+        }
+
+        return SyntaxFactory.TriviaList(trivia.Take(lastMeaningfulIndex + 1));
+    }
+
+    private static ExpressionSyntax? FindEquivalentReceiver(
+        ExpressionStatementSyntax statement,
+        ExpressionSyntax receiver)
+    {
+        ExpressionSyntax[] candidates = statement.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Where(memberAccess => GetMemberName(memberAccess.Name) == "CreateMap")
+            .Select(memberAccess => memberAccess.Expression)
+            .ToArray();
+
+        return candidates.FirstOrDefault(candidate => candidate.IsEquivalentTo(receiver))
+               ?? candidates.FirstOrDefault();
+    }
+
+    private static ExpressionStatementSyntax RewriteCreateMapReceiver(
+        ExpressionStatementSyntax originalStatement,
+        ExpressionSyntax receiver,
+        string receiverLocalName)
+    {
+        ExpressionSyntax replacement = SyntaxFactory.IdentifierName(receiverLocalName);
+        return originalStatement
+            .ReplaceNode(receiver, replacement)
+            .WithoutLeadingTrivia()
+            .WithAdditionalAnnotations(Formatter.Annotation);
+    }
+
     private static Document InsertCreateMapStatements(
         Document document,
         SyntaxNode root,
         SyntaxNode bodyOwner,
         ExpressionStatementSyntax originalStatement,
+        ExpressionStatementSyntax effectiveOriginalStatement,
+        StatementSyntax? receiverCapture,
         ExpressionStatementSyntax[] newStatements)
     {
+        StatementSyntax[] replacementStatements = receiverCapture == null
+            ? new StatementSyntax[] { effectiveOriginalStatement }.Concat(newStatements).ToArray()
+            : new[] { receiverCapture, effectiveOriginalStatement }.Concat(newStatements).ToArray();
+
         switch (bodyOwner)
         {
             case ConstructorDeclarationSyntax constructor when constructor.Body != null:
-            {
-                int originalIndex = constructor.Body.Statements.IndexOf(originalStatement);
-                BlockSyntax newBody = constructor.Body.WithStatements(
-                    constructor.Body.Statements.InsertRange(originalIndex + 1, newStatements));
-                return document.WithSyntaxRoot(root.ReplaceNode(constructor, constructor.WithBody(newBody)));
-            }
+                {
+                    int originalIndex = constructor.Body.Statements.IndexOf(originalStatement);
+                    BlockSyntax newBody = constructor.Body.WithStatements(
+                        constructor.Body.Statements.RemoveAt(originalIndex).InsertRange(originalIndex, replacementStatements));
+                    return document.WithSyntaxRoot(root.ReplaceNode(constructor, constructor.WithBody(newBody)));
+                }
             case ConstructorDeclarationSyntax { ExpressionBody: not null } constructor:
-            {
-                SyntaxTriviaList structuralTrailingTrivia = SyntaxFactory.TriviaList(
-                    constructor.GetTrailingTrivia().Where(t =>
-                        t.IsKind(SyntaxKind.WhitespaceTrivia) || t.IsKind(SyntaxKind.EndOfLineTrivia)));
-                BlockSyntax newBody = SyntaxFactory.Block(
-                        new[] { originalStatement }.Concat(newStatements))
-                    .WithAdditionalAnnotations(Formatter.Annotation);
-                ConstructorDeclarationSyntax expandedConstructor = constructor
-                    .WithExpressionBody(null)
-                    .WithSemicolonToken(default)
-                    .WithBody(newBody)
-                    .WithTrailingTrivia(structuralTrailingTrivia)
-                    .WithAdditionalAnnotations(Formatter.Annotation);
-                return document.WithSyntaxRoot(root.ReplaceNode(constructor, expandedConstructor));
-            }
+                {
+                    SyntaxTriviaList structuralTrailingTrivia = SyntaxFactory.TriviaList(
+                        constructor.GetTrailingTrivia().Where(t =>
+                            t.IsKind(SyntaxKind.WhitespaceTrivia) || t.IsKind(SyntaxKind.EndOfLineTrivia)));
+                    BlockSyntax newBody = SyntaxFactory.Block(replacementStatements)
+                        .WithAdditionalAnnotations(Formatter.Annotation);
+                    ConstructorDeclarationSyntax expandedConstructor = constructor
+                        .WithExpressionBody(null)
+                        .WithSemicolonToken(default)
+                        .WithBody(newBody)
+                        .WithTrailingTrivia(structuralTrailingTrivia)
+                        .WithAdditionalAnnotations(Formatter.Annotation);
+                    return document.WithSyntaxRoot(root.ReplaceNode(constructor, expandedConstructor));
+                }
             case MethodDeclarationSyntax method when method.Body != null:
-            {
-                int originalIndex = method.Body.Statements.IndexOf(originalStatement);
-                BlockSyntax newBody = method.Body.WithStatements(
-                    method.Body.Statements.InsertRange(originalIndex + 1, newStatements));
-                return document.WithSyntaxRoot(root.ReplaceNode(method, method.WithBody(newBody)));
-            }
+                {
+                    int originalIndex = method.Body.Statements.IndexOf(originalStatement);
+                    BlockSyntax newBody = method.Body.WithStatements(
+                        method.Body.Statements.RemoveAt(originalIndex).InsertRange(originalIndex, replacementStatements));
+                    return document.WithSyntaxRoot(root.ReplaceNode(method, method.WithBody(newBody)));
+                }
             case MethodDeclarationSyntax { ExpressionBody: not null } method:
-            {
-                SyntaxTriviaList structuralTrailingTrivia = SyntaxFactory.TriviaList(
-                    method.GetTrailingTrivia().Where(t =>
-                        t.IsKind(SyntaxKind.WhitespaceTrivia) || t.IsKind(SyntaxKind.EndOfLineTrivia)));
-                BlockSyntax newBody = SyntaxFactory.Block(
-                        new[] { originalStatement }.Concat(newStatements))
-                    .WithAdditionalAnnotations(Formatter.Annotation);
-                MethodDeclarationSyntax expandedMethod = method
-                    .WithExpressionBody(null)
-                    .WithSemicolonToken(default)
-                    .WithBody(newBody)
-                    .WithTrailingTrivia(structuralTrailingTrivia)
-                    .WithAdditionalAnnotations(Formatter.Annotation);
-                return document.WithSyntaxRoot(root.ReplaceNode(method, expandedMethod));
-            }
+                {
+                    SyntaxTriviaList structuralTrailingTrivia = SyntaxFactory.TriviaList(
+                        method.GetTrailingTrivia().Where(t =>
+                            t.IsKind(SyntaxKind.WhitespaceTrivia) || t.IsKind(SyntaxKind.EndOfLineTrivia)));
+                    BlockSyntax newBody = SyntaxFactory.Block(replacementStatements)
+                        .WithAdditionalAnnotations(Formatter.Annotation);
+                    MethodDeclarationSyntax expandedMethod = method
+                        .WithExpressionBody(null)
+                        .WithSemicolonToken(default)
+                        .WithBody(newBody)
+                        .WithTrailingTrivia(structuralTrailingTrivia)
+                        .WithAdditionalAnnotations(Formatter.Annotation);
+                    return document.WithSyntaxRoot(root.ReplaceNode(method, expandedMethod));
+                }
             default:
                 return document;
         }
+    }
+
+    private enum ConfigurationReceiverKind
+    {
+        Unqualified,
+        Reusable,
+        CaptureOnce
+    }
+
+    private readonly struct ConfigurationReceiverPlan
+    {
+        internal ConfigurationReceiverPlan(ConfigurationReceiverKind kind, ExpressionSyntax? expression)
+        {
+            Kind = kind;
+            Expression = expression;
+        }
+
+        internal ConfigurationReceiverKind Kind { get; }
+
+        internal ExpressionSyntax? Expression { get; }
     }
 
     private static (INamedTypeSymbol? sourceType, INamedTypeSymbol? destinationType) GetCreateMapTypeArguments(

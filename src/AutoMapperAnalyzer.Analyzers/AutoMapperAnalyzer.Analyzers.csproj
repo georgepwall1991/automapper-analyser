@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>85</PatchVersion>
+        <PatchVersion>86</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.85 - AM021 nested collection safety + dependency updates
-- AM021 now withholds ineffective element CreateMap actions for nested generic collections and arrays, keeping those shapes on the explicit manual-review Ignore path
-- Plain domain-object element maps, executable primitive conversions, dictionary handling, and Stack LIFO order safety are preserved
-- Bump Microsoft.NET.Test.Sdk 18.0.1 to 18.8.1, coverlet.collector 6.0.4 to 10.0.1, codecov-action v6 to v7
+                <PackageReleaseNotes>Version 2.30.86 - AM020 side-effect-safe computed-receiver fixes
+- Capture semantically proven computed IMapperConfigurationExpression receivers exactly once before replaying the original map and appending missing nested registrations
+- Support property, method-call, indexer, parenthesized, conditional, and ReverseMap receiver shapes in direct constructor and void-method statements
+- Preserve stable receiver output and withhold fixes where direct statement ownership or receiver safety cannot be proven
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
