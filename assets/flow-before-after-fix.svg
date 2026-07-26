@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="480" viewBox="0 0 920 480" role="img" aria-labelledby="title desc">
+  <title id="title">Before and after: AutoMapper property type mismatch fixed with ForMember MapFrom</title>
+  <desc id="desc">Side-by-side before/after showing AM001 string-to-int Age mismatch on CreateMap and a ForMember MapFrom TryParse code fix.</desc>
+  <rect width="920" height="480" rx="12" fill="#0f172a"/>
+  <text x="32" y="40" fill="#f1f5f9" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">Code fix: CreateMap type mismatch (AM001)</text>
+  <text x="32" y="64" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13">Catch property type mismatches at compile-time before AutoMapperMappingException</text>
+
+  <rect x="24" y="88" width="430" height="360" rx="10" fill="#1e1b1b" stroke="#7f1d1d" stroke-width="1.5"/>
+  <rect x="24" y="88" width="430" height="40" rx="10" fill="#7f1d1d"/>
+  <rect x="24" y="118" width="430" height="10" fill="#7f1d1d"/>
+  <text x="40" y="114" fill="#fecaca" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">BEFORE — silent CreateMap risk</text>
+
+  <text x="40" y="156" fill="#fca5a5" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">// Profile / MapperConfiguration</text>
+  <text x="40" y="180" fill="#e2e8f0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">cfg.CreateMap&lt;Person, PersonDto&gt;();</text>
+  <text x="40" y="204" fill="#94a3b8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">// Source.Age : string</text>
+  <text x="40" y="224" fill="#94a3b8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">// Dest.Age   : int</text>
+  <text x="40" y="256" fill="#e2e8f0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">mapper.Map&lt;PersonDto&gt;(person);</text>
+  <text x="40" y="280" fill="#f87171" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">// 💥 fails at runtime</text>
+
+  <rect x="40" y="320" width="398" height="100" rx="6" fill="#450a0a"/>
+  <text x="52" y="348" fill="#fecaca" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600">⚠ AM001 warning</text>
+  <text x="52" y="372" fill="#fca5a5" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">Property 'Age' has incompatible types:</text>
+  <text x="52" y="392" fill="#fca5a5" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">string cannot map to int without conversion</text>
+
+  <rect x="466" y="88" width="430" height="360" rx="10" fill="#0f1f17" stroke="#14532d" stroke-width="1.5"/>
+  <rect x="466" y="88" width="430" height="40" rx="10" fill="#14532d"/>
+  <rect x="466" y="118" width="430" height="10" fill="#14532d"/>
+  <text x="482" y="114" fill="#bbf7d0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">AFTER — code fix applied</text>
+
+  <text x="482" y="156" fill="#86efac" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">// Explicit ForMember + MapFrom</text>
+  <text x="482" y="180" fill="#e2e8f0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">cfg.CreateMap&lt;Person, PersonDto&gt;()</text>
+  <text x="482" y="200" fill="#4ade80" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" font-weight="700">  .ForMember(d =&gt; d.Age, o =&gt; o.MapFrom(s =&gt;</text>
+  <text x="482" y="220" fill="#4ade80" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" font-weight="700">    int.TryParse(s.Age, out var n) ? n : 0));</text>
+  <text x="482" y="252" fill="#e2e8f0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">mapper.Map&lt;PersonDto&gt;(person);</text>
+  <text x="482" y="276" fill="#86efac" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">// ✓ conversion is explicit</text>
+
+  <rect x="482" y="320" width="398" height="100" rx="6" fill="#052e16"/>
+  <text x="494" y="348" fill="#bbf7d0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600">✓ Type mismatch resolved at edit time</text>
+  <text x="494" y="372" fill="#86efac" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">Lightbulb suggests MapFrom conversion or Ignore</text>
+  <text x="494" y="392" fill="#86efac" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">Review LikelyRewrite fixes before accepting</text>
+</svg>

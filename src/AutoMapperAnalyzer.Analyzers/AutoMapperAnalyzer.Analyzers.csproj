@@ -17,25 +17,26 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>86</PatchVersion>
+        <PatchVersion>87</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
         >
         <PackageVersion Condition="'$(PackageVersion)' == ''">$(MajorVersion).$(MinorVersion).$(PatchVersion)</PackageVersion>
-        <Title>AutoMapper Roslyn Analyzer</Title>
+        <Title>AutoMapper Roslyn Analyzer — CreateMap and mapping validation</Title>
         <Authors>George Wall</Authors>
-        <Description>Catch AutoMapper configuration errors at compile-time before they cause runtime chaos! This Roslyn analyzer detects type mismatches, nullable issues, missing properties, collection incompatibilities, and complex mapping problems - all with intelligent code fixes. Transform AutoMapper development from reactive debugging to proactive prevention. Features 23 analyzer rules with smart fixes for type safety, data integrity, complex mappings, performance, and configuration. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, 9.0+, 10.0+.</Description>
-        <PackageTags>roslyn;analyzer;automapper;mapping;static-analysis;codeanalysis;code-quality;diagnostics;code-fix;type-safety;compile-time;netframework;netcore;dotnet;dotnet6;dotnet8;dotnet9;dotnet10</PackageTags>
+        <Description>Compile-time AutoMapper CreateMap validation for .NET — a Roslyn analyzer that catches property type mismatches, nullable mapping issues, unmapped required properties, collection incompatibilities, nested maps, and missing CreateMap registrations before AutoMapperMappingException at runtime. Analyzes Profile, ForMember, MapFrom, ReverseMap, ConvertUsing, and ProjectTo configurations with intelligent code fixes. Twenty-three rules cover type safety, data integrity, complex mappings, performance, and configuration. Stays quiet when a mapping shape cannot be proven statically. Compatible with .NET Framework 4.8+, .NET 6.0+, 8.0+, 9.0+, and 10.0+.</Description>
+        <PackageTags>roslyn;roslyn-analyzer;analyzers;analyzer;automapper;CreateMap;Profile;ForMember;MapFrom;ProjectTo;ReverseMap;mapping;object-mapping;type-mismatch;nullable;unmapped;code-fix;static-analysis;compile-time;type-safety;AutoMapperMappingException;diagnostics</PackageTags>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/georgepwall1991/automapper-analyser</PackageProjectUrl>
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.86 - AM020 side-effect-safe computed-receiver fixes
-- Capture semantically proven computed IMapperConfigurationExpression receivers exactly once before replaying the original map and appending missing nested registrations
-- Support property, method-call, indexer, parenthesized, conditional, and ReverseMap receiver shapes in direct constructor and void-method statements
-- Preserve stable receiver output and withhold fixes where direct statement ownership or receiver safety cannot be proven
+                <PackageReleaseNotes>Version 2.30.87 - NuGet and GitHub discoverability for CreateMap validation
+- Keyword-rich package Title, Description, and PackageTags (CreateMap, Profile, ForMember, MapFrom, ProjectTo, AutoMapperMappingException, roslyn-analyzer)
+- Conversion-funnel README with absolute HTTPS product-flow visuals; assets packed into the nupkg
+- DiscoverabilityMetadataTests and scripts/verify-packages.sh gate README, assets, and high-intent nuspec terms
+- No analyzer rule ID or severity changes
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
@@ -56,6 +57,7 @@
     <ItemGroup>
         <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
         <None Include="..\..\icon.png" Pack="true" PackagePath="\"/>
+        <None Include="..\..\assets\**\*" Pack="true" PackagePath="assets\" />
     </ItemGroup>
     <!-- Analyzer files for NuGet package -->
     <ItemGroup>

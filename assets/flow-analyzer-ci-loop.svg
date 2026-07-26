@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="440" viewBox="0 0 920 440" role="img" aria-labelledby="title desc">
+  <title id="title">AutoMapper analyzer product loop: IDE diagnostics and CI build gates</title>
+  <desc id="desc">Diagram of CreateMap Profiles feeding Roslyn analyzer diagnostics in the IDE and the same analyzer package running in CI with samples, catalog, and compatibility checks.</desc>
+  <rect width="920" height="440" rx="12" fill="#0f172a"/>
+  <text x="32" y="40" fill="#f1f5f9" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700">Product loop: IDE diagnostics + CI build gate</text>
+  <text x="32" y="64" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13">Same AutoMapperAnalyzer.Analyzers package · editor lightbulbs · ContinuousIntegrationBuild</text>
+
+  <rect x="310" y="100" width="300" height="100" rx="10" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+  <text x="460" y="140" text-anchor="middle" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700">Your mapping config</text>
+  <text x="460" y="164" text-anchor="middle" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">Profile · CreateMap · ForMember · ReverseMap</text>
+  <text x="460" y="184" text-anchor="middle" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">Map / ProjectTo call sites</text>
+
+  <rect x="32" y="250" width="400" height="150" rx="10" fill="#172554" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="52" y="284" fill="#93c5fd" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">IDE / local build</text>
+  <text x="52" y="312" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13">Roslyn analyzer + code fixes AM001–AM061</text>
+  <text x="52" y="336" fill="#cbd5e1" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">• type mismatch · nullable · unmapped required</text>
+  <text x="52" y="356" fill="#cbd5e1" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">• nested maps · collections · converters</text>
+  <text x="52" y="376" fill="#cbd5e1" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">• duplicate CreateMap · unregistered Map/ProjectTo</text>
+
+  <rect x="488" y="250" width="400" height="150" rx="10" fill="#14532d" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="508" y="284" fill="#86efac" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700">CI / release gate</text>
+  <text x="508" y="312" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13">dotnet build · samples · package verify</text>
+  <text x="508" y="336" fill="#cbd5e1" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">• catalog + sample diagnostic snapshots</text>
+  <text x="508" y="356" fill="#cbd5e1" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">• net48 / net6 / net8 / net9 / net10 matrix</text>
+  <text x="508" y="376" fill="#cbd5e1" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">• same nupkg consumers install from NuGet</text>
+
+  <path d="M360 200 L180 250" stroke="#60a5fa" stroke-width="2.5" fill="none"/>
+  <path d="M560 200 L740 250" stroke="#4ade80" stroke-width="2.5" fill="none"/>
+  <polygon points="172,248 188,242 182,258" fill="#60a5fa"/>
+  <polygon points="748,248 732,242 738,258" fill="#4ade80"/>
+  <text x="200" y="220" fill="#60a5fa" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600">edit / lightbulb</text>
+  <text x="680" y="220" fill="#4ade80" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600">PR / release</text>
+</svg>

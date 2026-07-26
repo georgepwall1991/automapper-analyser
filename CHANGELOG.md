@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## [2.30.87] - 2026-07-26
+
+NuGet and GitHub discoverability for CreateMap / mapping validation (no rule ID or severity changes).
+
+### Changed
+
+- **Package metadata**: Title, Description, and PackageTags lead with high-intent AutoMapper terms (`CreateMap`, `Profile`, `ForMember`, `MapFrom`, `ProjectTo`, `AutoMapperMappingException`, `roslyn-analyzer`, nullable/unmapped).
+- **README conversion funnel**: problem → catches → install → product-flow visuals (absolute HTTPS) → 30-second path → feature snapshot → compatibility → deep rule reference.
+- **Assets**: three product-flow SVGs under `assets/` packed into the nupkg for PackageReadmeFile rendering.
+- **Gates**: `DiscoverabilityMetadataTests` plus `scripts/verify-packages.sh` assert README, assets, and nuspec discoverability terms after pack.
+
+### Validation
+
+- Discoverability and version-alignment trust tests green on `net10.0`.
+- `dotnet pack` + `scripts/verify-packages.sh` green for `AutoMapperAnalyzer.Analyzers.2.30.87`.
+
 ## [2.30.86] - 2026-07-22
 
 AM020 side-effect-safe computed-receiver fixes.

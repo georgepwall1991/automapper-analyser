@@ -66,6 +66,7 @@ jobs:
         id: package
         shell: bash
         run: |
+          bash scripts/verify-packages.sh ./nupkg
           shopt -s nullglob
           packages=(./nupkg/*.nupkg)
           if (( ${#packages[@]} != 1 )); then
@@ -73,10 +74,6 @@ jobs:
             exit 1
           fi
           package=${packages[0]}
-          contents=$(unzip -Z1 "$package")
-          case "$contents" in *"analyzers/dotnet/cs/AutoMapperAnalyzer.Analyzers.dll"*) ;; *) exit 1 ;; esac
-          case "$contents" in *"README.md"*) ;; *) exit 1 ;; esac
-          case "$contents" in *"icon.png"*) ;; *) exit 1 ;; esac
           echo "sha256=$(sha256sum "$package" | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
       - name: Upload immutable package artifact
