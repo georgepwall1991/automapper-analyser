@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Added
+
+- **Runtime verification for code-fix output** (`tests/.../Infrastructure/CodeFixRuntimeVerifier.cs`).
+  Fixer tests verify fixes by string equality against expected text, which cannot distinguish a fix
+  AutoMapper accepts from one that merely looks right. The harness compiles fix output against the real
+  AutoMapper assembly, registers every declared `Profile`, and calls `AssertConfigurationIsValid()`;
+  `MapThroughFixedCode` executes a mapping so ordering and conversion can be asserted on real values.
+  Self-tests prove it fails for non-compiling output, semantically rejected configurations, and
+  incorrect `Stack<T>` ordering — the 2.30.83 defect class — and one test runs the real AM011 fixer end
+  to end. Test infrastructure only; no analyzer or package behaviour changes. Rollout across the
+  remaining fixers is follow-on work.
+
 ## [2.30.89] - 2026-07-28
 
 AutoMapper 15 and 16 added to the package compatibility contract (no rule ID, severity, or behaviour changes).

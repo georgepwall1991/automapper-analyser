@@ -12,6 +12,25 @@ Known harness caveats remain documented in the test project warning baseline:
 - trust validation tests intentionally read repository files;
 - AutoMapper 14 remains pinned for compatibility coverage while AutoMapper 15 introduces licensing/API changes.
 
+## Runtime verification of code-fix output
+
+Fixer tests assert string equality between the produced document and a hand-written expected document.
+That proves a fix matches what the test author wrote down; it does not prove the result is a mapping
+AutoMapper accepts. The 2.30.83 `Stack<T>` ordering defect is the failure class: syntactically valid,
+compile-clean, matching its expected text, and wrong at runtime.
+
+`Infrastructure/CodeFixRuntimeVerifier` closes that gap by compiling fix output against the real
+AutoMapper assembly, loading it, registering every declared `Profile`, and calling
+`AssertConfigurationIsValid()`. `MapThroughFixedCode` additionally executes a mapping so ordering and
+conversion behaviour can be asserted on real values.
+
+`CodeFixRuntimeVerificationTests` proves the harness fails for the right reasons — output that does not
+compile, output AutoMapper rejects semantically, and incorrect `Stack<T>` ordering — and runs the real
+AM011 fixer end to end, executing what it produces rather than comparing it to text.
+
+**Rollout is partial.** The harness exists and is proven; the 16 shipped fixers are not yet all routed
+through it. Extending coverage fixer by fixer is follow-on work.
+
 ## Documented analyzer boundaries
 
 `IncludeMembers` resolution (AM004/AM006/AM011) models only the directions that can **suppress** a
