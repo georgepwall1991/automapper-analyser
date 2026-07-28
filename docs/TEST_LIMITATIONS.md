@@ -39,8 +39,14 @@ specific analyzers; the **mostly-unrelated** fixture (~2400 ordinary method call
 pairs) is the realistic consumer shape, because every analyzer registers on `InvocationExpression` and
 therefore visits every call in a solution, the vast majority of which have nothing to do with mapping.
 
-Recorded baseline on this tree: solution-sized 2.8x–5.9x, cyclic diamond ~1.5x–1.9x, mostly-unrelated
-~2.0x–2.3x across repeated runs on one machine. The budget is **20x**, roughly 3x above the noisy high, to catch an order-of-magnitude
+The timing tests run in their own non-parallel xUnit collection. Without that they share a machine with
+~1800 other tests, and xUnit runs collections in parallel — the first recorded baseline swung 2.8x–5.9x
+on one fixture largely because some runs measured CPU contention rather than analyzer cost. Isolating
+them narrowed that fixture's spread to about 1.1x. The fixtures also compile with nullable annotations
+enabled, so AM002's nullable analysis is genuinely part of what is measured rather than a warning.
+
+Recorded baseline on this tree, measured during full-suite runs: solution-sized 4.6x–5.7x,
+mostly-unrelated 2.3x–2.6x, cyclic diamond 1.7x–2.1x. The budget is **20x**, roughly 3x above the noisy high, to catch an order-of-magnitude
 regression without firing on runner noise. Tighten only with evidence from a quiet machine.
 
 ## Analyzer crash safety

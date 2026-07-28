@@ -21,7 +21,7 @@
   whole pack over a solution-sized fixture (60 mapped type pairs) and a cyclic diamond type graph,
   budgeted as a multiple of compiling the same input rather than as wall-clock time, so the measurement
   moves with the runner. Nothing previously measured analyzer cost, on code that runs on every keystroke
-  in consuming solutions. Recorded baseline: 2.8x–5.9x solution-sized, ~1.5x–1.9x diamond; budget 20x.
+  in consuming solutions. Timing tests run in their own non-parallel collection, because sharing a machine with ~1800 parallel tests measured CPU contention as much as analyzer cost; isolating them cut one fixture's spread from ~3.1x to ~1.1x. Fixtures compile with nullable enabled so AM002's analysis is exercised. Recorded baseline during full-suite runs: 4.6x–5.7x solution-sized, 2.3x–2.6x mostly-unrelated, 1.7x–2.1x diamond; budget 20x.
   Test infrastructure only.
 - **Analyzer crash-safety suite** (`tests/.../Robustness/AnalyzerCrashSafetyTests.cs`). Drives every
   catalogued analyzer over 20 hostile inputs — incomplete generics, dangling fluent chains, selectors
