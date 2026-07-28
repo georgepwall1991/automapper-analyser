@@ -1,0 +1,102 @@
+# AutoMapperAnalyzer - Minimal severities (brownfield adoption ramp)
+#
+# No rule is reported at error severity. Rules that catch runtime failures or silent data loss report
+# as warnings; everything else reports as a suggestion.
+#
+# Use this to turn the analyzer on across a large existing codebase without a wall of build errors,
+# then move to the Recommended preset once the warning count is under control.
+#
+# TreatWarningsAsErrors: this preset controls severity, not your build settings. If the project sets
+# TreatWarningsAsErrors (or builds with -warnaserror), warnings are promoted to errors independently
+# of any analyzer configuration. To keep these rules non-blocking under that setting, add:
+#   <PropertyGroup>
+#     <WarningsNotAsErrors>$(WarningsNotAsErrors);AM001;AM003;AM004;AM011;AM020;AM021;AM022;AM030;AM060;AM061</WarningsNotAsErrors>
+#   </PropertyGroup>
+#
+# Reference from a project file (requires GeneratePathProperty="true" on the PackageReference):
+#   <ItemGroup>
+#     <GlobalAnalyzerConfigFiles Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />
+#   </ItemGroup>
+# ...or copy these lines into .editorconfig.
+#
+# NOTE ON AM002: it ships two descriptors (Error and Info). A single ID-level override applies to both,
+# so it is set to suggestion here: that removes the build-breaking Error descriptor while leaving the
+# informational one at an equivalent level, rather than promoting it to a warning.
+
+is_global = true
+
+# --- Type Safety ---
+# AM001: Property type mismatch
+dotnet_diagnostic.AM001.severity = warning
+
+# AM002: Nullable compatibility issue
+dotnet_diagnostic.AM002.severity = suggestion
+
+# AM003: Collection type incompatibility
+dotnet_diagnostic.AM003.severity = warning
+
+# --- Data Integrity ---
+# AM004: Source property has no destination property
+dotnet_diagnostic.AM004.severity = warning
+
+# AM005: Property names differ only in casing
+dotnet_diagnostic.AM005.severity = suggestion
+
+# AM006: Destination property is not mapped
+dotnet_diagnostic.AM006.severity = suggestion
+
+# AM011: Required destination property is not mapped
+dotnet_diagnostic.AM011.severity = warning
+
+# --- Complex Mappings ---
+# AM020: Nested object mapping configuration missing
+dotnet_diagnostic.AM020.severity = warning
+
+# AM021: Collection element type incompatibility
+dotnet_diagnostic.AM021.severity = warning
+
+# AM022: Infinite recursion risk
+dotnet_diagnostic.AM022.severity = warning
+
+# --- Custom Conversions ---
+# AM030: Invalid type converter implementation
+dotnet_diagnostic.AM030.severity = warning
+
+# AM032: Type converter null handling
+dotnet_diagnostic.AM032.severity = suggestion
+
+# AM033: Unused type converter
+dotnet_diagnostic.AM033.severity = suggestion
+
+# --- Performance ---
+# AM031: Multiple enumeration
+dotnet_diagnostic.AM031.severity = suggestion
+
+# AM034: Expensive operation in mapping
+dotnet_diagnostic.AM034.severity = suggestion
+
+# AM035: Expensive computation in mapping
+dotnet_diagnostic.AM035.severity = suggestion
+
+# AM036: Sync-over-async in mapping
+dotnet_diagnostic.AM036.severity = suggestion
+
+# AM037: Complex LINQ in mapping
+dotnet_diagnostic.AM037.severity = suggestion
+
+# AM038: Non-deterministic operation in mapping
+dotnet_diagnostic.AM038.severity = suggestion
+
+# --- Configuration ---
+# AM041: Duplicate mapping registration
+dotnet_diagnostic.AM041.severity = suggestion
+
+# AM050: Redundant MapFrom configuration
+dotnet_diagnostic.AM050.severity = suggestion
+
+# AM060: Unregistered type map at call site
+dotnet_diagnostic.AM060.severity = warning
+
+# --- Type Safety ---
+# AM061: Enum member mismatch in mapping
+dotnet_diagnostic.AM061.severity = warning

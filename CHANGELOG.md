@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+## [2.30.90] - 2026-07-28
+
+Severity presets for brownfield adoption (no rule ID, severity, or behaviour changes).
+
+### Added
+
+- **`AutoMapperAnalyzer.Minimal.globalconfig`** — no rule is reported at error severity; runtime-failure
+  and data-loss rules report as warnings, everything else as suggestions. Intended for enabling the
+  analyzer across a large existing codebase. Under `TreatWarningsAsErrors` warnings are promoted by the
+  build itself, so the preset carries a `WarningsNotAsErrors` list for that case.
+- **`AutoMapperAnalyzer.Recommended.globalconfig`** — matches the shipped defaults, written out so all
+  23 rules are visible and tunable in one place.
+- Both are packed into the nupkg under `config/` and referenced via `GlobalAnalyzerConfigFiles` with
+  `GeneratePathProperty="true"`, or copied into `.editorconfig`.
+- **README "Adopting in an existing codebase"** section documenting the ramp. Five rules default to
+  `error` (`AM001`, `AM002`, `AM003`, `AM011`, `AM030`), so a first install on a mature codebase could
+  break the build with no documented softening path.
+- **`SeverityPresetTests`** — drift tests asserting presets only configure catalog rules with valid
+  severities, that Recommended matches shipped descriptor defaults and *omits* rule IDs whose
+  descriptors ship at different severities, that Minimal covers every rule, never uses `error`, is
+  never stricter than Recommended, and documents a `WarningsNotAsErrors` list covering every rule it
+  sets to warning, and that both presets are packed.
+
+### Notes
+
+- **AM002 is omitted from Recommended by design.** A severity setting is keyed by rule ID, but AM002
+  ships two descriptors at different severities (`Error` and `Info`). One ID-level override applies to
+  both, so setting it would promote the informational descriptor and fail builds on `string` →
+  `string?` mappings that are safe today. Minimal sets it to `suggestion`, removing the build-breaking
+  descriptor without promoting the informational one.
+- **Minimal controls severity, not build settings.** Under `TreatWarningsAsErrors` warnings are
+  promoted independently of analyzer configuration, so the preset documents a `WarningsNotAsErrors`
+  list — kept complete by a test — rather than claiming to prevent it.
+
+### Validation
+
+- Preset packing verified against a real `dotnet pack` output.
+- The shipped-defaults drift test was confirmed to fail when a preset severity is altered, rather than
+  passing vacuously.
+
 ### Added
 
 - **Runtime verification for code-fix output** (`tests/.../Infrastructure/CodeFixRuntimeVerifier.cs`).
