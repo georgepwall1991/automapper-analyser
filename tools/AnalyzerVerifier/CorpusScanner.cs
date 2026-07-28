@@ -41,7 +41,7 @@ internal static class CorpusScanner
         Dictionary<string, int> CountsByRule,
         List<CorpusFinding> Findings,
         List<string> ProjectFailures,
-        List<string> WorkspaceWarnings
+        List<string> WorkspaceFailures
     );
 
     /// <summary>
@@ -187,9 +187,10 @@ internal static class CorpusScanner
             }
         }
 
-        // Workspace-level failures are not per-project outcomes, so they are reported separately rather
-        // than silently contradicting the project counts.
-        List<string> workspaceWarnings = workspace
+        // Workspace-level failures are not per-project outcomes - a solution referencing a missing
+        // project never becomes a Project at all - so they are counted separately. They are still
+        // failures, and callers must treat them as incomplete coverage rather than noise.
+        List<string> workspaceFailures = workspace
             .Diagnostics.Where(diagnostic => diagnostic.Kind == WorkspaceDiagnosticKind.Failure)
             .Select(diagnostic => diagnostic.Message)
             .Distinct(StringComparer.Ordinal)
@@ -211,7 +212,7 @@ internal static class CorpusScanner
                 .ThenBy(finding => finding.Line)
                 .ToList(),
             projectFailures,
-            workspaceWarnings
+            workspaceFailures
         );
     }
 
@@ -224,6 +225,7 @@ internal static class CorpusScanner
                 + $"skipped for compiler errors: {report.ProjectsSkippedWithCompilerErrors})",
             $"  AM diagnostics:   {report.TotalDiagnostics}",
             $"  analyzer crashes: {report.AnalyzerCrashes}",
+            $"  workspace failures: {report.WorkspaceFailures.Count}",
             string.Empty,
         };
 
@@ -260,11 +262,11 @@ internal static class CorpusScanner
             }
         }
 
-        if (report.WorkspaceWarnings.Count > 0)
+        if (report.WorkspaceFailures.Count > 0)
         {
             lines.Add(string.Empty);
-            lines.Add("  Workspace warnings:");
-            foreach (string warning in report.WorkspaceWarnings.Take(20))
+            lines.Add("  Workspace failures:");
+            foreach (string warning in report.WorkspaceFailures.Take(20))
             {
                 lines.Add($"    {warning}");
             }

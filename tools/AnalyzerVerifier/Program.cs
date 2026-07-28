@@ -359,11 +359,16 @@ internal static class Program
 
         // Partial coverage is not success. Automation reading only the exit code would otherwise treat a
         // scan that skipped half a solution as a clean result.
-        if (report.ProjectsFailed > 0 || report.ProjectsSkippedWithCompilerErrors > 0)
+        // Workspace-level failures never become projects, so they are invisible to the project counters.
+        // Excluding them here would let a solution that failed to load half its projects exit clean.
+        if (report.ProjectsFailed > 0 ||
+            report.ProjectsSkippedWithCompilerErrors > 0 ||
+            report.WorkspaceFailures.Count > 0)
         {
             Console.Error.WriteLine(
-                $"{report.ProjectsFailed} project(s) failed to load and " +
-                $"{report.ProjectsSkippedWithCompilerErrors} were skipped for compiler errors; " +
+                $"{report.ProjectsFailed} project(s) failed to load, " +
+                $"{report.ProjectsSkippedWithCompilerErrors} were skipped for compiler errors, and " +
+                $"{report.WorkspaceFailures.Count} workspace failure(s) occurred; " +
                 "coverage is partial and the findings above are incomplete.");
             return 1;
         }
