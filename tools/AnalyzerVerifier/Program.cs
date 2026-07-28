@@ -49,6 +49,11 @@ internal static class Program
             return 1;
         }
 
+        if (args.Contains("--print-corpus-matrix", StringComparer.Ordinal))
+        {
+            return PrintCorpusMatrix(repoRoot);
+        }
+
         int scanCorpusIndex = Array.IndexOf(args, "--scan-corpus");
         if (scanCorpusIndex >= 0)
         {
@@ -180,6 +185,7 @@ internal static class Program
             "  dotnet run --project tools/AnalyzerVerifier -- --verify-package-compatibility <nupkg> --case <id>");
         Console.WriteLine(
             "  dotnet run --project tools/AnalyzerVerifier -- --scan-corpus <project-or-solution> [--output <json>] [--max-samples-per-rule <n>]");
+        Console.WriteLine("  dotnet run --project tools/AnalyzerVerifier -- --print-corpus-matrix");
         Console.WriteLine();
         Console.WriteLine(
             "Check/update modes can be combined, for example: "
@@ -271,14 +277,33 @@ internal static class Program
             return 1;
         }
 
+        // A typo must not silently produce no report: automation uploads artifacts with if-no-files-found
+        // set to warn, so a swallowed option would look like a clean scan that simply found nothing.
         int outputIndex = Array.IndexOf(args, "--output");
-        string? outputPath = outputIndex >= 0 && outputIndex + 1 < args.Length ? args[outputIndex + 1] : null;
+        string? outputPath = null;
+        if (outputIndex >= 0)
+        {
+            if (outputIndex + 1 >= args.Length || args[outputIndex + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                Console.Error.WriteLine("--output requires a file path.");
+                return 2;
+            }
 
+            outputPath = args[outputIndex + 1];
+        }
+
+        var maxSamples = 5;
         int samplesIndex = Array.IndexOf(args, "--max-samples-per-rule");
-        int maxSamples = samplesIndex >= 0 && samplesIndex + 1 < args.Length &&
-                         int.TryParse(args[samplesIndex + 1], out int parsed)
-            ? parsed
-            : 5;
+        if (samplesIndex >= 0)
+        {
+            if (samplesIndex + 1 >= args.Length ||
+                !int.TryParse(args[samplesIndex + 1], out maxSamples) ||
+                maxSamples < 1)
+            {
+                Console.Error.WriteLine("--max-samples-per-rule requires a positive integer.");
+                return 2;
+            }
+        }
 
         CorpusScanner.CorpusReport report;
         try
@@ -308,6 +333,48 @@ internal static class Program
         }
 
         return 0;
+    }
+
+    /// <summary>
+    ///     Renders the corpus matrix from tools/corpus-repos.json so CI scans exactly the pinned targets
+    ///     the manifest declares. Duplicating the corpus in the workflow would let the two drift, and the
+    ///     scheduled scan would quietly keep reading stale targets.
+    /// </summary>
+    private static int PrintCorpusMatrix(string repoRoot)
+    {
+        string manifestPath = Path.Combine(repoRoot, "tools", "corpus-repos.json");
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(manifestPath));
+            var entries = new List<object>();
+
+            foreach (JsonElement repository in document.RootElement.GetProperty("repositories").EnumerateArray())
+            {
+                string name = repository.GetProperty("name").GetString()!;
+                string url = repository.GetProperty("url").GetString()!;
+                string sha = repository.GetProperty("sha").GetString()!;
+
+                foreach (JsonElement target in repository.GetProperty("targets").EnumerateArray())
+                {
+                    entries.Add(new { name, url, sha, target = target.GetString()! });
+                }
+            }
+
+            if (entries.Count == 0)
+            {
+                Console.Error.WriteLine("Corpus manifest declares no targets.");
+                return 1;
+            }
+
+            Console.WriteLine(JsonSerializer.Serialize(new { include = entries }));
+            return 0;
+        }
+        catch (Exception exception) when (exception is IOException or JsonException or KeyNotFoundException)
+        {
+            Console.Error.WriteLine($"Invalid corpus manifest: {exception.Message}");
+            return 1;
+        }
     }
 
     private static async Task<IReadOnlyList<DiagnosticSnapshot>> GenerateSampleDiagnosticSnapshotsAsync(string repoRoot)

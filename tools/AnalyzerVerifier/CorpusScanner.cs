@@ -35,16 +35,19 @@ internal static class CorpusScanner
         string Target,
         int ProjectsScanned,
         int ProjectsFailed,
+        int ProjectsSkippedWithCompilerErrors,
         int TotalDiagnostics,
         Dictionary<string, int> CountsByRule,
         List<CorpusFinding> Findings,
-        List<string> LoadFailures
+        List<string> ProjectFailures,
+        List<string> WorkspaceWarnings
     );
 
     /// <summary>
     ///     Opens a project or solution, runs every catalogued analyzer over it, and returns what the
-    ///     analyzers reported. Projects that fail to load are recorded rather than aborting the scan:
-    ///     partial coverage of a real codebase is still worth more than none.
+    ///     analyzers reported. Projects that cannot be loaded or do not compile are recorded rather than
+    ///     aborting the scan: partial coverage of a real codebase beats none, provided the report is
+    ///     honest about what was actually covered.
     /// </summary>
     public static async Task<CorpusReport> ScanAsync(string targetPath, int maxSamplesPerRule)
     {
@@ -73,9 +76,10 @@ internal static class CorpusScanner
 
         var findings = new List<CorpusFinding>();
         var countsByRule = new Dictionary<string, int>(StringComparer.Ordinal);
-        var loadFailures = new List<string>();
+        var projectFailures = new List<string>();
         var scanned = 0;
         var failed = 0;
+        var skippedWithCompilerErrors = 0;
 
         foreach (
             Project project in projects.Where(project => project.Language == LanguageNames.CSharp)
@@ -89,7 +93,7 @@ internal static class CorpusScanner
             catch (Exception exception)
             {
                 failed++;
-                loadFailures.Add(
+                projectFailures.Add(
                     $"{project.Name}: {exception.GetType().Name}: {exception.Message}"
                 );
                 continue;
@@ -98,7 +102,7 @@ internal static class CorpusScanner
             if (compilation == null)
             {
                 failed++;
-                loadFailures.Add($"{project.Name}: compilation could not be created");
+                projectFailures.Add($"{project.Name}: compilation could not be created");
                 continue;
             }
 
@@ -110,6 +114,23 @@ internal static class CorpusScanner
                 )
             )
             {
+                continue;
+            }
+
+            // A project that evaluates but does not compile yields an incomplete semantic model, and
+            // analyzers reading error types either invent findings or fall silent. Either way the result
+            // is not evidence, so record it rather than counting it as covered.
+            ImmutableArray<Diagnostic> compilerErrors = compilation
+                .GetDiagnostics()
+                .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+                .ToImmutableArray();
+
+            if (compilerErrors.Length > 0)
+            {
+                skippedWithCompilerErrors++;
+                projectFailures.Add(
+                    $"{project.Name}: skipped, {compilerErrors.Length} compiler error(s), first: {compilerErrors[0]}"
+                );
                 continue;
             }
 
@@ -146,19 +167,19 @@ internal static class CorpusScanner
             }
         }
 
-        foreach (
-            WorkspaceDiagnostic diagnostic in workspace.Diagnostics.Where(diagnostic =>
-                diagnostic.Kind == WorkspaceDiagnosticKind.Failure
-            )
-        )
-        {
-            loadFailures.Add(diagnostic.Message);
-        }
+        // Workspace-level failures are not per-project outcomes, so they are reported separately rather
+        // than silently contradicting the project counts.
+        List<string> workspaceWarnings = workspace
+            .Diagnostics.Where(diagnostic => diagnostic.Kind == WorkspaceDiagnosticKind.Failure)
+            .Select(diagnostic => diagnostic.Message)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
 
         return new CorpusReport(
             targetPath,
             scanned,
             failed,
+            skippedWithCompilerErrors,
             countsByRule.Values.Sum(),
             countsByRule
                 .OrderBy(pair => pair.Key, StringComparer.Ordinal)
@@ -168,7 +189,8 @@ internal static class CorpusScanner
                 .ThenBy(finding => finding.File, StringComparer.Ordinal)
                 .ThenBy(finding => finding.Line)
                 .ToList(),
-            loadFailures
+            projectFailures,
+            workspaceWarnings
         );
     }
 
@@ -177,7 +199,8 @@ internal static class CorpusScanner
         var lines = new List<string>
         {
             $"Corpus scan: {report.Target}",
-            $"  projects scanned: {report.ProjectsScanned} (failed to load: {report.ProjectsFailed})",
+            $"  projects scanned: {report.ProjectsScanned} (failed to load: {report.ProjectsFailed}, "
+                + $"skipped for compiler errors: {report.ProjectsSkippedWithCompilerErrors})",
             $"  AM diagnostics:   {report.TotalDiagnostics}",
             string.Empty,
         };
@@ -203,13 +226,25 @@ internal static class CorpusScanner
             }
         }
 
-        if (report.LoadFailures.Count > 0)
+        if (report.ProjectFailures.Count > 0)
         {
             lines.Add(string.Empty);
-            lines.Add("  Load failures (scan continued):");
-            foreach (string failure in report.LoadFailures.Distinct().Take(20))
+            lines.Add("  Projects not scanned (scan continued):");
+            foreach (
+                string failure in report.ProjectFailures.Distinct(StringComparer.Ordinal).Take(20)
+            )
             {
                 lines.Add($"    {failure}");
+            }
+        }
+
+        if (report.WorkspaceWarnings.Count > 0)
+        {
+            lines.Add(string.Empty);
+            lines.Add("  Workspace warnings:");
+            foreach (string warning in report.WorkspaceWarnings.Take(20))
+            {
+                lines.Add($"    {warning}");
             }
         }
 
