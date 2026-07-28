@@ -33,9 +33,11 @@
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
                 <PackageReleaseNotes>Version 2.30.90 - severity presets for brownfield adoption
-- Ships AutoMapperAnalyzer.Minimal.globalconfig (nothing breaks the build) and AutoMapperAnalyzer.Recommended.globalconfig (shipped defaults, written out)
+- Ships AutoMapperAnalyzer.Minimal.globalconfig (no rule reported at error severity) and AutoMapperAnalyzer.Recommended.globalconfig (shipped defaults, written out)
 - Five rules default to error, so enabling 23 rules at once could break a large existing build with no ramp
 - Reference via GlobalAnalyzerConfigFiles with GeneratePathProperty, or copy the lines into .editorconfig
+- Minimal documents a WarningsNotAsErrors list for projects building with TreatWarningsAsErrors, which promotes warnings independently of analyzer configuration
+- AM002 is omitted from Recommended: its two descriptors ship at different severities and one ID-level override cannot preserve that
 - Drift tests keep both presets in lockstep with the rule catalog
 - No analyzer rule ID, severity, or behaviour changes
 </PackageReleaseNotes>

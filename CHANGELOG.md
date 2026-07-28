@@ -8,9 +8,10 @@ Severity presets for brownfield adoption (no rule ID, severity, or behaviour cha
 
 ### Added
 
-- **`AutoMapperAnalyzer.Minimal.globalconfig`** — no rule breaks the build; runtime-failure and
-  data-loss rules report as warnings, everything else as suggestions. Intended for enabling the
-  analyzer across a large existing codebase.
+- **`AutoMapperAnalyzer.Minimal.globalconfig`** — no rule is reported at error severity; runtime-failure
+  and data-loss rules report as warnings, everything else as suggestions. Intended for enabling the
+  analyzer across a large existing codebase. Under `TreatWarningsAsErrors` warnings are promoted by the
+  build itself, so the preset carries a `WarningsNotAsErrors` list for that case.
 - **`AutoMapperAnalyzer.Recommended.globalconfig`** — matches the shipped defaults, written out so all
   23 rules are visible and tunable in one place.
 - Both are packed into the nupkg under `config/` and referenced via `GlobalAnalyzerConfigFiles` with

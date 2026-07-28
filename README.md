@@ -123,7 +123,7 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 **Severity presets for brownfield adoption**
 
-- Ships **`AutoMapperAnalyzer.Minimal.globalconfig`** (nothing breaks the build) and **`AutoMapperAnalyzer.Recommended.globalconfig`** (shipped defaults, written out). Five rules default to `error`, so enabling 23 rules at once could break a large existing build with no documented ramp.
+- Ships **`AutoMapperAnalyzer.Minimal.globalconfig`** (no rule reported at error severity) and **`AutoMapperAnalyzer.Recommended.globalconfig`** (shipped defaults, written out). Five rules default to `error`, so enabling 23 rules at once could break a large existing build with no documented ramp.
 - Reference via `GlobalAnalyzerConfigFiles` with `GeneratePathProperty="true"`, or copy the lines into `.editorconfig`. See [Adopting in an existing codebase](#adopting-in-an-existing-codebase).
 - Drift tests keep both presets in lockstep with the rule catalog. No analyzer rule ID, severity, or behaviour changes.
 
