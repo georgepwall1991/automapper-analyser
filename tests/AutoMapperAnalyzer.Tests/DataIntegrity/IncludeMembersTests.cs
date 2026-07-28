@@ -483,4 +483,103 @@ public class IncludeMembersTests
             .ExpectNoDiagnostics()
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM011_ShouldReportDiagnostic_WhenLaterIncludeMembersCallReplacesEarlierOne()
+    {
+        const string testCode = """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class First
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Second
+                {
+                    public string Other { get; set; }
+                }
+
+                public class Source
+                {
+                    public First First { get; set; }
+                    public Second Second { get; set; }
+                }
+
+                public class Destination
+                {
+                    public required string Name { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Source, Destination>().IncludeMembers(s => s.First).IncludeMembers(s => s.Second);
+                    }
+                }
+            }
+            """;
+
+        // AutoMapper replaces IncludedMembers on each IncludeMembers call, so only the final call is
+        // effective: 'First' no longer supplies 'Name' at runtime and the diagnostic must still fire.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule,
+                23,
+                32,
+                "Name"
+            )
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM004_ShouldNotReportDiagnostic_WhenIncludeMembersSelectorIsNotResolvable()
+    {
+        const string testCode = """
+            using System;
+            using System.Linq.Expressions;
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Inner
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                }
+
+                public class Destination
+                {
+                    public string Name { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        Expression<Func<Source, object>> include = s => s.Inner;
+                        CreateMap<Source, Destination>().IncludeMembers(include);
+                        CreateMap<Inner, Destination>();
+                    }
+                }
+            }
+            """;
+
+        // A selector passed through a variable is valid AutoMapper but not statically resolvable here,
+        // so AM004 must fail closed rather than claim the included member is dropped.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
 }

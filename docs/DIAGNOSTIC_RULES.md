@@ -470,7 +470,10 @@ The single-unmapped-property case stays flat (no aggregate menu).
 AM004 stays quiet when source members are explicitly handled by custom member or constructor-parameter
 mapping, `ForSourceMember(...).DoNotValidate()`, when `ConstructUsing`/`ConvertUsing` owns the map, or
 when the member is consumed by `IncludeMembers(...)` — AutoMapper flattens that member's own properties
-into the destination, so the member is used rather than dropped.
+into the destination, so the member is used rather than dropped. Only the final `IncludeMembers` call in
+a chain is effective, matching AutoMapper's replace-on-call behaviour, and an `IncludeMembers` selector
+that cannot be resolved statically suppresses AM004 for the whole mapping rather than guessing which
+member was consumed.
 
 **Option 3: Suppress Source Validation (Code Fix, Manual Review)**
 
@@ -737,9 +740,11 @@ directly (the included type declares the member) and through AutoMapper's flatte
 included type exposing `Address.City` satisfies `AddressCity`).
 
 `IncludeMembers` is scoped to the forward direction: a `ReverseMap()` segment does not inherit the
-included members, matching AutoMapper's own behaviour. When an `IncludeMembers` selector cannot be
-resolved to a member type, AM011 fails closed and stays quiet rather than reporting a member the
-included type may supply.
+included members, matching AutoMapper's own behaviour. AutoMapper replaces the included-member set on
+every `IncludeMembers` call rather than accumulating, so when a chain calls it more than once only the
+final call is treated as effective. When an `IncludeMembers` selector cannot be resolved to a member
+type — for example when the expression is passed through a variable — AM011 fails closed and stays
+quiet rather than reporting a member the included type may supply.
 
 #### Configuration
 

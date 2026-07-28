@@ -413,6 +413,13 @@ public static class MappingChainAnalysisHelper
 
         var unmappedProperties = new List<IPropertySymbol>();
 
+        // An IncludeMembers selector we cannot resolve may consume any source member, so reporting
+        // data loss here would be a guess. Stay quiet for the whole mapping instead.
+        if (includeMembers.HasUnresolvedMember)
+        {
+            return unmappedProperties;
+        }
+
         foreach (IPropertySymbol sourceProp in sourceProperties)
         {
             if (destinationProperties.Any(p => string.Equals(p.Name, sourceProp.Name, StringComparison.OrdinalIgnoreCase)))
@@ -467,15 +474,21 @@ public static class MappingChainAnalysisHelper
         HashSet<string>? includedMemberNames = null;
         var hasUnresolvedMember = false;
 
+        // AutoMapper replaces TypeMap.IncludedMembers on every IncludeMembers call rather than
+        // accumulating, so only the final call in the chain is effective at runtime.
+        InvocationExpressionSyntax? effectiveIncludeMembers = null;
         foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
                      mappingInvocation, semanticModel, stopAtReverseMapBoundary))
         {
-            if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "IncludeMembers"))
+            if (IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "IncludeMembers"))
             {
-                continue;
+                effectiveIncludeMembers = chainedInvocation;
             }
+        }
 
-            foreach (ArgumentSyntax argument in chainedInvocation.ArgumentList.Arguments)
+        if (effectiveIncludeMembers != null)
+        {
+            foreach (ArgumentSyntax argument in effectiveIncludeMembers.ArgumentList.Arguments)
             {
                 if (GetIncludeMemberBody(argument.Expression) is not MemberAccessExpressionSyntax body)
                 {

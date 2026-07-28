@@ -23,7 +23,11 @@
   `GetUnmappedSourceProperties`, by the AM004 code fix) so ownership stays consistent.
 - **Conservative boundary**: included members satisfy destination members directly and through
   AutoMapper's flattening convention; an `IncludeMembers` selector that cannot be resolved to a member
-  type fails closed and suppresses the diagnostic rather than guessing.
+  type (for example an expression passed through a variable) fails closed and suppresses the diagnostic
+  rather than guessing.
+- **Replace-on-call semantics**: AutoMapper replaces the included-member set on each `IncludeMembers`
+  call rather than accumulating, so only the final call in a chain is treated as effective. Verified
+  against AutoMapper 14 at runtime during independent review.
 - `ReverseMap()` segments are unchanged: `IncludeMembers` is scoped to the forward direction only.
 
 ### Validation
