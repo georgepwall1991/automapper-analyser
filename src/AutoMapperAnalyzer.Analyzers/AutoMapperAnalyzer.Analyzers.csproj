@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>87</PatchVersion>
+        <PatchVersion>88</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,11 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.87 - NuGet and GitHub discoverability for CreateMap validation
-- Keyword-rich package Title, Description, and PackageTags (CreateMap, Profile, ForMember, MapFrom, ProjectTo, AutoMapperMappingException, roslyn-analyzer)
-- Conversion-funnel README with absolute HTTPS product-flow visuals; assets packed into the nupkg
-- DiscoverabilityMetadataTests and scripts/verify-packages.sh gate README, assets, and high-intent nuspec terms
+                <PackageReleaseNotes>Version 2.30.88 - IncludeMembers awareness for AM004, AM006, and AM011
+- AM011 no longer reports a required destination property that an IncludeMembers member supplies (was an Error-severity false positive that broke consumer builds)
+- AM004 treats a source member consumed by IncludeMembers as mapped instead of dropped
+- AM006 recognises destination members supplied by an included member
+- Included members resolve directly and through AutoMapper's flattening convention; unresolvable selectors fail closed
 - No analyzer rule ID or severity changes
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>

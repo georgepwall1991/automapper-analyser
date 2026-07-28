@@ -260,6 +260,12 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
         List<IPropertySymbol> sourceProperties =
             AutoMapperAnalysisHelpers.GetMappableProperties(sourceType, requireSetter: false).ToList();
 
+        // Must mirror the analyzer: otherwise aggregate actions would rebuild an IncludeMembers-satisfied
+        // property as missing and append a ForMember that overrides the valid included mapping.
+        MappingChainAnalysisHelper.IncludeMembersScope includeMembers =
+            MappingChainAnalysisHelper.GetIncludeMembersScope(
+                invocation, semanticModel, stopAtReverseMapBoundary: true, destinationType);
+
         return AutoMapperAnalysisHelpers
             .GetMappableProperties(destinationType, requireGetter: false, requireSetter: true)
             .Where(property => property.IsRequired)
@@ -270,6 +276,7 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
                 property.Name,
                 semanticModel))
             .Where(property => !IsPropertyConfiguredWithForCtorParam(invocation, property.Name, semanticModel))
+            .Where(property => !includeMembers.SatisfiesDestinationMember(property.Name))
             .ToList();
     }
 
