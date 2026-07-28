@@ -747,8 +747,12 @@ type — for example when the expression is passed through a variable — AM011 
 quiet rather than reporting a member the included type may supply.
 
 The included type's own map decides what it supplies: when the compilation registers a unique forward
-`CreateMap<Included, Destination>` that ignores the member via `ForMember(... Ignore())`, the member is
-still unmapped on the including map and AM011 keeps reporting it.
+`CreateMap<Included, Destination>` that ignores the member — via `ForMember(... Ignore())` or a map-wide
+`ForAllMembers(... Ignore())` — the member is still unmapped on the including map and AM011 keeps
+reporting it.
+
+Selectors are unwrapped through parentheses, null-forgiving `!`, and casts, so the common nullable form
+`IncludeMembers(s => s.Inner!)` resolves normally instead of being treated as unproven.
 
 #### Configuration
 

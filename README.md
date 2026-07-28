@@ -121,11 +121,11 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ## Latest Release: v2.30.88
 
-**NuGet and GitHub discoverability for CreateMap validation**
+**`IncludeMembers` awareness for AM004, AM006, and AM011**
 
-- Keyword-rich package Title, Description, and PackageTags (`CreateMap`, `Profile`, `ForMember`, `MapFrom`, `ProjectTo`, `AutoMapperMappingException`, `roslyn-analyzer`).
-- Conversion-funnel README with absolute HTTPS product-flow visuals; assets packed into the nupkg.
-- `DiscoverabilityMetadataTests` and `scripts/verify-packages.sh` gate README, assets, and high-intent nuspec terms.
+- Fixes an **Error-severity AM011 false positive**: a `required` destination property supplied by an `IncludeMembers(...)` member was reported as unmapped, breaking builds that use a documented AutoMapper feature.
+- AM004 no longer reports a source member consumed by `IncludeMembers(...)` as data loss, and AM006 recognises destination members supplied by an included member.
+- Stays conservative: only the final `IncludeMembers` call is effective (matching AutoMapper's replace-on-call behaviour), a member the included map ignores keeps reporting, and selectors that cannot be resolved statically suppress rather than guess.
 - No analyzer rule ID or severity changes.
 
 ### Recent highlights

@@ -630,4 +630,140 @@ public class IncludeMembersTests
             )
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM011_ShouldNotReportDiagnostic_WhenIncludeMembersSelectorIsNullForgiving()
+    {
+        const string testCode = """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Inner
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                }
+
+                public class Destination
+                {
+                    public required string Name { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Source, Destination>().IncludeMembers(s => s.Inner!);
+                        CreateMap<Inner, Destination>();
+                    }
+                }
+            }
+            """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM011_ShouldReportDiagnostic_WhenNullForgivingIncludeDoesNotSupplyOtherMembers()
+    {
+        const string testCode = """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Inner
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                }
+
+                public class Destination
+                {
+                    public required string Name { get; set; }
+                    public required string Missing { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Source, Destination>().IncludeMembers(s => s.Inner!);
+                    }
+                }
+            }
+            """;
+
+        // A resolvable null-forgiving selector must not blanket-suppress unrelated members:
+        // 'Missing' is supplied by nobody and AutoMapper rejects the map.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule,
+                18,
+                32,
+                "Missing"
+            )
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM011_ShouldReportDiagnostic_WhenIncludedMapIgnoresAllMembers()
+    {
+        const string testCode = """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Inner
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                }
+
+                public class Destination
+                {
+                    public required string Name { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Inner, Destination>().ForAllMembers(o => o.Ignore());
+                        CreateMap<Source, Destination>().IncludeMembers(s => s.Inner);
+                    }
+                }
+            }
+            """;
+
+        // Map-wide ignore on the included map means it supplies nothing to the including map.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule,
+                17,
+                32,
+                "Name"
+            )
+            .RunAsync();
+    }
 }

@@ -572,16 +572,45 @@ public static class MappingChainAnalysisHelper
                 continue;
             }
 
-            if (chainedInvocation.ArgumentList.Arguments[1].Expression.DescendantNodes()
-                .OfType<InvocationExpressionSyntax>()
-                .Any(invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-                                   memberAccess.Name.Identifier.ValueText == "Ignore"))
+            if (ContainsIgnoreCall(chainedInvocation.ArgumentList.Arguments[1].Expression))
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /// <summary>
+    ///     Checks whether a mapping ignores every destination member via ForAllMembers(... Ignore()).
+    /// </summary>
+    private static bool IgnoresAllMembersInMap(
+        InvocationExpressionSyntax mapInvocation,
+        SemanticModel semanticModel)
+    {
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
+                     mapInvocation, semanticModel, stopAtReverseMapBoundary: true))
+        {
+            if (IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForAllMembers") &&
+                chainedInvocation.ArgumentList.Arguments.Count > 0 &&
+                ContainsIgnoreCall(chainedInvocation.ArgumentList.Arguments[0].Expression))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Checks whether a member-options expression calls Ignore().
+    /// </summary>
+    private static bool ContainsIgnoreCall(ExpressionSyntax memberOptionsExpression)
+    {
+        return memberOptionsExpression.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Any(invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                               memberAccess.Name.Identifier.ValueText == "Ignore");
     }
 
     /// <summary>
@@ -618,9 +647,26 @@ public static class MappingChainAnalysisHelper
             _ => null
         };
 
-        while (body is ParenthesizedExpressionSyntax parenthesized)
+        // Nullable sources commonly write IncludeMembers(s => s.Inner!), and the params overload takes
+        // Expression<Func<TSource, object>> so casts appear too. Peel these before failing closed:
+        // misclassifying a valid selector as unresolved would suppress unrelated members.
+        while (true)
         {
-            body = parenthesized.Expression;
+            switch (body)
+            {
+                case ParenthesizedExpressionSyntax parenthesized:
+                    body = parenthesized.Expression;
+                    continue;
+                case PostfixUnaryExpressionSyntax suppression
+                    when suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression):
+                    body = suppression.Operand;
+                    continue;
+                case CastExpressionSyntax cast:
+                    body = cast.Expression;
+                    continue;
+            }
+
+            break;
         }
 
         return body;
@@ -705,8 +751,9 @@ public static class MappingChainAnalysisHelper
                 // stays unmapped on the including map and must keep reporting.
                 if (includedMember.Map != null &&
                     includedMember.SemanticModel != null &&
-                    IsDestinationMemberIgnoredInMap(
-                        includedMember.Map, destinationMemberName, includedMember.SemanticModel))
+                    (IgnoresAllMembersInMap(includedMember.Map, includedMember.SemanticModel) ||
+                     IsDestinationMemberIgnoredInMap(
+                         includedMember.Map, destinationMemberName, includedMember.SemanticModel)))
                 {
                     continue;
                 }
