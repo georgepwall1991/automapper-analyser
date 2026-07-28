@@ -103,7 +103,7 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         // supplies are mapped at runtime even though the source type does not declare them.
         MappingChainAnalysisHelper.IncludeMembersScope includeMembers =
             MappingChainAnalysisHelper.GetIncludeMembersScope(
-                invocation, context.SemanticModel, stopAtReverseMapBoundary: true);
+                invocation, context.SemanticModel, stopAtReverseMapBoundary: true, destinationType);
 
         // Check each required destination property to see if it's mapped from source
         foreach (IPropertySymbol destinationProperty in destinationProperties)

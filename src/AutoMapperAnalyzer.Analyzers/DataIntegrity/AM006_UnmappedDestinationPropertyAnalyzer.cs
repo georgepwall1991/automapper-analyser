@@ -143,7 +143,7 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         // destination members are mapped even though the source type does not declare them.
         MappingChainAnalysisHelper.IncludeMembersScope includeMembers =
             MappingChainAnalysisHelper.GetIncludeMembersScope(
-                mappingInvocation, semanticModel, stopAtReverseMapBoundary);
+                mappingInvocation, semanticModel, stopAtReverseMapBoundary, destinationType);
 
         var unmapped = new List<IPropertySymbol>();
         foreach (IPropertySymbol destProperty in AutoMapperAnalysisHelpers.GetMappableProperties(

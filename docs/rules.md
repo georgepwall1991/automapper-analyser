@@ -658,6 +658,10 @@ final call is treated as effective. When an `IncludeMembers` selector cannot be 
 type — for example when the expression is passed through a variable — AM011 fails closed and stays
 quiet rather than reporting a member the included type may supply.
 
+The included type's own map decides what it supplies: when the compilation registers a unique forward
+`CreateMap<Included, Destination>` that ignores the member via `ForMember(... Ignore())`, the member is
+still unmapped on the including map and AM011 keeps reporting it.
+
 #### Configuration
 
 ```ini

@@ -582,4 +582,52 @@ public class IncludeMembersTests
             .ExpectNoDiagnostics()
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM011_ShouldReportDiagnostic_WhenIncludedMapIgnoresTheMember()
+    {
+        const string testCode = """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Inner
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                }
+
+                public class Destination
+                {
+                    public required string Name { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Inner, Destination>().ForMember(d => d.Name, o => o.Ignore());
+                        CreateMap<Source, Destination>().IncludeMembers(s => s.Inner);
+                    }
+                }
+            }
+            """;
+
+        // The included type declares 'Name', but its own map ignores it, so the including map still has
+        // no source for the required member and AutoMapper throws at configuration time.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule,
+                17,
+                32,
+                "Name"
+            )
+            .RunAsync();
+    }
 }

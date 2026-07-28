@@ -28,6 +28,12 @@
 - **Replace-on-call semantics**: AutoMapper replaces the included-member set on each `IncludeMembers`
   call rather than accumulating, so only the final call in a chain is treated as effective. Verified
   against AutoMapper 14 at runtime during independent review.
+- **Included map is authoritative**: a member the included type's own uniquely registered map ignores via
+  `ForMember(... Ignore())` is not treated as supplied, so AM006/AM011 keep reporting a configuration
+  that AutoMapper would reject at startup.
+- **Fixer parity**: `AM011_UnmappedRequiredPropertyCodeFixProvider` recomputation applies the same
+  `IncludeMembers` scope as the analyzer, so aggregate actions can no longer append a `ForMember` that
+  overrides a valid included mapping.
 - `ReverseMap()` segments are unchanged: `IncludeMembers` is scoped to the forward direction only.
 
 ### Validation

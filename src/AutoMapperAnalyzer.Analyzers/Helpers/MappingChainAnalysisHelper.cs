@@ -409,7 +409,7 @@ public static class MappingChainAnalysisHelper
             AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
 
         IncludeMembersScope includeMembers =
-            GetIncludeMembersScope(mappingInvocation, semanticModel, stopAtReverseMapBoundary);
+            GetIncludeMembersScope(mappingInvocation, semanticModel, stopAtReverseMapBoundary, destinationType);
 
         var unmappedProperties = new List<IPropertySymbol>();
 
@@ -468,9 +468,10 @@ public static class MappingChainAnalysisHelper
     internal static IncludeMembersScope GetIncludeMembersScope(
         InvocationExpressionSyntax mappingInvocation,
         SemanticModel semanticModel,
-        bool stopAtReverseMapBoundary)
+        bool stopAtReverseMapBoundary,
+        ITypeSymbol? destinationType = null)
     {
-        List<ITypeSymbol>? includedTypes = null;
+        List<IncludedMember>? includedTypes = null;
         HashSet<string>? includedMemberNames = null;
         var hasUnresolvedMember = false;
 
@@ -507,7 +508,7 @@ public static class MappingChainAnalysisHelper
                     continue;
                 }
 
-                (includedTypes ??= []).Add(memberType);
+                (includedTypes ??= []).Add(ResolveIncludedMember(memberType, destinationType, semanticModel));
                 (includedMemberNames ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase))
                     .Add(topLevelMemberName!);
             }
@@ -519,6 +520,88 @@ public static class MappingChainAnalysisHelper
         }
 
         return new IncludeMembersScope(includedTypes, includedMemberNames, hasUnresolvedMember);
+    }
+
+    /// <summary>
+    ///     Pairs an included member type with its effective child map, when the compilation registers a
+    ///     unique forward CreateMap for that pair. The child map decides which members are actually
+    ///     supplied, so an included type that merely declares a member is not proof it is mapped.
+    /// </summary>
+    private static IncludedMember ResolveIncludedMember(
+        ITypeSymbol memberType,
+        ITypeSymbol? destinationType,
+        SemanticModel semanticModel)
+    {
+        if (destinationType == null)
+        {
+            return new IncludedMember(memberType, null, null);
+        }
+
+        CreateMapRegistry registry = CreateMapRegistry.FromCompilation(semanticModel.Compilation);
+        return registry.TryGetUniqueForwardMapping(
+                   memberType,
+                   destinationType,
+                   out InvocationExpressionSyntax childInvocation,
+                   out SemanticModel childSemanticModel)
+            ? new IncludedMember(memberType, childInvocation, childSemanticModel)
+            : new IncludedMember(memberType, null, null);
+    }
+
+    /// <summary>
+    ///     Checks whether a mapping explicitly ignores a destination member via ForMember(... Ignore()).
+    ///     A member ignored on the included type's own map is not supplied to the including map.
+    /// </summary>
+    private static bool IsDestinationMemberIgnoredInMap(
+        InvocationExpressionSyntax mapInvocation,
+        string destinationMemberName,
+        SemanticModel semanticModel)
+    {
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
+                     mapInvocation, semanticModel, stopAtReverseMapBoundary: true))
+        {
+            if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForMember") ||
+                chainedInvocation.ArgumentList.Arguments.Count <= 1)
+            {
+                continue;
+            }
+
+            string? selectedMember = GetSelectedMemberName(
+                chainedInvocation.ArgumentList.Arguments[0].Expression, semanticModel);
+            if (!string.Equals(selectedMember, destinationMemberName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (chainedInvocation.ArgumentList.Arguments[1].Expression.DescendantNodes()
+                .OfType<InvocationExpressionSyntax>()
+                .Any(invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                                   memberAccess.Name.Identifier.ValueText == "Ignore"))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     An included member type paired with its effective child map, when one is uniquely registered.
+    /// </summary>
+    internal readonly struct IncludedMember
+    {
+        internal IncludedMember(
+            ITypeSymbol type,
+            InvocationExpressionSyntax? map,
+            SemanticModel? semanticModel)
+        {
+            Type = type;
+            Map = map;
+            SemanticModel = semanticModel;
+        }
+
+        internal ITypeSymbol Type { get; }
+        internal InvocationExpressionSyntax? Map { get; }
+        internal SemanticModel? SemanticModel { get; }
     }
 
     /// <summary>
@@ -573,10 +656,10 @@ public static class MappingChainAnalysisHelper
         internal static readonly IncludeMembersScope Empty = new(null, null, false);
 
         private readonly HashSet<string>? _includedMemberNames;
-        private readonly List<ITypeSymbol>? _includedTypes;
+        private readonly List<IncludedMember>? _includedTypes;
 
         internal IncludeMembersScope(
-            List<ITypeSymbol>? includedTypes,
+            List<IncludedMember>? includedTypes,
             HashSet<string>? includedMemberNames,
             bool hasUnresolvedMember)
         {
@@ -616,10 +699,20 @@ public static class MappingChainAnalysisHelper
                 return false;
             }
 
-            foreach (ITypeSymbol includedType in _includedTypes)
+            foreach (IncludedMember includedMember in _includedTypes)
             {
+                // The included type's own map decides what it supplies: a member it explicitly ignores
+                // stays unmapped on the including map and must keep reporting.
+                if (includedMember.Map != null &&
+                    includedMember.SemanticModel != null &&
+                    IsDestinationMemberIgnoredInMap(
+                        includedMember.Map, destinationMemberName, includedMember.SemanticModel))
+                {
+                    continue;
+                }
+
                 List<IPropertySymbol> includedProperties = AutoMapperAnalysisHelpers
-                    .GetMappableProperties(includedType, requireSetter: false)
+                    .GetMappableProperties(includedMember.Type, requireSetter: false)
                     .ToList();
 
                 if (includedProperties.Any(p =>
