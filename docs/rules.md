@@ -667,12 +667,17 @@ member (for example when it ignores it). That direction would add diagnostics, a
 child-map member resolution produced Error-severity false positives on valid mappings. See
 `docs/TEST_LIMITATIONS.md`.
 
-Selectors are unwrapped through parentheses, null-forgiving `!`, and casts, so the common nullable form
-`IncludeMembers(s => s.Inner!)` resolves normally instead of being treated as unproven. An explicit
-non-boxing cast selects the included type — `IncludeMembers(s => (Derived)s.Inner)` maps through the
-`Derived` child map, matching AutoMapper — while a cast to `object` is only the params overload's boxing
-conversion and is ignored. Explicit params arrays and collection expressions are unpacked into their
-selectors; a collection spread is not statically enumerable and falls back to the fail-closed path.
+Only the plain member-access selector form is interpreted — `s => s.Inner` and `s => s.Inner.Leaf`,
+optionally wrapped in parentheses or the null-forgiving `!`, neither of which changes which member the
+selector designates. **Every other shape** — casts, explicit params arrays, collection expressions,
+spreads, variables, method calls — is deliberately left uninterpreted and takes the fail-closed path,
+suppressing the diagnostic for that mapping.
+
+This asymmetry is the whole design: declining to interpret a selector can only remove a diagnostic,
+whereas interpreting one incorrectly adds Error-severity diagnostics to valid mappings. Successive
+attempts to interpret richer selector shapes each produced exactly that failure, so the surface is
+intentionally narrow. The cost is blunt over-suppression on exotic selectors, recorded in
+[`docs/TEST_LIMITATIONS.md`](TEST_LIMITATIONS.md).
 
 #### Configuration
 

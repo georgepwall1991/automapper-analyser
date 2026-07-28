@@ -31,9 +31,11 @@
 - **Child-map supply**: an explicit `ForMember`/`ForPath(... MapFrom(...))` on the uniquely registered
   child map counts as supplying the member, so a child map that maps `Name` from a differently named
   source no longer produces an Error-severity false positive on the including map.
-- **Selector unwrapping**: parentheses, null-forgiving `!`, and casts are peeled before a selector is
-  judged unresolvable, so the common nullable form `IncludeMembers(s => s.Inner!)` resolves normally
-  instead of suppressing unrelated destination members.
+- **Narrow selector surface**: only the plain member-access selector form is interpreted (`s => s.Inner`,
+  optionally parenthesised or null-forgiven). Casts, explicit params arrays, collection expressions,
+  spreads, variables, and method calls fail closed and suppress that mapping's diagnostics. Interpreting
+  richer shapes repeatedly produced Error-severity false positives on valid mappings during review, so
+  the analyzer declines to interpret them — suppression cannot break a build, misreading can.
 - **Fixer parity**: `AM011_UnmappedRequiredPropertyCodeFixProvider` recomputation applies the same
   `IncludeMembers` scope as the analyzer, so aggregate actions can no longer append a `ForMember` that
   overrides a valid included mapping.

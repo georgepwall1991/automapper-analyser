@@ -805,7 +805,7 @@ public class IncludeMembersTests
     }
 
     [Fact]
-    public async Task AM004_ShouldReportDiagnostic_WhenIncludeMembersUsesExplicitArraySyntax()
+    public async Task AM004_ShouldNotReportDiagnostic_WhenIncludeMembersUsesExplicitArraySyntax_FailsClosed()
     {
         const string testCode = """
             using System;
@@ -842,17 +842,13 @@ public class IncludeMembersTests
             }
             """;
 
-        // The explicit params-array form must resolve like a bare lambda: 'Inner' is consumed, but the
-        // unrelated 'Dropped' member must still report rather than being blanket-suppressed.
+        // The explicit params-array form is not interpreted, so the whole mapping fails closed - even
+        // the unrelated 'Dropped' member stays quiet. Blunt, but suppression can never break a build;
+        // interpreting these shapes is what produced Error-severity false positives during review.
         await DiagnosticTestFramework
             .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectDiagnostic(
-                AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
-                15,
-                23,
-                "Dropped"
-            )
+            .ExpectNoDiagnostics()
             .RunAsync();
     }
 
@@ -903,7 +899,7 @@ public class IncludeMembersTests
     }
 
     [Fact]
-    public async Task AM011_ShouldNotReportDiagnostic_WhenIncludeMembersSelectorCastsToDerivedType()
+    public async Task AM011_ShouldNotReportDiagnostic_WhenIncludeMembersSelectorCastsToDerivedType_FailsClosed()
     {
         const string testCode = """
             using AutoMapper;
@@ -940,8 +936,9 @@ public class IncludeMembersTests
             }
             """;
 
-        // AutoMapper keeps a non-boxing cast and maps through the DerivedInner child map, so the cast
-        // type - not the declared base type - decides which members are supplied.
+        // A cast selector is not interpreted; the mapping fails closed and stays quiet. That is the
+        // correct outcome here anyway, and it holds without the analyzer having to reason about which
+        // casts AutoMapper preserves.
         await DiagnosticTestFramework
             .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
             .WithSource(testCode)

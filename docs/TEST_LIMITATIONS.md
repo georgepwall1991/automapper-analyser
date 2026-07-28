@@ -23,6 +23,12 @@ child map ignores it via `ForMember(... Ignore())` or `ForAllMembers(... Ignore(
 reject those configurations at startup, so this is a real false negative, and
 `IncludeMembersTests.*_KnownLimitation` assert the shipped behaviour rather than the ideal one.
 
+The same asymmetry governs selector interpretation. Only the plain member-access form (`s => s.Inner`,
+optionally parenthesised or null-forgiven) is resolved; casts, explicit params arrays, collection
+expressions, spreads, variables, and method calls all fail closed and suppress the mapping's diagnostics.
+`IncludeMembersTests.*_FailsClosed` assert that behaviour. This over-suppresses on exotic selectors, but
+suppression cannot break a consumer build whereas misreading a selector can.
+
 The reason is asymmetric risk. Proving a member *is* supplied can only remove a diagnostic. Inferring
 that one is *not* supplied adds diagnostics, and an approximation of the child map's member resolution
 produced Error-severity false positives on valid mappings during review. Closing this properly requires

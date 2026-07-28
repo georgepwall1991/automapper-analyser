@@ -489,10 +489,9 @@ public static class MappingChainAnalysisHelper
 
         if (effectiveIncludeMembers != null)
         {
-            foreach (ExpressionSyntax selector in effectiveIncludeMembers.ArgumentList.Arguments
-                         .SelectMany(argument => GetIncludeMemberSelectors(argument.Expression)))
+            foreach (ArgumentSyntax argument in effectiveIncludeMembers.ArgumentList.Arguments)
             {
-                if (GetIncludeMemberBody(selector) is not MemberAccessExpressionSyntax body)
+                if (GetIncludeMemberBody(argument.Expression) is not MemberAccessExpressionSyntax body)
                 {
                     // Unrecognized selector shape: fail closed so callers stay quiet instead of
                     // reporting members the included type may well supply.
@@ -500,7 +499,7 @@ public static class MappingChainAnalysisHelper
                     continue;
                 }
 
-                ITypeSymbol? memberType = GetIncludeMemberType(selector, body, semanticModel);
+                ITypeSymbol? memberType = semanticModel.GetTypeInfo(body).Type;
                 string? topLevelMemberName = GetTopLevelSourceMemberName(body);
 
                 if (memberType is null or IErrorTypeSymbol || string.IsNullOrEmpty(topLevelMemberName))
@@ -521,31 +520,6 @@ public static class MappingChainAnalysisHelper
         }
 
         return new IncludeMembersScope(includedTypes, includedMemberNames, hasUnresolvedMember);
-    }
-
-    /// <summary>
-    ///     Expands one IncludeMembers argument into the selectors it carries. The params overload is
-    ///     often written as an explicit array, so unpack statically available elements rather than
-    ///     treating the whole include as unresolved and blanket-suppressing every member.
-    /// </summary>
-    private static IEnumerable<ExpressionSyntax> GetIncludeMemberSelectors(ExpressionSyntax argumentExpression)
-    {
-        return argumentExpression switch
-        {
-            ArrayCreationExpressionSyntax { Initializer: { } arrayInitializer } =>
-                arrayInitializer.Expressions,
-            ArrayCreationExpressionSyntax => [],
-            ImplicitArrayCreationExpressionSyntax implicitArray => implicitArray.Initializer.Expressions,
-            // A spread's contents are not statically enumerable here. Yield the spread expression so it
-            // reaches the unresolved path and fails closed, rather than silently dropping the element
-            // and leaving the mapping looking like it has no included members at all.
-            CollectionExpressionSyntax collection => collection.Elements
-                .OfType<CollectionElementSyntax>()
-                .Select(element => element is SpreadElementSyntax spreadElement
-                    ? spreadElement.Expression
-                    : ((ExpressionElementSyntax)element).Expression),
-            _ => [argumentExpression]
-        };
     }
 
     /// <summary>
@@ -633,54 +607,6 @@ public static class MappingChainAnalysisHelper
     }
 
     /// <summary>
-    ///     Resolves the type AutoMapper treats as the included member. An explicit non-boxing cast such
-    ///     as <c>s => (Derived)s.Inner</c> selects the cast type, because AutoMapper keeps that cast and
-    ///     maps through the Derived child map. A cast to <c>object</c> is only the params overload's
-    ///     boxing conversion and is ignored.
-    /// </summary>
-    private static ITypeSymbol? GetIncludeMemberType(
-        ExpressionSyntax selector,
-        MemberAccessExpressionSyntax body,
-        SemanticModel semanticModel)
-    {
-        ExpressionSyntax? current = selector switch
-        {
-            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body as ExpressionSyntax,
-            ParenthesizedLambdaExpressionSyntax parenthesizedLambda =>
-                parenthesizedLambda.Body as ExpressionSyntax,
-            _ => selector
-        };
-
-        while (current != null)
-        {
-            switch (current)
-            {
-                case ParenthesizedExpressionSyntax parenthesized:
-                    current = parenthesized.Expression;
-                    continue;
-                case PostfixUnaryExpressionSyntax suppression
-                    when suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression):
-                    current = suppression.Operand;
-                    continue;
-                case CastExpressionSyntax cast:
-                    ITypeSymbol? castType = semanticModel.GetTypeInfo(cast).Type;
-                    if (castType is not null and not IErrorTypeSymbol &&
-                        castType.SpecialType != SpecialType.System_Object)
-                    {
-                        return castType;
-                    }
-
-                    current = cast.Expression;
-                    continue;
-            }
-
-            break;
-        }
-
-        return semanticModel.GetTypeInfo(body).Type;
-    }
-
-    /// <summary>
     ///     Unwraps the lambda selector passed to IncludeMembers, returning the member access it selects.
     ///     Non-lambda and non-member-access shapes return null so callers fail closed.
     /// </summary>
@@ -694,9 +620,11 @@ public static class MappingChainAnalysisHelper
             _ => null
         };
 
-        // Nullable sources commonly write IncludeMembers(s => s.Inner!), and the params overload takes
-        // Expression<Func<TSource, object>> so casts appear too. Peel these before failing closed:
-        // misclassifying a valid selector as unresolved would suppress unrelated members.
+        // Only parentheses and the null-forgiving operator are peeled, because neither changes which
+        // member or type the selector designates. Every other shape - casts, arrays, collection
+        // expressions, spreads, variables, method calls - is left unrecognized on purpose so it takes
+        // the fail-closed path. Interpreting those shapes is what produced Error-severity false
+        // positives; declining to interpret them can only suppress.
         while (true)
         {
             switch (body)
@@ -707,9 +635,6 @@ public static class MappingChainAnalysisHelper
                 case PostfixUnaryExpressionSyntax suppression
                     when suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression):
                     body = suppression.Operand;
-                    continue;
-                case CastExpressionSyntax cast:
-                    body = cast.Expression;
                     continue;
             }
 

@@ -125,7 +125,7 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 - Fixes an **Error-severity AM011 false positive**: a `required` destination property supplied by an `IncludeMembers(...)` member was reported as unmapped, breaking builds that use a documented AutoMapper feature.
 - AM004 no longer reports a source member consumed by `IncludeMembers(...)` as data loss, and AM006 recognises destination members supplied by an included member.
-- Stays conservative: only the final `IncludeMembers` call is effective (matching AutoMapper's replace-on-call behaviour), an explicit `ForMember(... MapFrom(...))` on the included child map counts as supplying the member, and selectors that cannot be resolved statically suppress rather than guess. Boundaries are documented in [`docs/TEST_LIMITATIONS.md`](docs/TEST_LIMITATIONS.md).
+- Stays conservative: only the final `IncludeMembers` call is effective (matching AutoMapper's replace-on-call behaviour), an explicit `ForMember(... MapFrom(...))` on the included child map counts as supplying the member, and only plain member-access selectors are interpreted — anything else suppresses rather than guesses. Boundaries are documented in [`docs/TEST_LIMITATIONS.md`](docs/TEST_LIMITATIONS.md).
 - No analyzer rule ID or severity changes.
 
 ### Recent highlights
