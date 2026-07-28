@@ -191,6 +191,45 @@ internal sealed class CreateMapRegistry
         return _duplicates;
     }
 
+    /// <summary>
+    ///     Identifies the configuration container a registration belongs to. Registrations inside
+    ///     distinct <c>MapperConfiguration</c> instances cannot collide with one another, so they are
+    ///     compared only within their own container. Anything whose container cannot be resolved shares
+    ///     a single scope, keeping the existing behaviour for Profile bodies and helper methods.
+    /// </summary>
+    private static string GetConfigurationScopeKey(MappingInfo mapping)
+    {
+        foreach (SyntaxNode ancestor in mapping.Node.Ancestors())
+        {
+            if (ancestor is not BaseObjectCreationExpressionSyntax objectCreation)
+            {
+                continue;
+            }
+
+            if (mapping.SemanticModel.GetSymbolInfo(objectCreation).Symbol is not IMethodSymbol constructor)
+            {
+                continue;
+            }
+
+            INamedTypeSymbol containingType = constructor.ContainingType;
+            if (containingType.Name != "MapperConfiguration")
+            {
+                continue;
+            }
+
+            string? namespaceName = containingType.ContainingNamespace?.ToDisplayString();
+            if (namespaceName != "AutoMapper" &&
+                !(namespaceName?.StartsWith("AutoMapper.", StringComparison.Ordinal) ?? false))
+            {
+                continue;
+            }
+
+            return $"{objectCreation.SyntaxTree.FilePath}:{objectCreation.SpanStart}";
+        }
+
+        return string.Empty;
+    }
+
     public static CreateMapRegistry Build(Compilation compilation)
     {
         var mappings = new List<MappingInfo>();
@@ -346,10 +385,19 @@ internal sealed class CreateMapRegistry
 
         foreach (IGrouping<(ITypeSymbol Source, ITypeSymbol Destination), MappingInfo>? group in groups)
         {
-            if (group.Count() > 1)
+            // Each MapperConfiguration is an independent container, so the same pair registered in two
+            // of them is not a duplicate - AutoMapper accepts it and both mappers work. Registrations
+            // outside any resolvable container (Profile bodies, helper methods) share one scope, which
+            // preserves the existing cross-Profile behaviour.
+            foreach (IGrouping<string, MappingInfo> scope in group.GroupBy(GetConfigurationScopeKey, StringComparer.Ordinal))
             {
+                if (scope.Count() <= 1)
+                {
+                    continue;
+                }
+
                 // Sort by location to have deterministic reporting
-                var sorted = group.OrderBy(x => x.Location.SourceTree?.FilePath)
+                var sorted = scope.OrderBy(x => x.Location.SourceTree?.FilePath)
                     .ThenBy(x => x.Location.SourceSpan.Start)
                     .ToList();
 

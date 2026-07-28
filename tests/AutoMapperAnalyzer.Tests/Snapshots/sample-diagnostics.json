@@ -1144,17 +1144,6 @@
     "fixTrustLevel": "SafeRewrite"
   },
   {
-    "ruleId": "AM041",
-    "severity": "Warning",
-    "title": "Duplicate mapping registration",
-    "category": "AutoMapper.Configuration",
-    "filePath": "samples/AutoMapperAnalyzer.Samples/ReleaseCoverage/ReleaseCoverageExamples.cs",
-    "line": 20,
-    "column": 9,
-    "message": "Mapping from 'String' to 'Guid' is already registered",
-    "fixTrustLevel": "SafeRewrite"
-  },
-  {
     "ruleId": "AM050",
     "severity": "Warning",
     "title": "Redundant MapFrom configuration",

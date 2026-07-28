@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.90">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.91">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.90
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.91
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,16 +119,17 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.90
+## Latest Release: v2.30.91
 
-**Severity presets for brownfield adoption**
+**AM041 respects independent `MapperConfiguration` containers**
 
-- Ships **`AutoMapperAnalyzer.Minimal.globalconfig`** (no rule reported at error severity) and **`AutoMapperAnalyzer.Recommended.globalconfig`** (shipped defaults, written out). Five rules default to `error`, so enabling 23 rules at once could break a large existing build with no documented ramp.
-- Reference via `GlobalAnalyzerConfigFiles` with `GeneratePathProperty="true"`, or copy the lines into `.editorconfig`. See [Adopting in an existing codebase](#adopting-in-an-existing-codebase).
-- Drift tests keep both presets in lockstep with the rule catalog. No analyzer rule ID, severity, or behaviour changes.
+- Fixes a false positive: the same type pair registered in two separate `MapperConfiguration` instances is no longer reported as a duplicate. Each is an independent container and AutoMapper accepts it.
+- Found by scanning a third-party AutoMapper consumer, where this shape produced 17 false positives. Duplicates inside one `MapperConfiguration` or one `Profile` still report.
+- No rule ID or severity changes. Severity presets from **v2.30.90** are documented under [Adopting in an existing codebase](#adopting-in-an-existing-codebase).
 
 ### Recent highlights
 
+- **v2.30.91**: AM041 no longer reports registrations in separate `MapperConfiguration` instances as duplicates.
 - **v2.30.90**: Severity presets (`Minimal`/`Recommended`) for brownfield adoption.
 - **v2.30.89**: AutoMapper 15 and 16 added to the verified compatibility contract.
 - **v2.30.88**: `IncludeMembers` awareness — AM004, AM006, and AM011 no longer report members supplied by an included source member.
@@ -242,7 +243,7 @@ Reference one from your project file:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.90"
+  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.91"
                     PrivateAssets="all" GeneratePathProperty="true" />
   <GlobalAnalyzerConfigFiles
     Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />

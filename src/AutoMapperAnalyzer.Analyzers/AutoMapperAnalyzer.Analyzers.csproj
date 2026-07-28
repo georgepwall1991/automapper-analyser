@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>90</PatchVersion>
+        <PatchVersion>91</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,14 +32,11 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.90 - severity presets for brownfield adoption
-- Ships AutoMapperAnalyzer.Minimal.globalconfig (no rule reported at error severity) and AutoMapperAnalyzer.Recommended.globalconfig (shipped defaults, written out)
-- Five rules default to error, so enabling 23 rules at once could break a large existing build with no ramp
-- Reference via GlobalAnalyzerConfigFiles with GeneratePathProperty, or copy the lines into .editorconfig
-- Minimal documents a WarningsNotAsErrors list for projects building with TreatWarningsAsErrors, which promotes warnings independently of analyzer configuration
-- AM002 is omitted from Recommended: its two descriptors ship at different severities and one ID-level override cannot preserve that
-- Drift tests keep both presets in lockstep with the rule catalog
-- No analyzer rule ID, severity, or behaviour changes
+                <PackageReleaseNotes>Version 2.30.91 - AM041 respects independent MapperConfiguration containers
+- Registering the same type pair in two separate MapperConfiguration instances is no longer reported as a duplicate; AutoMapper accepts it and both mappers work
+- Found by scanning a third-party AutoMapper consumer, where this shape produced seventeen false positives
+- Duplicates inside one MapperConfiguration or one Profile still report
+- No rule ID or severity changes
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>
