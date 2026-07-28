@@ -2,8 +2,27 @@
 
 ## Unreleased
 
+### Changed
+
+- **Syntactic gate before symbol binding** in `MappingChainAnalysisHelper.IsAutoMapperMethodInvocation`.
+  The analyzers register on every `InvocationExpression` in a compilation, so the helper was binding
+  symbols for calls that could not match by name. The invoked name is now compared syntactically first;
+  shapes whose name cannot be read fall through to the semantic check, so the gate can only skip work,
+  never change an answer. All 1841 tests pass unchanged.
+
+  Measured with the new throughput fixtures: ~12% lower analysis time on mostly-unrelated code
+  (mean 2.47x → 2.17x) and ~7% on mapping-dense code. **Directional, not conclusive** — the per-run
+  ranges overlap at three samples each. It ships because the mechanism is sound and the risk is zero,
+  not because the measurement proved it.
+
 ### Added
 
+- **Analyzer throughput baseline** (`tests/.../Performance/AnalyzerThroughputTests.cs`). Measures the
+  whole pack over a solution-sized fixture (60 mapped type pairs) and a cyclic diamond type graph,
+  budgeted as a multiple of compiling the same input rather than as wall-clock time, so the measurement
+  moves with the runner. Nothing previously measured analyzer cost, on code that runs on every keystroke
+  in consuming solutions. Recorded baseline: 2.8x–5.9x solution-sized, ~1.5x–1.9x diamond; budget 20x.
+  Test infrastructure only.
 - **Analyzer crash-safety suite** (`tests/.../Robustness/AnalyzerCrashSafetyTests.cs`). Drives every
   catalogued analyzer over 20 hostile inputs — incomplete generics, dangling fluent chains, selectors
   that select nothing, unresolved types and converters, open-generic `typeof` — plus a multi-shape

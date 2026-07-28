@@ -42,6 +42,15 @@ public static class MappingChainAnalysisHelper
         SemanticModel semanticModel,
         string methodName)
     {
+        // RegisterSyntaxNodeAction fires on every invocation in the compilation, not just mapping
+        // configuration, so this binds symbols for calls that cannot possibly match. Compare the
+        // invoked name syntactically first: unrecognised shapes fall through to the semantic check, so
+        // the gate can only skip work, never change an answer.
+        if (!InvokedNameCouldMatch(invocation, methodName))
+        {
+            return false;
+        }
+
         SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
 
         if (IsAutoMapperMethod(symbolInfo.Symbol as IMethodSymbol, methodName))
@@ -58,6 +67,25 @@ public static class MappingChainAnalysisHelper
         }
 
         return false;
+    }
+
+    /// <summary>
+    ///     Cheap syntactic gate for an invocation's simple name. Returns true for shapes whose name
+    ///     cannot be read, so an unfamiliar construct is still resolved semantically rather than
+    ///     silently skipped.
+    /// </summary>
+    private static bool InvokedNameCouldMatch(InvocationExpressionSyntax invocation, string methodName)
+    {
+        SimpleNameSyntax? invokedName = invocation.Expression switch
+        {
+            MemberAccessExpressionSyntax memberAccess => memberAccess.Name,
+            MemberBindingExpressionSyntax memberBinding => memberBinding.Name,
+            SimpleNameSyntax simpleName => simpleName,
+            _ => null
+        };
+
+        return invokedName == null ||
+               string.Equals(invokedName.Identifier.ValueText, methodName, StringComparison.Ordinal);
     }
 
     /// <summary>
