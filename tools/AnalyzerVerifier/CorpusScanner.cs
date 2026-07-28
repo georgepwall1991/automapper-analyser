@@ -36,6 +36,7 @@ internal static class CorpusScanner
         int ProjectsScanned,
         int ProjectsFailed,
         int ProjectsSkippedWithCompilerErrors,
+        int AnalyzerCrashes,
         int TotalDiagnostics,
         Dictionary<string, int> CountsByRule,
         List<CorpusFinding> Findings,
@@ -80,6 +81,7 @@ internal static class CorpusScanner
         var scanned = 0;
         var failed = 0;
         var skippedWithCompilerErrors = 0;
+        var analyzerCrashes = 0;
 
         foreach (
             Project project in projects.Where(project => project.Language == LanguageNames.CSharp)
@@ -140,6 +142,15 @@ internal static class CorpusScanner
                 .WithAnalyzers(analyzers)
                 .GetAnalyzerDiagnosticsAsync();
 
+            // AD0001 means an analyzer threw on this code. Dropping it because the ID is not "AM" would
+            // let a crash read as a clean scan - the exact outcome this tool exists to prevent.
+            foreach (Diagnostic crash in diagnostics
+                         .Where(diagnostic => string.Equals(diagnostic.Id, "AD0001", StringComparison.Ordinal)))
+            {
+                analyzerCrashes++;
+                projectFailures.Add($"{project.Name}: analyzer crash (AD0001): {crash.GetMessage()}");
+            }
+
             foreach (
                 Diagnostic diagnostic in diagnostics.Where(diagnostic =>
                     diagnostic.Id.StartsWith("AM", StringComparison.Ordinal)
@@ -180,6 +191,7 @@ internal static class CorpusScanner
             scanned,
             failed,
             skippedWithCompilerErrors,
+            analyzerCrashes,
             countsByRule.Values.Sum(),
             countsByRule
                 .OrderBy(pair => pair.Key, StringComparer.Ordinal)
@@ -202,6 +214,7 @@ internal static class CorpusScanner
             $"  projects scanned: {report.ProjectsScanned} (failed to load: {report.ProjectsFailed}, "
                 + $"skipped for compiler errors: {report.ProjectsSkippedWithCompilerErrors})",
             $"  AM diagnostics:   {report.TotalDiagnostics}",
+            $"  analyzer crashes: {report.AnalyzerCrashes}",
             string.Empty,
         };
 

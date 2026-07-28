@@ -49,11 +49,6 @@ internal static class Program
             return 1;
         }
 
-        if (args.Contains("--print-corpus-matrix", StringComparer.Ordinal))
-        {
-            return PrintCorpusMatrix(repoRoot);
-        }
-
         int scanCorpusIndex = Array.IndexOf(args, "--scan-corpus");
         if (scanCorpusIndex >= 0)
         {
@@ -185,7 +180,6 @@ internal static class Program
             "  dotnet run --project tools/AnalyzerVerifier -- --verify-package-compatibility <nupkg> --case <id>");
         Console.WriteLine(
             "  dotnet run --project tools/AnalyzerVerifier -- --scan-corpus <project-or-solution> [--output <json>] [--max-samples-per-rule <n>]");
-        Console.WriteLine("  dotnet run --project tools/AnalyzerVerifier -- --print-corpus-matrix");
         Console.WriteLine();
         Console.WriteLine(
             "Check/update modes can be combined, for example: "
@@ -332,49 +326,14 @@ internal static class Program
             return 1;
         }
 
-        return 0;
-    }
-
-    /// <summary>
-    ///     Renders the corpus matrix from tools/corpus-repos.json so CI scans exactly the pinned targets
-    ///     the manifest declares. Duplicating the corpus in the workflow would let the two drift, and the
-    ///     scheduled scan would quietly keep reading stale targets.
-    /// </summary>
-    private static int PrintCorpusMatrix(string repoRoot)
-    {
-        string manifestPath = Path.Combine(repoRoot, "tools", "corpus-repos.json");
-
-        try
+        if (report.AnalyzerCrashes > 0)
         {
-            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(manifestPath));
-            var entries = new List<object>();
-
-            foreach (JsonElement repository in document.RootElement.GetProperty("repositories").EnumerateArray())
-            {
-                string name = repository.GetProperty("name").GetString()!;
-                string url = repository.GetProperty("url").GetString()!;
-                string sha = repository.GetProperty("sha").GetString()!;
-
-                foreach (JsonElement target in repository.GetProperty("targets").EnumerateArray())
-                {
-                    entries.Add(new { name, url, sha, target = target.GetString()! });
-                }
-            }
-
-            if (entries.Count == 0)
-            {
-                Console.Error.WriteLine("Corpus manifest declares no targets.");
-                return 1;
-            }
-
-            Console.WriteLine(JsonSerializer.Serialize(new { include = entries }));
-            return 0;
-        }
-        catch (Exception exception) when (exception is IOException or JsonException or KeyNotFoundException)
-        {
-            Console.Error.WriteLine($"Invalid corpus manifest: {exception.Message}");
+            Console.Error.WriteLine(
+                $"{report.AnalyzerCrashes} analyzer crash(es) (AD0001) occurred; the findings above are incomplete.");
             return 1;
         }
+
+        return 0;
     }
 
     private static async Task<IReadOnlyList<DiagnosticSnapshot>> GenerateSampleDiagnosticSnapshotsAsync(string repoRoot)
