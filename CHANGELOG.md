@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Changed
+
+- **Syntactic gate before symbol binding** in `MappingChainAnalysisHelper.IsAutoMapperMethodInvocation`.
+  The analyzers register on every `InvocationExpression` in a compilation, so the helper was binding
+  symbols for calls that could not match by name. The invoked name is now compared syntactically first;
+  shapes whose name cannot be read fall through to the semantic check, so the gate can only skip work,
+  never change an answer. All 1841 tests pass unchanged.
+
+  Measured with the new throughput fixtures: ~12% lower analysis time on mostly-unrelated code
+  (mean 2.47x → 2.17x) and ~7% on mapping-dense code. **Directional, not conclusive** — the per-run
+  ranges overlap at three samples each. It ships because the mechanism is sound and the risk is zero,
+  not because the measurement proved it.
+
 ### Added
 
 - **Analyzer throughput baseline** (`tests/.../Performance/AnalyzerThroughputTests.cs`). Measures the

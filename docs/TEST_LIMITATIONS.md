@@ -34,8 +34,13 @@ Two methodology points, both learned by getting them wrong first:
   were produced; that guard caught the diamond fixture being a DAG rather than cyclic, which meant AM022
   — the analyzer it exists to stress — never ran.
 
-Recorded baseline on this tree: solution-sized 2.8x–5.9x, cyclic diamond ~1.5x–1.9x across repeated runs
-on one machine. The budget is **20x**, roughly 3x above the noisy high, to catch an order-of-magnitude
+Three fixtures are measured. The mapping-dense one (60 type pairs) and the cyclic diamond stress
+specific analyzers; the **mostly-unrelated** fixture (~2400 ordinary method calls around 60 mapped
+pairs) is the realistic consumer shape, because every analyzer registers on `InvocationExpression` and
+therefore visits every call in a solution, the vast majority of which have nothing to do with mapping.
+
+Recorded baseline on this tree: solution-sized 2.8x–5.9x, cyclic diamond ~1.5x–1.9x, mostly-unrelated
+~2.0x–2.3x across repeated runs on one machine. The budget is **20x**, roughly 3x above the noisy high, to catch an order-of-magnitude
 regression without firing on runner noise. Tighten only with evidence from a quiet machine.
 
 ## Analyzer crash safety

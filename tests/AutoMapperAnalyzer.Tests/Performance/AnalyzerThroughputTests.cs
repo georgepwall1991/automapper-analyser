@@ -77,6 +77,27 @@ public class AnalyzerThroughputTests(ITestOutputHelper output)
         );
     }
 
+    /// <summary>
+    ///     The realistic consumer shape: a large codebase where AutoMapper profiles are a small
+    ///     fraction of the code. Every analyzer registers on InvocationExpression, so the pack visits
+    ///     every method call in the solution — the overwhelming majority of which have nothing to do
+    ///     with mapping. A mapping-dense fixture cannot show what that costs.
+    /// </summary>
+    [Fact]
+    public async Task AnalyzerPack_ShouldStayWithinItsBudget_OnMostlyUnrelatedCode()
+    {
+        Measurement measurement = await MeasureAsync(BuildMostlyUnrelatedSolution());
+        Report("mostly unrelated", $"{TypePairCount} type pairs among ~{TypePairCount * 40} calls", measurement);
+
+        Assert.True(
+            measurement.Ratio <= MaxAnalyzerToCompilerRatio,
+            $"Analyzing took {measurement.AnalyzerMs:F0} ms against {measurement.CompilerMs:F0} ms to "
+                + $"compile the same input ({measurement.Ratio:F2}x, budget {MaxAnalyzerToCompilerRatio:F1}x) "
+                + "on code that is mostly unrelated to AutoMapper. The pack visits every invocation in a "
+                + "consuming solution, so this is the shape that matters most."
+        );
+    }
+
     private readonly record struct Measurement(double CompilerMs, double AnalyzerMs, int AmDiagnostics)
     {
         internal double Ratio => AnalyzerMs / Math.Max(CompilerMs, 0.5);
@@ -192,6 +213,62 @@ public class AnalyzerThroughputTests(ITestOutputHelper output)
         for (var i = 0; i < TypePairCount; i++)
         {
             builder.AppendLine($"            CreateMap<Source{i}, Destination{i}>().ReverseMap();");
+        }
+
+        builder.AppendLine("        }");
+        builder.AppendLine("    }");
+        builder.AppendLine("}");
+        return builder.ToString();
+    }
+
+    /// <summary>
+    ///     Mapping profiles surrounded by ordinary code: dozens of unrelated method calls per mapped
+    ///     type, which is what a real solution looks like to an analyzer registered on every invocation.
+    /// </summary>
+    private static string BuildMostlyUnrelatedSolution()
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("using System;");
+        builder.AppendLine("using System.Collections.Generic;");
+        builder.AppendLine("using System.Linq;");
+        builder.AppendLine("using AutoMapper;");
+        builder.AppendLine();
+        builder.AppendLine("namespace UnrelatedFixture");
+        builder.AppendLine("{");
+
+        for (var i = 0; i < TypePairCount; i++)
+        {
+            builder.AppendLine($$"""
+                    public class Source{{i}} { public int Id { get; set; } public string? Name { get; set; } }
+                    public class Destination{{i}} { public int Id { get; set; } public string Name { get; set; } = string.Empty; }
+
+                    public class Service{{i}}
+                    {
+                        private readonly List<string> _items = new();
+
+                        public string Work(string input)
+                        {
+                            var trimmed = input.Trim();
+                            var upper = trimmed.ToUpperInvariant();
+                            var parts = upper.Split(',').Select(p => p.Trim()).Where(p => p.Length > 0).ToList();
+                            _items.AddRange(parts);
+                            var joined = string.Join("|", _items.Distinct().OrderBy(p => p));
+                            var replaced = joined.Replace("A", "B").Replace("C", "D");
+                            var formatted = string.Format("{0}:{1}", replaced, _items.Count);
+                            var built = new System.Text.StringBuilder().Append(formatted).Append('!').ToString();
+                            return built.Substring(0, Math.Min(built.Length, 64)).PadRight(8, '.');
+                        }
+                    }
+                """);
+        }
+
+        builder.AppendLine("    public class UnrelatedProfile : Profile");
+        builder.AppendLine("    {");
+        builder.AppendLine("        public UnrelatedProfile()");
+        builder.AppendLine("        {");
+        for (var i = 0; i < TypePairCount; i++)
+        {
+            builder.AppendLine($"            CreateMap<Source{i}, Destination{i}>();");
         }
 
         builder.AppendLine("        }");
