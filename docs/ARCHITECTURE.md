@@ -237,9 +237,9 @@ private static void AnalyzePropertyMappings(
 
         if (destProp == null) continue;
 
-        // Check if ForMember is configured
-        if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(
-            invocation, sourceProp.Name, context.SemanticModel))
+        // Check if ForMember/ForPath is configured, honouring the ReverseMap boundary
+        if (MappingChainAnalysisHelper.IsSourcePropertyHandledByCustomMapping(
+            invocation, sourceProp.Name, context.SemanticModel, stopAtReverseMapBoundary: true))
             continue;
 
         // Analyze compatibility...
@@ -475,12 +475,6 @@ public static class AutoMapperAnalysisHelpers
         ITypeSymbol type,
         bool requireGetter = true,
         bool requireSetter = true);
-
-    // Check if property is configured with ForMember
-    public static bool IsPropertyConfiguredWithForMember(
-        InvocationExpressionSyntax invocation,
-        string propertyName,
-        SemanticModel semanticModel);
 
     // Type compatibility checking
     public static bool AreTypesCompatible(
