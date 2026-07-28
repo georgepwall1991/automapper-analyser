@@ -49,6 +49,18 @@ internal static class Program
             return 1;
         }
 
+        int scanCorpusIndex = Array.IndexOf(args, "--scan-corpus");
+        if (scanCorpusIndex >= 0)
+        {
+            if (scanCorpusIndex + 1 >= args.Length)
+            {
+                Console.Error.WriteLine("--scan-corpus requires a project or solution path.");
+                return 2;
+            }
+
+            return await ScanCorpusAsync(args, scanCorpusIndex);
+        }
+
         bool printCompatibilityMatrix = args.Contains("--print-compatibility-matrix", StringComparer.Ordinal);
         int verifyPackageIndex = Array.IndexOf(args, "--verify-package-compatibility");
         bool verifyPackageCompatibility = verifyPackageIndex >= 0;
@@ -166,6 +178,8 @@ internal static class Program
         Console.WriteLine("  dotnet run --project tools/AnalyzerVerifier -- --print-compatibility-matrix");
         Console.WriteLine(
             "  dotnet run --project tools/AnalyzerVerifier -- --verify-package-compatibility <nupkg> --case <id>");
+        Console.WriteLine(
+            "  dotnet run --project tools/AnalyzerVerifier -- --scan-corpus <project-or-solution> [--output <json>] [--max-samples-per-rule <n>]");
         Console.WriteLine();
         Console.WriteLine(
             "Check/update modes can be combined, for example: "
@@ -239,6 +253,127 @@ internal static class Program
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    ///     Runs the shipped analyzers over third-party code and reports what they say. Deliberately not a
+    ///     gate: findings are leads to triage, and a confirmed one belongs in the test suite as a
+    ///     permanent regression rather than as a threshold in CI.
+    /// </summary>
+    private static async Task<int> ScanCorpusAsync(string[] args, int scanCorpusIndex)
+    {
+        RegisterMsBuild();
+
+        string targetPath = args[scanCorpusIndex + 1];
+        if (!File.Exists(targetPath))
+        {
+            Console.Error.WriteLine($"Corpus target not found: {targetPath}");
+            return 1;
+        }
+
+        // A typo must not silently produce no report: automation uploads artifacts with if-no-files-found
+        // set to warn, so a swallowed option would look like a clean scan that simply found nothing.
+        // Validating only the options we recognise would miss "--ouptut", so the whole list is checked.
+        var recognisedOptions = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "--scan-corpus", "--output", "--max-samples-per-rule"
+        };
+
+        for (var index = 0; index < args.Length; index++)
+        {
+            string argument = args[index];
+            if (!argument.StartsWith("--", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!recognisedOptions.Contains(argument))
+            {
+                Console.Error.WriteLine($"Unrecognized option for --scan-corpus: {argument}");
+                return 2;
+            }
+
+            // Every recognised option takes a value, so skip it rather than treating it as an option.
+            index++;
+        }
+
+        int outputIndex = Array.IndexOf(args, "--output");
+        string? outputPath = null;
+        if (outputIndex >= 0)
+        {
+            if (outputIndex + 1 >= args.Length || args[outputIndex + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                Console.Error.WriteLine("--output requires a file path.");
+                return 2;
+            }
+
+            outputPath = args[outputIndex + 1];
+        }
+
+        var maxSamples = 5;
+        int samplesIndex = Array.IndexOf(args, "--max-samples-per-rule");
+        if (samplesIndex >= 0)
+        {
+            if (samplesIndex + 1 >= args.Length ||
+                !int.TryParse(args[samplesIndex + 1], out maxSamples) ||
+                maxSamples < 1)
+            {
+                Console.Error.WriteLine("--max-samples-per-rule requires a positive integer.");
+                return 2;
+            }
+        }
+
+        CorpusScanner.CorpusReport report;
+        try
+        {
+            report = await CorpusScanner.ScanAsync(targetPath, maxSamples);
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine($"Corpus scan failed: {exception.GetType().Name}: {exception.Message}");
+            return 1;
+        }
+
+        Console.WriteLine(CorpusScanner.Render(report));
+
+        if (outputPath != null)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
+            await File.WriteAllTextAsync(outputPath, CorpusScanner.ToJson(report));
+            Console.WriteLine($"{Environment.NewLine}Wrote corpus report to {outputPath}");
+        }
+
+        if (report.ProjectsScanned == 0)
+        {
+            Console.Error.WriteLine(
+                "No project referencing AutoMapper was scanned; the corpus target proves nothing as configured.");
+            return 1;
+        }
+
+        if (report.AnalyzerCrashes > 0)
+        {
+            Console.Error.WriteLine(
+                $"{report.AnalyzerCrashes} analyzer crash(es) (AD0001) occurred; the findings above are incomplete.");
+            return 1;
+        }
+
+        // Partial coverage is not success. Automation reading only the exit code would otherwise treat a
+        // scan that skipped half a solution as a clean result.
+        // Workspace-level failures never become projects, so they are invisible to the project counters.
+        // Excluding them here would let a solution that failed to load half its projects exit clean.
+        if (report.ProjectsFailed > 0 ||
+            report.ProjectsSkippedWithCompilerErrors > 0 ||
+            report.WorkspaceFailures.Count > 0)
+        {
+            Console.Error.WriteLine(
+                $"{report.ProjectsFailed} project(s) failed to load, " +
+                $"{report.ProjectsSkippedWithCompilerErrors} were skipped for compiler errors, and " +
+                $"{report.WorkspaceFailures.Count} workspace failure(s) occurred; " +
+                "coverage is partial and the findings above are incomplete.");
+            return 1;
+        }
+
+        return 0;
     }
 
     private static async Task<IReadOnlyList<DiagnosticSnapshot>> GenerateSampleDiagnosticSnapshotsAsync(string repoRoot)

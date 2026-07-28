@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Added
+
+- **Third-party corpus scanning** — `--scan-corpus` on `tools/AnalyzerVerifier` runs every catalogued
+  analyzer over an external project or solution and reports what they say, with an optional JSON report.
+  Projects that fail to load, fail to compile, or crash an analyzer (`AD0001`) are recorded, excluded
+  from the scanned count, and cause a non-zero exit, so an incomplete semantic model can never be
+  reported as a clean scan.
+
+  Every other verification path reads code this project authored, which cannot surface a false positive
+  nobody imagined. Scanning AutoMapper.Collection found one immediately: **AM041 reports
+  `CreateMap<A, B>()` calls in two independent `MapperConfiguration` instances as duplicate
+  registrations** (17 occurrences there). Reproduced with a focused test; the fix is tracked separately
+  so the tool and the analyzer change stay reviewable on their own.
+
+  No CI corpus job is wired yet: AutoMapper's own MIT extension repositories do not compile from a clean
+  checkout at a pinned SHA (they reference `AutoMapper.Internal`, absent from the AutoMapper range their
+  manifests select), and a scheduled job over them would upload zero-coverage reports that look like
+  clean scans. Identifying buildable pinned targets is outstanding work.
+
+  Tooling only — no analyzer or package behaviour changes.
+
 ## [2.30.90] - 2026-07-28
 
 Severity presets for brownfield adoption (no rule ID, severity, or behaviour changes).

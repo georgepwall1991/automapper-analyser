@@ -12,6 +12,32 @@ Known harness caveats remain documented in the test project warning baseline:
 - trust validation tests intentionally read repository files;
 - AutoMapper 14 remains pinned for compatibility coverage while AutoMapper 15 introduces licensing/API changes.
 
+## Third-party corpus scanning
+
+Every other verification path here reads code this project authored: the samples project, the test
+suite, the snapshot baselines. That is a closed loop — it cannot surface a false positive nobody
+imagined. The `IncludeMembers` defect fixed in 2.30.88 was an Error-severity build-breaker on a
+documented AutoMapper feature and sat unnoticed through thirty-plus releases, because no third-party
+mapping profile had ever been compiled against the analyzers.
+
+`dotnet run --project tools/AnalyzerVerifier -- --scan-corpus <project-or-solution>` runs every
+catalogued analyzer over an external codebase and reports what they say, with an optional JSON report.
+
+It refuses to overstate coverage. Projects that fail to load, fail to compile, or crash an analyzer
+(`AD0001`) are recorded and excluded from the scanned count, and the command exits non-zero rather than
+returning a clean-looking report built on an incomplete semantic model.
+
+**Scanning found a real defect immediately.** Against AutoMapper.Collection it reported AM041 seventeen
+times for `CreateMap` calls in separate, independent `MapperConfiguration` instances — not duplicates.
+That was reproduced with a focused test and is tracked as a false positive to fix.
+
+**No CI corpus is wired yet, deliberately.** The obvious candidates — AutoMapper's own MIT-licensed
+extension repositories — do not compile from a clean checkout at a pinned SHA: they reference
+`AutoMapper.Internal`, which does not resolve under the `[15.0.1, 17.0.0)` AutoMapper range their own
+manifests select. A scheduled job over those targets would upload zero-coverage reports that look like
+clean scans, which is worse than no job. Identifying buildable pinned targets is outstanding work; the
+tool is usable locally against any project today.
+
 ## Runtime verification of code-fix output
 
 Fixer tests assert string equality between the produced document and a hand-written expected document.
