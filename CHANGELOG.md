@@ -4,6 +4,12 @@
 
 ### Added
 
+- **Analyzer throughput baseline** (`tests/.../Performance/AnalyzerThroughputTests.cs`). Measures the
+  whole pack over a solution-sized fixture (60 mapped type pairs) and a cyclic diamond type graph,
+  budgeted as a multiple of compiling the same input rather than as wall-clock time, so the measurement
+  moves with the runner. Nothing previously measured analyzer cost, on code that runs on every keystroke
+  in consuming solutions. Recorded baseline: 2.8x–5.9x solution-sized, ~1.5x–1.9x diamond; budget 20x.
+  Test infrastructure only.
 - **Analyzer crash-safety suite** (`tests/.../Robustness/AnalyzerCrashSafetyTests.cs`). Drives every
   catalogued analyzer over 20 hostile inputs — incomplete generics, dangling fluent chains, selectors
   that select nothing, unresolved types and converters, open-generic `typeof` — plus a multi-shape

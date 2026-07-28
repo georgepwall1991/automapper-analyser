@@ -12,6 +12,32 @@ Known harness caveats remain documented in the test project warning baseline:
 - trust validation tests intentionally read repository files;
 - AutoMapper 14 remains pinned for compatibility coverage while AutoMapper 15 introduces licensing/API changes.
 
+## Analyzer throughput
+
+`Performance/AnalyzerThroughputTests` measures the whole pack over a synthetic solution-sized fixture
+(60 mapped type pairs, mixed nullable/collection/nested/enum/required shapes) and over a cyclic diamond
+type graph that exercises AM022's traversal.
+
+Nothing else here measures analyzer cost — every other test asserts diagnostics — so a change making the
+pack several times slower would ship silently, on code that runs on every keystroke in every consuming
+solution.
+
+**The budget is a ratio, not a wall clock.** Analysis is timed against compiling the same input on the
+same machine, so the measurement moves with the runner instead of against it. An absolute threshold
+measures the CI agent more than the analyzers and is the usual reason timing tests get deleted.
+
+Two methodology points, both learned by getting them wrong first:
+
+- Roslyn memoises `GetDiagnostics()`, so timing a warmed compile against a fresh analyzer run measures
+  caching. Each side gets its own cold `Compilation`, after a discarded warm-up pass for JIT.
+- A fixture that produces no diagnostics makes the timing meaningless. The tests assert AM diagnostics
+  were produced; that guard caught the diamond fixture being a DAG rather than cyclic, which meant AM022
+  — the analyzer it exists to stress — never ran.
+
+Recorded baseline on this tree: solution-sized 2.8x–5.9x, cyclic diamond ~1.5x–1.9x across repeated runs
+on one machine. The budget is **20x**, roughly 3x above the noisy high, to catch an order-of-magnitude
+regression without firing on runner noise. Tighten only with evidence from a quiet machine.
+
 ## Analyzer crash safety
 
 `Robustness/AnalyzerCrashSafetyTests` drives every catalogued analyzer over code that does not compile,
