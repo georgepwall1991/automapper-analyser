@@ -763,6 +763,11 @@ selector designates. **Every other shape** — casts, explicit params arrays, co
 spreads, variables, method calls — is deliberately left uninterpreted and takes the fail-closed path,
 suppressing the diagnostic for that mapping.
 
+Configuration applied later through a mapping local (`var map = CreateMap<S, D>(); map.IncludeMembers(...)`)
+is outside the fluent chain and is therefore not seen. This is the same pre-existing boundary that applies
+to deferred `ForMember`/`Ignore` configuration across these rules, not an `IncludeMembers`-specific gap;
+see [`docs/TEST_LIMITATIONS.md`](TEST_LIMITATIONS.md).
+
 This asymmetry is the whole design: declining to interpret a selector can only remove a diagnostic,
 whereas interpreting one incorrectly adds Error-severity diagnostics to valid mappings. Successive
 attempts to interpret richer selector shapes each produced exactly that failure, so the surface is

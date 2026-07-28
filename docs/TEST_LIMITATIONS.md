@@ -23,6 +23,18 @@ child map ignores it via `ForMember(... Ignore())` or `ForAllMembers(... Ignore(
 reject those configurations at startup, so this is a real false negative, and
 `IncludeMembersTests.*_KnownLimitation` assert the shipped behaviour rather than the ideal one.
 
+### Deferred configuration through a mapping local (pre-existing, repo-wide)
+
+`IncludeMembers` resolution walks the fluent chain rooted at the `CreateMap` invocation, so configuration
+applied later through a local — `var map = CreateMap<S, D>(); map.IncludeMembers(s => s.Inner);` — is not
+seen and the mapping is analysed as if it had no include.
+
+This boundary is **not specific to `IncludeMembers`**. The same chain walk backs `ForMember`, `ForPath`,
+`Ignore`, and `ForSourceMember` detection, and AM011 already reports a required member that a deferred
+`map.ForMember(...)` supplies. Verified on this tree with a throwaway probe against code this change does
+not touch. Closing it means resolving configuration by mapping symbol rather than by syntax ancestry —
+shared mapping-model work that would change behaviour for every rule, not a fix belonging to this helper.
+
 The same asymmetry governs selector interpretation. Only the plain member-access form (`s => s.Inner`,
 optionally parenthesised or null-forgiven) is resolved; casts, explicit params arrays, collection
 expressions, spreads, variables, and method calls all fail closed and suppress the mapping's diagnostics.
