@@ -500,7 +500,7 @@ public static class MappingChainAnalysisHelper
                     continue;
                 }
 
-                ITypeSymbol? memberType = semanticModel.GetTypeInfo(body).Type;
+                ITypeSymbol? memberType = GetIncludeMemberType(selector, body, semanticModel);
                 string? topLevelMemberName = GetTopLevelSourceMemberName(body);
 
                 if (memberType is null or IErrorTypeSymbol || string.IsNullOrEmpty(topLevelMemberName))
@@ -536,9 +536,14 @@ public static class MappingChainAnalysisHelper
                 arrayInitializer.Expressions,
             ArrayCreationExpressionSyntax => [],
             ImplicitArrayCreationExpressionSyntax implicitArray => implicitArray.Initializer.Expressions,
+            // A spread's contents are not statically enumerable here. Yield the spread expression so it
+            // reaches the unresolved path and fails closed, rather than silently dropping the element
+            // and leaving the mapping looking like it has no included members at all.
             CollectionExpressionSyntax collection => collection.Elements
-                .OfType<ExpressionElementSyntax>()
-                .Select(element => element.Expression),
+                .OfType<CollectionElementSyntax>()
+                .Select(element => element is SpreadElementSyntax spreadElement
+                    ? spreadElement.Expression
+                    : ((ExpressionElementSyntax)element).Expression),
             _ => [argumentExpression]
         };
     }
@@ -625,6 +630,54 @@ public static class MappingChainAnalysisHelper
         internal ITypeSymbol Type { get; }
         internal InvocationExpressionSyntax? Map { get; }
         internal SemanticModel? SemanticModel { get; }
+    }
+
+    /// <summary>
+    ///     Resolves the type AutoMapper treats as the included member. An explicit non-boxing cast such
+    ///     as <c>s => (Derived)s.Inner</c> selects the cast type, because AutoMapper keeps that cast and
+    ///     maps through the Derived child map. A cast to <c>object</c> is only the params overload's
+    ///     boxing conversion and is ignored.
+    /// </summary>
+    private static ITypeSymbol? GetIncludeMemberType(
+        ExpressionSyntax selector,
+        MemberAccessExpressionSyntax body,
+        SemanticModel semanticModel)
+    {
+        ExpressionSyntax? current = selector switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body as ExpressionSyntax,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda =>
+                parenthesizedLambda.Body as ExpressionSyntax,
+            _ => selector
+        };
+
+        while (current != null)
+        {
+            switch (current)
+            {
+                case ParenthesizedExpressionSyntax parenthesized:
+                    current = parenthesized.Expression;
+                    continue;
+                case PostfixUnaryExpressionSyntax suppression
+                    when suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression):
+                    current = suppression.Operand;
+                    continue;
+                case CastExpressionSyntax cast:
+                    ITypeSymbol? castType = semanticModel.GetTypeInfo(cast).Type;
+                    if (castType is not null and not IErrorTypeSymbol &&
+                        castType.SpecialType != SpecialType.System_Object)
+                    {
+                        return castType;
+                    }
+
+                    current = cast.Expression;
+                    continue;
+            }
+
+            break;
+        }
+
+        return semanticModel.GetTypeInfo(body).Type;
     }
 
     /// <summary>

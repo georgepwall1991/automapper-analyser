@@ -855,4 +855,97 @@ public class IncludeMembersTests
             )
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM011_ShouldNotReportDiagnostic_WhenIncludeMembersUsesCollectionSpread()
+    {
+        const string testCode = """
+            using System;
+            using System.Linq.Expressions;
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Inner
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                }
+
+                public class Destination
+                {
+                    public required string Name { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        Expression<Func<Source, object>>[] selectors = [s => s.Inner];
+                        CreateMap<Source, Destination>().IncludeMembers([..selectors]);
+                        CreateMap<Inner, Destination>();
+                    }
+                }
+            }
+            """;
+
+        // A spread's contents are not statically enumerable, so the include must fail closed rather than
+        // look like an empty include set and report a member AutoMapper actually maps.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM011_ShouldNotReportDiagnostic_WhenIncludeMembersSelectorCastsToDerivedType()
+    {
+        const string testCode = """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Inner
+                {
+                }
+
+                public class DerivedInner : Inner
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                }
+
+                public class Destination
+                {
+                    public required string Name { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Source, Destination>().IncludeMembers(s => (DerivedInner)s.Inner);
+                        CreateMap<DerivedInner, Destination>();
+                    }
+                }
+            }
+            """;
+
+        // AutoMapper keeps a non-boxing cast and maps through the DerivedInner child map, so the cast
+        // type - not the declared base type - decides which members are supplied.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
 }

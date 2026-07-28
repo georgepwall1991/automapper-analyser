@@ -756,7 +756,11 @@ child-map member resolution produced Error-severity false positives on valid map
 `docs/TEST_LIMITATIONS.md`.
 
 Selectors are unwrapped through parentheses, null-forgiving `!`, and casts, so the common nullable form
-`IncludeMembers(s => s.Inner!)` resolves normally instead of being treated as unproven.
+`IncludeMembers(s => s.Inner!)` resolves normally instead of being treated as unproven. An explicit
+non-boxing cast selects the included type — `IncludeMembers(s => (Derived)s.Inner)` maps through the
+`Derived` child map, matching AutoMapper — while a cast to `object` is only the params overload's boxing
+conversion and is ignored. Explicit params arrays and collection expressions are unpacked into their
+selectors; a collection spread is not statically enumerable and falls back to the fail-closed path.
 
 #### Configuration
 
