@@ -273,6 +273,30 @@ internal static class Program
 
         // A typo must not silently produce no report: automation uploads artifacts with if-no-files-found
         // set to warn, so a swallowed option would look like a clean scan that simply found nothing.
+        // Validating only the options we recognise would miss "--ouptut", so the whole list is checked.
+        var recognisedOptions = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "--scan-corpus", "--output", "--max-samples-per-rule"
+        };
+
+        for (var index = 0; index < args.Length; index++)
+        {
+            string argument = args[index];
+            if (!argument.StartsWith("--", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!recognisedOptions.Contains(argument))
+            {
+                Console.Error.WriteLine($"Unrecognized option for --scan-corpus: {argument}");
+                return 2;
+            }
+
+            // Every recognised option takes a value, so skip it rather than treating it as an option.
+            index++;
+        }
+
         int outputIndex = Array.IndexOf(args, "--output");
         string? outputPath = null;
         if (outputIndex >= 0)
@@ -330,6 +354,17 @@ internal static class Program
         {
             Console.Error.WriteLine(
                 $"{report.AnalyzerCrashes} analyzer crash(es) (AD0001) occurred; the findings above are incomplete.");
+            return 1;
+        }
+
+        // Partial coverage is not success. Automation reading only the exit code would otherwise treat a
+        // scan that skipped half a solution as a clean result.
+        if (report.ProjectsFailed > 0 || report.ProjectsSkippedWithCompilerErrors > 0)
+        {
+            Console.Error.WriteLine(
+                $"{report.ProjectsFailed} project(s) failed to load and " +
+                $"{report.ProjectsSkippedWithCompilerErrors} were skipped for compiler errors; " +
+                "coverage is partial and the findings above are incomplete.");
             return 1;
         }
 

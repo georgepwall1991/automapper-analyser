@@ -136,19 +136,28 @@ internal static class CorpusScanner
                 continue;
             }
 
-            scanned++;
-
             ImmutableArray<Diagnostic> diagnostics = await compilation
                 .WithAnalyzers(analyzers)
                 .GetAnalyzerDiagnosticsAsync();
 
             // AD0001 means an analyzer threw on this code. Dropping it because the ID is not "AM" would
             // let a crash read as a clean scan - the exact outcome this tool exists to prevent.
-            foreach (Diagnostic crash in diagnostics
-                         .Where(diagnostic => string.Equals(diagnostic.Id, "AD0001", StringComparison.Ordinal)))
+            ImmutableArray<Diagnostic> crashes = diagnostics
+                .Where(diagnostic => string.Equals(diagnostic.Id, "AD0001", StringComparison.Ordinal))
+                .ToImmutableArray();
+
+            foreach (Diagnostic crash in crashes)
             {
                 analyzerCrashes++;
                 projectFailures.Add($"{project.Name}: analyzer crash (AD0001): {crash.GetMessage()}");
+            }
+
+            // Counting a project whose analyzers threw as scanned would overstate coverage: its findings
+            // are missing whatever the crashed analyzer would have reported. Diagnostics gathered before
+            // the crash are still worth recording, so they are kept below.
+            if (crashes.Length == 0)
+            {
+                scanned++;
             }
 
             foreach (
