@@ -12,4 +12,22 @@ Known harness caveats remain documented in the test project warning baseline:
 - trust validation tests intentionally read repository files;
 - AutoMapper 14 remains pinned for compatibility coverage while AutoMapper 15 introduces licensing/API changes.
 
+## Documented analyzer boundaries
+
+`IncludeMembers` resolution (AM004/AM006/AM011) models only the directions that can **suppress** a
+diagnostic: the included type's declared shape, its flattening convention, and an explicit
+`ForMember`/`ForPath(... MapFrom(...))` on the uniquely registered child map.
+
+It deliberately does **not** infer that a child map *fails* to supply a member — for example when the
+child map ignores it via `ForMember(... Ignore())` or `ForAllMembers(... Ignore())`. AutoMapper does
+reject those configurations at startup, so this is a real false negative, and
+`IncludeMembersTests.*_KnownLimitation` assert the shipped behaviour rather than the ideal one.
+
+The reason is asymmetric risk. Proving a member *is* supplied can only remove a diagnostic. Inferring
+that one is *not* supplied adds diagnostics, and an approximation of the child map's member resolution
+produced Error-severity false positives on valid mappings during review. Closing this properly requires
+modelling child-map member resolution end to end (`ForMember`/`MapFrom`, `ForAllMembers`,
+reverse-generated registrations, semantically bound `Ignore`), which belongs with a shared mapping model
+rather than this helper.
+
 The full suite is expected to run with `0` skipped tests.

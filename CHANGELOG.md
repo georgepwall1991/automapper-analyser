@@ -28,9 +28,9 @@
 - **Replace-on-call semantics**: AutoMapper replaces the included-member set on each `IncludeMembers`
   call rather than accumulating, so only the final call in a chain is treated as effective. Verified
   against AutoMapper 14 at runtime during independent review.
-- **Included map is authoritative**: a member the included type's own uniquely registered map ignores —
-  via `ForMember(... Ignore())` or a map-wide `ForAllMembers(... Ignore())` — is not treated as supplied,
-  so AM006/AM011 keep reporting a configuration that AutoMapper would reject at startup.
+- **Child-map supply**: an explicit `ForMember`/`ForPath(... MapFrom(...))` on the uniquely registered
+  child map counts as supplying the member, so a child map that maps `Name` from a differently named
+  source no longer produces an Error-severity false positive on the including map.
 - **Selector unwrapping**: parentheses, null-forgiving `!`, and casts are peeled before a selector is
   judged unresolvable, so the common nullable form `IncludeMembers(s => s.Inner!)` resolves normally
   instead of suppressing unrelated destination members.

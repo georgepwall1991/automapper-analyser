@@ -746,10 +746,14 @@ final call is treated as effective. When an `IncludeMembers` selector cannot be 
 type — for example when the expression is passed through a variable — AM011 fails closed and stays
 quiet rather than reporting a member the included type may supply.
 
-The included type's own map decides what it supplies: when the compilation registers a unique forward
-`CreateMap<Included, Destination>` that ignores the member — via `ForMember(... Ignore())` or a map-wide
-`ForAllMembers(... Ignore())` — the member is still unmapped on the including map and AM011 keeps
-reporting it.
+When the compilation registers a unique forward `CreateMap<Included, Destination>`, an explicit
+`ForMember`/`ForPath(... MapFrom(...))` on that child map also counts as supplying the member, so a child
+map that maps the member from a differently named source keeps AM011 quiet.
+
+The inverse is deliberately not modelled: AM011 does not infer that a child map *fails* to supply a
+member (for example when it ignores it). That direction would add diagnostics, and approximating
+child-map member resolution produced Error-severity false positives on valid mappings. See
+`docs/TEST_LIMITATIONS.md`.
 
 Selectors are unwrapped through parentheses, null-forgiving `!`, and casts, so the common nullable form
 `IncludeMembers(s => s.Inner!)` resolves normally instead of being treated as unproven.

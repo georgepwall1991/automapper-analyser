@@ -523,9 +523,8 @@ public static class MappingChainAnalysisHelper
     }
 
     /// <summary>
-    ///     Pairs an included member type with its effective child map, when the compilation registers a
-    ///     unique forward CreateMap for that pair. The child map decides which members are actually
-    ///     supplied, so an included type that merely declares a member is not proof it is mapped.
+    ///     Pairs an included member type with its uniquely registered child map, when one exists. The
+    ///     child map can supply a destination member the included type does not declare under that name.
     /// </summary>
     private static IncludedMember ResolveIncludedMember(
         ITypeSymbol memberType,
@@ -548,10 +547,12 @@ public static class MappingChainAnalysisHelper
     }
 
     /// <summary>
-    ///     Checks whether a mapping explicitly ignores a destination member via ForMember(... Ignore()).
-    ///     A member ignored on the included type's own map is not supplied to the including map.
+    ///     Checks whether a map explicitly supplies a destination member through
+    ///     ForMember/ForPath(... MapFrom(...)). Only the positive direction is modelled: proving a member
+    ///     IS supplied can only suppress a diagnostic, whereas inferring that a child map fails to supply
+    ///     one would add diagnostics and risks Error-severity false positives on valid mappings.
     /// </summary>
-    private static bool IsDestinationMemberIgnoredInMap(
+    private static bool IsDestinationMemberSuppliedByMap(
         InvocationExpressionSyntax mapInvocation,
         string destinationMemberName,
         SemanticModel semanticModel)
@@ -559,8 +560,9 @@ public static class MappingChainAnalysisHelper
         foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
                      mapInvocation, semanticModel, stopAtReverseMapBoundary: true))
         {
-            if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForMember") ||
-                chainedInvocation.ArgumentList.Arguments.Count <= 1)
+            if (chainedInvocation.ArgumentList.Arguments.Count <= 1 ||
+                (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForMember") &&
+                 !IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForPath")))
             {
                 continue;
             }
@@ -572,7 +574,10 @@ public static class MappingChainAnalysisHelper
                 continue;
             }
 
-            if (ContainsIgnoreCall(chainedInvocation.ArgumentList.Arguments[1].Expression))
+            if (chainedInvocation.ArgumentList.Arguments[1].Expression.DescendantNodes()
+                .OfType<InvocationExpressionSyntax>()
+                .Any(invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                                   memberAccess.Name.Identifier.ValueText == "MapFrom"))
             {
                 return true;
             }
@@ -582,39 +587,7 @@ public static class MappingChainAnalysisHelper
     }
 
     /// <summary>
-    ///     Checks whether a mapping ignores every destination member via ForAllMembers(... Ignore()).
-    /// </summary>
-    private static bool IgnoresAllMembersInMap(
-        InvocationExpressionSyntax mapInvocation,
-        SemanticModel semanticModel)
-    {
-        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
-                     mapInvocation, semanticModel, stopAtReverseMapBoundary: true))
-        {
-            if (IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForAllMembers") &&
-                chainedInvocation.ArgumentList.Arguments.Count > 0 &&
-                ContainsIgnoreCall(chainedInvocation.ArgumentList.Arguments[0].Expression))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    ///     Checks whether a member-options expression calls Ignore().
-    /// </summary>
-    private static bool ContainsIgnoreCall(ExpressionSyntax memberOptionsExpression)
-    {
-        return memberOptionsExpression.DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .Any(invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-                               memberAccess.Name.Identifier.ValueText == "Ignore");
-    }
-
-    /// <summary>
-    ///     An included member type paired with its effective child map, when one is uniquely registered.
+    ///     An included member type paired with its uniquely registered child map, when one exists.
     /// </summary>
     internal readonly struct IncludedMember
     {
@@ -732,6 +705,14 @@ public static class MappingChainAnalysisHelper
         ///     True when an included member supplies the named destination member, directly or through
         ///     AutoMapper's flattening convention. An unresolved include satisfies every member so the
         ///     caller fails closed.
+        ///     <para>
+        ///     Deliberately reasons about the included type's shape only, never its child map. Deciding
+        ///     what a child map actually supplies means modelling its full member resolution
+        ///     (ForMember/MapFrom, ForAllMembers, reverse-generated registrations, semantic Ignore
+        ///     binding); approximating it produced Error-severity false positives. Shape-only keeps this
+        ///     purely suppressing, so it can never add a diagnostic. Known cost: a child map that ignores
+        ///     or does not supply the member is not diagnosed here.
+        ///     </para>
         /// </summary>
         internal bool SatisfiesDestinationMember(string destinationMemberName)
         {
@@ -747,15 +728,12 @@ public static class MappingChainAnalysisHelper
 
             foreach (IncludedMember includedMember in _includedTypes)
             {
-                // The included type's own map decides what it supplies: a member it explicitly ignores
-                // stays unmapped on the including map and must keep reporting.
                 if (includedMember.Map != null &&
                     includedMember.SemanticModel != null &&
-                    (IgnoresAllMembersInMap(includedMember.Map, includedMember.SemanticModel) ||
-                     IsDestinationMemberIgnoredInMap(
-                         includedMember.Map, destinationMemberName, includedMember.SemanticModel)))
+                    IsDestinationMemberSuppliedByMap(
+                        includedMember.Map, destinationMemberName, includedMember.SemanticModel))
                 {
-                    continue;
+                    return true;
                 }
 
                 List<IPropertySymbol> includedProperties = AutoMapperAnalysisHelpers
