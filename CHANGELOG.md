@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Added
+
+- **Analyzer crash-safety suite** (`tests/.../Robustness/AnalyzerCrashSafetyTests.cs`). Drives every
+  catalogued analyzer over 20 hostile inputs — incomplete generics, dangling fluent chains, selectors
+  that select nothing, unresolved types and converters, open-generic `typeof` — plus a multi-shape
+  cyclic type graph and trivial/empty compilations, failing if any analyzer throws.
+
+  Per-rule tests feed analyzers well-formed code; an analyzer in an IDE mostly reads incomplete syntax
+  and error types, where an exception becomes `AD0001` and discredits all 23 rules at once. Exceptions
+  are captured via `onAnalyzerException` so the result does not depend on the compilation's diagnostic
+  options. No crashes were found on the current tree; the suite was verified against an injected
+  exception rather than trusted because it was green.
+
+  No try/catch wrapper was added to the analyzers: Roslyn already contains analyzer exceptions, and
+  swallowing them would hide real defects from this suite. Test infrastructure only.
+
 ## [2.30.91] - 2026-07-28
 
 AM041 respects independent `MapperConfiguration` containers (no rule ID or severity changes).
