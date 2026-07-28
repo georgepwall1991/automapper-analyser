@@ -41,7 +41,8 @@ internal static class CorpusScanner
         Dictionary<string, int> CountsByRule,
         List<CorpusFinding> Findings,
         List<string> ProjectFailures,
-        List<string> WorkspaceFailures
+        List<string> WorkspaceFailures,
+        List<string> WorkspaceNotices
     );
 
     /// <summary>
@@ -65,6 +66,18 @@ internal static class CorpusScanner
         }
         else
         {
+            // OpenProjectAsync resolves a single configured TFM, so mappings behind #if for the other
+            // target frameworks would never be analysed while the report still claimed the project was
+            // scanned. Refuse rather than silently under-cover it.
+            string projectText = await File.ReadAllTextAsync(targetPath);
+            if (projectText.Contains("<TargetFrameworks>", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"{Path.GetFileName(targetPath)} declares <TargetFrameworks>. Opening it directly " +
+                    "analyses only one framework and would under-report conditionally compiled mappings. " +
+                    "Pass the containing solution instead.");
+            }
+
             projects.Add(await workspace.OpenProjectAsync(targetPath));
         }
 
@@ -155,7 +168,8 @@ internal static class CorpusScanner
                     }
                 },
                 concurrentAnalysis: true,
-                logAnalyzerExecutionTime: false
+                logAnalyzerExecutionTime: false,
+                reportSuppressedDiagnostics: true
             );
 
             ImmutableArray<Diagnostic> diagnostics = await compilation
@@ -217,11 +231,23 @@ internal static class CorpusScanner
             }
         }
 
-        // Workspace-level failures are not per-project outcomes - a solution referencing a missing
-        // project never becomes a Project at all - so they are counted separately. They are still
-        // failures, and callers must treat them as incomplete coverage rather than noise.
+        // MSBuildWorkspace reports non-fatal problems - a NuGet vulnerability advisory, for instance -
+        // with Kind == Failure, so treating every one as lost coverage would fail scans that completed
+        // fine. A diagnostic counts as lost coverage only when it names a project that never loaded.
+        var loadedProjectPaths = new HashSet<string>(
+            projects.Select(project => project.FilePath ?? string.Empty),
+            StringComparer.OrdinalIgnoreCase);
+
         List<string> workspaceFailures = workspace
             .Diagnostics.Where(diagnostic => diagnostic.Kind == WorkspaceDiagnosticKind.Failure)
+            .Where(diagnostic => NamesUnloadedProject(diagnostic.Message, loadedProjectPaths))
+            .Select(diagnostic => diagnostic.Message)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        List<string> workspaceNotices = workspace
+            .Diagnostics.Where(diagnostic => diagnostic.Kind == WorkspaceDiagnosticKind.Failure)
+            .Where(diagnostic => !NamesUnloadedProject(diagnostic.Message, loadedProjectPaths))
             .Select(diagnostic => diagnostic.Message)
             .Distinct(StringComparer.Ordinal)
             .ToList();
@@ -242,8 +268,28 @@ internal static class CorpusScanner
                 .ThenBy(finding => finding.Line)
                 .ToList(),
             projectFailures,
-            workspaceFailures
+            workspaceFailures,
+            workspaceNotices
         );
+    }
+
+    /// <summary>
+    ///     A workspace diagnostic means coverage was lost only when it names a project file that is not
+    ///     among the projects that actually loaded. Advisories such as NU1903 name a project that loaded
+    ///     perfectly well and must not be mistaken for missing coverage.
+    /// </summary>
+    private static bool NamesUnloadedProject(string message, HashSet<string> loadedProjectPaths)
+    {
+        foreach (string token in message.Split(['\'', '"', ' ', '\t', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (token.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase) &&
+                !loadedProjectPaths.Contains(token))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static string Render(CorpusReport report)
@@ -295,10 +341,20 @@ internal static class CorpusScanner
         if (report.WorkspaceFailures.Count > 0)
         {
             lines.Add(string.Empty);
-            lines.Add("  Workspace failures:");
+            lines.Add("  Workspace failures (coverage lost):");
             foreach (string warning in report.WorkspaceFailures.Take(20))
             {
                 lines.Add($"    {warning}");
+            }
+        }
+
+        if (report.WorkspaceNotices.Count > 0)
+        {
+            lines.Add(string.Empty);
+            lines.Add("  Workspace notices (coverage unaffected):");
+            foreach (string notice in report.WorkspaceNotices.Take(10))
+            {
+                lines.Add($"    {notice}");
             }
         }
 
