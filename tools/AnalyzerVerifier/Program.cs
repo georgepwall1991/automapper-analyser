@@ -49,6 +49,18 @@ internal static class Program
             return 1;
         }
 
+        int scanCorpusIndex = Array.IndexOf(args, "--scan-corpus");
+        if (scanCorpusIndex >= 0)
+        {
+            if (scanCorpusIndex + 1 >= args.Length)
+            {
+                Console.Error.WriteLine("--scan-corpus requires a project or solution path.");
+                return 2;
+            }
+
+            return await ScanCorpusAsync(args, scanCorpusIndex);
+        }
+
         bool printCompatibilityMatrix = args.Contains("--print-compatibility-matrix", StringComparer.Ordinal);
         int verifyPackageIndex = Array.IndexOf(args, "--verify-package-compatibility");
         bool verifyPackageCompatibility = verifyPackageIndex >= 0;
@@ -166,6 +178,8 @@ internal static class Program
         Console.WriteLine("  dotnet run --project tools/AnalyzerVerifier -- --print-compatibility-matrix");
         Console.WriteLine(
             "  dotnet run --project tools/AnalyzerVerifier -- --verify-package-compatibility <nupkg> --case <id>");
+        Console.WriteLine(
+            "  dotnet run --project tools/AnalyzerVerifier -- --scan-corpus <project-or-solution> [--output <json>] [--max-samples-per-rule <n>]");
         Console.WriteLine();
         Console.WriteLine(
             "Check/update modes can be combined, for example: "
@@ -239,6 +253,61 @@ internal static class Program
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    ///     Runs the shipped analyzers over third-party code and reports what they say. Deliberately not a
+    ///     gate: findings are leads to triage, and a confirmed one belongs in the test suite as a
+    ///     permanent regression rather than as a threshold in CI.
+    /// </summary>
+    private static async Task<int> ScanCorpusAsync(string[] args, int scanCorpusIndex)
+    {
+        RegisterMsBuild();
+
+        string targetPath = args[scanCorpusIndex + 1];
+        if (!File.Exists(targetPath))
+        {
+            Console.Error.WriteLine($"Corpus target not found: {targetPath}");
+            return 1;
+        }
+
+        int outputIndex = Array.IndexOf(args, "--output");
+        string? outputPath = outputIndex >= 0 && outputIndex + 1 < args.Length ? args[outputIndex + 1] : null;
+
+        int samplesIndex = Array.IndexOf(args, "--max-samples-per-rule");
+        int maxSamples = samplesIndex >= 0 && samplesIndex + 1 < args.Length &&
+                         int.TryParse(args[samplesIndex + 1], out int parsed)
+            ? parsed
+            : 5;
+
+        CorpusScanner.CorpusReport report;
+        try
+        {
+            report = await CorpusScanner.ScanAsync(targetPath, maxSamples);
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine($"Corpus scan failed: {exception.GetType().Name}: {exception.Message}");
+            return 1;
+        }
+
+        Console.WriteLine(CorpusScanner.Render(report));
+
+        if (outputPath != null)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
+            await File.WriteAllTextAsync(outputPath, CorpusScanner.ToJson(report));
+            Console.WriteLine($"{Environment.NewLine}Wrote corpus report to {outputPath}");
+        }
+
+        if (report.ProjectsScanned == 0)
+        {
+            Console.Error.WriteLine(
+                "No project referencing AutoMapper was scanned; the corpus target proves nothing as configured.");
+            return 1;
+        }
+
+        return 0;
     }
 
     private static async Task<IReadOnlyList<DiagnosticSnapshot>> GenerateSampleDiagnosticSnapshotsAsync(string repoRoot)

@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Added
+
+- **Third-party corpus scanning** — `--scan-corpus` on `tools/AnalyzerVerifier` runs every catalogued
+  analyzer over an external project or solution and reports what they say, with an optional JSON
+  report. `.github/workflows/corpus-scan.yml` runs it weekly (and on demand) against pinned SHAs in
+  `tools/corpus-repos.json`, non-blocking, uploading each report as an artifact.
+
+  Every other verification path reads code this project authored, which cannot surface a false positive
+  nobody imagined. The first scan against AutoMapper.Collection found one immediately: **AM041 reports
+  `CreateMap<A, B>()` calls in two independent `MapperConfiguration` instances as duplicate
+  registrations** (17 occurrences in that repository alone). Reproduced with a focused test; the fix is
+  tracked separately so the harness and the analyzer change stay reviewable on their own.
+
+  Tooling and CI only — no analyzer or package behaviour changes.
+
 ## [2.30.90] - 2026-07-28
 
 Severity presets for brownfield adoption (no rule ID, severity, or behaviour changes).

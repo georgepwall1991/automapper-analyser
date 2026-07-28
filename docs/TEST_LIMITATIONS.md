@@ -12,6 +12,25 @@ Known harness caveats remain documented in the test project warning baseline:
 - trust validation tests intentionally read repository files;
 - AutoMapper 14 remains pinned for compatibility coverage while AutoMapper 15 introduces licensing/API changes.
 
+## Third-party corpus scanning
+
+Every other verification path here reads code this project authored: the samples project, the test
+suite, the snapshot baselines. That is a closed loop — it cannot surface a false positive nobody
+imagined. The `IncludeMembers` defect fixed in 2.30.88 was an Error-severity build-breaker on a
+documented AutoMapper feature and sat unnoticed through thirty-plus releases, because no third-party
+mapping profile had ever been compiled against the analyzers.
+
+`dotnet run --project tools/AnalyzerVerifier -- --scan-corpus <project-or-solution>` runs every
+catalogued analyzer over an external codebase and reports what they say, with an optional JSON report.
+`.github/workflows/corpus-scan.yml` does this weekly against pinned SHAs in `tools/corpus-repos.json`.
+
+**It is deliberately not a gate.** A finding is a lead to triage; a confirmed one belongs in the test
+suite as a permanent regression. Upstream repositories change for their own reasons, and a corpus that
+could break the build would be silenced within a week.
+
+The first scan (AutoMapper.Collection, 65 `CreateMap` usages) immediately produced a confirmed false
+positive — see the AM041 note below.
+
 ## Runtime verification of code-fix output
 
 Fixer tests assert string equality between the produced document and a hand-written expected document.
