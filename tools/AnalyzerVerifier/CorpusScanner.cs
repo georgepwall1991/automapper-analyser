@@ -110,9 +110,11 @@ internal static class CorpusScanner
 
             // A project that does not reference AutoMapper cannot produce a meaningful AM diagnostic,
             // and scanning it only adds noise and time.
+            // Prefix matching would accept AutoMapperAnalyzer.Analyzers and let a corpus with no real
+            // AutoMapper consumer slip past the zero-coverage safeguard.
             if (
                 !compilation.ReferencedAssemblyNames.Any(assembly =>
-                    assembly.Name.StartsWith("AutoMapper", StringComparison.OrdinalIgnoreCase)
+                    string.Equals(assembly.Name, "AutoMapper", StringComparison.OrdinalIgnoreCase)
                 )
             )
             {
@@ -136,34 +138,62 @@ internal static class CorpusScanner
                 continue;
             }
 
+            // AD0001 travels through the target project's diagnostic options, so a corpus project with
+            // NoWarn=AD0001 would hide analyzer crashes from the tool built to catch them. Capture the
+            // exceptions directly instead of trusting the reported diagnostic to survive.
+            var capturedExceptions = new List<string>();
+            var exceptionLock = new object();
+            var analyzerOptions = new CompilationWithAnalyzersOptions(
+                project.AnalyzerOptions,
+                onAnalyzerException: (exception, analyzer, _) =>
+                {
+                    lock (exceptionLock)
+                    {
+                        capturedExceptions.Add(
+                            $"{analyzer.GetType().Name}: {exception.GetType().Name}: {exception.Message}"
+                        );
+                    }
+                },
+                concurrentAnalysis: true,
+                logAnalyzerExecutionTime: false
+            );
+
             ImmutableArray<Diagnostic> diagnostics = await compilation
-                .WithAnalyzers(analyzers)
+                .WithAnalyzers(analyzers, analyzerOptions)
                 .GetAnalyzerDiagnosticsAsync();
 
-            // AD0001 means an analyzer threw on this code. Dropping it because the ID is not "AM" would
-            // let a crash read as a clean scan - the exact outcome this tool exists to prevent.
-            ImmutableArray<Diagnostic> crashes = diagnostics
-                .Where(diagnostic => string.Equals(diagnostic.Id, "AD0001", StringComparison.Ordinal))
-                .ToImmutableArray();
+            List<string> crashes = capturedExceptions
+                .Concat(
+                    diagnostics
+                        .Where(diagnostic =>
+                            string.Equals(diagnostic.Id, "AD0001", StringComparison.Ordinal)
+                        )
+                        .Select(diagnostic => diagnostic.GetMessage())
+                )
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
 
-            foreach (Diagnostic crash in crashes)
+            foreach (string crash in crashes)
             {
                 analyzerCrashes++;
-                projectFailures.Add($"{project.Name}: analyzer crash (AD0001): {crash.GetMessage()}");
+                projectFailures.Add($"{project.Name}: analyzer crash: {crash}");
             }
 
-            // Counting a project whose analyzers threw as scanned would overstate coverage: its findings
-            // are missing whatever the crashed analyzer would have reported. Diagnostics gathered before
-            // the crash are still worth recording, so they are kept below.
-            if (crashes.Length == 0)
+            if (crashes.Count == 0)
             {
                 scanned++;
             }
 
+            // Analyzers run concurrently, so the returned order is unspecified. Sorting after
+            // capping would stabilise the printed order but not which samples survived, making
+            // identical scans report different locations.
             foreach (
-                Diagnostic diagnostic in diagnostics.Where(diagnostic =>
-                    diagnostic.Id.StartsWith("AM", StringComparison.Ordinal)
-                )
+                Diagnostic diagnostic in diagnostics
+                    .Where(diagnostic => diagnostic.Id.StartsWith("AM", StringComparison.Ordinal))
+                    .OrderBy(diagnostic => diagnostic.Id, StringComparer.Ordinal)
+                    .ThenBy(diagnostic => diagnostic.Location.GetLineSpan().Path, StringComparer.Ordinal)
+                    .ThenBy(diagnostic => diagnostic.Location.SourceSpan.Start)
+                    .ThenBy(diagnostic => diagnostic.GetMessage(), StringComparer.Ordinal)
             )
             {
                 countsByRule.TryGetValue(diagnostic.Id, out int existing);
