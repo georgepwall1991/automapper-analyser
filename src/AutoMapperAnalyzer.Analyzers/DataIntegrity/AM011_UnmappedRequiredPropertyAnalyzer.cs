@@ -99,6 +99,12 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         IEnumerable<IPropertySymbol> destinationProperties =
             AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
 
+        // IncludeMembers(...) flattens an included member's own properties into this map, so members it
+        // supplies are mapped at runtime even though the source type does not declare them.
+        MappingChainAnalysisHelper.IncludeMembersScope includeMembers =
+            MappingChainAnalysisHelper.GetIncludeMembersScope(
+                invocation, context.SemanticModel, stopAtReverseMapBoundary: true);
+
         // Check each required destination property to see if it's mapped from source
         foreach (IPropertySymbol destinationProperty in destinationProperties)
         {
@@ -116,6 +122,11 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
             if (sourceProperty != null)
             {
                 continue; // Property is mapped from source, no issue
+            }
+
+            if (includeMembers.SatisfiesDestinationMember(destinationProperty.Name))
+            {
+                continue; // Supplied by an included member, no issue
             }
 
             // Check if this destination property is explicitly mapped via ForMember/ForPath

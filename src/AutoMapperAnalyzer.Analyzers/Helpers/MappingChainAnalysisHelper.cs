@@ -408,11 +408,21 @@ public static class MappingChainAnalysisHelper
         IEnumerable<IPropertySymbol> destinationProperties =
             AutoMapperAnalysisHelpers.GetMappableProperties(destinationType, false);
 
+        IncludeMembersScope includeMembers =
+            GetIncludeMembersScope(mappingInvocation, semanticModel, stopAtReverseMapBoundary);
+
         var unmappedProperties = new List<IPropertySymbol>();
 
         foreach (IPropertySymbol sourceProp in sourceProperties)
         {
             if (destinationProperties.Any(p => string.Equals(p.Name, sourceProp.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            // IncludeMembers(s => s.Member) hands the member's own properties to AutoMapper, so the
+            // member itself is consumed rather than dropped.
+            if (includeMembers.ConsumesSourceMember(sourceProp.Name))
             {
                 continue;
             }
@@ -441,5 +451,177 @@ public static class MappingChainAnalysisHelper
         }
 
         return unmappedProperties;
+    }
+
+    /// <summary>
+    ///     Collects the source members pulled into a mapping by IncludeMembers(...). AutoMapper flattens
+    ///     each included member's own properties into the destination, so those properties are available
+    ///     to the map even though the source type does not declare them.
+    /// </summary>
+    internal static IncludeMembersScope GetIncludeMembersScope(
+        InvocationExpressionSyntax mappingInvocation,
+        SemanticModel semanticModel,
+        bool stopAtReverseMapBoundary)
+    {
+        List<ITypeSymbol>? includedTypes = null;
+        HashSet<string>? includedMemberNames = null;
+        var hasUnresolvedMember = false;
+
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
+                     mappingInvocation, semanticModel, stopAtReverseMapBoundary))
+        {
+            if (!IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "IncludeMembers"))
+            {
+                continue;
+            }
+
+            foreach (ArgumentSyntax argument in chainedInvocation.ArgumentList.Arguments)
+            {
+                if (GetIncludeMemberBody(argument.Expression) is not MemberAccessExpressionSyntax body)
+                {
+                    // Unrecognized selector shape: fail closed so callers stay quiet instead of
+                    // reporting members the included type may well supply.
+                    hasUnresolvedMember = true;
+                    continue;
+                }
+
+                ITypeSymbol? memberType = semanticModel.GetTypeInfo(body).Type;
+                string? topLevelMemberName = GetTopLevelSourceMemberName(body);
+
+                if (memberType is null or IErrorTypeSymbol || string.IsNullOrEmpty(topLevelMemberName))
+                {
+                    hasUnresolvedMember = true;
+                    continue;
+                }
+
+                (includedTypes ??= []).Add(memberType);
+                (includedMemberNames ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase))
+                    .Add(topLevelMemberName!);
+            }
+        }
+
+        if (includedTypes == null && !hasUnresolvedMember)
+        {
+            return IncludeMembersScope.Empty;
+        }
+
+        return new IncludeMembersScope(includedTypes, includedMemberNames, hasUnresolvedMember);
+    }
+
+    /// <summary>
+    ///     Unwraps the lambda selector passed to IncludeMembers, returning the member access it selects.
+    ///     Non-lambda and non-member-access shapes return null so callers fail closed.
+    /// </summary>
+    private static ExpressionSyntax? GetIncludeMemberBody(ExpressionSyntax argumentExpression)
+    {
+        ExpressionSyntax? body = argumentExpression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body as ExpressionSyntax,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda =>
+                parenthesizedLambda.Body as ExpressionSyntax,
+            _ => null
+        };
+
+        while (body is ParenthesizedExpressionSyntax parenthesized)
+        {
+            body = parenthesized.Expression;
+        }
+
+        return body;
+    }
+
+    /// <summary>
+    ///     Checks whether a destination member name is satisfied by flattening a source property's own
+    ///     nested member (e.g. a property exposing Address.City satisfies AddressCity).
+    /// </summary>
+    private static bool IsFlatteningMatchForName(IPropertySymbol sourceProperty, string destinationPropertyName)
+    {
+        if (AutoMapperAnalysisHelpers.IsBuiltInType(sourceProperty.Type))
+        {
+            return false;
+        }
+
+        if (!destinationPropertyName.StartsWith(sourceProperty.Name, StringComparison.OrdinalIgnoreCase) ||
+            destinationPropertyName.Length <= sourceProperty.Name.Length)
+        {
+            return false;
+        }
+
+        string flattenedMemberName = destinationPropertyName.Substring(sourceProperty.Name.Length);
+        return AutoMapperAnalysisHelpers.GetMappableProperties(sourceProperty.Type, requireSetter: false)
+            .Any(p => string.Equals(p.Name, flattenedMemberName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    ///     The source members contributed to a mapping by IncludeMembers(...).
+    /// </summary>
+    internal sealed class IncludeMembersScope
+    {
+        internal static readonly IncludeMembersScope Empty = new(null, null, false);
+
+        private readonly HashSet<string>? _includedMemberNames;
+        private readonly List<ITypeSymbol>? _includedTypes;
+
+        internal IncludeMembersScope(
+            List<ITypeSymbol>? includedTypes,
+            HashSet<string>? includedMemberNames,
+            bool hasUnresolvedMember)
+        {
+            _includedTypes = includedTypes;
+            _includedMemberNames = includedMemberNames;
+            HasUnresolvedMember = hasUnresolvedMember;
+        }
+
+        /// <summary>
+        ///     True when an IncludeMembers selector could not be resolved. Callers stay quiet rather than
+        ///     report members the unresolved include might supply.
+        /// </summary>
+        internal bool HasUnresolvedMember { get; }
+
+        /// <summary>
+        ///     True when the mapping consumes the named source member via IncludeMembers.
+        /// </summary>
+        internal bool ConsumesSourceMember(string sourceMemberName)
+        {
+            return _includedMemberNames?.Contains(sourceMemberName) == true;
+        }
+
+        /// <summary>
+        ///     True when an included member supplies the named destination member, directly or through
+        ///     AutoMapper's flattening convention. An unresolved include satisfies every member so the
+        ///     caller fails closed.
+        /// </summary>
+        internal bool SatisfiesDestinationMember(string destinationMemberName)
+        {
+            if (HasUnresolvedMember)
+            {
+                return true;
+            }
+
+            if (_includedTypes == null)
+            {
+                return false;
+            }
+
+            foreach (ITypeSymbol includedType in _includedTypes)
+            {
+                List<IPropertySymbol> includedProperties = AutoMapperAnalysisHelpers
+                    .GetMappableProperties(includedType, requireSetter: false)
+                    .ToList();
+
+                if (includedProperties.Any(p =>
+                        string.Equals(p.Name, destinationMemberName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return true;
+                }
+
+                if (includedProperties.Any(p => IsFlatteningMatchForName(p, destinationMemberName)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

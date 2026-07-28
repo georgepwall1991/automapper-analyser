@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+## [2.30.88] - 2026-07-28
+
+`IncludeMembers` awareness for AM004, AM006, and AM011 (no rule ID or severity changes).
+
+### Fixed
+
+- **AM011 false positive (Error severity)**: a `required` destination property supplied by an
+  `IncludeMembers(...)` member was reported as unmapped, breaking the build for consumers using a
+  documented AutoMapper feature.
+- **AM004 false positive**: a source member consumed by `IncludeMembers(...)` was reported as
+  potential data loss even though AutoMapper flattens its properties into the destination.
+- **AM006 false positive**: a destination member supplied by an included member was reported as
+  unmapped.
+
+### Changed
+
+- **Shared resolution**: `MappingChainAnalysisHelper.GetIncludeMembersScope` resolves included member
+  types once per mapping chain and is consumed by AM004, AM006, and AM011 (and, through
+  `GetUnmappedSourceProperties`, by the AM004 code fix) so ownership stays consistent.
+- **Conservative boundary**: included members satisfy destination members directly and through
+  AutoMapper's flattening convention; an `IncludeMembers` selector that cannot be resolved to a member
+  type fails closed and suppresses the diagnostic rather than guessing.
+- `ReverseMap()` segments are unchanged: `IncludeMembers` is scoped to the forward direction only.
+
+### Validation
+
+- 1784 tests green on `net10.0` (10 new `IncludeMembers` regression and guardrail tests).
+- Catalog, sample-diagnostic snapshot, and compatibility-matrix verifier checks green.
+
 ## [2.30.87] - 2026-07-26
 
 NuGet and GitHub discoverability for CreateMap / mapping validation (no rule ID or severity changes).

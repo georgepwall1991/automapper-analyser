@@ -468,7 +468,9 @@ Diagnostics are reported on the **source property identifier** (property-token p
 The single-unmapped-property case stays flat (no aggregate menu).
 
 AM004 stays quiet when source members are explicitly handled by custom member or constructor-parameter
-mapping, `ForSourceMember(...).DoNotValidate()`, or when `ConstructUsing`/`ConvertUsing` owns the map.
+mapping, `ForSourceMember(...).DoNotValidate()`, when `ConstructUsing`/`ConvertUsing` owns the map, or
+when the member is consumed by `IncludeMembers(...)` — AutoMapper flattens that member's own properties
+into the destination, so the member is used rather than dropped.
 
 **Option 3: Suppress Source Validation (Code Fix, Manual Review)**
 
@@ -638,7 +640,7 @@ Reverse-map diagnostics resolve the swapped source/destination types before sugg
 
 #### Safe Cases
 
-AM006 does not report when the destination member is matched by convention, configured with `ForMember` or `ForPath` (including string literal, `nameof(...)`, and const string `ForMember` selectors), covered by flattening, explicitly initialized in every returned `ConstructUsing` object initializer, or when `ConvertUsing` owns destination object creation. Framework scalar/value types such as `System.DateOnly` are not treated as flattening sources, so a destination member like `CreatedYear` still reports unless it is explicitly configured.
+AM006 does not report when the destination member is matched by convention, configured with `ForMember` or `ForPath` (including string literal, `nameof(...)`, and const string `ForMember` selectors), covered by flattening, supplied by an `IncludeMembers(...)` member, explicitly initialized in every returned `ConstructUsing` object initializer, or when `ConvertUsing` owns destination object creation. Framework scalar/value types such as `System.DateOnly` are not treated as flattening sources, so a destination member like `CreatedYear` still reports unless it is explicitly configured.
 
 #### Configuration
 
@@ -725,6 +727,19 @@ public class Destination
 ```
 
 **Manual Review Boundary**: For one missing required property, the fixer suggests a mapping only when there is a unique compatible fuzzy source-property match; otherwise it offers only the explicit Ignore action. It does not fabricate `string.Empty`, `0`, `false`, or `default` as required domain data. For several missing required properties, aggregate Scaffold-all remains a clearly labelled manual-review action. If you choose Ignore, verify that another construction path initializes the member or that leaving it unset is intentional.
+
+#### Safe Cases
+
+AM011 does not report when the required destination member matches a source member by convention, is
+configured with `ForMember`/`ForPath` or `ForCtorParam`, when `ConstructUsing`/`ConvertUsing` owns
+construction, or when an `IncludeMembers(...)` member supplies it. Included members are resolved both
+directly (the included type declares the member) and through AutoMapper's flattening convention (an
+included type exposing `Address.City` satisfies `AddressCity`).
+
+`IncludeMembers` is scoped to the forward direction: a `ReverseMap()` segment does not inherit the
+included members, matching AutoMapper's own behaviour. When an `IncludeMembers` selector cannot be
+resolved to a member type, AM011 fails closed and stays quiet rather than reporting a member the
+included type may supply.
 
 #### Configuration
 
@@ -1835,7 +1850,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.87">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.88">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1874,5 +1889,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.87
+**Version**: 2.30.88
 **Maintainer**: George Wall

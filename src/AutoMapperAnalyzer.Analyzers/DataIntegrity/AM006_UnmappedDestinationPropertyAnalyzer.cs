@@ -139,6 +139,12 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         var sourcePropertyNames = new HashSet<string>(
             sourcePropertiesList.Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
 
+        // IncludeMembers(...) flattens an included member's own properties into this map, so those
+        // destination members are mapped even though the source type does not declare them.
+        MappingChainAnalysisHelper.IncludeMembersScope includeMembers =
+            MappingChainAnalysisHelper.GetIncludeMembersScope(
+                mappingInvocation, semanticModel, stopAtReverseMapBoundary);
+
         var unmapped = new List<IPropertySymbol>();
         foreach (IPropertySymbol destProperty in AutoMapperAnalysisHelpers.GetMappableProperties(
                      destinationType, requireGetter: false, requireSetter: true))
@@ -149,6 +155,11 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
             }
 
             if (sourcePropertyNames.Contains(destProperty.Name))
+            {
+                continue;
+            }
+
+            if (includeMembers.SatisfiesDestinationMember(destProperty.Name))
             {
                 continue;
             }

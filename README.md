@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.87">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.88">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.87
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.88
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,7 +119,7 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.87
+## Latest Release: v2.30.88
 
 **NuGet and GitHub discoverability for CreateMap validation**
 
@@ -130,6 +130,7 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ### Recent highlights
 
+- **v2.30.88**: `IncludeMembers` awareness — AM004, AM006, and AM011 no longer report members supplied by an included source member.
 - **v2.30.87**: Discoverability assets (metadata, funnel README, product-flow SVGs, pack verify).
 - **v2.30.86**: AM020 capture-once computed receivers for nested-map fixes.
 - **v2.30.85**: AM021 withholds ineffective element-map fixes for nested collection/array shapes.

@@ -74,6 +74,7 @@ Tracks analyzer-by-analyzer improvement passes focused on false positives, contr
 | AM021 nested collection element fix safety | Complex Mappings | prepared | v2.30.84 | Nested generic and array element mismatches keep only the manual-review Ignore action instead of receiving an ineffective element `CreateMap`; plain domain-object maps and executable conversion paths remain available. |
 | AM021 Stack conversion order safety | Complex Mappings | main | v2.30.83 | Exact BCL `Stack<T>` element-conversion fixes reverse the converted enumeration before construction, preserving top-to-bottom LIFO order without changing other collection conversions. |
 | AM021 direct-statement and conditional-region safety | Complex Mappings | main | v2.30.82 | Complex element-map insertion requires a direct, unconditional constructor or method statement, preventing deferred callback/local-function hoisting and alternate-symbol insertion while preserving direct and parenthesized fluent mappings, completed conditional regions, and the in-place Ignore action. |
+| AM004/AM006/AM011 IncludeMembers awareness | Data Integrity | main | v2.30.88 | Members supplied or consumed by `IncludeMembers(...)` are resolved through a shared `GetIncludeMembersScope` helper, closing an Error-severity AM011 false positive plus matching AM004/AM006 gaps; included members resolve directly and through flattening, unresolvable selectors fail closed, and `ReverseMap()` segments do not inherit included members. |
 
 ## In Progress
 
