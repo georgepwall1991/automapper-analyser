@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## [2.30.89] - 2026-07-28
+
+AutoMapper 15 and 16 added to the package compatibility contract (no rule ID, severity, or behaviour changes).
+
+### Added
+
+- **`net10-am15` (AutoMapper 15.1.3) and `net10-am16` (AutoMapper 16.2.0)** compatibility cases. The
+  matrix previously stopped at AutoMapper 14 while the current release on NuGet is 16.2.0, so the
+  shipped analyzer was never verified against what new consumers actually install.
+
+### Validation
+
+- Both new cases verified locally against the packed `2.30.88` artifact before wiring: the healthy
+  consumer builds clean, the broken consumer's build fails with exactly `AM001` (a non-zero consumer
+  build exit, as the contract requires), and the verifier itself exited `0` for `net10-am15`,
+  `net10-am16`, and the existing `net10-am14`.
+- Every published package is now installed and diagnostic-verified against AutoMapper 14, 15, and 16
+  before the NuGet push, alongside the existing `net48-am10` and `net6-am12` cases.
+
+### Notes
+
+- AutoMapper 15 introduced commercial licensing (`cfg.LicenseKey`). The compatibility consumers are
+  compile-only — `Profile` and `CreateMap` with no `MapperConfiguration` construction — so the contract
+  verifies analyzer behaviour, not runtime licensing. Teams staying on AutoMapper 14 remain covered by
+  the `net8-am14`, `net9-am14`, and `net10-am14` cases.
+
 ## [2.30.88] - 2026-07-28
 
 `IncludeMembers` awareness for AM004, AM006, and AM011 (no rule ID or severity changes).

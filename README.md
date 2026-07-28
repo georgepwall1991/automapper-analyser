@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.88">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.89">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.88
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.89
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,17 +119,17 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.88
+## Latest Release: v2.30.89
 
-**`IncludeMembers` awareness for AM004, AM006, and AM011**
+**AutoMapper 15 and 16 verified in the compatibility contract**
 
-- Fixes an **Error-severity AM011 false positive**: a `required` destination property supplied by an `IncludeMembers(...)` member was reported as unmapped, breaking builds that use a documented AutoMapper feature.
-- AM004 no longer reports a source member consumed by `IncludeMembers(...)` as data loss, and AM006 recognises destination members supplied by an included member.
-- Stays conservative: only the final `IncludeMembers` call is effective (matching AutoMapper's replace-on-call behaviour), an explicit `ForMember(... MapFrom(...))` on the included child map counts as supplying the member, and only plain member-access selectors are interpreted — anything else suppresses rather than guesses. Boundaries are documented in [`docs/TEST_LIMITATIONS.md`](docs/TEST_LIMITATIONS.md).
-- No analyzer rule ID or severity changes.
+- The published package is now built, installed, and diagnostic-verified against **AutoMapper 14, 15 (15.1.3), and 16 (16.2.0)** before every NuGet push, alongside the existing `net48-am10` and `net6-am12` cases. The matrix previously stopped at AutoMapper 14 while the current release is 16.2.0.
+- AutoMapper 15 introduced commercial licensing (`cfg.LicenseKey`). The compatibility consumers are compile-only, so this contract covers analyzer behaviour rather than runtime licensing — teams staying on AutoMapper 14 keep full coverage.
+- No analyzer rule ID, severity, or behaviour changes. For the previous release's `IncludeMembers` work see **v2.30.88** in [`CHANGELOG.md`](CHANGELOG.md).
 
 ### Recent highlights
 
+- **v2.30.89**: AutoMapper 15 and 16 added to the verified compatibility contract.
 - **v2.30.88**: `IncludeMembers` awareness — AM004, AM006, and AM011 no longer report members supplied by an included source member.
 - **v2.30.87**: Discoverability assets (metadata, funnel README, product-flow SVGs, pack verify).
 - **v2.30.86**: AM020 capture-once computed receivers for nested-map fixes.

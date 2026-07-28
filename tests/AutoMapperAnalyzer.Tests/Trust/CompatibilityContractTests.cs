@@ -18,7 +18,9 @@ public sealed class CompatibilityContractTests
                 ("net6-am12", "ubuntu-latest", "net6.0", "12.0.1"),
                 ("net8-am14", "ubuntu-latest", "net8.0", "14.0.0"),
                 ("net9-am14", "ubuntu-latest", "net9.0", "14.0.0"),
-                ("net10-am14", "ubuntu-latest", "net10.0", "14.0.0")
+                ("net10-am14", "ubuntu-latest", "net10.0", "14.0.0"),
+                ("net10-am15", "ubuntu-latest", "net10.0", "15.1.3"),
+                ("net10-am16", "ubuntu-latest", "net10.0", "16.2.0")
             ],
             contract.Cases.Select(c => (c.Id, c.Runner, c.TargetFramework, c.AutoMapperVersion)));
     }
@@ -70,7 +72,7 @@ public sealed class CompatibilityContractTests
         using JsonDocument matrix = JsonDocument.Parse(contract.ToGitHubMatrixJson());
         JsonElement cases = matrix.RootElement.GetProperty("include");
 
-        Assert.Equal(5, cases.GetArrayLength());
+        Assert.Equal(7, cases.GetArrayLength());
         Assert.Equal("net48-am10", cases[0].GetProperty("id").GetString());
         Assert.Equal("windows-latest", cases[0].GetProperty("runner").GetString());
         Assert.Equal("net10.0", cases[4].GetProperty("targetFramework").GetString());

@@ -14,6 +14,8 @@ This table is generated from [`tools/package-compatibility.json`](../tools/packa
 | `net8-am14` | `ubuntu-latest` | `net8.0` | `14.0.0` |
 | `net9-am14` | `ubuntu-latest` | `net9.0` | `14.0.0` |
 | `net10-am14` | `ubuntu-latest` | `net10.0` | `14.0.0` |
+| `net10-am15` | `ubuntu-latest` | `net10.0` | `15.1.3` |
+| `net10-am16` | `ubuntu-latest` | `net10.0` | `16.2.0` |
 <!-- compatibility-matrix:end -->
 
 The analyzer package targets `netstandard2.0`. The matrix above verifies that the packaged analyzer loads and behaves correctly for each consumer target when built by the configured CI SDK. It does not claim coverage for historical Visual Studio, Rider, OmniSharp, or other IDE hosts that the workflow does not run.
