@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+## [2.30.91] - 2026-07-28
+
+AM041 respects independent `MapperConfiguration` containers (no rule ID or severity changes).
+
+### Fixed
+
+- **AM041 false positive**: registering the same type pair in two separate `MapperConfiguration`
+  instances was reported as a duplicate registration. Each `MapperConfiguration` is an independent
+  container — AutoMapper accepts this and both mappers work. Found by scanning AutoMapper.Collection
+  with the new corpus scanner, where the shape produced **17 false positives**, and reproduced with a
+  focused test.
+
+### Changed
+
+- `CreateMapRegistry` groups duplicate candidates by configuration container before comparing them.
+  Registrations whose container cannot be resolved (Profile bodies, helper methods) share one scope, so
+  existing cross-Profile behaviour is unchanged.
+- The sample-diagnostics trust snapshot loses one AM041 entry. That diagnostic was itself an instance of
+  this false positive inside the repository's own samples: `TypeConverterExamples.cs:81` registers
+  `string? -> Guid` inside a `new MapperConfiguration(...)`, while `ReleaseCoverageExamples.cs:20`
+  registers it in a `Profile` that configuration never adds. The removal is the fix, not a regression.
+
+### Validation
+
+- 1818 tests green on `net10.0`, including guardrails proving duplicates inside one
+  `MapperConfiguration` and inside one `Profile` still report.
+
 ### Added
 
 - **Third-party corpus scanning** — `--scan-corpus` on `tools/AnalyzerVerifier` runs every catalogued
