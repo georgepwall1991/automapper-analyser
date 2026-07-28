@@ -369,69 +369,6 @@ public static class AutoMapperAnalysisHelpers
     }
 
     /// <summary>
-    ///     Gets all ForMember calls from a CreateMap invocation chain.
-    /// </summary>
-    /// <param name="createMapInvocation">The CreateMap invocation.</param>
-    /// <returns>A collection of ForMember invocations.</returns>
-    public static IEnumerable<InvocationExpressionSyntax> GetForMemberCalls(
-        InvocationExpressionSyntax createMapInvocation)
-    {
-        if (createMapInvocation == null)
-        {
-            return Enumerable.Empty<InvocationExpressionSyntax>();
-        }
-
-        var forMemberCalls = new List<InvocationExpressionSyntax>();
-        SyntaxNode? currentNode = createMapInvocation.Parent;
-
-        while (currentNode is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax invocation)
-        {
-            if (memberAccess.Name.Identifier.Text == "ForMember")
-            {
-                forMemberCalls.Add(invocation);
-            }
-
-            currentNode = invocation.Parent;
-        }
-
-        return forMemberCalls;
-    }
-
-    /// <summary>
-    ///     Checks if a property is configured with ForMember in the mapping configuration.
-    /// </summary>
-    /// <param name="createMapInvocation">The CreateMap invocation.</param>
-    /// <param name="propertyName">The property name to check.</param>
-    /// <param name="semanticModel">The semantic model.</param>
-    /// <returns>True if the property has a ForMember configuration; otherwise, false.</returns>
-    public static bool IsPropertyConfiguredWithForMember(
-        InvocationExpressionSyntax createMapInvocation,
-        string propertyName,
-        SemanticModel semanticModel)
-    {
-        IEnumerable<InvocationExpressionSyntax> forMemberCalls = GetForMemberCalls(createMapInvocation);
-
-        foreach (InvocationExpressionSyntax? forMember in forMemberCalls)
-        {
-            if (forMember.ArgumentList?.Arguments.Count > 0)
-            {
-                ExpressionSyntax firstArg = forMember.ArgumentList.Arguments[0].Expression;
-
-                // Check if it's a lambda expression selecting this property
-                if (firstArg is SimpleLambdaExpressionSyntax lambda &&
-                    lambda.Body is MemberAccessExpressionSyntax memberAccess &&
-                    memberAccess.Name.Identifier.Text == propertyName)
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
     ///     Gets the underlying type, removing nullable wrappers.
     /// </summary>
     public static ITypeSymbol GetUnderlyingType(ITypeSymbol type)

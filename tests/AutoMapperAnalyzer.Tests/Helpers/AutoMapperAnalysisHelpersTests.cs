@@ -11,57 +11,6 @@ namespace AutoMapperAnalyzer.Tests.Helpers;
 /// </summary>
 public class AutoMapperAnalysisHelpersTests
 {
-    #region GetForMemberCalls Tests
-
-    [Fact]
-    public void GetForMemberCalls_ShouldReturnEmpty_WhenInvocationIsNull()
-    {
-        IEnumerable<InvocationExpressionSyntax> result = AutoMapperAnalysisHelpers.GetForMemberCalls(null!);
-
-        Assert.Empty(result);
-    }
-
-    // NOTE: GetForMemberCalls requires complex syntax tree navigation that is difficult to unit test
-    // in isolation. This method is tested indirectly through the analyzer integration tests.
-
-    #endregion
-
-    #region IsPropertyConfiguredWithForMember Tests
-
-    [Fact]
-    public void IsPropertyConfiguredWithForMember_ShouldReturnFalse_WhenPropertyIsNotConfigured()
-    {
-        const string code = @"
-            using AutoMapper;
-            public class Source { public string Name { get; set; } }
-            public class Destination { public string Name { get; set; } }
-            public class TestProfile : Profile
-            {
-                public TestProfile()
-                {
-                    CreateMap<Source, Destination>();
-                }
-            }";
-
-        CSharpCompilation compilation = CreateCompilation(code);
-        SyntaxTree tree = compilation.SyntaxTrees.First();
-        SemanticModel semanticModel = compilation.GetSemanticModel(tree);
-        InvocationExpressionSyntax createMapInvocation = tree.GetRoot()
-            .DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .First(inv => inv.Expression.ToString().Contains("CreateMap"));
-
-        bool result = AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(
-            createMapInvocation, "Name", semanticModel);
-
-        Assert.False(result);
-    }
-
-    // NOTE: Testing the positive case for IsPropertyConfiguredWithForMember requires complex syntax
-    // tree structures that are tested indirectly through the analyzer integration tests.
-
-    #endregion
-
     #region Helper Methods
 
     private static CSharpCompilation CreateCompilation(string code)

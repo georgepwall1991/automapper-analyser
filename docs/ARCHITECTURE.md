@@ -237,9 +237,12 @@ private static void AnalyzePropertyMappings(
 
         if (destProp == null) continue;
 
-        // Check if ForMember is configured
-        if (AutoMapperAnalysisHelpers.IsPropertyConfiguredWithForMember(
-            invocation, sourceProp.Name, context.SemanticModel))
+        // Skip only when this DESTINATION member is explicitly configured. Checking the source
+        // member instead is a common mistake: ForMember(d => d.DisplayName, o => o.MapFrom(s => s.Name))
+        // configures DisplayName, and must not suppress analysis of a conventionally mapped
+        // destination Name. This helper covers ForMember, ForPath, and ForCtorParam.
+        if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+            invocation, destProp.Name, context.SemanticModel))
             continue;
 
         // Analyze compatibility...
@@ -475,12 +478,6 @@ public static class AutoMapperAnalysisHelpers
         ITypeSymbol type,
         bool requireGetter = true,
         bool requireSetter = true);
-
-    // Check if property is configured with ForMember
-    public static bool IsPropertyConfiguredWithForMember(
-        InvocationExpressionSyntax invocation,
-        string propertyName,
-        SemanticModel semanticModel);
 
     // Type compatibility checking
     public static bool AreTypesCompatible(

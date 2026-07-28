@@ -12,6 +12,26 @@ Known harness caveats remain documented in the test project warning baseline:
 - trust validation tests intentionally read repository files;
 - AutoMapper 14 remains pinned for compatibility coverage while AutoMapper 15 introduces licensing/API changes.
 
+## Analyzer crash safety
+
+`Robustness/AnalyzerCrashSafetyTests` drives every catalogued analyzer over code that does not compile,
+is half-typed, or is hostile in shape — incomplete generic argument lists, dangling fluent chains,
+selectors that select nothing, unresolved converters, open-generic `typeof`, and a type graph that is
+cyclic through several shapes at once — and fails if any analyzer throws.
+
+Per-rule tests feed analyzers well-formed code because they are testing diagnostics. An analyzer runs on
+every keystroke, so it spends much of its life reading incomplete syntax and error types. An exception
+there surfaces as `AD0001` in the user's Error List, and one AD0001 discredits all 23 rules at once
+because the user cannot tell which analyzer misbehaved.
+
+Exceptions are captured through `onAnalyzerException` rather than read from `AD0001`, so the result does
+not depend on the compilation's diagnostic options. **There is deliberately no try/catch wrapper in the
+analyzers**: Roslyn already contains analyzer exceptions, and swallowing them locally would hide real
+defects from this suite while making the IDE quieter. These tests exist to find crashes, not mask them.
+
+No crashes were found on the current tree. The suite was verified against an injected exception to
+confirm it fails, with the offending analyzer named, rather than passing vacuously.
+
 ## Third-party corpus scanning
 
 Every other verification path here reads code this project authored: the samples project, the test
