@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.89">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.90">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.89
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.90
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,16 +119,17 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.89
+## Latest Release: v2.30.90
 
-**AutoMapper 15 and 16 verified in the compatibility contract**
+**Severity presets for brownfield adoption**
 
-- The published package is now built, installed, and diagnostic-verified against **AutoMapper 14, 15 (15.1.3), and 16 (16.2.0)** before every NuGet push, alongside the existing `net48-am10` and `net6-am12` cases. The matrix previously stopped at AutoMapper 14 while the current release is 16.2.0.
-- AutoMapper 15 introduced commercial licensing (`cfg.LicenseKey`). The compatibility consumers are compile-only, so this contract covers analyzer behaviour rather than runtime licensing — teams staying on AutoMapper 14 keep full coverage.
-- No analyzer rule ID, severity, or behaviour changes. For the previous release's `IncludeMembers` work see **v2.30.88** in [`CHANGELOG.md`](CHANGELOG.md).
+- Ships **`AutoMapperAnalyzer.Minimal.globalconfig`** (nothing breaks the build) and **`AutoMapperAnalyzer.Recommended.globalconfig`** (shipped defaults, written out). Five rules default to `error`, so enabling 23 rules at once could break a large existing build with no documented ramp.
+- Reference via `GlobalAnalyzerConfigFiles` with `GeneratePathProperty="true"`, or copy the lines into `.editorconfig`. See [Adopting in an existing codebase](#adopting-in-an-existing-codebase).
+- Drift tests keep both presets in lockstep with the rule catalog. No analyzer rule ID, severity, or behaviour changes.
 
 ### Recent highlights
 
+- **v2.30.90**: Severity presets (`Minimal`/`Recommended`) for brownfield adoption.
 - **v2.30.89**: AutoMapper 15 and 16 added to the verified compatibility contract.
 - **v2.30.88**: `IncludeMembers` awareness — AM004, AM006, and AM011 no longer report members supplied by an included source member.
 - **v2.30.87**: Discoverability assets (metadata, funnel README, product-flow SVGs, pack verify).
@@ -211,6 +212,37 @@ Code fixes can suggest `ForMember` conversions, `Ignore`, nested `CreateMap`, an
 ---
 
 ## Severity and suppression
+
+### Adopting in an existing codebase
+
+Turning 23 rules on across a large solution at once is the fastest way to get the package uninstalled.
+Five rules default to **error** (`AM001`, `AM002`, `AM003`, `AM011`, `AM030`), so a first
+`dotnet add package` on a mature codebase can break the build immediately.
+
+Two presets ship inside the package so you do not have to hand-write 23 severities:
+
+| Preset | Behaviour | Use when |
+| --- | --- | --- |
+| `AutoMapperAnalyzer.Minimal.globalconfig` | **Nothing breaks the build.** Runtime-failure and data-loss rules report as warnings; everything else as suggestions. | Turning the analyzer on across an existing codebase |
+| `AutoMapperAnalyzer.Recommended.globalconfig` | Matches the shipped defaults, written out so every rule is visible and tunable in one place. | New codebases, or once the warning count is under control |
+
+Reference one from your project file:
+
+```xml
+<ItemGroup>
+  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.90"
+                    PrivateAssets="all" GeneratePathProperty="true" />
+  <GlobalAnalyzerConfigFiles
+    Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />
+</ItemGroup>
+```
+
+`GeneratePathProperty="true"` is what makes `$(PkgAutoMapperAnalyzer_Analyzers)` available. If you would
+rather not depend on that, open either file in the package and copy its lines into your `.editorconfig` —
+the presets are plain severity settings with no magic.
+
+A workable ramp: start on Minimal, fix the warnings that matter to you, then switch to Recommended and
+raise individual rules back to `error` as your codebase catches up.
 
 ### `.editorconfig`
 

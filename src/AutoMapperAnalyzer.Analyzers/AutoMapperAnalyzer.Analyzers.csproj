@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>89</PatchVersion>
+        <PatchVersion>90</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,9 +32,11 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.89 - AutoMapper 15 and 16 verified in the compatibility contract
-- Package compatibility matrix extended with net10-am15 (15.1.3) and net10-am16 (16.2.0)
-- Every published package is now built, installed, and diagnostic-verified against AutoMapper 14, 15, and 16 before release
+                <PackageReleaseNotes>Version 2.30.90 - severity presets for brownfield adoption
+- Ships AutoMapperAnalyzer.Minimal.globalconfig (nothing breaks the build) and AutoMapperAnalyzer.Recommended.globalconfig (shipped defaults, written out)
+- Five rules default to error, so enabling 23 rules at once could break a large existing build with no ramp
+- Reference via GlobalAnalyzerConfigFiles with GeneratePathProperty, or copy the lines into .editorconfig
+- Drift tests keep both presets in lockstep with the rule catalog
 - No analyzer rule ID, severity, or behaviour changes
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -73,4 +75,11 @@
                 Visible="false"
         />
     </ItemGroup>
+
+    <ItemGroup>
+        <!-- Severity presets consumers can inherit via GlobalAnalyzerConfigFiles (see README). -->
+        <None Include="..\..\config\AutoMapperAnalyzer.Recommended.globalconfig" Pack="true" PackagePath="config" />
+        <None Include="..\..\config\AutoMapperAnalyzer.Minimal.globalconfig" Pack="true" PackagePath="config" />
+    </ItemGroup>
+
 </Project>

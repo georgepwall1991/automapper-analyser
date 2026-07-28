@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## [2.30.90] - 2026-07-28
+
+Severity presets for brownfield adoption (no rule ID, severity, or behaviour changes).
+
+### Added
+
+- **`AutoMapperAnalyzer.Minimal.globalconfig`** — no rule breaks the build; runtime-failure and
+  data-loss rules report as warnings, everything else as suggestions. Intended for enabling the
+  analyzer across a large existing codebase.
+- **`AutoMapperAnalyzer.Recommended.globalconfig`** — matches the shipped defaults, written out so all
+  23 rules are visible and tunable in one place.
+- Both are packed into the nupkg under `config/` and referenced via `GlobalAnalyzerConfigFiles` with
+  `GeneratePathProperty="true"`, or copied into `.editorconfig`.
+- **README "Adopting in an existing codebase"** section documenting the ramp. Five rules default to
+  `error` (`AM001`, `AM002`, `AM003`, `AM011`, `AM030`), so a first install on a mature codebase could
+  break the build with no documented softening path.
+- **`SeverityPresetTests`** — drift tests asserting both presets cover every `RuleCatalog` rule exactly
+  once with valid severities, that Recommended matches shipped descriptor defaults, that Minimal never
+  uses `error`, that Minimal is never stricter than Recommended, and that both are packed.
+
+### Validation
+
+- Preset packing verified against a real `dotnet pack` output.
+- The shipped-defaults drift test was confirmed to fail when a preset severity is altered, rather than
+  passing vacuously.
+
 ### Added
 
 - **Runtime verification for code-fix output** (`tests/.../Infrastructure/CodeFixRuntimeVerifier.cs`).
