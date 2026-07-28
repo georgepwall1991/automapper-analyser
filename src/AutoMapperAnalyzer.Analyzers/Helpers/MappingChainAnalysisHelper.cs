@@ -567,7 +567,9 @@ public static class MappingChainAnalysisHelper
                 continue;
             }
 
-            string? selectedMember = GetSelectedMemberName(
+            // Resolve against the top-level member: ForPath(d => d.Details.Name, ...) configures a
+            // nested path and supplies Details, not a top-level Name.
+            string? selectedMember = GetTopLevelSelectedMemberName(
                 chainedInvocation.ArgumentList.Arguments[0].Expression, semanticModel);
             if (!string.Equals(selectedMember, destinationMemberName, StringComparison.OrdinalIgnoreCase))
             {
@@ -584,6 +586,33 @@ public static class MappingChainAnalysisHelper
         }
 
         return false;
+    }
+
+    /// <summary>
+    ///     Resolves the top-level member a destination selector designates. Lambda member accesses walk
+    ///     back to the root member so a nested path is not mistaken for the member it terminates in;
+    ///     string and nameof forms already resolve to their top-level segment.
+    /// </summary>
+    private static string? GetTopLevelSelectedMemberName(
+        ExpressionSyntax selectorExpression,
+        SemanticModel semanticModel)
+    {
+        ExpressionSyntax? body = selectorExpression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Body as ExpressionSyntax,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda =>
+                parenthesizedLambda.Body as ExpressionSyntax,
+            _ => null
+        };
+
+        while (body is ParenthesizedExpressionSyntax parenthesized)
+        {
+            body = parenthesized.Expression;
+        }
+
+        return body is MemberAccessExpressionSyntax memberAccess
+            ? GetTopLevelSourceMemberName(memberAccess)
+            : GetSelectedMemberName(selectorExpression, semanticModel);
     }
 
     /// <summary>

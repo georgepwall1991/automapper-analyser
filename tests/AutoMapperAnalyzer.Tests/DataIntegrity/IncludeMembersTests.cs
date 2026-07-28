@@ -945,4 +945,65 @@ public class IncludeMembersTests
             .ExpectNoDiagnostics()
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM011_ShouldReportDiagnostic_WhenChildMapForPathConfiguresNestedMemberOnly()
+    {
+        const string testCode = """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Inner
+                {
+                    public string Source { get; set; }
+                }
+
+                public class Details
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                }
+
+                public class Destination
+                {
+                    public Details Details { get; set; }
+                    public required string Name { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Inner, Destination>().ForPath(d => d.Details.Name, o => o.MapFrom(s => s.Source));
+                        CreateMap<Source, Destination>().IncludeMembers(s => s.Inner);
+                    }
+                }
+            }
+            """;
+
+        // ForPath configures the nested Details.Name, not the top-level required Name, so the parent map
+        // still has no source for it and AutoMapper rejects the configuration. Both registrations report:
+        // Inner -> Destination does not map Name either.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule,
+                23,
+                32,
+                "Name"
+            )
+            .ExpectDiagnostic(
+                AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule,
+                23,
+                32,
+                "Name"
+            )
+            .RunAsync();
+    }
 }
