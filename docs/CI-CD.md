@@ -118,8 +118,21 @@ The split exists because GitHub cannot resolve local reusable workflows (`uses: 
 ### Package Versioning
 
 - **Format**: Major.Minor.Patch (SemVer)
-- **Current**: 2.30.88
-- **Pre-release**: 2.30.88-preview, 2.30.88-beta
+- **Current**: 2.30.89
+- **Pre-release**: 2.30.89-preview, 2.30.89-beta
+
+### Version bump checklist
+
+Bumping a version touches more than version strings. In particular:
+
+- **Rewrite the README `## Latest Release` section body, not just its heading.** The heading and the
+  prose beneath it are edited separately, so bumping only the heading silently attributes the previous
+  release's changes to the new version. This README ships as the NuGet package readme, so the wrong
+  summary reaches consumers on the package page. Independent review has caught this twice.
+- Extending `tools/package-compatibility.json` requires updating `CompatibilityContractTests`, which
+  pins the advertised matrix on purpose so it cannot drift silently.
+- Run `dotnet run --project tools/AnalyzerVerifier -- --update-catalog --update-compatibility` after
+  version or matrix changes, then re-run the `--check-*` modes.
 
 ## 🔧 Configuration
 
@@ -202,7 +215,7 @@ dotnet run --project tools/AnalyzerVerifier -- --update-catalog --update-snapsho
 dotnet pack --configuration Release --output ./packages
 
 # Verify the packed analyzer against one compatibility case (matrix in tools/package-compatibility.json)
-dotnet run --project tools/AnalyzerVerifier -- --verify-package-compatibility ./packages/AutoMapperAnalyzer.Analyzers.2.30.88.nupkg --case net10-am14
+dotnet run --project tools/AnalyzerVerifier -- --verify-package-compatibility ./packages/AutoMapperAnalyzer.Analyzers.2.30.89.nupkg --case net10-am14
 
 # Run samples
 dotnet run --project samples/AutoMapperAnalyzer.Samples
