@@ -489,9 +489,10 @@ public static class MappingChainAnalysisHelper
 
         if (effectiveIncludeMembers != null)
         {
-            foreach (ArgumentSyntax argument in effectiveIncludeMembers.ArgumentList.Arguments)
+            foreach (ExpressionSyntax selector in effectiveIncludeMembers.ArgumentList.Arguments
+                         .SelectMany(argument => GetIncludeMemberSelectors(argument.Expression)))
             {
-                if (GetIncludeMemberBody(argument.Expression) is not MemberAccessExpressionSyntax body)
+                if (GetIncludeMemberBody(selector) is not MemberAccessExpressionSyntax body)
                 {
                     // Unrecognized selector shape: fail closed so callers stay quiet instead of
                     // reporting members the included type may well supply.
@@ -520,6 +521,26 @@ public static class MappingChainAnalysisHelper
         }
 
         return new IncludeMembersScope(includedTypes, includedMemberNames, hasUnresolvedMember);
+    }
+
+    /// <summary>
+    ///     Expands one IncludeMembers argument into the selectors it carries. The params overload is
+    ///     often written as an explicit array, so unpack statically available elements rather than
+    ///     treating the whole include as unresolved and blanket-suppressing every member.
+    /// </summary>
+    private static IEnumerable<ExpressionSyntax> GetIncludeMemberSelectors(ExpressionSyntax argumentExpression)
+    {
+        return argumentExpression switch
+        {
+            ArrayCreationExpressionSyntax { Initializer: { } arrayInitializer } =>
+                arrayInitializer.Expressions,
+            ArrayCreationExpressionSyntax => [],
+            ImplicitArrayCreationExpressionSyntax implicitArray => implicitArray.Initializer.Expressions,
+            CollectionExpressionSyntax collection => collection.Elements
+                .OfType<ExpressionElementSyntax>()
+                .Select(element => element.Expression),
+            _ => [argumentExpression]
+        };
     }
 
     /// <summary>

@@ -41,7 +41,7 @@
 
 ### Validation
 
-- 1784 tests green on `net10.0` (10 new `IncludeMembers` regression and guardrail tests).
+- 1792 tests green on `net10.0` (18 new `IncludeMembers` regression and guardrail tests).
 - Catalog, sample-diagnostic snapshot, and compatibility-matrix verifier checks green.
 
 ## [2.30.87] - 2026-07-26

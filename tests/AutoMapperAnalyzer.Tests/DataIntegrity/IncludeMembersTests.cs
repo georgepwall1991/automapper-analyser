@@ -803,4 +803,56 @@ public class IncludeMembersTests
             .ExpectNoDiagnostics()
             .RunAsync();
     }
+
+    [Fact]
+    public async Task AM004_ShouldReportDiagnostic_WhenIncludeMembersUsesExplicitArraySyntax()
+    {
+        const string testCode = """
+            using System;
+            using System.Linq.Expressions;
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Inner
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                    public string Dropped { get; set; }
+                }
+
+                public class Destination
+                {
+                    public string Name { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Source, Destination>()
+                            .IncludeMembers(new Expression<Func<Source, object>>[] { s => s.Inner });
+                        CreateMap<Inner, Destination>();
+                    }
+                }
+            }
+            """;
+
+        // The explicit params-array form must resolve like a bare lambda: 'Inner' is consumed, but the
+        // unrelated 'Dropped' member must still report rather than being blanket-suppressed.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM004_MissingDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule,
+                15,
+                23,
+                "Dropped"
+            )
+            .RunAsync();
+    }
 }
