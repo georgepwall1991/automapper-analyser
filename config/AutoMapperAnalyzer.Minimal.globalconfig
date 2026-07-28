@@ -1,16 +1,27 @@
 # AutoMapperAnalyzer - Minimal severities (brownfield adoption ramp)
 #
-# No rule breaks the build. Rules that catch runtime failures or silent data loss report as
-# warnings; everything else reports as a suggestion.
-# 
-# Use this to turn the analyzer on across a large existing codebase without a wall of build
-# errors, then move to the Recommended preset once the warning count is under control.
-# 
-# Reference from a project file:
+# No rule is reported at error severity. Rules that catch runtime failures or silent data loss report
+# as warnings; everything else reports as a suggestion.
+#
+# Use this to turn the analyzer on across a large existing codebase without a wall of build errors,
+# then move to the Recommended preset once the warning count is under control.
+#
+# TreatWarningsAsErrors: this preset controls severity, not your build settings. If the project sets
+# TreatWarningsAsErrors (or builds with -warnaserror), warnings are promoted to errors independently
+# of any analyzer configuration. To keep these rules non-blocking under that setting, add:
+#   <PropertyGroup>
+#     <WarningsNotAsErrors>$(WarningsNotAsErrors);AM001;AM003;AM004;AM011;AM020;AM021;AM022;AM030;AM060;AM061</WarningsNotAsErrors>
+#   </PropertyGroup>
+#
+# Reference from a project file (requires GeneratePathProperty="true" on the PackageReference):
 #   <ItemGroup>
 #     <GlobalAnalyzerConfigFiles Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />
 #   </ItemGroup>
-# (requires GeneratePathProperty="true" on the PackageReference), or copy these lines into .editorconfig.
+# ...or copy these lines into .editorconfig.
+#
+# NOTE ON AM002: it ships two descriptors (Error and Info). A single ID-level override applies to both,
+# so it is set to suggestion here: that removes the build-breaking Error descriptor while leaving the
+# informational one at an equivalent level, rather than promoting it to a warning.
 
 is_global = true
 
@@ -19,7 +30,7 @@ is_global = true
 dotnet_diagnostic.AM001.severity = warning
 
 # AM002: Nullable compatibility issue
-dotnet_diagnostic.AM002.severity = warning
+dotnet_diagnostic.AM002.severity = suggestion
 
 # AM003: Collection type incompatibility
 dotnet_diagnostic.AM003.severity = warning
@@ -51,11 +62,6 @@ dotnet_diagnostic.AM022.severity = warning
 # AM030: Invalid type converter implementation
 dotnet_diagnostic.AM030.severity = warning
 
-# --- Performance ---
-# AM031: Multiple enumeration
-dotnet_diagnostic.AM031.severity = suggestion
-
-# --- Custom Conversions ---
 # AM032: Type converter null handling
 dotnet_diagnostic.AM032.severity = suggestion
 
@@ -63,6 +69,9 @@ dotnet_diagnostic.AM032.severity = suggestion
 dotnet_diagnostic.AM033.severity = suggestion
 
 # --- Performance ---
+# AM031: Multiple enumeration
+dotnet_diagnostic.AM031.severity = suggestion
+
 # AM034: Expensive operation in mapping
 dotnet_diagnostic.AM034.severity = suggestion
 

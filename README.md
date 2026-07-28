@@ -223,8 +223,20 @@ Two presets ship inside the package so you do not have to hand-write 23 severiti
 
 | Preset | Behaviour | Use when |
 | --- | --- | --- |
-| `AutoMapperAnalyzer.Minimal.globalconfig` | **Nothing breaks the build.** Runtime-failure and data-loss rules report as warnings; everything else as suggestions. | Turning the analyzer on across an existing codebase |
+| `AutoMapperAnalyzer.Minimal.globalconfig` | **No rule is reported as an error.** Runtime-failure and data-loss rules report as warnings; everything else as suggestions. | Turning the analyzer on across an existing codebase |
 | `AutoMapperAnalyzer.Recommended.globalconfig` | Matches the shipped defaults, written out so every rule is visible and tunable in one place. | New codebases, or once the warning count is under control |
+
+**If you build with `TreatWarningsAsErrors`**, warnings are promoted to errors by your build settings,
+independently of any analyzer configuration — no preset can override that. Minimal documents a
+ready-made `WarningsNotAsErrors` list covering exactly the rules it sets to warning; copy it from the
+top of the file.
+
+**AM002 is deliberately absent from Recommended.** A severity setting is keyed by rule ID, but AM002
+ships two descriptors at different severities (nullable-to-non-nullable as `Error`,
+non-nullable-to-nullable as `Info`). One ID-level override would apply to both and silently promote the
+informational one, failing builds on `string` → `string?` mappings that are safe today. Leaving it out
+preserves its shipped per-descriptor behaviour. Minimal sets it to `suggestion`, which removes the
+build-breaking descriptor without promoting the informational one.
 
 Reference one from your project file:
 

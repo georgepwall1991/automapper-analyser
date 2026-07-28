@@ -18,9 +18,22 @@ Severity presets for brownfield adoption (no rule ID, severity, or behaviour cha
 - **README "Adopting in an existing codebase"** section documenting the ramp. Five rules default to
   `error` (`AM001`, `AM002`, `AM003`, `AM011`, `AM030`), so a first install on a mature codebase could
   break the build with no documented softening path.
-- **`SeverityPresetTests`** — drift tests asserting both presets cover every `RuleCatalog` rule exactly
-  once with valid severities, that Recommended matches shipped descriptor defaults, that Minimal never
-  uses `error`, that Minimal is never stricter than Recommended, and that both are packed.
+- **`SeverityPresetTests`** — drift tests asserting presets only configure catalog rules with valid
+  severities, that Recommended matches shipped descriptor defaults and *omits* rule IDs whose
+  descriptors ship at different severities, that Minimal covers every rule, never uses `error`, is
+  never stricter than Recommended, and documents a `WarningsNotAsErrors` list covering every rule it
+  sets to warning, and that both presets are packed.
+
+### Notes
+
+- **AM002 is omitted from Recommended by design.** A severity setting is keyed by rule ID, but AM002
+  ships two descriptors at different severities (`Error` and `Info`). One ID-level override applies to
+  both, so setting it would promote the informational descriptor and fail builds on `string` →
+  `string?` mappings that are safe today. Minimal sets it to `suggestion`, removing the build-breaking
+  descriptor without promoting the informational one.
+- **Minimal controls severity, not build settings.** Under `TreatWarningsAsErrors` warnings are
+  promoted independently of analyzer configuration, so the preset documents a `WarningsNotAsErrors`
+  list — kept complete by a test — rather than claiming to prevent it.
 
 ### Validation
 
