@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- **Chain-length scaling measurements** in the throughput suite. Each destination member's configuration
+  check re-walks the fluent chain from its `CreateMap`, so cost grows with the product of chain length
+  and member count. Measured: 2.1x at 20 `ForMember` calls, 4.0x–5.0x at 60, while compile cost over the
+  same range scales roughly linearly. This is the evidence for caching member-configuration state per
+  mapping — recorded and monitored rather than acted on, since the absolute cost stays well inside budget
+  and that refactor changes shared semantics across five analyzers.
+
 ### Changed
 
 - **`AM020MappingConfigurationHelpers` renamed to `MappingConfigurationHelpers`.** It is consumed by 13
