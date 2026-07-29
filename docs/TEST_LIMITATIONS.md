@@ -59,12 +59,19 @@ walks the fluent chain from its `CreateMap`, so a profile with many `ForMember` 
 chain once per member. Compile cost scales roughly linearly across 2 → 20 → 60 calls while analysis does
 not (2.1x → 2.1x → 4.0x–5.0x).
 
-That is the evidence for the remaining phase of the shared mapping model: caching member-configuration
-state once per `CreateMap` instead of re-deriving it per member. It is **not yet done**, because the
-absolute cost stays well inside budget at realistic profile sizes and the refactor changes shared
-semantics across AM001/AM002/AM003/AM020/AM021 where the golden snapshot is the only safety net. The
-measurement is recorded here so the trend is monitored rather than rediscovered, and so the decision to
-defer is reviewable rather than implicit. The budget is **20x**, roughly 3x above the noisy high, to catch an order-of-magnitude
+That measurement motivated caching the configuration chain walk once per `CreateMap` instead of
+re-deriving it for every member. Measured before and after with equal sampling (n=5 each):
+
+| Fixture | Before | After |
+| --- | --- | --- |
+| 60 `ForMember` calls | 5.12x (4.55–5.68) | **3.82x (3.37–4.16)** |
+| 20 `ForMember` calls | 1.65x (1.49–1.81) | 1.94x (1.77–2.08) |
+| Scaling gap (60/20) | 3.10 | **1.97** |
+
+The long-chain case improves 25% with non-overlapping ranges, and the superlinearity roughly halves.
+Short chains are about 18% worse: there is little to memoise, so the lookup costs more than the walk it
+replaces. That trade is deliberate — the budget exists to bound the pathological case, and the absolute
+cost on short chains is small — but it is a real regression and is recorded rather than omitted. The budget is **20x**, roughly 3x above the noisy high, to catch an order-of-magnitude
 regression without firing on runner noise. Tighten only with evidence from a quiet machine.
 
 ## Generated type-shape coverage

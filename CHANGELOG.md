@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Changed
+
+- **Configuration chain walk cached per mapping.** Callers ask "is this destination member configured?"
+  once per member, and each question re-walked the whole fluent chain binding every call in it — M
+  configuration calls against M members meant M-squared semantic binds for an answer that does not change
+  between questions.
+
+  Measured before and after with equal sampling (n=5 each): a 60-`ForMember` fixture improves from
+  5.12x to **3.82x** its compile cost with non-overlapping ranges, and the gap between 60-call and
+  20-call fixtures halves from 3.10 to 1.97. Short chains are ~18% worse (1.65x to 1.94x) because there
+  is little to memoise and the lookup costs more than the walk — a deliberate trade, recorded rather
+  than omitted.
+
+  Behaviour is unchanged: 2441 tests pass and the sample-diagnostics trust snapshot is byte-identical.
+
 ### Documentation
 
 - **Trusted Publishing readiness** in `docs/CI-CD.md`. Publishing still uses a long-lived API key;
