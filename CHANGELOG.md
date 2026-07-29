@@ -8,8 +8,9 @@
   That target was previously enforced only by the hosted service — the upload step sets
   `fail_ci_if_error: false`, so a failed or missing upload is not a build failure, and the status check
   can be absent on a fork or without a token. The script reads the threshold out of `codecov.yml` rather
-  than repeating it, compares at full precision so a value fractionally below the floor cannot round
-  into passing, and was verified to fail by temporarily raising the declared target. CI only.
+  than repeating it, computes coverage from the exact covered/valid line counts rather than Cobertura's
+  pre-rounded `line-rate`, so a value fractionally below the floor cannot arrive already rounded into
+  passing, and was verified to fail by temporarily raising the declared target. CI only.
 
 ### Changed
 

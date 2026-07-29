@@ -60,11 +60,23 @@ if [[ -z "$report" ]]; then
   exit 1
 fi
 
-# Full precision for the comparison. Rounding first would let 77.999% read as 78.00 and pass a floor of
-# 78 - a gate that silently accepts a violation is worse than no gate.
+# Computed from the exact covered/valid line counts rather than the line-rate attribute. Cobertura
+# rounds line-rate before writing it - a report measuring 88.161463% carries 0.8816 - so comparing that
+# value is not the full-precision check it looks like, and a result fractionally below the floor can
+# arrive already rounded up to it. A gate that silently accepts a violation is worse than no gate.
 actual="$(python3 - "$report" <<'PY'
 import sys, xml.etree.ElementTree as ET
-print(repr(float(ET.parse(sys.argv[1]).getroot().get('line-rate')) * 100))
+
+root = ET.parse(sys.argv[1]).getroot()
+covered = root.get("lines-covered")
+valid = root.get("lines-valid")
+
+if covered is not None and valid is not None and int(valid) > 0:
+    print(repr(int(covered) / int(valid) * 100))
+else:
+    # Reports without the counts fall back to the rounded rate rather than failing outright, accepting
+    # the precision limitation only where there is no alternative.
+    print(repr(float(root.get("line-rate")) * 100))
 PY
 )"
 
