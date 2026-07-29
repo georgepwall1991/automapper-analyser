@@ -82,7 +82,10 @@ for class_element in root.iter("class"):
     for lines_element in (child for child in class_element if child.tag == "lines"):
         for line in lines_element:
             executed = int(line.get("hits", "0")) > 0
-            is_branch = line.get("branch", "false") == "true"
+            # Coverlet writes branch="True"/"False" with a capital letter. A case-sensitive comparison
+            # here matches nothing, silently classifies every partially covered line as a full hit, and
+            # makes the gate report a materially higher number than Codecov for the same commit.
+            is_branch = line.get("branch", "false").strip().lower() == "true"
             fully_covered = not is_branch or line.get("condition-coverage", "").startswith("100%")
 
             if executed and fully_covered:
