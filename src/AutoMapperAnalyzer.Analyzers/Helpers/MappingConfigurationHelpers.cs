@@ -543,25 +543,38 @@ internal static class MappingConfigurationHelpers
     ///     Callers ask "is this destination member configured?" once per member, and each question
     ///     re-walked the whole chain binding every call in it. For a profile with M configuration calls
     ///     and M members that is M-squared semantic binds for an answer that does not change between
-    ///     questions. Measured on a 60-call fixture, analysis cost roughly 5x its compile time while a
-    ///     20-call fixture cost under 2x - the gap is this walk.
+    ///     questions.
     ///     </para>
     ///     <para>
-    ///     Keyed on the CreateMap syntax node, which belongs to one compilation and pairs with one
-    ///     semantic model, so a cached list can never be read against a different compilation. Entries
-    ///     are collected with their syntax tree. GetValue is atomic, which matters because analyzers run
-    ///     concurrently; a race produces a duplicate computation of the same list, never a wrong one.
+    ///     Keyed by compilation first, then by syntax node. Roslyn does not tie a syntax node to one
+    ///     compilation - an IDE reuses an unchanged tree across snapshots when a reference or another
+    ///     document changes - so a node-only key would serve results computed against a previous
+    ///     semantic model. A call that did not resolve as an AutoMapper method before a reference was
+    ///     added would stay cached as "not configuration", and the rules reading this would report
+    ///     stale diagnostics. Tests would not catch it, because a test builds one compilation.
+    ///     </para>
+    ///     <para>
+    ///     Both levels are weak, so entries are collected with their compilation and syntax tree.
+    ///     GetValue is atomic, which matters because analyzers run concurrently; a race duplicates a
+    ///     computation rather than producing a wrong result.
     ///     </para>
     /// </summary>
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<
-        InvocationExpressionSyntax,
-        IReadOnlyList<InvocationExpressionSyntax>> ConfigurationCallCache = new();
+        Compilation,
+        System.Runtime.CompilerServices.ConditionalWeakTable<
+            InvocationExpressionSyntax,
+            IReadOnlyList<InvocationExpressionSyntax>>> ConfigurationCallCache = new();
 
     private static IReadOnlyList<InvocationExpressionSyntax> GetMappingConfigurationCalls(
         InvocationExpressionSyntax createMapInvocation,
         SemanticModel semanticModel)
     {
-        if (ConfigurationCallCache.TryGetValue(createMapInvocation, out IReadOnlyList<InvocationExpressionSyntax>? cached))
+        System.Runtime.CompilerServices.ConditionalWeakTable<
+            InvocationExpressionSyntax,
+            IReadOnlyList<InvocationExpressionSyntax>> perCompilation =
+            ConfigurationCallCache.GetValue(semanticModel.Compilation, _ => new());
+
+        if (perCompilation.TryGetValue(createMapInvocation, out IReadOnlyList<InvocationExpressionSyntax>? cached))
         {
             return cached;
         }
@@ -582,7 +595,7 @@ internal static class MappingConfigurationHelpers
         }
 
         IReadOnlyList<InvocationExpressionSyntax> result = mappingCalls;
-        return ConfigurationCallCache.GetValue(createMapInvocation, _ => result);
+        return perCompilation.GetValue(createMapInvocation, _ => result);
     }
 
     public static string? GetSelectedTopLevelMemberName(SyntaxNode expression)
