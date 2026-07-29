@@ -24,7 +24,8 @@ public class AM050_RedundantMapFromAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Configuration",
         DiagnosticSeverity.Info,
         true,
-        "AutoMapper automatically maps properties with the same name. Explicit MapFrom configuration is unnecessary.");
+        "AutoMapper automatically maps properties with the same name. Explicit MapFrom configuration is unnecessary.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM050"));
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [RedundantMapFromRule];

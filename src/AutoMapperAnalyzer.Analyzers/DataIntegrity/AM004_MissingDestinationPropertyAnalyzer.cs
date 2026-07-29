@@ -23,7 +23,8 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
         "AutoMapper.MissingProperty",
         DiagnosticSeverity.Warning,
         true,
-        "Source property exists but no corresponding destination property found, which may result in data loss during mapping.");
+        "Source property exists but no corresponding destination property found, which may result in data loss during mapping.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM004"));
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>

@@ -45,7 +45,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Performance",
         DiagnosticSeverity.Warning,
         true,
-        "Expensive operations (database queries, API calls, file I/O, blocking calls) should be performed before mapping, not during.");
+        "Expensive operations (database queries, API calls, file I/O, blocking calls) should be performed before mapping, not during.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM034"));
 
     /// <summary>
     ///     Diagnostic rule for multiple enumerations of the same collection (AM031).
@@ -57,7 +58,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Performance",
         DiagnosticSeverity.Warning,
         true,
-        "Multiple enumerations of IEnumerable can cause performance issues. Cache the result before multiple operations.");
+        "Multiple enumerations of IEnumerable can cause performance issues. Cache the result before multiple operations.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM031"));
 
     /// <summary>
     ///     Diagnostic rule for expensive computations in mapping (AM035).
@@ -69,7 +71,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Performance",
         DiagnosticSeverity.Warning,
         true,
-        "Complex computations in mapping expressions can impact performance. Consider computing values before mapping.");
+        "Complex computations in mapping expressions can impact performance. Consider computing values before mapping.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM035"));
 
     /// <summary>
     ///     Diagnostic rule for synchronous access of async operations (AM036).
@@ -81,7 +84,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Performance",
         DiagnosticSeverity.Warning,
         true,
-        "Using Task.Result, Task.Wait(), Task.WaitAll(), Task.WaitAny(), or GetAwaiter().GetResult() in mapping can cause deadlocks and performance issues. Await async operations before mapping.");
+        "Using Task.Result, Task.Wait(), Task.WaitAll(), Task.WaitAny(), or GetAwaiter().GetResult() in mapping can cause deadlocks and performance issues. Await async operations before mapping.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM036"));
 
     /// <summary>
     ///     Diagnostic rule for complex LINQ operations (AM037).
@@ -93,7 +97,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Performance",
         DiagnosticSeverity.Warning,
         true,
-        "Complex LINQ operations with SelectMany, multiple Where clauses, or nested queries can impact performance.");
+        "Complex LINQ operations with SelectMany, multiple Where clauses, or nested queries can impact performance.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM037"));
 
     /// <summary>
     ///     Diagnostic rule for non-deterministic operations in mapping (AM038).
@@ -105,7 +110,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Performance",
         DiagnosticSeverity.Info,
         true,
-        "Non-deterministic operations (DateTime.Now/UtcNow, DateTimeOffset.Now/UtcNow, Random, RandomNumberGenerator, Guid.NewGuid, Environment state operations) make mappings harder to test. Consider computing before mapping.");
+        "Non-deterministic operations (DateTime.Now/UtcNow, DateTimeOffset.Now/UtcNow, Random, RandomNumberGenerator, Guid.NewGuid, Environment state operations) make mappings harder to test. Consider computing before mapping.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM038"));
 
     /// <summary>
     ///     Gets the supported diagnostics for this analyzer.

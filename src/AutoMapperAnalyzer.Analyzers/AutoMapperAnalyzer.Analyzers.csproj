@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>92</PatchVersion>
+        <PatchVersion>93</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.92 - faster analysis on code unrelated to AutoMapper
-- Analyzers register on every invocation in a compilation; the shared AutoMapper-method check now compares the invoked name syntactically before binding symbols
-- Shapes whose name cannot be read still resolve semantically, so the gate can only skip work and never changes a diagnostic
-- Measured against a new throughput baseline: directionally ~12% lower analysis time on code that is mostly unrelated to AutoMapper
+                <PackageReleaseNotes>Version 2.30.93 - every diagnostic links to its documentation
+- All 23 rules now set HelpLinkUri, so IDEs offer "learn more" on every AutoMapper diagnostic
+- Links point at the rule's own section of DIAGNOSTIC_RULES.md rather than the top of the document
+- Anchors come from one source shared with the rule catalog, and tests assert every link resolves to a real heading
 - No rule ID, severity, or diagnostic changes
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>

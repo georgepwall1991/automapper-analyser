@@ -36,7 +36,8 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Collections",
         DiagnosticSeverity.Error,
         true,
-        "Source and destination properties have incompatible collection types that require explicit conversion configuration.");
+        "Source and destination properties have incompatible collection types that require explicit conversion configuration.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM003"));
 
     /// <summary>
     ///     Legacy descriptor retained for binary compatibility. Element-level incompatibility is owned by
@@ -58,7 +59,8 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Collections",
         DiagnosticSeverity.Warning,
         true,
-        "Collection properties have compatible collection types but incompatible element types that may require custom mapping.");
+        "Collection properties have compatible collection types but incompatible element types that may require custom mapping.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM003"));
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>

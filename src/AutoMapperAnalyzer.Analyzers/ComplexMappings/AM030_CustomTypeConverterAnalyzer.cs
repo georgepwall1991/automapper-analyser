@@ -24,7 +24,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Converters",
         DiagnosticSeverity.Error,
         true,
-        "Custom type converters must implement ITypeConverter<TSource, TDestination> with proper Convert method signature.");
+        "Custom type converters must implement ITypeConverter<TSource, TDestination> with proper Convert method signature.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM030"));
 
     /// <summary>
     ///     Legacy descriptor retained for binary compatibility. AM001, AM020, and AM021 own missing-converter
@@ -45,7 +46,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Converters",
         DiagnosticSeverity.Warning,
         true,
-        "Type mismatches should use ConvertUsing configuration for proper conversion.");
+        "Type mismatches should use ConvertUsing configuration for proper conversion.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM030"));
 
     /// <summary>
     ///     Diagnostic rule for converter null handling issues.
@@ -57,7 +59,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Converters",
         DiagnosticSeverity.Warning,
         true,
-        "Type converters should handle null input values when source type is nullable.");
+        "Type converters should handle null input values when source type is nullable.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM032"));
 
     /// <summary>
     ///     Diagnostic rule for unused type converters.
@@ -70,7 +73,8 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         DiagnosticSeverity.Info,
         true,
         "Unused type converters can be removed or should be configured in mapping.",
-        customTags: [WellKnownDiagnosticTags.CompilationEnd]);
+        customTags: [WellKnownDiagnosticTags.CompilationEnd],
+        helpLinkUri: RuleDocumentation.LinkFor("AM033"));
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>

@@ -23,7 +23,8 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         "AutoMapper.NestedObjects",
         DiagnosticSeverity.Warning,
         true,
-        "Complex nested objects require explicit mapping configuration to ensure proper data transformation and avoid runtime exceptions.");
+        "Complex nested objects require explicit mapping configuration to ensure proper data transformation and avoid runtime exceptions.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM020"));
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>

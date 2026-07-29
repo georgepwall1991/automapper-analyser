@@ -23,7 +23,8 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         "AutoMapper.DataIntegrity",
         DiagnosticSeverity.Info,
         true,
-        "Destination property exists but has no corresponding source property or explicit mapping.");
+        "Destination property exists but has no corresponding source property or explicit mapping.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM006"));
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>

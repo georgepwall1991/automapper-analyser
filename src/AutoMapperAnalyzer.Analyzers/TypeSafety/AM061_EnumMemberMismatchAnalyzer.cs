@@ -29,7 +29,8 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
         "AutoMapper maps enums by numeric value by default. When a source enum member's numeric value "
         + "corresponds to a differently named (or nonexistent) destination member, the mapping silently "
         + "produces wrong data. Add an explicit name-based conversion, align the enum definitions, or "
-        + "ignore the member deliberately.");
+        + "ignore the member deliberately.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM061"));
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [EnumMemberMismatchRule];

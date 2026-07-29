@@ -23,7 +23,8 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Collections",
         DiagnosticSeverity.Warning,
         true,
-        "Collection properties have compatible collection types but incompatible element types that may require custom mapping.");
+        "Collection properties have compatible collection types but incompatible element types that may require custom mapping.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM021"));
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>

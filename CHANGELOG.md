@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## [2.30.93] - 2026-07-29
+
+Every diagnostic links to its documentation (no rule ID, severity, or diagnostic changes).
+
+### Added
+
+- **`HelpLinkUri` on all 23 rules**, so an IDE offers "learn more" on every AutoMapper diagnostic. No
+  descriptor carried one before, leaving the user to search for what a diagnostic meant.
+- Links point at the **rule's own section** of `DIAGNOSTIC_RULES.md`, not the top of a 77KB document —
+  a user who clicked through from a specific diagnostic has already said which rule they care about.
+- **`Helpers/RuleDocumentation.cs`** holds the anchors once. Descriptors cannot read `RuleCatalog`
+  (the catalog is built from them), so without a shared source the two would repeat each other and drift
+  silently — visible only to a user clicking a dead link.
+- **`RuleHelpLinkTests`** asserts every descriptor has a link, every link resolves to a real heading in
+  the documentation, every link is an absolute https URL, and descriptors sharing a rule ID agree. The
+  first of those caught AM060 being missed by the initial edit.
+
 ### Added
 
 - **Chain-length scaling measurements** in the throughput suite. Each destination member's configuration
