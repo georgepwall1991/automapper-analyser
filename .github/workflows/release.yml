@@ -14,6 +14,13 @@ jobs:
   package:
     name: Build, test, and pack
     runs-on: ubuntu-latest
+    # Job-level permissions replace the workflow defaults, so everything this job needs is listed.
+    # id-token and attestations are required to sign build provenance; the job only reads the
+    # repository, so contents stays read even though the workflow default is write.
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     outputs:
       package-sha256: ${{ steps.package.outputs.sha256 }}
       version: ${{ steps.version.outputs.version }}
@@ -82,6 +89,16 @@ jobs:
           fi
           package=${packages[0]}
           echo "sha256=$(sha256sum "$package" | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+
+      # Attests the exact bytes that were just checksummed, and that the publish job re-verifies against
+      # the same digest before pushing. A consumer can then confirm the package on NuGet was built by
+      # this workflow from this repository, rather than trusting that whoever uploaded it was us:
+      #   gh attestation verify AutoMapperAnalyzer.Analyzers.<version>.nupkg \
+      #     --repo georgepwall1991/automapper-analyser
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: ./nupkg/*.nupkg
 
       - name: Upload immutable package artifact
         uses: actions/upload-artifact@v7

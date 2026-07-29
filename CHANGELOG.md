@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## [2.30.94] - 2026-07-29
+
+Verifiable build provenance (no rule ID, severity, or diagnostic changes).
+
+### Added
+
+- **Build provenance attestation** on the published package. A consumer can confirm the `.nupkg` on
+  NuGet was built by this repository's release workflow rather than trusting that whoever uploaded it
+  was us:
+
+  ```
+  gh attestation verify AutoMapperAnalyzer.Analyzers.2.30.94.nupkg --repo georgepwall1991/automapper-analyser
+  ```
+
+  The attestation covers the exact bytes that the publish job re-verifies by checksum before pushing,
+  so provenance and the published artifact cannot diverge. Permissions are scoped to the packaging job
+  rather than the whole workflow.
+
 ### Added
 
 - **`scripts/check-coverage.sh`** enforces the coverage target `codecov.yml` already declares, in CI.
