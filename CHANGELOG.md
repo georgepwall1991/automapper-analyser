@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+## [2.30.97] - 2026-07-29
+
+AM011 now reports a required destination member that an included child map explicitly ignores (no rule ID
+or severity changes).
+
+### Fixed
+
+- **`IncludeMembers` child-map `Ignore()` no longer suppresses AM011.** When a child map declared
+  `ForMember(d => d.Name, o => o.Ignore())` or `ForAllMembers(o => o.Ignore())`, AM011 stayed silent even
+  though AutoMapper rejects that configuration at startup. The repository documented this as a known
+  limitation and asserted it in two `*_KnownLimitation` tests; the premise was re-verified against the
+  real AutoMapper runtime before changing anything, rather than trusted from the note.
+
+  The distinction that makes this safe is between *reading* and *inferring*. 2.30.88 deliberately refused
+  to infer that a child map fails to supply a member, because approximating that produced Error-severity
+  false positives. An explicit `Ignore()` is not an inference - the map states it does not supply the
+  member. Everything that cannot be read this way still suppresses:
+
+  - unresolved `IncludeMembers` selectors, unchanged;
+  - ambiguous child maps (two registrations for the same pair), which cannot be read at all;
+  - `ForPath(d => d.Detail.Name, ...)`, which designates a nested path and must not be mistaken for the
+    top-level member sharing its name;
+  - a map carrying both an explicit `MapFrom` and a map-wide `Ignore`, where the outcome depends on
+    application order this scope does not model - a false negative there is the deliberate trade on an
+    `Error` rule.
+
+  The `Ignore()` call must resolve to the configuration lambda's own options parameter. Matching any
+  zero-argument call named `Ignore` would also match an unrelated helper — `o => o.Condition((src, dest,
+  sm, dm) => Settings.Ignore())` — and reading that as a map-level ignore would turn a valid mapping into
+  an Error-severity false positive. Cross-review caught that before release; it has its own test.
+
+  Five negative tests pin those boundaries alongside the two flipped cases.
+
 ## [2.30.96] - 2026-07-29
 
 Faster analysis of profiles with long fluent chains (no rule ID, severity, or diagnostic changes).

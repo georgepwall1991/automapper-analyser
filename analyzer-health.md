@@ -1,12 +1,12 @@
 # Analyzer Health
 
-Reviewed: 2026-07-29 (monitor sweep after **2.30.88–2.30.96**; the evidence base changed materially — see *How defects are found*)
+Reviewed: 2026-07-29 (monitor sweep after **2.30.88–2.30.97**; the evidence base changed materially — see *How defects are found*)
 
 This is a deliberately harsh health audit for the **23** implemented AutoMapper analyzer rule IDs in this repository (16 before the 2.30.62 performance split). Several rule IDs still expose multiple diagnostic descriptors, especially `AM002` and `AM022`; the scorecard rates the public rule ID as the user experiences it.
 
 Every implemented rule currently has an analyzer and a code fix provider. Scores are 1-5, where `5` means reference-quality and hard to improve, `3` means usable but meaningfully incomplete, and `1` means unreliable or underbuilt.
 
-**Ship status:** production-acceptable. **2.30.96** configuration calls resolved once per mapping (long-chain analysis ~25% cheaper); **2.30.95** corrected provenance verification instructions; **2.30.94** published packages carry verifiable build provenance; **2.30.93** every diagnostic carries a documentation help link; **2.30.92** syntactic gate before symbol binding (measured against the new throughput baseline); **2.30.91** AM041 respects independent `MapperConfiguration` containers (first defect found by third-party corpus scanning); **2.30.90** severity presets for brownfield adoption; **2.30.89** AutoMapper 15/16 added to the verified compatibility contract; **2.30.88** `IncludeMembers` awareness closes an Error-severity AM011 false positive plus matching AM004/AM006 gaps; **2.30.87** discoverability assets (CreateMap metadata, funnel README, product-flow visuals); **2.30.86** AM020 computed receivers are captured exactly once before missing nested-map insertion; **2.30.85** AM021 nested collection safety and dependency refresh; **2.30.84** new AM060 unregistered type map at call site + AM061 enum member mismatch rules (Codex cross-reviewed, two rounds); **2.30.83** AM021 Stack conversion order safety; **2.30.82** AM021 direct-statement and conditional-region safety; **2.30.81** AM020 conditional block-body insertion safety; **2.30.80** AM020 expression-bodied void-method fixer parity; **2.30.79** AM020 expression-bodied Profile constructor fixer parity; **2.30.78** AM020 stable configuration receiver fixes. Every rule now has minimum health 4. Full suite green; catalog/snapshots and package smoke verification are current.
+**Ship status:** production-acceptable. **2.30.97** AM011 reports required members an included child map explicitly ignores, closing the one residual this queue still carried; **2.30.96** configuration calls resolved once per mapping (long-chain analysis ~25% cheaper); **2.30.95** corrected provenance verification instructions; **2.30.94** published packages carry verifiable build provenance; **2.30.93** every diagnostic carries a documentation help link; **2.30.92** syntactic gate before symbol binding (measured against the new throughput baseline); **2.30.91** AM041 respects independent `MapperConfiguration` containers (first defect found by third-party corpus scanning); **2.30.90** severity presets for brownfield adoption; **2.30.89** AutoMapper 15/16 added to the verified compatibility contract; **2.30.88** `IncludeMembers` awareness closes an Error-severity AM011 false positive plus matching AM004/AM006 gaps; **2.30.87** discoverability assets (CreateMap metadata, funnel README, product-flow visuals); **2.30.86** AM020 computed receivers are captured exactly once before missing nested-map insertion; **2.30.85** AM021 nested collection safety and dependency refresh; **2.30.84** new AM060 unregistered type map at call site + AM061 enum member mismatch rules (Codex cross-reviewed, two rounds); **2.30.83** AM021 Stack conversion order safety; **2.30.82** AM021 direct-statement and conditional-region safety; **2.30.81** AM020 conditional block-body insertion safety; **2.30.80** AM020 expression-bodied void-method fixer parity; **2.30.79** AM020 expression-bodied Profile constructor fixer parity; **2.30.78** AM020 stable configuration receiver fixes. Every rule now has minimum health 4. Full suite green; catalog/snapshots and package smoke verification are current.
 
 ## How defects are found
 
@@ -111,15 +111,15 @@ Use this table as the hardening queue. Ranking = **Importance × (5 − min(Anal
 
 **Recommended next hardening batch:**
 
-One rule-level residual is retained rather than closed, and it is deliberately deferred rather than
-merely unproven: **AM011 does not report when an `IncludeMembers` child map ignores a required member**
-(`ForMember(... Ignore())` or `ForAllMembers(... Ignore())`). AutoMapper rejects that configuration at
-startup, so it is a real false negative, reproduced by `IncludeMembersTests.*_KnownLimitation` — which
-assert the shipped behaviour, not the ideal one — and recorded in `docs/TEST_LIMITATIONS.md`. It stays
-deferred because every attempt to infer that a child map *fails* to supply a member produced
-Error-severity false positives during 2.30.88, and on an `Error` rule a false positive breaks builds
-while this false negative merely fails to prevent a startup error the consumer still sees. Reopen it
-only with a design that cannot fire on an unresolvable child map.
+The AM011 `IncludeMembers`-child-`Ignore` false negative this section carried as *deferred* is **closed
+in 2.30.97**, and how it was closed is the reusable part. The reopening condition recorded here was "a
+design that cannot fire on an unresolvable child map". Reading an explicit `ForMember(... Ignore())` or
+`ForAllMembers(... Ignore())` meets it, because an explicit `Ignore` is a statement by the map rather
+than an inference about it — which is precisely what 2.30.88 refused to do and was right to refuse. The
+premise was re-verified against the real AutoMapper runtime before any code changed, rather than trusted
+from the note asserting it, and four negative tests pin the boundaries that still suppress: unresolved
+selectors, ambiguous child maps, `ForPath` nested ignores, and maps carrying both a `MapFrom` and a
+map-wide `Ignore`.
 
 Beyond that, the rule-by-rule queue is at monitor priority. The productive work is in the evidence
 sources rather than the rules, because that is where this batch's two defects actually came from.

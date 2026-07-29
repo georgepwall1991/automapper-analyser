@@ -199,10 +199,16 @@ choosing inputs where fixed and unfixed output *differ*, not adding more asserti
 diagnostic: the included type's declared shape, its flattening convention, and an explicit
 `ForMember`/`ForPath(... MapFrom(...))` on the uniquely registered child map.
 
-It deliberately does **not** infer that a child map *fails* to supply a member — for example when the
-child map ignores it via `ForMember(... Ignore())` or `ForAllMembers(... Ignore())`. AutoMapper does
-reject those configurations at startup, so this is a real false negative, and
-`IncludeMembersTests.*_KnownLimitation` assert the shipped behaviour rather than the ideal one.
+Since **2.30.97** it also reads the one child-map fact that can be read rather than inferred: an explicit
+`ForMember(d => d.X, o => o.Ignore())` or `ForAllMembers(o => o.Ignore())` states that the map does not
+supply the member, AutoMapper rejects such configurations at startup, and AM011 now reports it.
+
+It still deliberately does **not** *infer* that a child map fails to supply a member. These stay
+suppressing, each pinned by a negative test: unresolved selectors; ambiguous child maps (two
+registrations for the same pair); `ForPath` ignores of a nested member sharing a top-level name; and a
+map carrying both an explicit `MapFrom` and a map-wide `Ignore`, where the result depends on an
+application order this scope does not model. On an `Error`-severity rule a false negative in an
+ambiguous case is preferable to a false positive.
 
 ### Deferred configuration through a mapping local (pre-existing, repo-wide)
 
