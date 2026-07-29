@@ -121,6 +121,71 @@ The split exists because GitHub cannot resolve local reusable workflows (`uses: 
 - **Current**: 2.30.95
 - **Pre-release**: 2.30.95-preview, 2.30.95-beta
 
+### Trusted Publishing (not enabled — requires an account-side policy first)
+
+Publishing currently uses a long-lived API key in `secrets.NUGET_API_KEY`. NuGet.org supports Trusted
+Publishing, which replaces that with a short-lived OIDC-issued key, removing the stored secret entirely.
+
+**This is deliberately not wired up**, because the workflow change alone would break releases. NuGet
+issues the temporary key only when an incoming OIDC token matches a policy that must already exist on
+nuget.org, and only the package owner can create it. Switching `release.yml` first would mean the next
+tag builds, tests, verifies compatibility, and then fails at the push step.
+
+**Step 1 — create the policy (nuget.org, owner only).** Sign in, open the account menu → *Trusted
+Publishing*, and add a policy:
+
+| Field | Value |
+| --- | --- |
+| Repository Owner | `georgepwall1991` |
+| Repository | `automapper-analyser` |
+| Workflow File | `release.yml` (file name only, no path) |
+| Environment | leave empty — this workflow uses no GitHub environment |
+
+If the *Trusted Publishing* option is absent, the feature has not reached the account yet; it is being
+rolled out gradually. Policies on private repositories start in a 7-day provisional state and become
+permanent after the first successful publish.
+
+**Step 2 — add `NUGET_USER`** to repository secrets: the nuget.org *profile name*, not an email
+address. `NuGet/login@v1` requires it and fails the login if it is empty.
+
+**Step 3 — edit the `publish` job in `release.yml`.** Three edits, not a wholesale replacement — the
+job already has `steps:` including the checkout and artifact download that produce
+`steps.package.outputs.path`.
+
+Add a job-level `permissions` block. Job-level permissions **replace** the workflow defaults rather
+than adding to them, so `contents: write` must be restated: the same job creates the GitHub release
+with `softprops/action-gh-release`, which fails without it.
+
+```yaml
+  publish:
+    name: Publish verified package
+    needs: [package, compatibility]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # required by the GitHub release step later in this job
+      id-token: write      # OIDC token issuance for the NuGet token exchange
+```
+
+Insert the login step immediately before the existing push step. The issued key is single-use and
+expires after an hour, so it must not be requested earlier in the job:
+
+```yaml
+      - name: NuGet login (OIDC to short-lived key)
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+```
+
+Then change only the `--api-key` argument of the existing push step, leaving the rest as-is:
+
+```yaml
+          --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+```
+
+`NUGET_API_KEY` can be deleted from repository secrets once a release has published successfully this
+way.
+
 ### Coverage
 
 `codecov.yml` declares a project target of 80% with 2% slack. `scripts/check-coverage.sh` enforces that
@@ -159,7 +224,8 @@ Configure these in GitHub repository settings:
 
 | Secret | Description | Required For |
 |--------|-------------|--------------|
-| `NUGET_API_KEY` | NuGet.org API key for publishing | Release pipeline |
+| `NUGET_API_KEY` | NuGet.org API key for publishing. Removable after migrating to Trusted Publishing | Release pipeline |
+| `NUGET_USER` | nuget.org profile name (not an email address). Only needed after migrating to Trusted Publishing | Release pipeline, post-migration |
 | `CODECOV_TOKEN` | Codecov upload token | Coverage reporting |
 
 ### Environment Variables

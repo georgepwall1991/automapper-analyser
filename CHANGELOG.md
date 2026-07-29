@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Documentation
+
+- **Trusted Publishing readiness** in `docs/CI-CD.md`. Publishing still uses a long-lived API key;
+  NuGet.org's OIDC-based Trusted Publishing would remove that stored secret. It is documented rather
+  than enabled because the workflow change alone breaks releases: NuGet issues the short-lived key only
+  against a policy that must already exist on nuget.org, and only the package owner can create it, so
+  switching `release.yml` first would fail every tag at the push step. The exact policy fields and the
+  ready-to-apply workflow diff are recorded so enabling it is a single step once the policy exists.
+
 ## [2.30.95] - 2026-07-29
 
 Corrects the provenance verification instructions shipped in 2.30.94 (no rule ID, severity, or
