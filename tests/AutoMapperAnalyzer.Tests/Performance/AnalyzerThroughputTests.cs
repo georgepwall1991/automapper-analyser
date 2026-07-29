@@ -235,16 +235,14 @@ public class AnalyzerThroughputTests(ITestOutputHelper output)
         );
         output.WriteLine($"AM diagnostics: {measurement.AmDiagnostics}");
 
-        // A run that produced nothing would usually make the timing meaningless. The long-chain fixture
-        // is the exception: every member is explicitly configured, so a correct analyzer reports nothing
-        // and the cost being measured is precisely the configuration checking.
-        if (!label.StartsWith("long chain", StringComparison.Ordinal))
-        {
-            Assert.True(
-                measurement.AmDiagnostics > 0,
-                "Fixture produced no AM diagnostics; timing is not meaningful."
-            );
-        }
+        // A fixture that produced nothing would make the timing meaningless: an analyzer that silently
+        // stopped running would look arbitrarily fast. Every fixture here reports something, including
+        // the long-chain one - its generated MapFrom calls map identical names and types, so AM050
+        // reports one per call.
+        Assert.True(
+            measurement.AmDiagnostics > 0,
+            "Fixture produced no AM diagnostics; the timing is not measuring analysis."
+        );
     }
 
     /// <summary>

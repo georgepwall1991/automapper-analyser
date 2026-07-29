@@ -30,9 +30,12 @@ Two methodology points, both learned by getting them wrong first:
 
 - Roslyn memoises `GetDiagnostics()`, so timing a warmed compile against a fresh analyzer run measures
   caching. Each side gets its own cold `Compilation`, after a discarded warm-up pass for JIT.
-- A fixture that produces no diagnostics makes the timing meaningless. The tests assert AM diagnostics
-  were produced; that guard caught the diamond fixture being a DAG rather than cyclic, which meant AM022
-  — the analyzer it exists to stress — never ran.
+- A fixture that produces no diagnostics makes the timing meaningless — an analyzer that silently stopped
+  running would look arbitrarily fast. Every fixture asserts it produced AM diagnostics. That guard caught
+  the diamond fixture being a DAG rather than cyclic, so AM022 — the analyzer it exists to stress — never
+  ran. It was later almost removed for the long-chain fixture on the false premise that a fully configured
+  mapping reports nothing; it reports one AM050 per generated `MapFrom`, since those map identical names
+  and types. The guard applies to every fixture without exception.
 
 Three fixtures are measured. The mapping-dense one (60 type pairs) and the cyclic diamond stress
 specific analyzers; the **mostly-unrelated** fixture (~2400 ordinary method calls around 60 mapped
