@@ -60,20 +60,18 @@ if [[ -z "$report" ]]; then
   exit 1
 fi
 
-# Computed from the exact covered/valid line counts rather than the line-rate attribute. Cobertura
-# rounds line-rate before writing it - a report measuring 88.161463% carries 0.8816 - so comparing that
-# value is not the full-precision check it looks like, and a result fractionally below the floor can
-# arrive already rounded up to it. A gate that silently accepts a violation is worse than no gate.
+# Counted line by line rather than read from the report's own attributes. line-rate is rounded before
+# it is written, so comparing it is not the full-precision check it appears to be, and lines-covered
+# credits partially covered lines as covered where Codecov does not. Both shortcuts make the gate
+# disagree with the target it claims to enforce.
 actual="$(python3 - "$report" <<'PY'
-import sys, xml.etree.ElementTree as ET
+import re, sys, xml.etree.ElementTree as ET
 
 root = ET.parse(sys.argv[1]).getroot()
 
-# Counted per line rather than read from lines-covered, so a partially covered line is not credited as
-# covered. Codecov reports partials separately from hits, and lines-covered includes them; on reports
-# that contain partials the two metrics diverge, and this gate would then be more lenient than the
-# service whose target it claims to enforce. Current reports from this suite record no partials, so the
-# two agree today - this keeps them agreeing if that changes.
+# A partially covered line counts as neither hit nor missed, matching how Codecov separates partials
+# from hits. This is not hypothetical for this repository: the current report contains 800 partial
+# lines, and crediting them as covered reports 90.44% where Codecov reports 83.67%.
 #
 # Lines appear twice in a Cobertura document, under <class> and again under <method>. Only the
 # class-level list is counted; iterating every <line> double-counts the file.
@@ -81,17 +79,26 @@ hits = partial = missed = 0
 for class_element in root.iter("class"):
     for lines_element in (child for child in class_element if child.tag == "lines"):
         for line in lines_element:
-            executed = int(line.get("hits", "0")) > 0
-            # Coverlet writes branch="True"/"False" with a capital letter. A case-sensitive comparison
-            # here matches nothing, silently classifies every partially covered line as a full hit, and
-            # makes the gate report a materially higher number than Codecov for the same commit.
+            # Coverlet writes branch="True"/"False" with a capital letter; a case-sensitive comparison
+            # matches nothing and silently counts every partial line as a full hit.
             is_branch = line.get("branch", "false").strip().lower() == "true"
-            fully_covered = not is_branch or line.get("condition-coverage", "").startswith("100%")
+            condition = re.search(r"\((\d+)/(\d+)\)", line.get("condition-coverage", ""))
 
-            if executed and fully_covered:
+            if is_branch and condition:
+                # For branch lines Codecov derives status from the covered/total fraction and ignores
+                # hits, which Coverlet may record as 0 even where some conditions were covered - 33 such
+                # lines exist in this report. Requiring hits > 0 first counts them as missed and makes
+                # the gate stricter than the target it claims to enforce, which near the floor would
+                # reject a commit Codecov accepts.
+                covered, total = int(condition.group(1)), int(condition.group(2))
+                if covered == total:
+                    hits += 1
+                elif covered > 0:
+                    partial += 1
+                else:
+                    missed += 1
+            elif int(line.get("hits", "0")) > 0:
                 hits += 1
-            elif executed:
-                partial += 1
             else:
                 missed += 1
 
