@@ -121,6 +121,56 @@ The split exists because GitHub cannot resolve local reusable workflows (`uses: 
 - **Current**: 2.30.95
 - **Pre-release**: 2.30.95-preview, 2.30.95-beta
 
+### Trusted Publishing (not enabled — requires an account-side policy first)
+
+Publishing currently uses a long-lived API key in `secrets.NUGET_API_KEY`. NuGet.org supports Trusted
+Publishing, which replaces that with a short-lived OIDC-issued key, removing the stored secret entirely.
+
+**This is deliberately not wired up**, because the workflow change alone would break releases. NuGet
+issues the temporary key only when an incoming OIDC token matches a policy that must already exist on
+nuget.org, and only the package owner can create it. Switching `release.yml` first would mean the next
+tag builds, tests, verifies compatibility, and then fails at the push step.
+
+**Step 1 — create the policy (nuget.org, owner only).** Sign in, open the account menu → *Trusted
+Publishing*, and add a policy:
+
+| Field | Value |
+| --- | --- |
+| Repository Owner | `georgepwall1991` |
+| Repository | `automapper-analyser` |
+| Workflow File | `release.yml` (file name only, no path) |
+| Environment | leave empty — this workflow uses no GitHub environment |
+
+If the *Trusted Publishing* option is absent, the feature has not reached the account yet; it is being
+rolled out gradually. Policies on private repositories start in a 7-day provisional state and become
+permanent after the first successful publish.
+
+**Step 2 — apply this change to the publish job in `release.yml`:**
+
+```yaml
+    permissions:
+      contents: read
+      id-token: write        # OIDC token issuance for the token exchange
+
+    steps:
+      - name: NuGet login (OIDC to short-lived key)
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ secrets.NUGET_USER }}   # nuget.org profile name, not an email address
+
+      - name: Publish exact verified package to NuGet
+        run: >-
+          dotnet nuget push "${{ steps.package.outputs.path }}"
+          --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+```
+
+The issued key lasts one hour and is single-use, so the login step must stay immediately before the
+push rather than early in the job. `secrets.NUGET_API_KEY` can be deleted once a release has published
+successfully this way.
+
 ### Coverage
 
 `codecov.yml` declares a project target of 80% with 2% slack. `scripts/check-coverage.sh` enforces that
