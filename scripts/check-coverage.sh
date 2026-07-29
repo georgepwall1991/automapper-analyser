@@ -68,14 +68,35 @@ actual="$(python3 - "$report" <<'PY'
 import sys, xml.etree.ElementTree as ET
 
 root = ET.parse(sys.argv[1]).getroot()
-covered = root.get("lines-covered")
-valid = root.get("lines-valid")
 
-if covered is not None and valid is not None and int(valid) > 0:
-    print(repr(int(covered) / int(valid) * 100))
+# Counted per line rather than read from lines-covered, so a partially covered line is not credited as
+# covered. Codecov reports partials separately from hits, and lines-covered includes them; on reports
+# that contain partials the two metrics diverge, and this gate would then be more lenient than the
+# service whose target it claims to enforce. Current reports from this suite record no partials, so the
+# two agree today - this keeps them agreeing if that changes.
+#
+# Lines appear twice in a Cobertura document, under <class> and again under <method>. Only the
+# class-level list is counted; iterating every <line> double-counts the file.
+hits = partial = missed = 0
+for class_element in root.iter("class"):
+    for lines_element in (child for child in class_element if child.tag == "lines"):
+        for line in lines_element:
+            executed = int(line.get("hits", "0")) > 0
+            is_branch = line.get("branch", "false") == "true"
+            fully_covered = not is_branch or line.get("condition-coverage", "").startswith("100%")
+
+            if executed and fully_covered:
+                hits += 1
+            elif executed:
+                partial += 1
+            else:
+                missed += 1
+
+total = hits + partial + missed
+if total > 0:
+    print(repr(hits / total * 100))
 else:
-    # Reports without the counts fall back to the rounded rate rather than failing outright, accepting
-    # the precision limitation only where there is no alternative.
+    # An empty or unfamiliar report shape falls back to the reported rate rather than dividing by zero.
     print(repr(float(root.get("line-rate")) * 100))
 PY
 )"
