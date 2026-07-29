@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>91</PatchVersion>
+        <PatchVersion>92</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,11 +32,11 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.91 - AM041 respects independent MapperConfiguration containers
-- Registering the same type pair in two separate MapperConfiguration instances is no longer reported as a duplicate; AutoMapper accepts it and both mappers work
-- Found by scanning a third-party AutoMapper consumer, where this shape produced seventeen false positives
-- Duplicates inside one MapperConfiguration or one Profile still report
-- No rule ID or severity changes
+                <PackageReleaseNotes>Version 2.30.92 - faster analysis on code unrelated to AutoMapper
+- Analyzers register on every invocation in a compilation; the shared AutoMapper-method check now compares the invoked name syntactically before binding symbols
+- Shapes whose name cannot be read still resolve semantically, so the gate can only skip work and never changes a diagnostic
+- Measured against a new throughput baseline: directionally ~12% lower analysis time on code that is mostly unrelated to AutoMapper
+- No rule ID, severity, or diagnostic changes
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

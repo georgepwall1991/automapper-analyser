@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## [2.30.92] - 2026-07-29
+
+Faster analysis on code unrelated to AutoMapper (no rule ID, severity, or diagnostic changes).
+
 ### Changed
 
 - **Syntactic gate before symbol binding** in `MappingChainAnalysisHelper.IsAutoMapperMethodInvocation`.
