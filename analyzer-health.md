@@ -128,11 +128,13 @@ sources rather than the rules, because that is where this batch's two defects ac
    job, because AutoMapper's own MIT extension repositories do not compile from a clean checkout at a
    pinned SHA — they reference `AutoMapper.Internal`, absent from the `[15.0.1, 17.0.0)` range their
    manifests select. One buildable target turns this from a manual tool into a standing check.
-2. **Add value expectations to the nine scenarios that lack one.** All 16 fixers are now executed rather
-   than string-compared, and that rollout exposed the limit worth acting on: substituting *unfixed*
-   source passes 9 of 17 scenarios, because AutoMapper accepts the pre-fix configuration and convention
-   often produces the same value anyway. Those nine currently show only that the fix does not break a
-   working mapping. `AssertConfigurationIsValid()` alone is not a coverage claim.
+2. **Make nine scenarios discriminating.** All 16 fixers are now executed rather than string-compared,
+   and that rollout exposed the limit worth acting on: substituting *unfixed* source still passes 9 of
+   17 scenarios, so those nine show only that the fix does not break a working mapping. The fix is not
+   simply "add expectations" — six of them (AM003, AM004, AM005, AM021 `List<T>`, AM022, AM050) already
+   assert values that convention produces anyway, so they need inputs where fixed and unfixed *differ*;
+   only three (AM030, AM031, AM061) have no value expectation at all. Counting assertions overstates
+   this; only the unfixed-source probe measures it.
 3. Advance AM001, AM002, or AM022 only when a concrete compiling false positive/negative proves the gap.
 
 A reproducible false negative that is knowingly deferred is not the same as a clean queue, and this

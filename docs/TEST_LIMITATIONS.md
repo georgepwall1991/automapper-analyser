@@ -185,9 +185,13 @@ AM022, AM060).
 
 **What remains.** Every shipped fixer is routed, but each scenario is a minimal single-defect case, so
 this checks fixer output on clean inputs rather than the full matrix each fixer supports — and coverage
-is per *branch*, so a routed rule can still have an unexercised branch. Nine of the seventeen scenarios
-carry no value expectation, and adding one where the semantics are unambiguous is the cheapest way to
-strengthen this further.
+is per *branch*, so a routed rule can still have an unexercised branch.
+
+Nine scenarios still pass when fed unfixed source. Presence of an expectation is not the measure: eleven
+of the seventeen declare one, and six of those eleven (AM003, AM004, AM005, AM021 `List<T>`, AM022,
+AM050) assert a value AutoMapper's convention produces with or without the fix. Strengthening them means
+choosing inputs where fixed and unfixed output *differ*, not adding more assertions. Three scenarios
+(AM030, AM031, AM061) carry no value expectation at all.
 
 ## Documented analyzer boundaries
 
