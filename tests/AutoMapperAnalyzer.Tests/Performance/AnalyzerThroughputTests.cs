@@ -26,8 +26,20 @@ namespace AutoMapperAnalyzer.Tests.Performance;
 ///     not to police small movements.
 ///     </para>
 /// </summary>
+[CollectionDefinition(AnalyzerThroughputTests.TimingCollection, DisableParallelization = true)]
+public sealed class TimingCollectionDefinition;
+
+/// <inheritdoc cref="AnalyzerThroughputTests" />
+[Collection(AnalyzerThroughputTests.TimingCollection)]
 public class AnalyzerThroughputTests(ITestOutputHelper output)
 {
+    /// <summary>
+    ///     Timing tests share a machine with roughly 1800 other tests. xUnit runs collections in
+    ///     parallel by default, so without isolation these measure contention for CPU as much as
+    ///     analyzer cost — which is most of the run-to-run spread the first baseline recorded.
+    /// </summary>
+    internal const string TimingCollection = "analyzer-timing";
+
     private const int TypePairCount = 60;
 
     /// <summary>
@@ -354,7 +366,13 @@ public class AnalyzerThroughputTests(ITestOutputHelper output)
             "AutoMapperAnalyzer.Throughput",
             [CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Preview))],
             references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            // The fixtures use nullable annotations deliberately, so AM002's nullable analysis is part
+            // of what is being measured. Without an enabled nullable context those annotations are
+            // warnings and the analysis they exist to exercise never runs.
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable
+            )
         );
     }
 }
