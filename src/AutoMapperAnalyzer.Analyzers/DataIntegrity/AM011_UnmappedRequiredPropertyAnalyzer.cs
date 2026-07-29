@@ -130,13 +130,13 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if this destination property is explicitly mapped via ForMember/ForPath
-            if (IsPropertyConfiguredWithDestinationConfiguration(invocation, destinationProperty.Name, context.SemanticModel))
+            if (DestinationMemberConfigurationHelpers.IsConfiguredByDestinationSelector(invocation, destinationProperty.Name, context.SemanticModel))
             {
                 continue; // Property is explicitly mapped, no issue
             }
 
             // Check if this destination property is configured via constructor parameter mapping
-            if (IsPropertyConfiguredWithForCtorParam(invocation, destinationProperty.Name, context.SemanticModel))
+            if (DestinationMemberConfigurationHelpers.IsConfiguredByCtorParam(invocation, destinationProperty.Name, context.SemanticModel))
             {
                 continue; // Property is mapped via ForCtorParam, no issue
             }
@@ -212,104 +212,6 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
-    }
-
-    private static bool IsPropertyConfiguredWithForCtorParam(
-        InvocationExpressionSyntax createMapInvocation,
-        string propertyName,
-        SemanticModel semanticModel)
-    {
-        SyntaxNode? currentNode = createMapInvocation.Parent;
-
-        while (currentNode is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax invocation)
-        {
-            string methodName = memberAccess.Name.Identifier.ValueText;
-            if (methodName == "ReverseMap")
-            {
-                break;
-            }
-
-            if (methodName == "ForCtorParam" &&
-                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "ForCtorParam") &&
-                invocation.ArgumentList.Arguments.Count > 0)
-            {
-                ArgumentSyntax firstArg = invocation.ArgumentList.Arguments[0];
-                Optional<object?> constantValue = semanticModel.GetConstantValue(firstArg.Expression);
-
-                if (constantValue.HasValue &&
-                    constantValue.Value is string configuredParam &&
-                    string.Equals(configuredParam, propertyName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-
-            currentNode = invocation.Parent;
-        }
-
-        return false;
-    }
-
-    private static bool IsPropertyConfiguredWithDestinationConfiguration(
-        InvocationExpressionSyntax createMapInvocation,
-        string propertyName,
-        SemanticModel semanticModel)
-    {
-        foreach (InvocationExpressionSyntax mappingCall in GetScopedDestinationConfigurationCalls(createMapInvocation))
-        {
-            if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingCall, semanticModel, "ForMember") &&
-                !MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingCall, semanticModel, "ForPath"))
-            {
-                continue;
-            }
-
-            if (mappingCall.ArgumentList.Arguments.Count == 0)
-            {
-                continue;
-            }
-
-            string? selectedMember = AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
-                mappingCall.ArgumentList.Arguments[0].Expression,
-                semanticModel);
-            if (selectedMember == null)
-            {
-                continue;
-            }
-
-            if (string.Equals(selectedMember, propertyName, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static IEnumerable<InvocationExpressionSyntax> GetScopedDestinationConfigurationCalls(
-        InvocationExpressionSyntax createMapInvocation)
-    {
-        var mappingCalls = new List<InvocationExpressionSyntax>();
-        SyntaxNode? currentNode = createMapInvocation.Parent;
-
-        while (currentNode is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax invocation)
-        {
-            string methodName = memberAccess.Name.Identifier.ValueText;
-            if (methodName == "ReverseMap")
-            {
-                break;
-            }
-
-            if (methodName is "ForMember" or "ForPath")
-            {
-                mappingCalls.Add(invocation);
-            }
-
-            currentNode = invocation.Parent;
-        }
-
-        return mappingCalls;
     }
 
     private static bool IsAutoMapperCreateMapInvocation(
