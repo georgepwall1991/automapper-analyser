@@ -271,110 +271,13 @@ public class AM011_UnmappedRequiredPropertyCodeFixProvider : AutoMapperCodeFixPr
             .Where(property => property.IsRequired)
             .Where(property => !sourceProperties.Any(sourceProperty =>
                 string.Equals(sourceProperty.Name, property.Name, StringComparison.OrdinalIgnoreCase)))
-            .Where(property => !IsPropertyConfiguredWithDestinationConfiguration(
+            .Where(property => !DestinationMemberConfigurationHelpers.IsConfiguredByDestinationSelector(
                 invocation,
                 property.Name,
                 semanticModel))
-            .Where(property => !IsPropertyConfiguredWithForCtorParam(invocation, property.Name, semanticModel))
+            .Where(property => !DestinationMemberConfigurationHelpers.IsConfiguredByCtorParam(invocation, property.Name, semanticModel))
             .Where(property => !includeMembers.SatisfiesDestinationMember(property.Name))
             .ToList();
     }
 
-    private static bool IsPropertyConfiguredWithForCtorParam(
-        InvocationExpressionSyntax invocation,
-        string propertyName,
-        SemanticModel semanticModel)
-    {
-        SyntaxNode? currentNode = invocation.Parent;
-
-        while (currentNode is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
-        {
-            string methodName = memberAccess.Name.Identifier.ValueText;
-            if (methodName == "ReverseMap")
-            {
-                break;
-            }
-
-            if (methodName == "ForCtorParam" &&
-                MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForCtorParam") &&
-                chainedInvocation.ArgumentList.Arguments.Count > 0)
-            {
-                Optional<object?> constantValue = semanticModel.GetConstantValue(
-                    chainedInvocation.ArgumentList.Arguments[0].Expression);
-
-                if (constantValue.HasValue &&
-                    constantValue.Value is string configuredParam &&
-                    string.Equals(configuredParam, propertyName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-
-            currentNode = chainedInvocation.Parent;
-        }
-
-        return false;
-    }
-
-    private static bool IsPropertyConfiguredWithDestinationConfiguration(
-        InvocationExpressionSyntax invocation,
-        string propertyName,
-        SemanticModel semanticModel)
-    {
-        foreach (InvocationExpressionSyntax mappingCall in GetScopedDestinationConfigurationCalls(invocation))
-        {
-            if (!MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingCall, semanticModel, "ForMember") &&
-                !MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingCall, semanticModel, "ForPath"))
-            {
-                continue;
-            }
-
-            if (mappingCall.ArgumentList.Arguments.Count == 0)
-            {
-                continue;
-            }
-
-            string? selectedMember = AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
-                mappingCall.ArgumentList.Arguments[0].Expression,
-                semanticModel);
-            if (selectedMember == null)
-            {
-                continue;
-            }
-
-            if (string.Equals(selectedMember, propertyName, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static IEnumerable<InvocationExpressionSyntax> GetScopedDestinationConfigurationCalls(
-        InvocationExpressionSyntax invocation)
-    {
-        var mappingCalls = new List<InvocationExpressionSyntax>();
-        SyntaxNode? currentNode = invocation.Parent;
-
-        while (currentNode is MemberAccessExpressionSyntax memberAccess &&
-               memberAccess.Parent is InvocationExpressionSyntax chainedInvocation)
-        {
-            string methodName = memberAccess.Name.Identifier.ValueText;
-            if (methodName == "ReverseMap")
-            {
-                break;
-            }
-
-            if (methodName is "ForMember" or "ForPath")
-            {
-                mappingCalls.Add(chainedInvocation);
-            }
-
-            currentNode = chainedInvocation.Parent;
-        }
-
-        return mappingCalls;
-    }
 }

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Changed
+
+- **Shared destination-member configuration checks** (`Helpers/DestinationMemberConfigurationHelpers.cs`).
+  AM011's analyzer and code fix each carried their own copy of three checks — `ForCtorParam` naming a
+  member, `ForMember`/`ForPath` selecting one, and the forward-chain walk that stops at `ReverseMap()`
+  — identical apart from local variable names. An analyzer and its fixer must agree on this exactly:
+  when they drift, the fixer offers actions for members the analyzer never flagged, or withholds them
+  for members it did, and the drift is silent because each side's tests exercise only its own copy.
+
+  Both now call one implementation. 199 lines removed, behaviour unchanged: all 2435 tests pass and the
+  sample-diagnostics trust snapshot is byte-identical. First slice of the shared mapping model.
+
 ## [2.30.92] - 2026-07-29
 
 Faster analysis on code unrelated to AutoMapper (no rule ID, severity, or diagnostic changes).
