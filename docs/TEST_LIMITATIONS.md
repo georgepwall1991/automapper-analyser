@@ -49,6 +49,26 @@ Recorded baseline on this tree, measured during full-suite runs: solution-sized 
 mostly-unrelated 2.3x–2.6x, cyclic diamond 1.7x–2.1x. The budget is **20x**, roughly 3x above the noisy high, to catch an order-of-magnitude
 regression without firing on runner noise. Tighten only with evidence from a quiet machine.
 
+## Generated type-shape coverage
+
+`Robustness/GeneratedTypeShapeTests` enumerates the space these rules reason about — nullability ×
+container kind (scalar, `List`, array, `IReadOnlyList`, `HashSet`) × element type × declaration form
+(class, record, record struct) — producing ~590 mappings.
+
+It asserts **invariants, never expected diagnostics**. Predicting the exact diagnostic for each
+combination would mean reimplementing the analyzers inside the test, and the reimplementation would be
+wrong in the same places the analyzers are. The invariants hold regardless of which rule fires:
+
+- **Identical shapes never report a mismatch.** If source and destination are structurally identical,
+  any AM001/AM002/AM003/AM021 diagnostic is self-contradictory — whatever the rule believes about the
+  shape, it believes the same thing on both sides.
+- **No analyzer crashes** on any generated shape.
+- **No member is both unmapped and incompatible.** AM006/AM011 claiming a member is unmapped while
+  AM001/AM003/AM021 claim it is mapped-but-incompatible leaves a user with no coherent action.
+
+Each invariant was verified by violating it deliberately and confirming the failure names the offending
+shape and rule, rather than being trusted because ~590 generated cases were green.
+
 ## Analyzer crash safety
 
 `Robustness/AnalyzerCrashSafetyTests` drives every catalogued analyzer over code that does not compile,

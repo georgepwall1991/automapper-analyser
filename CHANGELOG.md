@@ -21,6 +21,12 @@ Faster analysis on code unrelated to AutoMapper (no rule ID, severity, or diagno
 
 ### Added
 
+- **Generated type-shape coverage** (`tests/.../Robustness/GeneratedTypeShapeTests.cs`). Enumerates
+  nullability × container kind × element type × declaration form (~590 mappings) and asserts invariants
+  rather than expected diagnostics: identical shapes never report a mismatch, no analyzer crashes, and
+  no member is reported as both unmapped and mapped-but-incompatible. Hand-written cases sample this
+  space sparsely and only where someone already thought to look. Each invariant was verified by
+  deliberately violating it. Test infrastructure only.
 - **Analyzer throughput baseline** (`tests/.../Performance/AnalyzerThroughputTests.cs`). Measures the
   whole pack over a solution-sized fixture (60 mapped type pairs) and a cyclic diamond type graph,
   budgeted as a multiple of compiling the same input rather than as wall-clock time, so the measurement
