@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>95</PatchVersion>
+        <PatchVersion>96</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.95 - corrects the provenance verification instructions shipped in 2.30.94
-- Provenance is verified against the GitHub release asset, not the copy downloaded from NuGet
-- NuGet.org repository-signs packages on upload, which changes the bytes and therefore the digest, so verifying the NuGet copy always fails
-- gh attestation verify AutoMapperAnalyzer.Analyzers.2.30.95.nupkg --repo georgepwall1991/automapper-analyser (asset from the GitHub release)
+                <PackageReleaseNotes>Version 2.30.96 - faster analysis of profiles with long fluent chains
+- Configuration calls are resolved once per CreateMap instead of re-walked for every destination member
+- A 60-ForMember profile costs about 25% less analysis time; the gap between long and short chains roughly halves
+- Short chains are marginally slower, where there is little to cache
 - No rule ID, severity, or diagnostic changes
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
