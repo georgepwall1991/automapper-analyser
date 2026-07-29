@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## [2.30.95] - 2026-07-29
+
+Corrects the provenance verification instructions shipped in 2.30.94 (no rule ID, severity, or
+diagnostic changes).
+
+### Fixed
+
+- **The verification command in 2.30.94 could not work.** It told consumers to run
+  `gh attestation verify` against the package downloaded from NuGet. NuGet.org repository-signs
+  packages on upload, adding a `.signature.p7s` entry — the same release is 371,031 bytes from NuGet
+  against 357,938 bytes as built — so the digest never matches the attested one and verification
+  returns HTTP 404.
+
+  Verify the **asset attached to the GitHub release**, which is the unmodified artifact that was
+  attested:
+
+  ```
+  gh release download v2.30.95 --repo georgepwall1991/automapper-analyser --pattern "*.nupkg"
+  gh attestation verify AutoMapperAnalyzer.Analyzers.2.30.95.nupkg --repo georgepwall1991/automapper-analyser
+  ```
+
+  Confirmed against the real v2.30.94 release: the GitHub asset verifies, the NuGet download 404s.
+  The attestation itself was always correct; only the instructions were wrong.
+
 ## [2.30.94] - 2026-07-29
 
 Verifiable build provenance (no rule ID, severity, or diagnostic changes).
