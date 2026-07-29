@@ -5,6 +5,7 @@ using AutoMapperAnalyzer.Analyzers.Configuration;
 using AutoMapperAnalyzer.Analyzers.DataIntegrity;
 using AutoMapperAnalyzer.Analyzers.Performance;
 using AutoMapperAnalyzer.Analyzers.TypeSafety;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 
 namespace AutoMapperAnalyzer.Analyzers;
@@ -130,7 +131,7 @@ public static class RuleCatalog
     /// <summary>
     ///     Current package version used by docs/package drift tests.
     /// </summary>
-    public const string CurrentPackageVersion = "2.30.92";
+    public const string CurrentPackageVersion = "2.30.93";
 
     /// <summary>
     ///     Implemented rules, grouped by public diagnostic ID.
@@ -139,7 +140,7 @@ public static class RuleCatalog
     [
         new(
             "AM001",
-            "### AM001: Property Type Mismatch",
+            RuleDocumentation.AnchorFor("AM001"),
             "samples/AutoMapperAnalyzer.Samples/TypeSafety/TypeSafetyExamples.cs",
             typeof(AM001_PropertyTypeMismatchAnalyzer),
             typeof(AM001_PropertyTypeMismatchCodeFixProvider),
@@ -147,7 +148,7 @@ public static class RuleCatalog
             [AM001_PropertyTypeMismatchAnalyzer.PropertyTypeMismatchRule]),
         new(
             "AM002",
-            "### AM002: Nullable Compatibility Issue",
+            RuleDocumentation.AnchorFor("AM002"),
             "samples/AutoMapperAnalyzer.Samples/TypeSafety/ManyNullableMismatches.cs",
             typeof(AM002_NullableCompatibilityAnalyzer),
             typeof(AM002_NullableCompatibilityCodeFixProvider),
@@ -163,7 +164,7 @@ public static class RuleCatalog
             ]),
         new(
             "AM003",
-            "### AM003: Collection Type Incompatibility",
+            RuleDocumentation.AnchorFor("AM003"),
             "samples/AutoMapperAnalyzer.Samples/TypeSafety/TypeSafetyExamples.cs",
             typeof(AM003_CollectionTypeIncompatibilityAnalyzer),
             typeof(AM003_CollectionTypeIncompatibilityCodeFixProvider),
@@ -171,7 +172,7 @@ public static class RuleCatalog
             [AM003_CollectionTypeIncompatibilityAnalyzer.CollectionTypeIncompatibilityRule]),
         new(
             "AM004",
-            "### AM004: Missing Destination Property",
+            RuleDocumentation.AnchorFor("AM004"),
             "samples/AutoMapperAnalyzer.Samples/MissingProperties/MissingPropertyExamples.cs",
             typeof(AM004_MissingDestinationPropertyAnalyzer),
             typeof(AM004_MissingDestinationPropertyCodeFixProvider),
@@ -179,7 +180,7 @@ public static class RuleCatalog
             [AM004_MissingDestinationPropertyAnalyzer.MissingDestinationPropertyRule]),
         new(
             "AM005",
-            "### AM005: Case Sensitivity Mismatch",
+            RuleDocumentation.AnchorFor("AM005"),
             "samples/AutoMapperAnalyzer.Samples/MissingProperties/MissingPropertyExamples.cs",
             typeof(AM005_CaseSensitivityMismatchAnalyzer),
             typeof(AM005_CaseSensitivityMismatchCodeFixProvider),
@@ -187,7 +188,7 @@ public static class RuleCatalog
             [AM005_CaseSensitivityMismatchAnalyzer.CaseSensitivityMismatchRule]),
         new(
             "AM006",
-            "### AM006: Unmapped Destination Property",
+            RuleDocumentation.AnchorFor("AM006"),
             "samples/AutoMapperAnalyzer.Samples/UnmappedDestination/UnmappedDestinationExamples.cs",
             typeof(AM006_UnmappedDestinationPropertyAnalyzer),
             typeof(AM006_UnmappedDestinationPropertyCodeFixProvider),
@@ -195,7 +196,7 @@ public static class RuleCatalog
             [AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule]),
         new(
             "AM011",
-            "### AM011: Unmapped Required Property",
+            RuleDocumentation.AnchorFor("AM011"),
             "samples/AutoMapperAnalyzer.Samples/DataIntegrity/ManyUnmappedRequiredProps.cs",
             typeof(AM011_UnmappedRequiredPropertyAnalyzer),
             typeof(AM011_UnmappedRequiredPropertyCodeFixProvider),
@@ -203,7 +204,7 @@ public static class RuleCatalog
             [AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule]),
         new(
             "AM020",
-            "### AM020: Nested Object Mapping Issue",
+            RuleDocumentation.AnchorFor("AM020"),
             "samples/AutoMapperAnalyzer.Samples/CodeFixDemo.cs",
             typeof(AM020_NestedObjectMappingAnalyzer),
             typeof(AM020_NestedObjectMappingCodeFixProvider),
@@ -211,7 +212,7 @@ public static class RuleCatalog
             [AM020_NestedObjectMappingAnalyzer.NestedObjectMappingMissingRule]),
         new(
             "AM021",
-            "### AM021: Collection Element Mismatch",
+            RuleDocumentation.AnchorFor("AM021"),
             "samples/AutoMapperAnalyzer.Samples/ComplexTypes/ComplexTypeMappingExamples.cs",
             typeof(AM021_CollectionElementMismatchAnalyzer),
             typeof(AM021_CollectionElementMismatchCodeFixProvider),
@@ -219,7 +220,7 @@ public static class RuleCatalog
             [AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule]),
         new(
             "AM022",
-            "### AM022: Infinite Recursion Risk",
+            RuleDocumentation.AnchorFor("AM022"),
             "samples/AutoMapperAnalyzer.Samples/ComplexTypes/ComplexTypeMappingExamples.cs",
             typeof(AM022_InfiniteRecursionAnalyzer),
             typeof(AM022_InfiniteRecursionCodeFixProvider),
@@ -230,7 +231,7 @@ public static class RuleCatalog
             ]),
         new(
             "AM030",
-            "### AM030: Invalid Type Converter Implementation",
+            RuleDocumentation.AnchorFor("AM030"),
             "samples/AutoMapperAnalyzer.Samples/Conversions/TypeConverterExamples.cs",
             typeof(AM030_CustomTypeConverterAnalyzer),
             typeof(AM030_CustomTypeConverterCodeFixProvider),
@@ -240,7 +241,7 @@ public static class RuleCatalog
             ]),
         new(
             "AM032",
-            "### AM032: Type Converter Null Handling",
+            RuleDocumentation.AnchorFor("AM032"),
             "samples/AutoMapperAnalyzer.Samples/Conversions/TypeConverterExamples.cs",
             typeof(AM030_CustomTypeConverterAnalyzer),
             typeof(AM030_CustomTypeConverterCodeFixProvider),
@@ -250,7 +251,7 @@ public static class RuleCatalog
             ]),
         new(
             "AM033",
-            "### AM033: Unused Type Converter",
+            RuleDocumentation.AnchorFor("AM033"),
             "samples/AutoMapperAnalyzer.Samples/Conversions/TypeConverterExamples.cs",
             typeof(AM030_CustomTypeConverterAnalyzer),
             typeof(AM030_CustomTypeConverterCodeFixProvider),
@@ -260,7 +261,7 @@ public static class RuleCatalog
             ]),
         new(
             "AM031",
-            "### AM031: Multiple Enumeration",
+            RuleDocumentation.AnchorFor("AM031"),
             "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
             typeof(AM031_PerformanceWarningAnalyzer),
             typeof(AM031_PerformanceWarningCodeFixProvider),
@@ -268,7 +269,7 @@ public static class RuleCatalog
             [AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule]),
         new(
             "AM034",
-            "### AM034: Expensive Operation",
+            RuleDocumentation.AnchorFor("AM034"),
             "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
             typeof(AM031_PerformanceWarningAnalyzer),
             typeof(AM031_PerformanceWarningCodeFixProvider),
@@ -276,7 +277,7 @@ public static class RuleCatalog
             [AM031_PerformanceWarningAnalyzer.ExpensiveOperationInMapFromRule]),
         new(
             "AM035",
-            "### AM035: Expensive Computation",
+            RuleDocumentation.AnchorFor("AM035"),
             "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
             typeof(AM031_PerformanceWarningAnalyzer),
             typeof(AM031_PerformanceWarningCodeFixProvider),
@@ -284,7 +285,7 @@ public static class RuleCatalog
             [AM031_PerformanceWarningAnalyzer.ExpensiveComputationRule]),
         new(
             "AM036",
-            "### AM036: Sync-Over-Async",
+            RuleDocumentation.AnchorFor("AM036"),
             "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
             typeof(AM031_PerformanceWarningAnalyzer),
             typeof(AM031_PerformanceWarningCodeFixProvider),
@@ -292,7 +293,7 @@ public static class RuleCatalog
             [AM031_PerformanceWarningAnalyzer.TaskResultSynchronousAccessRule]),
         new(
             "AM037",
-            "### AM037: Complex LINQ",
+            RuleDocumentation.AnchorFor("AM037"),
             "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
             typeof(AM031_PerformanceWarningAnalyzer),
             typeof(AM031_PerformanceWarningCodeFixProvider),
@@ -300,7 +301,7 @@ public static class RuleCatalog
             [AM031_PerformanceWarningAnalyzer.ComplexLinqOperationRule]),
         new(
             "AM038",
-            "### AM038: Non-Deterministic Operation",
+            RuleDocumentation.AnchorFor("AM038"),
             "samples/AutoMapperAnalyzer.Samples/Performance/AM031_PerformanceExamples.cs",
             typeof(AM031_PerformanceWarningAnalyzer),
             typeof(AM031_PerformanceWarningCodeFixProvider),
@@ -308,7 +309,7 @@ public static class RuleCatalog
             [AM031_PerformanceWarningAnalyzer.NonDeterministicOperationRule]),
         new(
             "AM041",
-            "### AM041: Duplicate Mapping Registration",
+            RuleDocumentation.AnchorFor("AM041"),
             "samples/AutoMapperAnalyzer.Samples/Configuration/AM041_DuplicateMappingExamples.cs",
             typeof(AM041_DuplicateMappingAnalyzer),
             typeof(AM041_DuplicateMappingCodeFixProvider),
@@ -316,7 +317,7 @@ public static class RuleCatalog
             [AM041_DuplicateMappingAnalyzer.DuplicateMappingRule]),
         new(
             "AM050",
-            "### AM050: Redundant MapFrom Configuration",
+            RuleDocumentation.AnchorFor("AM050"),
             "samples/AutoMapperAnalyzer.Samples/Configuration/AM050_RedundantMapFromExamples.cs",
             typeof(AM050_RedundantMapFromAnalyzer),
             typeof(AM050_RedundantMapFromCodeFixProvider),
@@ -324,7 +325,7 @@ public static class RuleCatalog
             [AM050_RedundantMapFromAnalyzer.RedundantMapFromRule]),
         new(
             "AM060",
-            "### AM060: Unregistered Type Map",
+            RuleDocumentation.AnchorFor("AM060"),
             "samples/AutoMapperAnalyzer.Samples/Configuration/AM060_UnregisteredTypeMapExamples.cs",
             typeof(AM060_UnregisteredTypeMapAnalyzer),
             typeof(AM060_UnregisteredTypeMapCodeFixProvider),
@@ -332,7 +333,7 @@ public static class RuleCatalog
             [AM060_UnregisteredTypeMapAnalyzer.UnregisteredTypeMapRule]),
         new(
             "AM061",
-            "### AM061: Enum Member Mismatch",
+            RuleDocumentation.AnchorFor("AM061"),
             "samples/AutoMapperAnalyzer.Samples/TypeSafety/AM061_EnumMismatchExamples.cs",
             typeof(AM061_EnumMemberMismatchAnalyzer),
             typeof(AM061_EnumMemberMismatchCodeFixProvider),

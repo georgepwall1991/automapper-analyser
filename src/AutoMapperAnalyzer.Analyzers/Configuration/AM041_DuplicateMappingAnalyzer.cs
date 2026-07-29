@@ -24,7 +24,8 @@ public class AM041_DuplicateMappingAnalyzer : DiagnosticAnalyzer
         "AutoMapper.Configuration",
         DiagnosticSeverity.Warning,
         true,
-        "Duplicate mapping registrations can cause ambiguous behavior and should be removed.");
+        "Duplicate mapping registrations can cause ambiguous behavior and should be removed.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM041"));
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [DuplicateMappingRule];

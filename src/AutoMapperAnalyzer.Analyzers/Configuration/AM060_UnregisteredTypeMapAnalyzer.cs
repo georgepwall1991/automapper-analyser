@@ -31,7 +31,8 @@ public class AM060_UnregisteredTypeMapAnalyzer : DiagnosticAnalyzer
         "AutoMapper resolves type maps at runtime. A Map or ProjectTo call whose source/destination pair "
         + "has no reachable CreateMap registration throws AutoMapperMappingException on first use, unless "
         + "the map is contributed by a profile assembly this compilation cannot see. Register the map in a "
-        + "scanned Profile, fix swapped type arguments, or suppress AM060 for externally configured projects.");
+        + "scanned Profile, fix swapped type arguments, or suppress AM060 for externally configured projects.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM060"));
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [UnregisteredTypeMapRule];

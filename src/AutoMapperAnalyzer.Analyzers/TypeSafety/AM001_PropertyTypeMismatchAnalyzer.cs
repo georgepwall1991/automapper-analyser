@@ -28,7 +28,8 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         DiagnosticSeverity.Error,
         true,
         "Source and destination properties have incompatible types that require explicit conversion configuration."
-    );
+    ,
+        helpLinkUri: RuleDocumentation.LinkFor("AM001"));
 
     /// <summary>
     ///     Gets the supported diagnostics for this analyzer.

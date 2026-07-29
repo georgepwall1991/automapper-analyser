@@ -43,7 +43,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         DiagnosticSeverity.Warning,
         true,
         "Circular object references can cause infinite recursion during mapping. Consider using MaxDepth() or ignoring circular properties."
-    );
+    ,
+        helpLinkUri: RuleDocumentation.LinkFor("AM022"));
 
     /// <summary>
     ///     AM022: Self-referencing type detected
@@ -56,7 +57,8 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
         DiagnosticSeverity.Warning,
         true,
         "Self-referencing types can cause infinite recursion during mapping. Consider using MaxDepth() or ignoring self-referencing properties."
-    );
+    ,
+        helpLinkUri: RuleDocumentation.LinkFor("AM022"));
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>

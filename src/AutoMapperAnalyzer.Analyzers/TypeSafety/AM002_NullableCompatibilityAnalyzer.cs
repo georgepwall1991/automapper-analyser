@@ -60,7 +60,8 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         "AutoMapper.NullSafety",
         DiagnosticSeverity.Error,
         true,
-        "Source property is nullable but destination property is non-nullable, which could cause null reference exceptions at runtime.");
+        "Source property is nullable but destination property is non-nullable, which could cause null reference exceptions at runtime.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM002"));
 
     /// <summary>
     ///     AM002: Non-nullable to nullable assignment (informational).
@@ -72,7 +73,8 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         "AutoMapper.NullSafety",
         DiagnosticSeverity.Info,
         true,
-        "Non-nullable source property is being mapped to nullable destination property.");
+        "Non-nullable source property is being mapped to nullable destination property.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM002"));
 
     /// <summary>
     ///     Gets the supported diagnostics for this analyzer.

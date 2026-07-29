@@ -23,7 +23,8 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
         "AutoMapper.RequiredProperties",
         DiagnosticSeverity.Error,
         true,
-        "Required destination properties must be mapped from source properties or explicitly configured to prevent runtime exceptions during mapping.");
+        "Required destination properties must be mapped from source properties or explicitly configured to prevent runtime exceptions during mapping.",
+        helpLinkUri: RuleDocumentation.LinkFor("AM011"));
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>

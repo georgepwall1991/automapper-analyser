@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.92">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.93">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.92
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.93
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,16 +119,27 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.92
+## Latest Release: v2.30.93
+
+**Every diagnostic links to its documentation**
+
+- All 23 rules now set `HelpLinkUri`, so IDEs offer "learn more" on any AutoMapper diagnostic. None did before.
+- Links open the rule's own section of the reference rather than the top of the document, and tests assert every anchor resolves to a real heading.
+- No rule ID, severity, or diagnostic changes. For **v2.30.92**'s performance work see [`CHANGELOG.md`](CHANGELOG.md).
+
+<details><summary>Previous release (v2.30.92)</summary>
 
 **Faster analysis on code unrelated to AutoMapper**
 
 - Every analyzer registers on every method invocation in a compilation, so the shared AutoMapper-method check ran symbol binding for calls that could not match by name. It now compares the invoked name syntactically first.
 - Shapes whose name cannot be read still resolve semantically, so the gate can only skip work and never changes a diagnostic. Measured against a new throughput baseline: directionally ~12% lower analysis time on mostly-unrelated code.
-- No rule ID, severity, or diagnostic changes. For **v2.30.91**'s AM041 fix see [`CHANGELOG.md`](CHANGELOG.md).
+- No rule ID, severity, or diagnostic changes.
+
+</details>
 
 ### Recent highlights
 
+- **v2.30.93**: Every diagnostic now links to its documentation section — IDEs offer "learn more" on all 23 rules.
 - **v2.30.92**: Faster analysis on code unrelated to AutoMapper — the shared AutoMapper-method check no longer binds symbols for invocations that cannot match.
 - **v2.30.91**: AM041 no longer reports registrations in separate `MapperConfiguration` instances as duplicates.
 - **v2.30.90**: Severity presets (`Minimal`/`Recommended`) for brownfield adoption.
@@ -244,7 +255,7 @@ Reference one from your project file:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.92"
+  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.93"
                     PrivateAssets="all" GeneratePathProperty="true" />
   <GlobalAnalyzerConfigFiles
     Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />
