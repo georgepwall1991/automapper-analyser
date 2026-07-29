@@ -89,7 +89,7 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         ITypeSymbol destinationType,
         HashSet<string> reportedMismatches)
     {
-        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(mappingInvocation, context.SemanticModel))
+        if (MappingConfigurationHelpers.HasCustomConstructionOrConversion(mappingInvocation, context.SemanticModel))
         {
             return;
         }
@@ -127,7 +127,7 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if explicit mapping is configured for this property
-            if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+            if (MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                     mappingInvocation,
                     caseInsensitiveMatch.Name,
                     context.SemanticModel))
@@ -140,7 +140,7 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
                     mappingInvocation,
                     sourceProperty.Name,
                     context.SemanticModel,
-                    ShouldStopAtReverseMapBoundary(mappingInvocation, context.SemanticModel)))
+                    MappingConfigurationHelpers.ShouldStopAtReverseMapBoundary(mappingInvocation, context.SemanticModel)))
             {
                 continue;
             }
@@ -207,10 +207,4 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    private static bool ShouldStopAtReverseMapBoundary(
-        InvocationExpressionSyntax mappingInvocation,
-        SemanticModel semanticModel)
-    {
-        return !MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingInvocation, semanticModel, "ReverseMap");
-    }
 }

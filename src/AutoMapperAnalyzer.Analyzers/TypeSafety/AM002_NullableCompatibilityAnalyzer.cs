@@ -135,7 +135,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol sourceType,
         ITypeSymbol destinationType)
     {
-        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
+        if (MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
         {
             return;
         }
@@ -213,7 +213,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             }
 
             MappableSourceMember? sourceMember =
-                AM020MappingConfigurationHelpers.GetMappableSourceMember(
+                MappingConfigurationHelpers.GetMappableSourceMember(
                     sourceType,
                     destinationProperty.Name);
             if (sourceMember == null)
@@ -339,11 +339,11 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         if (isConstructorParameterConfiguration)
         {
             string? selectedConstructorParameter =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
                     effectiveMappingCall.ArgumentList.Arguments[0].Expression,
                     semanticModel);
             IReadOnlyList<ITypeSymbol> constructorParameterTypes =
-                AM020MappingConfigurationHelpers.GetConstructorParameterTypes(
+                MappingConfigurationHelpers.GetConstructorParameterTypes(
                     destinationType,
                     sourceType,
                     selectedConstructorParameter ?? string.Empty,
@@ -502,7 +502,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             }
 
             string? configuredConstructorParameterName =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
                     mappingCall.ArgumentList.Arguments[0].Expression,
                     semanticModel);
             if (!string.IsNullOrWhiteSpace(configuredConstructorParameterName))
@@ -563,7 +563,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
 
         if (effectiveMemberConfiguration == null)
         {
-            return AM020MappingConfigurationHelpers.HasMappableSourceMember(
+            return MappingConfigurationHelpers.HasMappableSourceMember(
                 sourceType,
                 destinationPropertyName);
         }
@@ -597,7 +597,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                    "ConvertUsing",
                    semanticModel,
                    directExecutionOnly: true) ||
-               AM020MappingConfigurationHelpers.HasMappableSourceMember(
+               MappingConfigurationHelpers.HasMappableSourceMember(
                    sourceType,
                    destinationPropertyName);
     }
@@ -619,7 +619,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                 "ForMember"))
         {
             string? selectedMember =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
                     destinationExpression,
                     semanticModel);
             return string.Equals(
@@ -655,7 +655,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         foreach (string constructorParameterName in configuredConstructorParameterNames)
         {
             bool targetsDestinationProperty =
-                AM020MappingConfigurationHelpers.GetConstructorParameterTypes(
+                MappingConfigurationHelpers.GetConstructorParameterTypes(
                     destinationType,
                     sourceType,
                     constructorParameterName,
@@ -668,7 +668,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             if (!targetsDestinationProperty)
             {
                 string? assignedPropertyName =
-                    AM020MappingConfigurationHelpers.GetDestinationPropertyNameForConstructorParameter(
+                    MappingConfigurationHelpers.GetDestinationPropertyNameForConstructorParameter(
                         destinationType,
                         sourceType,
                         constructorParameterName,
@@ -684,7 +684,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                         return false;
                     }
 
-                    if (!AM020MappingConfigurationHelpers.CanMapDestinationPropertyAfterConstruction(
+                    if (!MappingConfigurationHelpers.CanMapDestinationPropertyAfterConstruction(
                             destinationType,
                             destinationProperty.Name))
                     {
@@ -705,7 +705,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             }
 
             IReadOnlyList<ITypeSymbol> constructorParameterTypes =
-                AM020MappingConfigurationHelpers.GetConstructorParameterTypes(
+                MappingConfigurationHelpers.GetConstructorParameterTypes(
                     destinationType,
                     sourceType,
                     constructorParameterName,
@@ -757,7 +757,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         foreach (string constructorParameterName in configuredConstructorParameterNames)
         {
             string? assignedPropertyName =
-                AM020MappingConfigurationHelpers.GetDestinationPropertyNameForConstructorParameter(
+                MappingConfigurationHelpers.GetDestinationPropertyNameForConstructorParameter(
                     destinationType,
                     sourceType,
                     constructorParameterName,
@@ -772,7 +772,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             }
 
             IReadOnlyList<ITypeSymbol> constructorParameterTypes =
-                AM020MappingConfigurationHelpers.GetConstructorParameterTypes(
+                MappingConfigurationHelpers.GetConstructorParameterTypes(
                     destinationType,
                     sourceType,
                     constructorParameterName,
@@ -830,7 +830,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             }
 
             string? selectedConstructorParameter =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
                     mappingCall.ArgumentList.Arguments[0].Expression,
                     semanticModel);
             if (string.IsNullOrWhiteSpace(selectedConstructorParameter))
@@ -838,7 +838,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            if (AM020MappingConfigurationHelpers.GetConstructorParameterTypes(
+            if (MappingConfigurationHelpers.GetConstructorParameterTypes(
                     destinationType,
                     sourceType,
                     selectedConstructorParameter!,
@@ -855,7 +855,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             if (destinationProperty == null)
             {
                 string? assignedPropertyName =
-                    AM020MappingConfigurationHelpers.GetDestinationPropertyNameForConstructorParameter(
+                    MappingConfigurationHelpers.GetDestinationPropertyNameForConstructorParameter(
                         destinationType,
                         sourceType,
                         selectedConstructorParameter!,
@@ -869,7 +869,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             }
 
             if (destinationProperty != null &&
-                !AM020MappingConfigurationHelpers.CanMapDestinationPropertyAfterConstruction(
+                !MappingConfigurationHelpers.CanMapDestinationPropertyAfterConstruction(
                     destinationType,
                     destinationProperty.Name))
             {
@@ -895,7 +895,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingCall, semanticModel, "ForMember"))
         {
             string? selectedMember =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
                     destinationExpression,
                     semanticModel);
             return string.Equals(selectedMember, destinationPropertyName, StringComparison.OrdinalIgnoreCase);
@@ -904,7 +904,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
         if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(mappingCall, semanticModel, "ForCtorParam"))
         {
             string? selectedConstructorParameter =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
                     destinationExpression,
                     semanticModel);
             if (string.Equals(
@@ -912,7 +912,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                     destinationPropertyName,
                     StringComparison.OrdinalIgnoreCase))
             {
-                return AM020MappingConfigurationHelpers.GetConstructorParameterTypes(
+                return MappingConfigurationHelpers.GetConstructorParameterTypes(
                     destinationType,
                     sourceType,
                     selectedConstructorParameter ?? string.Empty,
@@ -920,7 +920,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
             }
 
             string? assignedPropertyName =
-                AM020MappingConfigurationHelpers.GetDestinationPropertyNameForConstructorParameter(
+                MappingConfigurationHelpers.GetDestinationPropertyNameForConstructorParameter(
                     destinationType,
                     sourceType,
                     selectedConstructorParameter ?? string.Empty,
@@ -930,7 +930,7 @@ public class AM002_NullableCompatibilityAnalyzer : DiagnosticAnalyzer
                        assignedPropertyName,
                        destinationPropertyName,
                        StringComparison.OrdinalIgnoreCase) &&
-                   !AM020MappingConfigurationHelpers.CanMapDestinationPropertyAfterConstruction(
+                   !MappingConfigurationHelpers.CanMapDestinationPropertyAfterConstruction(
                        destinationType,
                        destinationPropertyName);
         }

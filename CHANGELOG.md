@@ -4,6 +4,14 @@
 
 ### Changed
 
+- **`AM020MappingConfigurationHelpers` renamed to `MappingConfigurationHelpers`.** It is consumed by 13
+  files across AM001, AM002, AM003, AM005, AM006, AM020, AM021, and AM022 — it has not been AM020-specific
+  for a long time, and the name told every other rule that it was someone else's rule-specific code.
+  That is the likely reason AM011 carried its own copies of checks this class already provided. Pure
+  rename; no behaviour change.
+- **`ShouldStopAtReverseMapBoundary` is shared**, replacing byte-identical copies in AM005 and the
+  configuration helpers, and now carries the explanation of *why* the predicate inverts on a
+  `ReverseMap()` invocation rather than leaving it to be re-derived.
 - **Shared destination-member configuration checks** (`Helpers/DestinationMemberConfigurationHelpers.cs`).
   AM011's analyzer and code fix each carried their own copy of three checks — `ForCtorParam` naming a
   member, `ForMember`/`ForPath` selecting one, and the forward-chain walk that stops at `ReverseMap()`

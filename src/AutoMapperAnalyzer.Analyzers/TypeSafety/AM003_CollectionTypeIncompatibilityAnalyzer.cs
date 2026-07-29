@@ -114,7 +114,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol destinationType,
         HashSet<string> reportedMismatches)
     {
-        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
+        if (MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
         {
             return;
         }
@@ -137,7 +137,7 @@ public class AM003_CollectionTypeIncompatibilityAnalyzer : DiagnosticAnalyzer
             }
 
             // Check for explicit property mapping that might handle collection conversion
-            if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+            if (MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                     invocation,
                     destinationProperty.Name,
                     context.SemanticModel))

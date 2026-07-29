@@ -6,10 +6,10 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace AutoMapperAnalyzer.Tests.Helpers;
 
-public class AM020MappingConfigurationHelpersTests
+public class MappingConfigurationHelpersTests
 {
     private static readonly Type HelperType = typeof(AM020_NestedObjectMappingAnalyzer).Assembly
-        .GetType("AutoMapperAnalyzer.Analyzers.Helpers.AM020MappingConfigurationHelpers")!;
+        .GetType("AutoMapperAnalyzer.Analyzers.Helpers.MappingConfigurationHelpers")!;
 
     private static readonly MethodInfo GetSelectedTopLevelMemberNameMethod = HelperType.GetMethod(
         "GetSelectedTopLevelMemberName",
@@ -92,7 +92,7 @@ public class AM020MappingConfigurationHelpersTests
 
         SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(source);
         CSharpCompilation compilation = CSharpCompilation.Create(
-            "AM020MappingConfigurationHelpersTests",
+            "MappingConfigurationHelpersTests",
             [syntaxTree],
             [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)]);
         SemanticModel semanticModel = compilation.GetSemanticModel(syntaxTree);

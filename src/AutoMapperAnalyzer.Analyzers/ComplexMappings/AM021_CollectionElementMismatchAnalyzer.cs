@@ -83,7 +83,7 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
     {
         var reportedProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
+        if (MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
         {
             return reportedProperties;
         }
@@ -110,7 +110,7 @@ public class AM021_CollectionElementMismatchAnalyzer : DiagnosticAnalyzer
             }
 
             // Check for explicit property mapping that might handle collection conversion
-            if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+            if (MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                     invocation,
                     destinationProperty.Name,
                     context.SemanticModel))

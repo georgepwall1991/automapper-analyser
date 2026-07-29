@@ -129,7 +129,7 @@ public class AM001_PropertyTypeMismatchCodeFixProvider : AutoMapperCodeFixProvid
                 continue;
             }
 
-            if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+            if (MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                     invocation, destProperty.Name, operationContext.SemanticModel))
             {
                 continue;

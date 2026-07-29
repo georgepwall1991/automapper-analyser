@@ -326,7 +326,7 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                 : null;
         }
 
-        return AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+        return MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
             destinationSelector,
             semanticModel);
     }
@@ -995,14 +995,14 @@ public class AM022_InfiniteRecursionAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            string? destinationPropertyName = AM020MappingConfigurationHelpers
+            string? destinationPropertyName = MappingConfigurationHelpers
                 .GetDestinationPropertyNameForConstructorParameter(
                     destinationType,
                     sourceType,
                     parameterName,
                     configuredParameterNames,
                     semanticModel) ??
-                AM020MappingConfigurationHelpers
+                MappingConfigurationHelpers
                     .GetPositionalRecordPropertyNameForConstructorParameter(
                         destinationType,
                         sourceType,
