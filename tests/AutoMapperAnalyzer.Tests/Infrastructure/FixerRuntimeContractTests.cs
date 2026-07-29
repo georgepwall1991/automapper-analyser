@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using AutoMapperAnalyzer.Analyzers.ComplexMappings;
 using AutoMapperAnalyzer.Analyzers.Configuration;
 using AutoMapperAnalyzer.Analyzers.DataIntegrity;
+using AutoMapperAnalyzer.Analyzers.Performance;
 using AutoMapperAnalyzer.Analyzers.TypeSafety;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -585,6 +586,152 @@ public class FixerRuntimeContractTests
                 // fails if the LIFO correction regresses. Source pops 3,2,1; so must the destination.
                 ["AM021_SimpleConversion"] = mapped =>
                     Assert.Equal(["3", "2", "1"], StringsOf(Property(mapped, "Values"))),
+            },
+        },
+        ["AM022 infinite recursion"] = new(
+            () => new AM022_InfiniteRecursionAnalyzer(),
+            () => new AM022_InfiniteRecursionCodeFixProvider(),
+            """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Source
+                {
+                    public string Name { get; set; } = string.Empty;
+                    public Source? Parent { get; set; }
+                }
+
+                public class Destination
+                {
+                    public string Name { get; set; } = string.Empty;
+                    public Destination? Parent { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Source, Destination>();
+                    }
+                }
+            }
+            """,
+            []
+        )
+        {
+            PopulateSource = type => Populate(type, ("Name", "root")),
+            Behaviours = new Dictionary<string, Action<object>>(StringComparer.Ordinal)
+            {
+                // Bounding recursion must not stop the non-recursive members from mapping.
+                ["AM022_"] = mapped => Assert.Equal("root", Property(mapped, "Name")),
+            },
+        },
+        ["AM030 custom type converter null guard"] = new(
+            () => new AM030_CustomTypeConverterAnalyzer(),
+            () => new AM030_CustomTypeConverterCodeFixProvider(),
+            """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class NullUnsafeConverter : ITypeConverter<string?, int>
+                {
+                    public int Convert(string? source, int destination, ResolutionContext context)
+                    {
+                        return int.Parse(source);
+                    }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
+                    }
+                }
+            }
+            """,
+            []
+        ),
+        ["AM031 expensive operation in MapFrom"] = new(
+            () => new AM031_PerformanceWarningAnalyzer(),
+            () => new AM031_PerformanceWarningCodeFixProvider(),
+            """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Source
+                {
+                    public string Path { get; set; } = string.Empty;
+                }
+
+                public class Destination
+                {
+                    public string Content { get; set; } = string.Empty;
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Source, Destination>()
+                            .ForMember(dest => dest.Content, opt => opt.MapFrom(src => System.IO.File.ReadAllText(src.Path)));
+                    }
+                }
+            }
+            """,
+            []
+        ),
+        ["AM060 unregistered type map"] = new(
+            () => new AM060_UnregisteredTypeMapAnalyzer(),
+            () => new AM060_UnregisteredTypeMapCodeFixProvider(),
+            """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Source
+                {
+                    public string Name { get; set; } = string.Empty;
+                }
+
+                public class Destination
+                {
+                    public string Name { get; set; } = string.Empty;
+                }
+
+                public class Other
+                {
+                    public string Name { get; set; } = string.Empty;
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Source, Other>();
+                    }
+                }
+
+                public class Service
+                {
+                    public Destination Run(IMapper mapper, Source source)
+                    {
+                        return mapper.Map<Destination>(source);
+                    }
+                }
+            }
+            """,
+            []
+        )
+        {
+            PopulateSource = type => Populate(type, ("Name", "registered")),
+            Behaviours = new Dictionary<string, Action<object>>(StringComparer.Ordinal)
+            {
+                // Registering the missing map is only a fix if the map it adds actually works.
+                ["AM060_"] = mapped => Assert.Equal("registered", Property(mapped, "Name")),
             },
         },
         ["AM041 duplicate mapping"] = new(
