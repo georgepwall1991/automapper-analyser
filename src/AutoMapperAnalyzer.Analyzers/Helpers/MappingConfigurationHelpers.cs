@@ -28,7 +28,7 @@ internal readonly struct MappableSourceMember
 ///     Shared helpers for identifying whether destination members are explicitly configured
 ///     and whether mapping construction/conversion methods apply to the forward direction.
 /// </summary>
-internal static class AM020MappingConfigurationHelpers
+internal static class MappingConfigurationHelpers
 {
     public static bool IsDestinationPropertyExplicitlyConfigured(
         InvocationExpressionSyntax createMapInvocation,
@@ -685,7 +685,15 @@ internal static class AM020MappingConfigurationHelpers
             _ => false
         };
     }
-    private static bool ShouldStopAtReverseMapBoundary(
+    /// <summary>
+    ///     Whether chain traversal from this invocation should stop at <c>ReverseMap()</c>.
+    ///     <para>
+    ///     It should, unless the invocation *is* the <c>ReverseMap()</c> call: analysis rooted at the
+    ///     forward map must not read configuration that belongs to the reverse mapping, while analysis
+    ///     rooted at <c>ReverseMap()</c> is reading exactly that configuration and must continue past it.
+    ///     </para>
+    /// </summary>
+    public static bool ShouldStopAtReverseMapBoundary(
         InvocationExpressionSyntax mappingInvocation,
         SemanticModel semanticModel)
     {

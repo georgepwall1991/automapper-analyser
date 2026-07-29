@@ -104,7 +104,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
         ITypeSymbol destinationType,
         HashSet<string> reportedMismatches)
     {
-        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
+        if (MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
         {
             return;
         }
@@ -129,7 +129,7 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
             }
 
             // Check if explicit mapping is configured for this property
-            if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+            if (MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                     invocation,
                     destProp.Name,
                     context.SemanticModel))

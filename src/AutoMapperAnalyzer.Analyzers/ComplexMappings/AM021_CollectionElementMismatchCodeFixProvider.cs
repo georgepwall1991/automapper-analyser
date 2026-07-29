@@ -88,8 +88,8 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
                 continue;
             }
 
-            if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, operationContext.SemanticModel) ||
-                AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+            if (MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, operationContext.SemanticModel) ||
+                MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                     invocation,
                     destinationPropertyNameValue,
                     operationContext.SemanticModel))

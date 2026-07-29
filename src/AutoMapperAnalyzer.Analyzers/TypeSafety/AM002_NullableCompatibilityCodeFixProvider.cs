@@ -189,7 +189,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
             }
 
             string? constructorParameterName =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
                     existingConfiguration.ArgumentList.Arguments[0].Expression,
                     semanticModel);
             ITypeSymbol[] matchingParameterTypes = namedDestinationType.InstanceConstructors
@@ -347,7 +347,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
                 configurationInvocation.ArgumentList.Arguments.Count > 0)
             {
                 string? configuredConstructorParameterName =
-                    AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                    MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
                         configurationInvocation.ArgumentList.Arguments[0].Expression,
                         semanticModel);
                 if (!string.IsNullOrWhiteSpace(configuredConstructorParameterName))
@@ -454,7 +454,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
         if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForMember"))
         {
             string? selectedMember =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
                     destinationExpression,
                     semanticModel);
             return string.Equals(selectedMember, propertyName, StringComparison.OrdinalIgnoreCase);
@@ -463,7 +463,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
         if (MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForCtorParam"))
         {
             string? selectedConstructorParameter =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
                     destinationExpression,
                     semanticModel);
             if (sourceType == null || destinationType == null)
@@ -476,7 +476,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
                     propertyName,
                     StringComparison.OrdinalIgnoreCase))
             {
-                return AM020MappingConfigurationHelpers.GetConstructorParameterTypes(
+                return MappingConfigurationHelpers.GetConstructorParameterTypes(
                     destinationType,
                     sourceType,
                     selectedConstructorParameter ?? string.Empty,
@@ -484,7 +484,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
             }
 
             string? assignedPropertyName =
-                AM020MappingConfigurationHelpers.GetDestinationPropertyNameForConstructorParameter(
+                MappingConfigurationHelpers.GetDestinationPropertyNameForConstructorParameter(
                     destinationType,
                     sourceType,
                     selectedConstructorParameter ?? string.Empty,
@@ -494,7 +494,7 @@ public class AM002_NullableCompatibilityCodeFixProvider : AutoMapperCodeFixProvi
                        assignedPropertyName,
                        propertyName,
                        StringComparison.OrdinalIgnoreCase) &&
-                   !AM020MappingConfigurationHelpers.CanMapDestinationPropertyAfterConstruction(
+                   !MappingConfigurationHelpers.CanMapDestinationPropertyAfterConstruction(
                        destinationType,
                        propertyName);
         }

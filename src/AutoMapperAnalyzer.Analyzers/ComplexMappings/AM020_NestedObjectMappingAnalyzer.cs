@@ -87,7 +87,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
         ITypeSymbol destinationType,
         HashSet<string> reportedMappings)
     {
-        if (AM020MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
+        if (MappingConfigurationHelpers.HasCustomConstructionOrConversion(invocation, context.SemanticModel))
         {
             return;
         }
@@ -124,7 +124,7 @@ public class AM020_NestedObjectMappingAnalyzer : DiagnosticAnalyzer
                 }
 
                 // Check if property is explicitly mapped via ForMember/ForPath in forward direction
-                if (AM020MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
+                if (MappingConfigurationHelpers.IsDestinationPropertyExplicitlyConfigured(
                         invocation,
                         destinationProperty.Name,
                         context.SemanticModel))

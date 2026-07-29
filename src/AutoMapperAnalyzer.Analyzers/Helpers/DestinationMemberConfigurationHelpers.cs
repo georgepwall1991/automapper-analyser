@@ -110,7 +110,7 @@ internal static class DestinationMemberConfigurationHelpers
             }
 
             string? selectedMember =
-                AM020MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
+                MappingConfigurationHelpers.GetSelectedTopLevelMemberNameWithSemanticModel(
                     call.ArgumentList.Arguments[0].Expression,
                     semanticModel
                 );
