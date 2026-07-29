@@ -752,9 +752,18 @@ map that maps the member from a differently named source keeps AM011 quiet. Dest
 to their **top-level** member, so a nested `ForPath(d => d.Details.Name, ...)` supplies `Details` and does
 not silence a required top-level `Name`.
 
-The inverse is deliberately not modelled: AM011 does not infer that a child map *fails* to supply a
-member (for example when it ignores it). That direction would add diagnostics, and approximating
-child-map member resolution produced Error-severity false positives on valid mappings. See
+Since **2.30.97**, a child map that explicitly ignores the member — `ForMember(d => d.Name, o =>
+o.Ignore())` or `ForAllMembers(o => o.Ignore())` — no longer keeps AM011 quiet. AutoMapper rejects those
+configurations at startup, so the diagnostic reports a real defect. The `Ignore()` call must be made on
+the configuration lambda's own options parameter; an unrelated helper that happens to be named `Ignore`
+does not count.
+
+AM011 still does not *infer* that a child map fails to supply a member. Reading an explicit `Ignore()` is
+a statement by the map; inferring absence of configuration is an approximation, and approximating
+child-map member resolution produced Error-severity false positives on valid mappings. These stay quiet:
+an unresolved include, an ambiguous child map (two registrations for the same pair), a `ForPath` ignore
+of a nested member sharing a top-level name, and a map carrying both an explicit `MapFrom` and a
+map-wide `Ignore`, where the outcome depends on an application order AM011 does not model. See
 `docs/TEST_LIMITATIONS.md`.
 
 Only the plain member-access selector form is interpreted — `s => s.Inner` and `s => s.Inner.Leaf`,
