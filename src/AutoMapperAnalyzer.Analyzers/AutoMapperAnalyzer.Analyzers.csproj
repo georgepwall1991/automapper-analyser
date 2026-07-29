@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>96</PatchVersion>
+        <PatchVersion>97</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,11 +32,11 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.96 - faster analysis of profiles with long fluent chains
-- Configuration calls are resolved once per CreateMap instead of re-walked for every destination member
-- A 60-ForMember profile costs about 25% less analysis time; the gap between long and short chains roughly halves
-- Short chains are marginally slower, where there is little to cache
-- No rule ID, severity, or diagnostic changes
+                <PackageReleaseNotes>Version 2.30.97 - AM011 reports required members an included map explicitly ignores
+- IncludeMembers: a child map with ForMember(... Ignore()) or ForAllMembers(... Ignore()) no longer suppresses AM011
+- AutoMapper rejects those configurations at startup, so AM011 previously stayed silent on a real defect
+- Reads an explicit Ignore only; unresolved includes, ambiguous child maps, ForPath nested ignores and maps carrying both MapFrom and a map-wide Ignore all stay suppressing
+- No rule ID or severity changes
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

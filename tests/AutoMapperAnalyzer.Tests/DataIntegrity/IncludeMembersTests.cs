@@ -584,7 +584,7 @@ public class IncludeMembersTests
     }
 
     [Fact]
-    public async Task AM011_ShouldNotReportDiagnostic_WhenIncludedMapIgnoresTheMember_KnownLimitation()
+    public async Task AM011_ShouldReportDiagnostic_WhenIncludedMapIgnoresTheMember()
     {
         const string testCode = """
             using AutoMapper;
@@ -617,15 +617,16 @@ public class IncludeMembersTests
             }
             """;
 
-        // KNOWN LIMITATION (documented in docs/TEST_LIMITATIONS.md): the included type declares 'Name'
-        // but its own map ignores it, so AutoMapper does reject this at configuration time. Deciding
-        // that statically requires modelling the child map's full member resolution; approximating it
-        // produced Error-severity false positives on valid maps, so the scope reasons about the included
-        // type's shape only and stays purely suppressing. This asserts the shipped behaviour.
+        // The included type declares 'Name', but its own map explicitly ignores it, so AutoMapper
+        // rejects this configuration at startup - verified against the real runtime, not assumed.
+        // Reading an explicit Ignore is not the same as inferring that a child map fails to supply a
+        // member: it requires a uniquely resolved child map and a direct ForMember on that exact
+        // member, so it cannot fire on the unresolvable maps that caused the earlier false positives.
         await DiagnosticTestFramework
             .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectNoDiagnostics()
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 17, 32,
+                "Name")
             .RunAsync();
     }
 
@@ -719,7 +720,199 @@ public class IncludeMembersTests
     }
 
     [Fact]
-    public async Task AM011_ShouldNotReportDiagnostic_WhenIncludedMapIgnoresAllMembers_KnownLimitation()
+    public async Task AM011_ShouldNotReportDiagnostic_WhenIgnoreTargetsADifferentMember()
+    {
+        const string testCode = """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Inner
+                {
+                    public string Name { get; set; }
+                    public string Other { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                }
+
+                public class Destination
+                {
+                    public required string Name { get; set; }
+                    public string Other { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Inner, Destination>().ForMember(d => d.Other, o => o.Ignore());
+                        CreateMap<Source, Destination>().IncludeMembers(s => s.Inner);
+                    }
+                }
+            }
+            """;
+
+        // An Ignore on a different member says nothing about 'Name', which the included type supplies.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM011_ShouldNotReportDiagnostic_WhenExplicitMapFromFollowsIgnoreAllMembers()
+    {
+        const string testCode = """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Inner
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                }
+
+                public class Destination
+                {
+                    public required string Name { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Inner, Destination>()
+                            .ForAllMembers(o => o.Ignore());
+                        CreateMap<Inner, Destination>()
+                            .ForMember(d => d.Name, o => o.MapFrom(s => s.Name));
+                        CreateMap<Source, Destination>().IncludeMembers(s => s.Inner);
+                    }
+                }
+            }
+            """;
+
+        // Two registrations for the same pair leave the child map ambiguous, so nothing about it can be
+        // read and the scope must stay suppressing - the fail-closed path an Error rule depends on.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM011_ShouldNotReportDiagnostic_WhenMapFromSuppliesMemberAfterIgnoreAllMembers()
+    {
+        const string testCode = """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Inner
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                }
+
+                public class Destination
+                {
+                    public required string Name { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Inner, Destination>()
+                            .ForMember(d => d.Name, o => o.MapFrom(s => s.Name))
+                            .ForAllMembers(o => o.Ignore());
+                        CreateMap<Source, Destination>().IncludeMembers(s => s.Inner);
+                    }
+                }
+            }
+            """;
+
+        // Both an explicit MapFrom and a map-wide Ignore are present. Which one wins depends on the
+        // order AutoMapper applies them, which this scope does not model, so it stays suppressing rather
+        // than risk an Error-severity false positive. A false negative here is the deliberate trade.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM011_ShouldNotReportDiagnostic_WhenForPathIgnoresANestedMemberOfTheSameName()
+    {
+        const string testCode = """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Detail
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Inner
+                {
+                    public string Name { get; set; }
+                    public Detail Detail { get; set; }
+                }
+
+                public class DestinationDetail
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                }
+
+                public class Destination
+                {
+                    public required string Name { get; set; }
+                    public DestinationDetail Detail { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Detail, DestinationDetail>();
+                        CreateMap<Inner, Destination>().ForPath(d => d.Detail.Name, o => o.Ignore());
+                        CreateMap<Source, Destination>().IncludeMembers(s => s.Inner);
+                    }
+                }
+            }
+            """;
+
+        // ForPath designates a nested path, so ignoring Detail.Name must not be read as ignoring the
+        // top-level Name that shares its identifier.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM011_ShouldReportDiagnostic_WhenIncludedMapIgnoresAllMembers()
     {
         const string testCode = """
             using AutoMapper;
@@ -752,12 +945,13 @@ public class IncludeMembersTests
             }
             """;
 
-        // KNOWN LIMITATION (see the ForMember variant above): map-wide ignore on the included map is not
-        // modelled, for the same false-positive-avoidance reason. Asserts the shipped behaviour.
+        // Map-wide ignore, same reasoning as the ForMember variant above: an explicit ForAllMembers
+        // Ignore states that the child map supplies nothing, so the required member is unmapped.
         await DiagnosticTestFramework
             .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
             .WithSource(testCode)
-            .ExpectNoDiagnostics()
+            .ExpectDiagnostic(AM011_UnmappedRequiredPropertyAnalyzer.UnmappedRequiredPropertyRule, 17, 32,
+                "Name")
             .RunAsync();
     }
 

@@ -617,6 +617,62 @@ public static class MappingChainAnalysisHelper
     }
 
     /// <summary>
+    ///     True when the map explicitly states it does not supply the named destination member, through
+    ///     <c>ForMember(d =&gt; d.X, o =&gt; o.Ignore())</c> or a map-wide <c>ForAllMembers(o =&gt;
+    ///     o.Ignore())</c>.
+    ///     <para>
+    ///     Only direct <c>ForMember</c> selectors count. <c>ForPath</c> is excluded because its selector
+    ///     designates a nested path, so a top-level name match there would not mean the top-level member
+    ///     was ignored. Anything this cannot read returns false and leaves the caller suppressing.
+    ///     </para>
+    /// </summary>
+    private static bool IsDestinationMemberExplicitlyIgnoredByMap(
+        InvocationExpressionSyntax mapInvocation,
+        string destinationMemberName,
+        SemanticModel semanticModel)
+    {
+        foreach (InvocationExpressionSyntax chainedInvocation in GetScopedChainInvocations(
+                     mapInvocation, semanticModel, stopAtReverseMapBoundary: true))
+        {
+            if (chainedInvocation.ArgumentList.Arguments.Count == 1 &&
+                IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForAllMembers") &&
+                ContainsIgnoreCall(chainedInvocation.ArgumentList.Arguments[0].Expression))
+            {
+                return true;
+            }
+
+            if (chainedInvocation.ArgumentList.Arguments.Count <= 1 ||
+                !IsAutoMapperMethodInvocation(chainedInvocation, semanticModel, "ForMember"))
+            {
+                continue;
+            }
+
+            string? selectedMember = GetTopLevelSelectedMemberName(
+                chainedInvocation.ArgumentList.Arguments[0].Expression, semanticModel);
+            if (!string.Equals(selectedMember, destinationMemberName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (ContainsIgnoreCall(chainedInvocation.ArgumentList.Arguments[1].Expression))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsIgnoreCall(ExpressionSyntax configurationExpression)
+    {
+        return configurationExpression.DescendantNodesAndSelf()
+            .OfType<InvocationExpressionSyntax>()
+            .Any(invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                               memberAccess.Name.Identifier.ValueText == "Ignore" &&
+                               invocation.ArgumentList.Arguments.Count == 0);
+    }
+
+    /// <summary>
     ///     Resolves the top-level member a destination selector designates. Lambda member accesses walk
     ///     back to the root member so a nested path is not mistaken for the member it terminates in;
     ///     string and nameof forms already resolve to their top-level segment.
@@ -762,12 +818,17 @@ public static class MappingChainAnalysisHelper
         ///     AutoMapper's flattening convention. An unresolved include satisfies every member so the
         ///     caller fails closed.
         ///     <para>
-        ///     Deliberately reasons about the included type's shape only, never its child map. Deciding
-        ///     what a child map actually supplies means modelling its full member resolution
-        ///     (ForMember/MapFrom, ForAllMembers, reverse-generated registrations, semantic Ignore
-        ///     binding); approximating it produced Error-severity false positives. Shape-only keeps this
-        ///     purely suppressing, so it can never add a diagnostic. Known cost: a child map that ignores
-        ///     or does not supply the member is not diagnosed here.
+        ///     Reasons about the included type's shape, plus the one child-map fact that can be read
+        ///     rather than inferred: an explicit <c>Ignore()</c>. Deciding in general what a child map
+        ///     supplies means modelling its full member resolution (reverse-generated registrations,
+        ///     semantic binding, conditional configuration), and approximating that produced
+        ///     Error-severity false positives, so absence of configuration still suppresses.
+        ///     <para>
+        ///     An explicit <c>ForMember(d =&gt; d.X, o =&gt; o.Ignore())</c> or <c>ForAllMembers(o =&gt;
+        ///     o.Ignore())</c> on a uniquely resolved child map is a statement, not an inference: the map
+        ///     says it does not supply the member, and AutoMapper rejects the configuration at startup.
+        ///     Unresolved includes and unresolvable child maps are untouched by this and still satisfy
+        ///     every member, so the path that caused the false positives cannot be reached.
         ///     </para>
         /// </summary>
         internal bool SatisfiesDestinationMember(string destinationMemberName)
@@ -790,6 +851,18 @@ public static class MappingChainAnalysisHelper
                         includedMember.Map, destinationMemberName, includedMember.SemanticModel))
                 {
                     return true;
+                }
+
+                // Checked after the supply test, so a map carrying both an explicit MapFrom and a
+                // map-wide Ignore stays suppressed. Which of the two wins depends on the order
+                // AutoMapper applies them, and that is not modelled here; on an Error-severity rule a
+                // false negative in that ambiguous case is preferable to a false positive.
+                if (includedMember.Map != null &&
+                    includedMember.SemanticModel != null &&
+                    IsDestinationMemberExplicitlyIgnoredByMap(
+                        includedMember.Map, destinationMemberName, includedMember.SemanticModel))
+                {
+                    continue;
                 }
 
                 List<IPropertySymbol> includedProperties = AutoMapperAnalysisHelpers
