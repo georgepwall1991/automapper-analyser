@@ -91,8 +91,12 @@ jobs:
           echo "sha256=$(sha256sum "$package" | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
       # Attests the exact bytes that were just checksummed, and that the publish job re-verifies against
-      # the same digest before pushing. A consumer can then confirm the package on NuGet was built by
-      # this workflow from this repository, rather than trusting that whoever uploaded it was us:
+      # the same digest before pushing.
+      #
+      # Verify the asset attached to the GitHub release, not the copy downloaded from NuGet: NuGet.org
+      # repository-signs packages on upload, which adds a .signature.p7s entry and changes the digest,
+      # so the NuGet copy can never match this attestation.
+      #   gh release download v<version> --repo georgepwall1991/automapper-analyser --pattern "*.nupkg"
       #   gh attestation verify AutoMapperAnalyzer.Analyzers.<version>.nupkg \
       #     --repo georgepwall1991/automapper-analyser
       - name: Attest build provenance
