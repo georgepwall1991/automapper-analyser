@@ -121,6 +121,18 @@ The split exists because GitHub cannot resolve local reusable workflows (`uses: 
 - **Current**: 2.30.93
 - **Pre-release**: 2.30.93-preview, 2.30.93-beta
 
+### Coverage
+
+`codecov.yml` declares a project target of 80% with 2% slack. `scripts/check-coverage.sh` enforces that
+floor in CI directly from the coverage report, reading the threshold **out of `codecov.yml`** rather than
+repeating it — two copies of a number that must agree is how the number stops agreeing.
+
+This exists because the declared target was previously enforced only by the hosted service: the upload
+step sets `fail_ci_if_error: false`, so a failed or missing upload does not fail the build, and the
+status check can be absent on a fork or without a token. The published target was aspirational.
+
+Current line coverage is 88.16%, comfortably above the 78% floor.
+
 ### Version bump checklist
 
 Bumping a version touches more than version strings. In particular:

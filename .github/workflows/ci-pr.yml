@@ -59,6 +59,9 @@ jobs:
           --configuration Release --
           --check-catalog --check-snapshots --check-compatibility
 
+      - name: Enforce declared coverage target
+        run: bash scripts/check-coverage.sh
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         with:

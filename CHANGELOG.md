@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- **`scripts/check-coverage.sh`** enforces the coverage target `codecov.yml` already declares, in CI.
+  That target was previously enforced only by the hosted service — the upload step sets
+  `fail_ci_if_error: false`, so a failed or missing upload is not a build failure, and the status check
+  can be absent on a fork or without a token. The script reads the threshold out of `codecov.yml` rather
+  than repeating it, and was verified to fail by temporarily raising the declared target. Current line
+  coverage 88.16% against a 78% floor. CI only.
+
 ### Changed
 
 - **`docs/rules.md` reduced to a redirect stub.** It held a second copy of the rule reference that had
