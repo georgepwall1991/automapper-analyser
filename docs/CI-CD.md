@@ -121,6 +121,23 @@ The split exists because GitHub cannot resolve local reusable workflows (`uses: 
 - **Current**: 2.30.93
 - **Pre-release**: 2.30.93-preview, 2.30.93-beta
 
+### Coverage
+
+`codecov.yml` declares a project target of 80% with 2% slack. `scripts/check-coverage.sh` enforces that
+floor in CI directly from the coverage report, reading the threshold **out of `codecov.yml`** rather than
+repeating it — two copies of a number that must agree is how the number stops agreeing.
+
+The gate runs in `ci.yml`, `ci-pr.yml`, **and `release.yml`** — before packing. A `v*` tag can point at
+a commit that never ran branch CI, and the release workflow is what publishes, so leaving it ungated
+would mean the one artifact that reaches consumers was the one never checked.
+
+This exists because the declared target was previously enforced only by the hosted service: the upload
+step sets `fail_ci_if_error: false`, so a failed or missing upload does not fail the build, and the
+status check can be absent on a fork or without a token. The published target was aspirational.
+
+The current figure is deliberately not recorded here. A coverage percentage written into a document is
+stale on the next commit; the gate reports the live value on every run.
+
 ### Version bump checklist
 
 Bumping a version touches more than version strings. In particular:
