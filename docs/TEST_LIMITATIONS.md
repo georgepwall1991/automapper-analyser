@@ -46,7 +46,22 @@ them narrowed that fixture's spread to about 1.1x. The fixtures also compile wit
 enabled, so AM002's nullable analysis is genuinely part of what is measured rather than a warning.
 
 Recorded baseline on this tree, measured during full-suite runs: solution-sized 4.6x–5.7x,
-mostly-unrelated 2.3x–2.6x, cyclic diamond 1.7x–2.1x. The budget is **20x**, roughly 3x above the noisy high, to catch an order-of-magnitude
+mostly-unrelated 2.3x–2.6x, cyclic diamond 1.7x–2.1x, long chain 2.2x at 20 `ForMember` calls and
+5.0x at 60.
+
+### Known scaling weakness: fluent-chain length
+
+The long-chain measurements are the interesting ones. Each destination member's configuration check
+walks the fluent chain from its `CreateMap`, so a profile with many `ForMember` calls re-walks the same
+chain once per member. Compile cost scales roughly linearly across 2 → 20 → 60 calls while analysis does
+not (2.1x → 2.1x → 4.0x–5.0x).
+
+That is the evidence for the remaining phase of the shared mapping model: caching member-configuration
+state once per `CreateMap` instead of re-deriving it per member. It is **not yet done**, because the
+absolute cost stays well inside budget at realistic profile sizes and the refactor changes shared
+semantics across AM001/AM002/AM003/AM020/AM021 where the golden snapshot is the only safety net. The
+measurement is recorded here so the trend is monitored rather than rediscovered, and so the decision to
+defer is reviewable rather than implicit. The budget is **20x**, roughly 3x above the noisy high, to catch an order-of-magnitude
 regression without firing on runner noise. Tighten only with evidence from a quiet machine.
 
 ## Generated type-shape coverage

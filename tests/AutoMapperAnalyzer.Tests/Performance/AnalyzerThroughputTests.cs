@@ -110,6 +110,74 @@ public class AnalyzerThroughputTests(ITestOutputHelper output)
         );
     }
 
+    /// <summary>
+    ///     Analysis cost against fluent-chain length. Each destination member's configuration check walks
+    ///     the chain from the CreateMap, so a profile with many ForMember calls re-walks the same chain
+    ///     once per member — work that grows with the product of the two.
+    ///     <para>
+    ///     Measured on this tree: 2 calls 2.1x, 20 calls 2.1x, 60 calls 4.0x. Compile cost scales roughly
+    ///     linearly over the same range while analysis does not, which is the signal that a per-mapping
+    ///     member-configuration cache would pay for itself on realistically long profiles. Recorded here
+    ///     so that trend is monitored rather than rediscovered.
+    ///     </para>
+    /// </summary>
+    [Theory]
+    [InlineData(20)]
+    [InlineData(60)]
+    public async Task ChainLength_ShouldNotDegradeDisproportionately(int forMemberCount)
+    {
+        Measurement measurement = await MeasureAsync(BuildLongChainProfile(forMemberCount));
+        Report("long chain", $"{forMemberCount} ForMember calls", measurement);
+
+        Assert.True(
+            measurement.Ratio <= MaxAnalyzerToCompilerRatio,
+            $"A profile with {forMemberCount} ForMember calls cost {measurement.Ratio:F2}x its compile "
+                + $"time (budget {MaxAnalyzerToCompilerRatio:F1}x). Chain-length scaling is the known "
+                + "weak point: every member's configuration check re-walks the whole chain."
+        );
+    }
+
+    /// <summary>
+    ///     One mapping with a long fluent chain and a matching number of members, so both the chain walk
+    ///     and the per-member checks scale together.
+    /// </summary>
+    private static string BuildLongChainProfile(int forMemberCount)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("using AutoMapper;");
+        builder.AppendLine("namespace ChainFixture");
+        builder.AppendLine("{");
+        builder.Append("    public class Source {");
+        for (var i = 0; i < forMemberCount + 5; i++)
+        {
+            builder.Append($" public string P{i} {{ get; set; }} = string.Empty;");
+        }
+
+        builder.AppendLine(" }");
+        builder.Append("    public class Destination {");
+        for (var i = 0; i < forMemberCount + 5; i++)
+        {
+            builder.Append($" public string P{i} {{ get; set; }} = string.Empty;");
+        }
+
+        builder.AppendLine(" }");
+        builder.AppendLine("    public class ChainProfile : Profile");
+        builder.AppendLine("    {");
+        builder.AppendLine("        public ChainProfile()");
+        builder.AppendLine("        {");
+        builder.AppendLine("            CreateMap<Source, Destination>()");
+        for (var i = 0; i < forMemberCount; i++)
+        {
+            builder.AppendLine($"                .ForMember(d => d.P{i}, o => o.MapFrom(s => s.P{i}))");
+        }
+
+        builder.AppendLine("                ;");
+        builder.AppendLine("        }");
+        builder.AppendLine("    }");
+        builder.AppendLine("}");
+        return builder.ToString();
+    }
+
     private readonly record struct Measurement(double CompilerMs, double AnalyzerMs, int AmDiagnostics)
     {
         internal double Ratio => AnalyzerMs / Math.Max(CompilerMs, 0.5);
@@ -167,8 +235,16 @@ public class AnalyzerThroughputTests(ITestOutputHelper output)
         );
         output.WriteLine($"AM diagnostics: {measurement.AmDiagnostics}");
 
-        // A run that produced nothing would make the timing meaningless.
-        Assert.True(measurement.AmDiagnostics > 0, "Fixture produced no AM diagnostics; timing is not meaningful.");
+        // A run that produced nothing would usually make the timing meaningless. The long-chain fixture
+        // is the exception: every member is explicitly configured, so a correct analyzer reports nothing
+        // and the cost being measured is precisely the configuration checking.
+        if (!label.StartsWith("long chain", StringComparison.Ordinal))
+        {
+            Assert.True(
+                measurement.AmDiagnostics > 0,
+                "Fixture produced no AM diagnostics; timing is not meaningful."
+            );
+        }
     }
 
     /// <summary>
