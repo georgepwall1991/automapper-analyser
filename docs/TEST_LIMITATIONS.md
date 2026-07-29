@@ -156,9 +156,9 @@ conversion behaviour can be asserted on real values.
 compile, output AutoMapper rejects semantically, and incorrect `Stack<T>` ordering — and runs the real
 AM011 fixer end to end, executing what it produces rather than comparing it to text.
 
-`FixerRuntimeContractTests` routes twelve rules — AM001, AM002, AM003, AM004, AM005, AM006, AM011,
-AM020, AM021, AM041, AM050, AM061 — through their real analyzer and real fixer, applies **every**
-non-advisory action the lightbulb offers, and executes the result.
+`FixerRuntimeContractTests` routes **all sixteen shipped fixers** through their real analyzer and real
+fixer across seventeen scenarios, applies **every** non-advisory action the lightbulb offers, and
+executes the result.
 
 Coverage is per *branch*, not per rule. AM021 has two scenarios because its `List<T>` conversion and its
 `Stack<T>` conversion are different fixer branches, and only the second appends `.Reverse()`. A
@@ -166,22 +166,28 @@ Coverage is per *branch*, not per rule. AM021 has two scenarios because its `Lis
 2.30.83 — the `Stack<T>` scenario asserts pop order and fails when that order inverts.
 
 Two things about that check are worth stating precisely, because the obvious version of it asserts less
-than it appears to. First, `AssertConfigurationIsValid()` **does not discriminate for most of these
-rules**: feeding the harness unfixed source fails only AM006, AM011, AM020, and AM041, because AutoMapper
-accepts the pre-fix configuration for the other eight. Configuration validity alone would therefore have
-passed whatever those eight fixers emitted. So actions that convert, rename, substitute a default, or
-delete a registration carry **value-level** expectations instead, executed through `MapThroughFixedCode`
+than it appears to. First, `AssertConfigurationIsValid()` **does not discriminate for many of these
+rules**. Substituting unfixed source for fixer output fails 8 of 17 scenarios — AM001, AM002, AM006,
+AM011, AM020, AM021 `Stack<T>`, AM041 and AM060. The remaining 9 pass **unfixed**, because AutoMapper
+accepts the pre-fix configuration and, where a value expectation exists, convention already produces the
+same value. For those 9 the scenario shows the fix does not break a working mapping, not that it repairs
+a broken one — a weaker guarantee, and the reason configuration validity alone is not relied on. Actions
+that convert, rename, substitute a default, or delete a registration therefore carry **value-level**
+expectations, executed through `MapThroughFixedCode`
 — `"42"` must arrive as `42`, a `Stack<int>` popping `3,2,1` must arrive as a `Stack<string>` popping
 `"3","2","1"`, a null source must arrive as the substituted default, and removing a duplicate or
 redundant registration must leave the member still mapping.
 
-Second, both layers were verified by being made to fail: substituting unfixed source for fixer output
-fails 4 of 12, inverting three expected values fails exactly those 3, and inverting the expected stack
-pop order fails the `Stack<T>` scenario alone.
+Second, both layers were verified by being made to fail rather than by being green. Substituting unfixed
+source for fixer output fails the 8 scenarios listed above; inverting an expected value fails exactly the
+scenario that declares it, checked for six of them (AM001, AM005, AM021 `List<T>`, AM021 `Stack<T>`,
+AM022, AM060).
 
-**Rollout remains partial.** Four fixers are not yet routed through it — AM022, AM030, AM031, AM060 —
-and each scenario is a minimal single-defect case, so this checks fixer output on clean inputs rather
-than the full matrix each fixer supports.
+**What remains.** Every shipped fixer is routed, but each scenario is a minimal single-defect case, so
+this checks fixer output on clean inputs rather than the full matrix each fixer supports — and coverage
+is per *branch*, so a routed rule can still have an unexercised branch. Nine of the seventeen scenarios
+carry no value expectation, and adding one where the semantics are unambiguous is the cheapest way to
+strengthen this further.
 
 ## Documented analyzer boundaries
 

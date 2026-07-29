@@ -31,7 +31,7 @@ tests; each answers a question those tests cannot:
 | Source | Question it answers | State |
 | --- | --- | --- |
 | `--scan-corpus` (`tools/AnalyzerVerifier`) | What do the rules say about code we did not write? | Tool works and found the AM041 defect. **No CI job** — see `docs/TEST_LIMITATIONS.md` |
-| `CodeFixRuntimeVerifier` + `FixerRuntimeContractTests` | Does fixer output actually configure a mapper — and map the right values? | 12 of 16 fixers routed through their real analyzer and fixer, every offered action executed, coverage tracked per fixer *branch* rather than per rule; AM022/AM030/AM031/AM060 outstanding |
+| `CodeFixRuntimeVerifier` + `FixerRuntimeContractTests` | Does fixer output actually configure a mapper — and map the right values? | **All 16 fixers** routed through their real analyzer and fixer across 17 scenarios, every offered action executed; coverage tracked per fixer *branch* rather than per rule |
 | `AnalyzerCrashSafetyTests` | Does any analyzer throw on half-typed or error-laden code? | 20 hostile inputs plus a cyclic graph; no crashes on this tree |
 | `GeneratedTypeShapeTests` | Do invariants hold across the shape space, not just sampled points? | ~590 generated mappings; invariants only, never expected diagnostics |
 
@@ -128,11 +128,11 @@ sources rather than the rules, because that is where this batch's two defects ac
    job, because AutoMapper's own MIT extension repositories do not compile from a clean checkout at a
    pinned SHA — they reference `AutoMapper.Internal`, absent from the `[15.0.1, 17.0.0)` range their
    manifests select. One buildable target turns this from a manual tool into a standing check.
-2. **Route the last four fixers** (AM022, AM030, AM031, AM060) through `FixerRuntimeContractTests`.
-   Twelve are now executed rather than string-compared. Note what that rollout exposed: configuration
-   validity alone discriminates for only four of the twelve rules, because AutoMapper accepts the
-   *unfixed* configuration for the rest — so any extension needs value-level expectations, not just
-   `AssertConfigurationIsValid()`, or it asserts nothing about what the fixer emitted.
+2. **Add value expectations to the nine scenarios that lack one.** All 16 fixers are now executed rather
+   than string-compared, and that rollout exposed the limit worth acting on: substituting *unfixed*
+   source passes 9 of 17 scenarios, because AutoMapper accepts the pre-fix configuration and convention
+   often produces the same value anyway. Those nine currently show only that the fix does not break a
+   working mapping. `AssertConfigurationIsValid()` alone is not a coverage claim.
 3. Advance AM001, AM002, or AM022 only when a concrete compiling false positive/negative proves the gap.
 
 A reproducible false negative that is knowingly deferred is not the same as a clean queue, and this
