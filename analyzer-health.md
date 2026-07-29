@@ -111,9 +111,18 @@ Use this table as the hardening queue. Ranking = **Importance × (5 − min(Anal
 
 **Recommended next hardening batch:**
 
-The rule-by-rule queue above is genuinely at monitor priority: no rule has an evidence-backed residual
-that a repro proves. The productive work is now in the evidence sources rather than the rules, because
-that is where this batch's two defects actually came from.
+One rule-level residual is retained rather than closed, and it is deliberately deferred rather than
+merely unproven: **AM011 does not report when an `IncludeMembers` child map ignores a required member**
+(`ForMember(... Ignore())` or `ForAllMembers(... Ignore())`). AutoMapper rejects that configuration at
+startup, so it is a real false negative, reproduced by `IncludeMembersTests.*_KnownLimitation` — which
+assert the shipped behaviour, not the ideal one — and recorded in `docs/TEST_LIMITATIONS.md`. It stays
+deferred because every attempt to infer that a child map *fails* to supply a member produced
+Error-severity false positives during 2.30.88, and on an `Error` rule a false positive breaks builds
+while this false negative merely fails to prevent a startup error the consumer still sees. Reopen it
+only with a design that cannot fire on an unresolvable child map.
+
+Beyond that, the rule-by-rule queue is at monitor priority. The productive work is in the evidence
+sources rather than the rules, because that is where this batch's two defects actually came from.
 
 1. **Identify buildable corpus targets.** The scanner is the highest-yield source available and has no CI
    job, because AutoMapper's own MIT extension repositories do not compile from a clean checkout at a
@@ -123,6 +132,9 @@ that is where this batch's two defects actually came from.
    string equality against expected text, which cannot distinguish a fix AutoMapper accepts from one that
    merely looks right — the 2.30.83 `Stack<T>` ordering defect was exactly that.
 3. Advance AM001, AM002, or AM022 only when a concrete compiling false positive/negative proves the gap.
+
+A reproducible false negative that is knowingly deferred is not the same as a clean queue, and this
+section said otherwise until review caught it.
 
 Do **not** open advanced AM001/AM002 conversion/nullability modelling without a filed false-positive/false-negative repro.
 
