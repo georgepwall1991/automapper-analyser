@@ -663,13 +663,38 @@ public static class MappingChainAnalysisHelper
         return false;
     }
 
+    /// <summary>
+    ///     True when the configuration lambda calls <c>Ignore()</c> on its own options parameter.
+    ///     <para>
+    ///     The receiver check is what makes this safe on an <c>Error</c> rule. Any zero-argument call
+    ///     named <c>Ignore</c> would also match an unrelated helper - <c>o =&gt; o.Condition((src, dest,
+    ///     sm, dm) =&gt; Settings.Ignore())</c> - and reading that as the map ignoring the member turns a
+    ///     valid mapping into a false positive. Only <c>o =&gt; o.Ignore()</c> is AutoMapper's Ignore.
+    ///     </para>
+    /// </summary>
     private static bool ContainsIgnoreCall(ExpressionSyntax configurationExpression)
     {
-        return configurationExpression.DescendantNodesAndSelf()
+        string? optionsParameter = configurationExpression switch
+        {
+            SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Parameter.Identifier.ValueText,
+            ParenthesizedLambdaExpressionSyntax parenthesizedLambda
+                when parenthesizedLambda.ParameterList.Parameters.Count == 1 =>
+                parenthesizedLambda.ParameterList.Parameters[0].Identifier.ValueText,
+            _ => null
+        };
+
+        if (optionsParameter == null)
+        {
+            return false;
+        }
+
+        return configurationExpression.DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Any(invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
                                memberAccess.Name.Identifier.ValueText == "Ignore" &&
-                               invocation.ArgumentList.Arguments.Count == 0);
+                               invocation.ArgumentList.Arguments.Count == 0 &&
+                               memberAccess.Expression is IdentifierNameSyntax receiver &&
+                               receiver.Identifier.ValueText == optionsParameter);
     }
 
     /// <summary>
@@ -823,6 +848,7 @@ public static class MappingChainAnalysisHelper
         ///     supplies means modelling its full member resolution (reverse-generated registrations,
         ///     semantic binding, conditional configuration), and approximating that produced
         ///     Error-severity false positives, so absence of configuration still suppresses.
+        ///     </para>
         ///     <para>
         ///     An explicit <c>ForMember(d =&gt; d.X, o =&gt; o.Ignore())</c> or <c>ForAllMembers(o =&gt;
         ///     o.Ignore())</c> on a uniquely resolved child map is a statement, not an inference: the map

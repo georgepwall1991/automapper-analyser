@@ -720,6 +720,57 @@ public class IncludeMembersTests
     }
 
     [Fact]
+    public async Task AM011_ShouldNotReportDiagnostic_WhenAnUnrelatedIgnoreHelperIsCalledInConfiguration()
+    {
+        const string testCode = """
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public static class Settings
+                {
+                    public static bool Ignore() => false;
+                }
+
+                public class Inner
+                {
+                    public string Name { get; set; }
+                }
+
+                public class Source
+                {
+                    public Inner Inner { get; set; }
+                }
+
+                public class Destination
+                {
+                    public required string Name { get; set; }
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Inner, Destination>()
+                            .ForMember(d => d.Name, o => o.Condition((src, dest, sm, dm) => !Settings.Ignore()));
+                        CreateMap<Source, Destination>().IncludeMembers(s => s.Inner);
+                    }
+                }
+            }
+            """;
+
+        // A zero-argument Ignore() that is not AutoMapper's - here an unrelated helper inside a
+        // Condition - must not be read as the map ignoring the member. Scanning descendants for any
+        // call named Ignore would turn this valid mapping into an Error-severity false positive, so
+        // the call has to resolve to the configuration lambda's own options parameter.
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM011_UnmappedRequiredPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM011_ShouldNotReportDiagnostic_WhenIgnoreTargetsADifferentMember()
     {
         const string testCode = """

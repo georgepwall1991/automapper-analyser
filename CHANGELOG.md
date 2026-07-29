@@ -28,7 +28,12 @@ or severity changes).
     application order this scope does not model - a false negative there is the deliberate trade on an
     `Error` rule.
 
-  Four negative tests pin those boundaries alongside the two flipped cases.
+  The `Ignore()` call must resolve to the configuration lambda's own options parameter. Matching any
+  zero-argument call named `Ignore` would also match an unrelated helper — `o => o.Condition((src, dest,
+  sm, dm) => Settings.Ignore())` — and reading that as a map-level ignore would turn a valid mapping into
+  an Error-severity false positive. Cross-review caught that before release; it has its own test.
+
+  Five negative tests pin those boundaries alongside the two flipped cases.
 
 ## [2.30.96] - 2026-07-29
 
