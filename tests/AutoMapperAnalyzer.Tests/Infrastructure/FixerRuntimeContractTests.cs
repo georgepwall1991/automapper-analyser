@@ -533,9 +533,58 @@ public class FixerRuntimeContractTests
             PopulateSource = type => Populate(type, ("Values", new List<int> { 1, 2, 3 })),
             Behaviours = new Dictionary<string, Action<object>>(StringComparer.Ordinal)
             {
-                // The 2.30.83 defect exactly: compile-clean, text-identical to expectation, wrong order.
+                // The .ToList() branch. Ordering is incidental here; the Stack<T> scenario below is
+                // the one that guards the 2.30.83 LIFO defect.
                 ["AM021_SimpleConversion"] = mapped =>
                     Assert.Equal(["1", "2", "3"], StringsOf(Property(mapped, "Values"))),
+            },
+        },
+        ["AM021 stack element mismatch"] = new(
+            () => new AM021_CollectionElementMismatchAnalyzer(),
+            () => new AM021_CollectionElementMismatchCodeFixProvider(),
+            """
+            using System.Collections.Generic;
+            using AutoMapper;
+
+            namespace TestNamespace
+            {
+                public class Source
+                {
+                    public Stack<int> Values { get; set; } = new Stack<int>();
+                }
+
+                public class Destination
+                {
+                    public Stack<string> Values { get; set; } = new Stack<string>();
+                }
+
+                public class TestProfile : Profile
+                {
+                    public TestProfile()
+                    {
+                        CreateMap<Source, Destination>();
+                    }
+                }
+            }
+            """,
+            []
+        )
+        {
+            PopulateSource = type =>
+            {
+                var values = new Stack<int>();
+                values.Push(1);
+                values.Push(2);
+                values.Push(3);
+                return Populate(type, ("Values", values));
+            },
+            Behaviours = new Dictionary<string, Action<object>>(StringComparer.Ordinal)
+            {
+                // The 2.30.83 defect exactly. It lives in the fixer's Stack<T> branch, which appends
+                // .Reverse() - a branch the List<T> scenario above never selects, so only this one
+                // fails if the LIFO correction regresses. Source pops 3,2,1; so must the destination.
+                ["AM021_SimpleConversion"] = mapped =>
+                    Assert.Equal(["3", "2", "1"], StringsOf(Property(mapped, "Values"))),
             },
         },
         ["AM041 duplicate mapping"] = new(

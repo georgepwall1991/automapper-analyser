@@ -160,18 +160,24 @@ AM011 fixer end to end, executing what it produces rather than comparing it to t
 AM020, AM021, AM041, AM050, AM061 — through their real analyzer and real fixer, applies **every**
 non-advisory action the lightbulb offers, and executes the result.
 
+Coverage is per *branch*, not per rule. AM021 has two scenarios because its `List<T>` conversion and its
+`Stack<T>` conversion are different fixer branches, and only the second appends `.Reverse()`. A
+`List<T>` scenario stays green if the LIFO correction regresses, so it cannot be the thing that guards
+2.30.83 — the `Stack<T>` scenario asserts pop order and fails when that order inverts.
+
 Two things about that check are worth stating precisely, because the obvious version of it asserts less
 than it appears to. First, `AssertConfigurationIsValid()` **does not discriminate for most of these
 rules**: feeding the harness unfixed source fails only AM006, AM011, AM020, and AM041, because AutoMapper
 accepts the pre-fix configuration for the other eight. Configuration validity alone would therefore have
 passed whatever those eight fixers emitted. So actions that convert, rename, substitute a default, or
 delete a registration carry **value-level** expectations instead, executed through `MapThroughFixedCode`
-— `"42"` must arrive as `42`, `[1,2,3]` must arrive as `["1","2","3"]` in that order, a null source must
-arrive as the substituted default, and removing a duplicate or redundant registration must leave the
-member still mapping.
+— `"42"` must arrive as `42`, a `Stack<int>` popping `3,2,1` must arrive as a `Stack<string>` popping
+`"3","2","1"`, a null source must arrive as the substituted default, and removing a duplicate or
+redundant registration must leave the member still mapping.
 
 Second, both layers were verified by being made to fail: substituting unfixed source for fixer output
-fails 4 of 12, and inverting three expected values fails exactly those 3.
+fails 4 of 12, inverting three expected values fails exactly those 3, and inverting the expected stack
+pop order fails the `Stack<T>` scenario alone.
 
 **Rollout remains partial.** Four fixers are not yet routed through it — AM022, AM030, AM031, AM060 —
 and each scenario is a minimal single-defect case, so this checks fixer output on clean inputs rather

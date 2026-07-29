@@ -31,7 +31,7 @@ tests; each answers a question those tests cannot:
 | Source | Question it answers | State |
 | --- | --- | --- |
 | `--scan-corpus` (`tools/AnalyzerVerifier`) | What do the rules say about code we did not write? | Tool works and found the AM041 defect. **No CI job** — see `docs/TEST_LIMITATIONS.md` |
-| `CodeFixRuntimeVerifier` + `FixerRuntimeContractTests` | Does fixer output actually configure a mapper — and map the right values? | 12 of 16 fixers routed through their real analyzer and fixer, every offered action executed; AM022/AM030/AM031/AM060 outstanding |
+| `CodeFixRuntimeVerifier` + `FixerRuntimeContractTests` | Does fixer output actually configure a mapper — and map the right values? | 12 of 16 fixers routed through their real analyzer and fixer, every offered action executed, coverage tracked per fixer *branch* rather than per rule; AM022/AM030/AM031/AM060 outstanding |
 | `AnalyzerCrashSafetyTests` | Does any analyzer throw on half-typed or error-laden code? | 20 hostile inputs plus a cyclic graph; no crashes on this tree |
 | `GeneratedTypeShapeTests` | Do invariants hold across the shape space, not just sampled points? | ~590 generated mappings; invariants only, never expected diagnostics |
 
