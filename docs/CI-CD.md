@@ -131,7 +131,8 @@ This exists because the declared target was previously enforced only by the host
 step sets `fail_ci_if_error: false`, so a failed or missing upload does not fail the build, and the
 status check can be absent on a fork or without a token. The published target was aspirational.
 
-Current line coverage is 88.16%, comfortably above the 78% floor.
+The current figure is deliberately not recorded here. A coverage percentage written into a document is
+stale on the next commit; the gate reports the live value on every run.
 
 ### Version bump checklist
 
