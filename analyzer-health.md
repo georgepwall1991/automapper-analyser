@@ -1,12 +1,41 @@
 # Analyzer Health
 
-Reviewed: 2026-07-28 (AM004/AM006/AM011 `IncludeMembers` awareness shipped as **2.30.88**)
+Reviewed: 2026-07-29 (monitor sweep after **2.30.88–2.30.96**; the evidence base changed materially — see *How defects are found*)
 
 This is a deliberately harsh health audit for the **23** implemented AutoMapper analyzer rule IDs in this repository (16 before the 2.30.62 performance split). Several rule IDs still expose multiple diagnostic descriptors, especially `AM002` and `AM022`; the scorecard rates the public rule ID as the user experiences it.
 
 Every implemented rule currently has an analyzer and a code fix provider. Scores are 1-5, where `5` means reference-quality and hard to improve, `3` means usable but meaningfully incomplete, and `1` means unreliable or underbuilt.
 
 **Ship status:** production-acceptable. **2.30.96** configuration calls resolved once per mapping (long-chain analysis ~25% cheaper); **2.30.95** corrected provenance verification instructions; **2.30.94** published packages carry verifiable build provenance; **2.30.93** every diagnostic carries a documentation help link; **2.30.92** syntactic gate before symbol binding (measured against the new throughput baseline); **2.30.91** AM041 respects independent `MapperConfiguration` containers (first defect found by third-party corpus scanning); **2.30.90** severity presets for brownfield adoption; **2.30.89** AutoMapper 15/16 added to the verified compatibility contract; **2.30.88** `IncludeMembers` awareness closes an Error-severity AM011 false positive plus matching AM004/AM006 gaps; **2.30.87** discoverability assets (CreateMap metadata, funnel README, product-flow visuals); **2.30.86** AM020 computed receivers are captured exactly once before missing nested-map insertion; **2.30.85** AM021 nested collection safety and dependency refresh; **2.30.84** new AM060 unregistered type map at call site + AM061 enum member mismatch rules (Codex cross-reviewed, two rounds); **2.30.83** AM021 Stack conversion order safety; **2.30.82** AM021 direct-statement and conditional-region safety; **2.30.81** AM020 conditional block-body insertion safety; **2.30.80** AM020 expression-bodied void-method fixer parity; **2.30.79** AM020 expression-bodied Profile constructor fixer parity; **2.30.78** AM020 stable configuration receiver fixes. Every rule now has minimum health 4. Full suite green; catalog/snapshots and package smoke verification are current.
+
+## How defects are found
+
+This matters more than any single score below, because it changes what the scores mean.
+
+Until 2026-07-29 every verification path in this repository read code the project authored: the samples
+project, the test suite, the snapshot baselines. That is a closed loop. It can show the analyzers behave
+as their authors expect; it cannot surface a false positive nobody imagined. Two defects fixed in this
+batch prove the gap was real rather than theoretical, and **both sat inside a scorecard where every rule
+already read ≥4/5 with no shortlist gaps**:
+
+- **`IncludeMembers`** (2.30.88) had zero recognition anywhere in the pack. AM011 is `Error` severity and
+  enabled by default, so any consumer using a documented AutoMapper feature had their build broken. It
+  survived thirty-plus releases because no test exercised the feature.
+- **AM041** (2.30.91) reported `CreateMap` calls in independent `MapperConfiguration` instances as
+  duplicates. The identical false positive was recorded in `tests/.../Snapshots/sample-diagnostics.json`
+  **as expected behaviour** — a self-authored baseline cannot catch a bug it already agrees with.
+
+Four evidence sources now exist that the suite did not previously provide. None replaces the per-rule
+tests; each answers a question those tests cannot:
+
+| Source | Question it answers | State |
+| --- | --- | --- |
+| `--scan-corpus` (`tools/AnalyzerVerifier`) | What do the rules say about code we did not write? | Tool works and found the AM041 defect. **No CI job** — see `docs/TEST_LIMITATIONS.md` |
+| `CodeFixRuntimeVerifier` | Does fixer output actually configure a mapper AutoMapper accepts? | Harness proven; **rollout across the 16 fixers is partial** |
+| `AnalyzerCrashSafetyTests` | Does any analyzer throw on half-typed or error-laden code? | 20 hostile inputs plus a cyclic graph; no crashes on this tree |
+| `GeneratedTypeShapeTests` | Do invariants hold across the shape space, not just sampled points? | ~590 generated mappings; invariants only, never expected diagnostics |
+
+Each was verified by being made to fail, not by being green.
 
 ## Rubric
 
@@ -77,13 +106,23 @@ Use this table as the hardening queue. Ranking = **Importance × (5 − min(Anal
 | 2 | **AM002** | gap=5, min=4 | Concrete `ForCtorParam` null-safety false positive, read-only alias false negative, and misleading property-fix path closed in 2.30.74. Advanced generic/nullability-flow remains repro-gated. | — until evidence |
 | 3 | **AM022** | gap=4, min=4 | Direct renamed root/downstream edges shipped 2.30.70–2.30.71; constructor-owned `ForCtorParam` edges shipped 2.30.75; deferred root cycle-breaker parity closed in 2.30.76. Advanced configuration inference remains repro-gated. | — until evidence |
 | 4 | **AM020 / AM021 / AM003** | gap=5/4 | AM020 stable receiver insertion, expression-body expansion, conditional-region safety, and capture-once computed receiver support are complete; non-void expression bodies and structurally nested registrations remain safely fixless. AM021 direct-statement and conditional-region safety shipped 2.30.82, and exact BCL Stack conversion order safety shipped 2.30.83; nested, deferred, and conditional-region element-map insertions remain safely fixless. AM003/AM021 custom-collection limits remain. | Opportunistic |
-| 5 | **AM041 / AM050** | gap=4/2 | Concrete AM041 deferred-local `ReverseMap()` false negative closed in 2.30.73 and mutually exclusive branch false positive closed in 2.30.77; remaining SafeRewrite nuance is repro-gated. AM050 remains low Importance. | Low ROI |
+| 5 | **AM041 / AM050** | gap=4/2 | Concrete AM041 deferred-local `ReverseMap()` false negative closed in 2.30.73, mutually exclusive branch false positive closed in 2.30.77, and independent `MapperConfiguration` container false positive closed in 2.30.91 — the last found by corpus scanning, not by the suite. Remaining SafeRewrite nuance is repro-gated. AM050 remains low Importance. | Low ROI |
 | 6 | **AM033 / AM005 / AM030** | gap=2–3 | Importance-limited. | Product priority only |
 
 **Recommended next hardening batch:**
 
-1. **Monitor sweep** for a new evidence-backed residual
-2. Advance AM001, AM002, or AM022 only when a concrete compiling false positive/negative proves the gap
+The rule-by-rule queue above is genuinely at monitor priority: no rule has an evidence-backed residual
+that a repro proves. The productive work is now in the evidence sources rather than the rules, because
+that is where this batch's two defects actually came from.
+
+1. **Identify buildable corpus targets.** The scanner is the highest-yield source available and has no CI
+   job, because AutoMapper's own MIT extension repositories do not compile from a clean checkout at a
+   pinned SHA — they reference `AutoMapper.Internal`, absent from the `[15.0.1, 17.0.0)` range their
+   manifests select. One buildable target turns this from a manual tool into a standing check.
+2. **Extend runtime fix verification** across the remaining fixers. All 16 are otherwise verified by
+   string equality against expected text, which cannot distinguish a fix AutoMapper accepts from one that
+   merely looks right — the 2.30.83 `Stack<T>` ordering defect was exactly that.
+3. Advance AM001, AM002, or AM022 only when a concrete compiling false positive/negative proves the gap.
 
 Do **not** open advanced AM001/AM002 conversion/nullability modelling without a filed false-positive/false-negative repro.
 
