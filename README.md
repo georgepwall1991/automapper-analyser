@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.95">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.96">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.95
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.96
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,9 +119,14 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.95
+## Latest Release: v2.30.96
 
-**Verifiable build provenance**
+**Faster analysis of profiles with long fluent chains**
+
+- Configuration calls are resolved once per `CreateMap` rather than re-walked for every destination member. A 60-`ForMember` profile costs about 25% less analysis time, and the gap between long and short chains roughly halves.
+- Short chains are marginally slower, where there is little to cache. No rule ID, severity, or diagnostic changes.
+
+<details><summary>Previous release: verifiable build provenance (v2.30.94–95)</summary>
 
 - Releases carry GitHub build provenance, so you can confirm the package was built by this repository's release workflow rather than trusting the uploader.
 - Verify the **asset attached to the GitHub release** — NuGet.org repository-signs packages on upload, which changes the bytes, so the NuGet copy will not match the attestation:
@@ -130,7 +135,9 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
   gh release download v2.30.95 --repo georgepwall1991/automapper-analyser --pattern "*.nupkg"
   gh attestation verify AutoMapperAnalyzer.Analyzers.2.30.95.nupkg --repo georgepwall1991/automapper-analyser
   ```
-- No rule ID, severity, or diagnostic changes. For **v2.30.93**'s documentation links see [`CHANGELOG.md`](CHANGELOG.md).
+- No rule ID, severity, or diagnostic changes.
+
+</details>
 
 <details><summary>Previous release (v2.30.93)</summary>
 
@@ -154,6 +161,7 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ### Recent highlights
 
+- **v2.30.96**: Faster analysis of profiles with long fluent chains.
 - **v2.30.95**: Corrects the provenance verification command — verify the GitHub release asset, not the NuGet download.
 - **v2.30.94**: The published package carries verifiable build provenance.
 - **v2.30.93**: Every diagnostic now links to its documentation section — IDEs offer "learn more" on all 23 rules.
@@ -272,7 +280,7 @@ Reference one from your project file:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.95"
+  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.96"
                     PrivateAssets="all" GeneratePathProperty="true" />
   <GlobalAnalyzerConfigFiles
     Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />

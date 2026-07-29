@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## [2.30.96] - 2026-07-29
+
+Faster analysis of profiles with long fluent chains (no rule ID, severity, or diagnostic changes).
+
 ### Changed
 
 - **Configuration chain walk cached per mapping.** Callers ask "is this destination member configured?"
