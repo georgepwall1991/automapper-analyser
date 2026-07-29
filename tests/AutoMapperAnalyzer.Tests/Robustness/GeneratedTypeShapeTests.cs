@@ -5,7 +5,6 @@ using AutoMapperAnalyzer.Analyzers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Xunit.Abstractions;
 
 namespace AutoMapperAnalyzer.Tests.Robustness;
 
@@ -24,7 +23,7 @@ namespace AutoMapperAnalyzer.Tests.Robustness;
 ///     regardless of which rule fires, and a violation is a real defect rather than a stale expectation.
 ///     </para>
 /// </summary>
-public class GeneratedTypeShapeTests(ITestOutputHelper output)
+public class GeneratedTypeShapeTests
 {
     private static readonly string[] ElementTypes = ["string", "int", "System.DateTime"];
 
@@ -195,11 +194,17 @@ public class GeneratedTypeShapeTests(ITestOutputHelper output)
         builder.AppendLine();
         builder.AppendLine("namespace GeneratedFixture");
         builder.AppendLine("{");
+        // A struct with a field initializer needs an explicitly declared constructor (CS8983), so the
+        // initializer is emitted only for reference declarations. Without this the record-struct third
+        // of the matrix generated source that does not compile.
+        string initializer = declarationForm.Contains("struct", StringComparison.Ordinal)
+            ? string.Empty
+            : " = default!;";
         builder.AppendLine(
-            $"    public {declarationForm} Source {{ public {sourceMemberType} Value {{ get; set; }} = default!; }}"
+            $"    public {declarationForm} Source {{ public {sourceMemberType} Value {{ get; set; }}{initializer} }}"
         );
         builder.AppendLine(
-            $"    public {declarationForm} Destination {{ public {destinationMemberType} Value {{ get; set; }} = default!; }}"
+            $"    public {declarationForm} Destination {{ public {destinationMemberType} Value {{ get; set; }}{initializer} }}"
         );
         builder.AppendLine();
         builder.AppendLine("    public class GeneratedProfile : Profile");
@@ -273,6 +278,20 @@ public class GeneratedTypeShapeTests(ITestOutputHelper output)
             },
             concurrentAnalysis: true,
             logAnalyzerExecutionTime: false
+        );
+
+        // Analysing source that does not compile exercises error types rather than the shapes this
+        // suite claims to cover, and would pass silently - the record-struct third of the matrix did
+        // exactly that until review caught it. The corpus scanner learned the same lesson separately.
+        ImmutableArray<Diagnostic> compilerErrors = compilation
+            .GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToImmutableArray();
+
+        Assert.True(
+            compilerErrors.Length == 0,
+            "Generated fixture does not compile, so the shapes under test are not the shapes described: "
+                + string.Join("; ", compilerErrors.Select(d => d.ToString()))
         );
 
         ImmutableArray<Diagnostic> diagnostics = await compilation
