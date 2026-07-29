@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed
+
+- **`docs/rules.md` reduced to a redirect stub.** It held a second copy of the rule reference that had
+  drifted to 21 of 23 rules — missing AM060 and AM061 — while nothing linked to it and no test validated
+  it, so the drift was invisible. Every consumer (help links, rule catalog, trust tests) points at
+  `DIAGNOSTIC_RULES.md`. Kept as a stub rather than deleted so existing links still resolve. 73KB removed.
+
 ## [2.30.93] - 2026-07-29
 
 Every diagnostic links to its documentation (no rule ID, severity, or diagnostic changes).
