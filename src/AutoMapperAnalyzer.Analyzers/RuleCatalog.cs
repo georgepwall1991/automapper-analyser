@@ -3,9 +3,9 @@ using System.Globalization;
 using AutoMapperAnalyzer.Analyzers.ComplexMappings;
 using AutoMapperAnalyzer.Analyzers.Configuration;
 using AutoMapperAnalyzer.Analyzers.DataIntegrity;
+using AutoMapperAnalyzer.Analyzers.Helpers;
 using AutoMapperAnalyzer.Analyzers.Performance;
 using AutoMapperAnalyzer.Analyzers.TypeSafety;
-using AutoMapperAnalyzer.Analyzers.Helpers;
 using Microsoft.CodeAnalysis;
 
 namespace AutoMapperAnalyzer.Analyzers;
@@ -131,7 +131,7 @@ public static class RuleCatalog
     /// <summary>
     ///     Current package version used by docs/package drift tests.
     /// </summary>
-    public const string CurrentPackageVersion = "2.30.100";
+    public const string CurrentPackageVersion = "2.30.101";
 
     /// <summary>
     ///     Implemented rules, grouped by public diagnostic ID.

@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+## [2.30.101] - 2026-07-30
+
+AM041 now treats opposite `if`/`else` registrations as mutually exclusive only
+inside a direct, single-execution `MapperConfiguration` callback (no rule ID or
+severity changes).
+
+### Fixed
+
+- **AM041 false negative**: a repeatable helper or `Profile` path could execute
+  once with each branch selected, registering the same source/destination pair
+  twice, but the analyzer suppressed the duplicate because the calls shared one
+  `if`/`else` statement.
+
+### Changed
+
+- The existing mutual-exclusion proof now has one consistent boundary for
+  `if`/`else` chains and `switch` sections: only a direct
+  `MapperConfiguration` callback is known to execute once for its container.
+  Repeatable helpers, profile constructors, local functions, and ordinary
+  lambdas remain diagnostic. A loop around either registration also keeps the
+  diagnostic because different iterations can select different branches. The
+  callback container must come from the same AutoMapper assembly as the
+  recognized `CreateMap` calls, so source-defined namespace lookalikes fail
+  closed.
+
+### Validation
+
+- AM041 focused suite: **29** passed, including the repeatable-helper,
+  loop-nested, and source-defined lookalike regressions plus direct-callback
+  negative controls.
+- Full suite: **2483** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.100] - 2026-07-30
 
 AM032 now preserves structured conditional-compilation trivia exactly once when

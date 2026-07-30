@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.100">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.101">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.100
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.101
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,15 +119,20 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.100
+## Latest Release: v2.30.101
 
-**AM032 preserves conditional directives when inserting a null guard**
+**AM041 limits branch exclusivity to one-shot configuration callbacks**
 
-- A block-bodied converter whose first statement begins in a `#if` region no
-  longer receives a duplicated conditional directive when the AM032 fix adds
-  an executable null guard.
-- The guard inherits indentation only. Structured directives and comments stay
-  attached to the original statement, after the guard, exactly once.
+- Opposite `if`/`else` registrations are considered mutually exclusive only
+  inside a direct `MapperConfiguration` callback, which executes once for that
+  container.
+- Repeatable helpers and profile paths now report when separate executions can
+  select both branches and register the same map twice.
+- Loop-nested branches remain diagnostic because different iterations can
+  select both arms.
+- Source-defined `AutoMapper.MapperConfiguration` lookalikes do not receive the
+  one-shot suppression; the callback container must come from the same
+  AutoMapper assembly as `CreateMap`.
 - No rule ID or severity changes.
 
 <details><summary>Previous release: verifiable build provenance (v2.30.94–95)</summary>
@@ -165,6 +170,7 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ### Recent highlights
 
+- **v2.30.101**: AM041 limits `if`/`else` mutual-exclusion suppression to authentic, direct, non-looping `MapperConfiguration` callbacks.
 - **v2.30.100**: AM032 preserves structured conditional directives exactly once when inserting a null guard.
 - **v2.30.99**: AM060 scopes unresolved open-generic registrations to mapping pairs they could cover.
 - **v2.30.98**: AM041 respects mutually exclusive `switch` sections in direct `MapperConfiguration` lambdas.
@@ -288,7 +294,7 @@ Reference one from your project file:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.100"
+  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.101"
                     PrivateAssets="all" GeneratePathProperty="true" />
   <GlobalAnalyzerConfigFiles
     Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />

@@ -330,7 +330,126 @@ public class AM041_DuplicateMappingTests
     }
 
     [Fact]
-    public async Task Should_NotReportDiagnostic_WhenRegistrationsAreInOppositeIfElseBranches()
+    public async Task Should_NotReportDiagnostic_WhenMapperConfigurationRegistrationsAreInOppositeIfElseBranches()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class ConfigurationOwner
+                                {
+                                    public ConfigurationOwner(bool useAlternative)
+                                    {
+                                        _ = new MapperConfiguration(cfg =>
+                                        {
+                                            if (useAlternative)
+                                            {
+                                                cfg.CreateMap<Source, Destination>();
+                                            }
+                                            else
+                                            {
+                                                cfg.CreateMap<Source, Destination>();
+                                            }
+                                        });
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_WhenLookalikeMapperConfigurationExecutesCallbackTwice()
+    {
+        const string testCode = """
+                                #pragma warning disable CS0436
+                                using AutoMapper;
+                                using System;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                namespace AutoMapper
+                                {
+                                    public class MapperConfiguration
+                                    {
+                                        public MapperConfiguration(Action<IMapperConfigurationExpression> configure)
+                                        {
+                                            IMapperConfigurationExpression expression = default!;
+                                            configure(expression);
+                                            configure(expression);
+                                        }
+                                    }
+                                }
+
+                                public class ConfigurationOwner
+                                {
+                                    public ConfigurationOwner(bool useAlternative)
+                                    {
+                                        _ = new MapperConfiguration(cfg =>
+                                        {
+                                            if (useAlternative)
+                                            {
+                                                cfg.CreateMap<Source, Destination>();
+                                            }
+                                            else
+                                            {
+                                                cfg.CreateMap<Source, Destination>();
+                                            }
+                                        });
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(33, 17)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_WhenIfElseCanExecuteBothBranchesAcrossLoopIterations()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class ConfigurationOwner
+                                {
+                                    public ConfigurationOwner()
+                                    {
+                                        _ = new MapperConfiguration(cfg =>
+                                        {
+                                            foreach (bool useAlternative in new[] { true, false })
+                                            {
+                                                if (useAlternative)
+                                                {
+                                                    cfg.CreateMap<Source, Destination>();
+                                                }
+                                                else
+                                                {
+                                                    cfg.CreateMap<Source, Destination>();
+                                                }
+                                            }
+                                        });
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(20, 21)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_WhenRepeatableHelperExecutesOppositeIfElseBranches()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -340,7 +459,13 @@ public class AM041_DuplicateMappingTests
 
                                 public class MyProfile : Profile
                                 {
-                                    public MyProfile(bool useAlternative)
+                                    public MyProfile()
+                                    {
+                                        Configure(useAlternative: true);
+                                        Configure(useAlternative: false);
+                                    }
+
+                                    private void Configure(bool useAlternative)
                                     {
                                         if (useAlternative)
                                         {
@@ -354,7 +479,11 @@ public class AM041_DuplicateMappingTests
                                 }
                                 """;
 
-        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(22, 13)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
     }
 
     [Fact]
@@ -391,7 +520,7 @@ public class AM041_DuplicateMappingTests
     }
 
     [Fact]
-    public async Task Should_NotReportDiagnostic_WhenRegistrationsAreInOneIfElseIfChain()
+    public async Task Should_NotReportDiagnostic_WhenMapperConfigurationRegistrationsAreInOneIfElseIfChain()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -399,22 +528,25 @@ public class AM041_DuplicateMappingTests
                                 public class Source {}
                                 public class Destination {}
 
-                                public class MyProfile : Profile
+                                public class ConfigurationOwner
                                 {
-                                    public MyProfile(bool first, bool second)
+                                    public ConfigurationOwner(bool first, bool second)
                                     {
-                                        if (first)
+                                        _ = new MapperConfiguration(cfg =>
                                         {
-                                            CreateMap<Source, Destination>();
-                                        }
-                                        else if (second)
-                                        {
-                                            CreateMap<Source, Destination>();
-                                        }
-                                        else
-                                        {
-                                            CreateMap<Source, Destination>();
-                                        }
+                                            if (first)
+                                            {
+                                                cfg.CreateMap<Source, Destination>();
+                                            }
+                                            else if (second)
+                                            {
+                                                cfg.CreateMap<Source, Destination>();
+                                            }
+                                            else
+                                            {
+                                                cfg.CreateMap<Source, Destination>();
+                                            }
+                                        });
                                     }
                                 }
                                 """;
@@ -431,26 +563,29 @@ public class AM041_DuplicateMappingTests
                                 public class Source {}
                                 public class Destination {}
 
-                                public class MyProfile : Profile
+                                public class ConfigurationOwner
                                 {
-                                    public MyProfile(bool useAlternative)
+                                    public ConfigurationOwner(bool useAlternative)
                                     {
-                                        if (useAlternative)
+                                        _ = new MapperConfiguration(cfg =>
                                         {
-                                            CreateMap<Source, Destination>();
-                                        }
-                                        else
-                                        {
-                                            CreateMap<Source, Destination>();
-                                        }
+                                            if (useAlternative)
+                                            {
+                                                cfg.CreateMap<Source, Destination>();
+                                            }
+                                            else
+                                            {
+                                                cfg.CreateMap<Source, Destination>();
+                                            }
 
-                                        CreateMap<Source, Destination>();
+                                            cfg.CreateMap<Source, Destination>();
+                                        });
                                     }
                                 }
                                 """;
 
         DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
-            .WithLocation(19, 9)
+            .WithLocation(21, 13)
             .WithArguments("Source", "Destination");
 
         await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
