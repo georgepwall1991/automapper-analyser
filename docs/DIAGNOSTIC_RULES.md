@@ -1376,11 +1376,16 @@ configuration as usage, including `ConvertUsing<MyConverter>()`, `ConvertUsing(n
 `ConvertUsing(typeof(MyConverter))` even when the `typeof(...)` expression is parenthesized, cast to `Type`, or stored in
 a simple `Type` local/field/property before being passed to `ConvertUsing(...)`. It also
 recognizes simple local, field, or property initializers where an `ITypeConverter<TSource, TDestination>` variable is
-initialized with a concrete converter and then passed to `ConvertUsing(converter)`.
+initialized with a concrete converter and then passed to `ConvertUsing(converter)`. In that resolvable shape, only the
+concrete implementation is marked as used when the reference is stable at the call site; unused sibling implementations
+of the same interface pair still report. Same-block data flow rejects locals with intervening writes. Field and property
+handles retain broad interface fallback, including readonly fields and get-only properties because constructors can
+reassign their backing values.
 
-When any `ConvertUsing(...)` argument resolves to the interface `ITypeConverter<TSource, TDestination>` itself, for
+When a `ConvertUsing(...)` argument resolves only to the interface `ITypeConverter<TSource, TDestination>` itself, for
 example through constructor injection (`public TestProfile(ITypeConverter<string, DateTime> converter)`), a
-service-locator resolution call, or another DI shape whose concrete implementation cannot be statically traced, every
+service-locator resolution call, a reassigned or mutable handle, or another shape whose concrete implementation cannot
+be statically traced, every
 declared concrete implementation of that interface pair is treated as in use.
 
 #### Problem
@@ -1909,7 +1914,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.101">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.102">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1948,5 +1953,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.101
+**Version**: 2.30.102
 **Maintainer**: George Wall
