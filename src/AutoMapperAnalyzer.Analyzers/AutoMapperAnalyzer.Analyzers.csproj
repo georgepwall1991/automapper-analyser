@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>102</PatchVersion>
+        <PatchVersion>103</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,11 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.102 - AM033 distinguishes concrete converter usage from interface fallback
-- An interface-typed local with a concrete initializer marks only that implementation as used
-- Unused sibling converters for the same source and destination pair now report
-- Same-block data flow preserves broad fallback after local reassignment
-- Mutable, constructor-injected, and service-located interface handles remain conservative when no stable concrete implementation is statically traceable
+                <PackageReleaseNotes>Version 2.30.103 - AM021 fixes simple element conversions on ReverseMap
+- Reverse-direction simple element mismatches now offer the executable Select conversion action
+- The fixer resolves the originating semantic CreateMap and swaps its source/destination types
+- The generated ForMember remains attached to the diagnosed ReverseMap chain
 - No rule ID or severity changes
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>

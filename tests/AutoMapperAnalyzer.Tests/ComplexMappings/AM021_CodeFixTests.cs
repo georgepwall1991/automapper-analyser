@@ -81,6 +81,74 @@ public class AM021_CodeFixTests
     }
 
     [Fact]
+    public async Task AM021_ShouldFixReverseMapSimpleElementConversion_WithDirectionAwareTypes()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public List<int> Scores { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public List<long> Scores { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ReverseMap();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         using AutoMapper;
+                                         using System.Collections.Generic;
+                                         using System.Linq;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class Source
+                                             {
+                                                 public List<int> Scores { get; set; }
+                                             }
+
+                                             public class Destination
+                                             {
+                                                 public List<long> Scores { get; set; }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<Source, Destination>()
+                                                         .ReverseMap().ForMember(dest => dest.Scores, opt => opt.MapFrom(src => src.Scores.Select(x => global::System.Convert.ToInt32(x)).ToList()));
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM021_CollectionElementMismatchAnalyzer, AM021_CollectionElementMismatchCodeFixProvider>
+            .VerifyFixByKeyAsync(
+                testCode,
+                new DiagnosticResult(AM021_CollectionElementMismatchAnalyzer.CollectionElementIncompatibilityRule)
+                    .WithLocation(20, 13)
+                    .WithArguments("Scores", "Destination", "long", "Source", "Scores", "int"),
+                expectedFixedCode,
+                "AM021_SimpleConversion_Scores");
+    }
+
+    [Fact]
     public async Task AM021_ShouldFixComplexElementMapping_WithNestedMapCall()
     {
         const string testCode = """

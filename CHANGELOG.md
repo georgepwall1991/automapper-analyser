@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+## [2.30.103] - 2026-07-30
+
+AM021 now offers its executable simple-element conversion fix for reverse
+mapping diagnostics (no rule ID or severity changes).
+
+### Fixed
+
+- **AM021 missing reverse fix**: diagnostics located on `ReverseMap()` could
+  report a simple element mismatch but offered only the manual Ignore action,
+  because the fixer tried to read generic type arguments from `ReverseMap`
+  itself.
+
+### Changed
+
+- The simple-conversion fixer now resolves the originating semantic
+  `CreateMap<TSource, TDestination>()` and swaps its types for the reverse
+  direction. The generated `ForMember(... MapFrom(... Select(...)))` remains
+  attached to the diagnosed `ReverseMap()` chain.
+
+### Validation
+
+- AM021 analyzer and code-fix suite: **72** passed, including the red-first
+  reverse `List<long>` to `List<int>` conversion regression.
+- Full suite: **2487** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.102] - 2026-07-30
 
 AM033 now keeps interface fallback separate from a statically resolved concrete
