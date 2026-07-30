@@ -209,7 +209,7 @@ Still open (do not start without a repro or explicit product decision):
 
 | Rules | Finding | Change | Score impact |
 | --- | --- | --- | --- |
-| AM041 | Identical registrations in distinct sections of one `switch` emitted a duplicate warning even though only one section executes; accepting the removal fix could delete the only registration for one runtime mode | Generalize the existing executable-boundary exclusivity check to distinct sections of the same switch. Fail closed for any switch containing `goto`, and keep same-section, independent-switch, and unconditional registrations diagnostic | No numeric move; closes a concrete compiling false positive and prevents a destructive fix without hiding control-flow-dependent duplicates |
+| AM041 | Identical registrations in distinct sections of one `switch` emitted a duplicate warning even though only one section executes; accepting the removal fix could delete the only registration for one runtime mode | Generalize the existing executable-boundary exclusivity check to distinct sections of the same switch. Fail closed for loop-nested switches and any switch containing `goto`, and keep same-section, independent-switch, and unconditional registrations diagnostic | No numeric move; closes a concrete compiling false positive and prevents a destructive fix without hiding repeated or control-flow-dependent duplicates |
 
 ## Reanalysis Changelog (2026-07-21 → 2.30.84 new AM060 unregistered type map + AM061 enum member mismatch rules)
 
@@ -503,10 +503,10 @@ Architecture-style coverage currently comes from analyzer/fixer tests, conflict 
 
 Current verification (**2026-07-30** for the **2.30.98** AM041 switch-section candidate):
 
-- AM041 focused suite: **19** passed, 0 skipped, 0 failed on `net10.0`; the new distinct-section test failed red with AM041 before the implementation, while same-section and `goto default` guard tests stayed green.
-- Full solution suite: **2466** passed, 0 skipped, 0 failed on `net10.0`.
+- AM041 focused suite: **20** passed, 0 skipped, 0 failed on `net10.0`; the distinct-section test failed red with AM041 before the implementation, and the review-driven loop regression then failed red because AM041 was missing before the loop-ancestry guard.
+- Full solution suite: **2467** passed, 0 skipped, 0 failed on `net10.0`.
 - Release build passed with 0 warnings and 0 errors; catalog, sample-diagnostic snapshot, and compatibility documentation checks are current.
-- The packed `AutoMapperAnalyzer.Analyzers.2.30.98.nupkg` (SHA-256 `2de94e0b71d86e26af604064b2ead90adeb3ab54104e1d344989534212e0e003`) passed payload/README/assets/discoverability verification. Exact-package consumers passed for AutoMapper 14.0.0, 15.1.3, and 16.2.0 on `net10.0`: healthy mappings built cleanly and broken mappings failed specifically with AM001. CI remains authoritative for the `net48`, `net6.0`, `net8.0`, and `net9.0` matrix rows unavailable in the local .NET 10-only toolchain.
+- The packed `AutoMapperAnalyzer.Analyzers.2.30.98.nupkg` (SHA-256 `3e821f81cdff090850b71cef746aeb7d8c98ba6816021fb1c674a6ba1fb23c0f`) passed payload/README/assets/discoverability verification. Exact-package consumers passed for AutoMapper 14.0.0, 15.1.3, and 16.2.0 on `net10.0`: healthy mappings built cleanly and broken mappings failed specifically with AM001. CI remains authoritative for the `net48`, `net6.0`, `net8.0`, and `net9.0` matrix rows unavailable in the local .NET 10-only toolchain.
 
 Incremental verification (**2026-07-22** for **2.30.86** AM020 computed-receiver capture):
 

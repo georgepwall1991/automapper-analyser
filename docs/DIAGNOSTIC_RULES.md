@@ -1659,9 +1659,9 @@ nested argument flow, and lookalike APIs remain outside this deliberately flow-i
 
 Registrations in opposite arms of one `if`/`else` chain or in distinct sections of one `switch` are not
 duplicates when they share an executable body, because only one branch can execute. A switch containing any
-`goto` fails closed and keeps AM041 enabled; registrations in one section, independent switches, and
-unconditional registrations also continue to report. Suppressing the false diagnostic removes the unsafe
-lightbulb that could otherwise delete the only registration for one runtime mode.
+`goto` or nested in a loop fails closed and keeps AM041 enabled; registrations in one section, independent
+switches, and unconditional registrations also continue to report. Suppressing the false diagnostic removes
+the unsafe lightbulb that could otherwise delete the only registration for one runtime mode.
 
 #### Configuration
 

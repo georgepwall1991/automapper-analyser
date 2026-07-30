@@ -125,8 +125,8 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 - Identical `CreateMap` registrations in distinct sections of one `switch` no longer report as duplicates,
   because only one section can execute.
-- Same-section duplicates and switches containing `goto` remain diagnostic. This also prevents the removal
-  fix from deleting the only registration for one runtime mode.
+- Same-section duplicates, switches nested in loops, and switches containing `goto` remain diagnostic. This
+  also prevents the removal fix from deleting the only registration for one runtime mode.
 - No rule ID or severity changes.
 
 <details><summary>Previous release: verifiable build provenance (v2.30.94–95)</summary>

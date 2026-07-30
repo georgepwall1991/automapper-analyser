@@ -486,6 +486,42 @@ public class AM041_DuplicateMappingTests
     }
 
     [Fact]
+    public async Task Should_ReportDiagnostic_WhenSwitchCanExecuteDifferentSectionsAcrossLoopIterations()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        foreach (int mode in new[] { 0, 1 })
+                                        {
+                                            switch (mode)
+                                            {
+                                                case 0:
+                                                    CreateMap<Source, Destination>();
+                                                    break;
+                                                default:
+                                                    CreateMap<Source, Destination>();
+                                                    break;
+                                            }
+                                        }
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(18, 21)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
     public async Task Should_ReportDiagnostic_WhenRegistrationsShareSwitchSection()
     {
         const string testCode = """

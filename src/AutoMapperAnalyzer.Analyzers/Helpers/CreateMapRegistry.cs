@@ -515,7 +515,15 @@ internal sealed class CreateMapRegistry
         foreach (SwitchStatementSyntax switchStatement in first.Node.Ancestors().OfType<SwitchStatementSyntax>())
         {
             if (!switchStatement.Span.Contains(second.Node.Span) ||
-                switchStatement.DescendantNodes().OfType<GotoStatementSyntax>().Any())
+                switchStatement.DescendantNodes().OfType<GotoStatementSyntax>().Any() ||
+                switchStatement.Ancestors()
+                    .TakeWhile(ancestor => !ReferenceEquals(ancestor, firstBoundary))
+                    .Any(ancestor => ancestor is
+                        ForStatementSyntax or
+                        ForEachStatementSyntax or
+                        ForEachVariableStatementSyntax or
+                        WhileStatementSyntax or
+                        DoStatementSyntax))
             {
                 continue;
             }

@@ -15,14 +15,15 @@ AM041 now recognizes mutually exclusive `switch` sections (no rule ID or severit
 ### Changed
 
 - Duplicate detection now treats distinct sections of the same `switch` as mutually exclusive only
-  when both registrations share one executable body and the switch contains no `goto`. Registrations
-  in the same section, independent switches, unconditional registrations, and any switch with a
-  `goto` continue to report so control-flow ambiguity cannot hide a real duplicate.
+  when both registrations share one executable body, the switch is outside a loop, and it contains no
+  `goto`. Registrations in the same section, loop-nested or independent switches, unconditional
+  registrations, and any switch with a `goto` continue to report so control-flow ambiguity cannot hide
+  a real duplicate.
 
 ### Validation
 
-- AM041 focused suite: **19** passed, including the red regression and the same-section/`goto` guards.
-- Full suite: **2466** passed, 0 skipped, 0 failed on `net10.0`.
+- AM041 focused suite: **20** passed, including the red regressions and the loop/same-section/`goto` guards.
+- Full suite: **2467** passed, 0 skipped, 0 failed on `net10.0`.
 
 ## [2.30.97] - 2026-07-29
 
