@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.99">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.100">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.99
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.100
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,16 +119,15 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.99
+## Latest Release: v2.30.100
 
-**AM060 scopes open-generic registrations to compatible mapping pairs**
+**AM032 preserves conditional directives when inserting a null guard**
 
-- An open-generic registration such as `CreateMap(typeof(Wrapper<>), typeof(Destination))`
-  no longer suppresses AM060 for an unrelated `Source` → `Destination` mapping call.
-- Compatible constructed pairs such as `Wrapper<int>` → `Destination` remain quiet, and generic
-  registration helpers still fail closed when their source/destination shapes cannot be bounded.
-- `ReverseMap()` retains the swapped open-generic direction, while partially dynamic
-  `CreateMap(Type, Type)` calls still use whichever `typeof` operand is statically known.
+- A block-bodied converter whose first statement begins in a `#if` region no
+  longer receives a duplicated conditional directive when the AM032 fix adds
+  an executable null guard.
+- The guard inherits indentation only. Structured directives and comments stay
+  attached to the original statement, after the guard, exactly once.
 - No rule ID or severity changes.
 
 <details><summary>Previous release: verifiable build provenance (v2.30.94–95)</summary>
@@ -166,6 +165,7 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ### Recent highlights
 
+- **v2.30.100**: AM032 preserves structured conditional directives exactly once when inserting a null guard.
 - **v2.30.99**: AM060 scopes unresolved open-generic registrations to mapping pairs they could cover.
 - **v2.30.98**: AM041 respects mutually exclusive `switch` sections in direct `MapperConfiguration` lambdas.
 - **v2.30.97**: AM011 reports required members that an included child map explicitly ignores.
@@ -288,7 +288,7 @@ Reference one from your project file:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.99"
+  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.100"
                     PrivateAssets="all" GeneratePathProperty="true" />
   <GlobalAnalyzerConfigFiles
     Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />

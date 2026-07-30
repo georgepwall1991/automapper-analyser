@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## [2.30.100] - 2026-07-30
+
+AM032 now preserves structured conditional-compilation trivia exactly once when
+inserting a converter null guard (no rule ID or severity changes).
+
+### Fixed
+
+- **AM032 uncompilable code fix**: when the first statement in a block-bodied
+  converter was preceded by `#if`, the fixer copied that directive onto the new
+  guard while leaving it on the original statement. The fixed document then
+  contained a duplicated, unmatched conditional directive.
+
+### Changed
+
+- The fixer copies only the first statement's trailing indentation onto the new
+  guard. Comments and structured directives remain attached to the original
+  statement, after the guard, and are emitted exactly once.
+
+### Validation
+
+- AM030/AM032 code-fix suite: **19** passed, including the conditional-directive
+  regression.
+- Full suite: **2480** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.99] - 2026-07-30
 
 AM060 now scopes unresolved open-generic registrations to mapping pairs they could
