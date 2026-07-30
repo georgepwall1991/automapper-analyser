@@ -1355,7 +1355,7 @@ When the converter destination is semantically proven nullable (`T?` or an annot
 if (source == null) return null;
 ```
 
-The exception guard remains available as a secondary explicit policy. Oblivious reference types and other destinations whose nullability is not proven stay throw-only. Both forms are net48-safe; the exception guard is fully qualified so the fixer does not add, reorder, or duplicate `using System` directives.
+The exception guard remains available as a secondary explicit policy. Oblivious reference types and other destinations whose nullability is not proven stay throw-only. Both forms are net48-safe; the exception guard is fully qualified so the fixer does not add, reorder, or duplicate `using System` directives. For block-bodied converters, the guard is inserted before any leading comments or conditional-compilation directives on the original first statement; those structured directives stay attached to that statement and are preserved exactly once.
 
 #### Configuration
 
@@ -1908,7 +1908,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.99">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.100">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1947,5 +1947,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.99
+**Version**: 2.30.100
 **Maintainer**: George Wall

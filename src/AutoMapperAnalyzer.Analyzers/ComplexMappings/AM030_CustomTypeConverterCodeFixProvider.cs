@@ -110,7 +110,11 @@ public class AM030_CustomTypeConverterCodeFixProvider : AutoMapperCodeFixProvide
             StatementSyntax? firstStatement = convertMethod.Body.Statements.FirstOrDefault();
             if (firstStatement != null)
             {
-                formattedGuard = formattedGuard.WithLeadingTrivia(firstStatement.GetLeadingTrivia());
+                IEnumerable<SyntaxTrivia> indentation = firstStatement.GetLeadingTrivia()
+                    .Reverse()
+                    .TakeWhile(trivia => trivia.IsKind(SyntaxKind.WhitespaceTrivia))
+                    .Reverse();
+                formattedGuard = formattedGuard.WithLeadingTrivia(indentation);
             }
 
             BlockSyntax updatedBody = convertMethod.Body.WithStatements(convertMethod.Body.Statements.Insert(0, formattedGuard));

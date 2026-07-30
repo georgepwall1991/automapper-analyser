@@ -75,6 +75,75 @@ public class AM030_CodeFixTests
     }
 
     [Fact]
+    public async Task AM032_ShouldNotDuplicateConditionalDirective_WhenAddingNullGuard()
+    {
+        const string testCode = """
+                                #define FEATURE
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class NullUnsafeConverter : ITypeConverter<string?, int>
+                                    {
+                                        public int Convert(string? source, int destination, ResolutionContext context)
+                                        {
+                                #if FEATURE
+                                            return int.Parse(source);
+                                #else
+                                            return 0;
+                                #endif
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
+                                        }
+                                    }
+                                }
+                                """;
+
+        const string expectedFixedCode = """
+                                         #define FEATURE
+                                         using AutoMapper;
+
+                                         namespace TestNamespace
+                                         {
+                                             public class NullUnsafeConverter : ITypeConverter<string?, int>
+                                             {
+                                                 public int Convert(string? source, int destination, ResolutionContext context)
+                                                 {
+                                                     if (source == null) throw new global::System.ArgumentNullException(nameof(source));
+                                         #if FEATURE
+                                                     return int.Parse(source);
+                                         #else
+                                                     return 0;
+                                         #endif
+                                                 }
+                                             }
+
+                                             public class TestProfile : Profile
+                                             {
+                                                 public TestProfile()
+                                                 {
+                                                     CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
+                                                 }
+                                             }
+                                         }
+                                         """;
+
+        await CodeFixVerifier<AM030_CustomTypeConverterAnalyzer, AM030_CustomTypeConverterCodeFixProvider>
+            .VerifyFixAsync(
+                testCode,
+                new DiagnosticResult(AM030_CustomTypeConverterAnalyzer.ConverterNullHandlingIssueRule)
+                    .WithLocation(8, 20)
+                    .WithArguments("NullUnsafeConverter", "String"),
+                expectedFixedCode);
+    }
+
+    [Fact]
     public async Task AM030_ShouldNotRegisterCodeActions_ForInvalidImplementationOrUnusedConverter()
     {
         var provider = new AM030_CustomTypeConverterCodeFixProvider();
