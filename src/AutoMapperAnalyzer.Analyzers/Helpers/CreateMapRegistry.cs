@@ -593,6 +593,14 @@ internal sealed class CreateMapRegistry
             return false;
         }
 
+        if (!IsSingleExecutionConfigurationBoundary(
+                firstBoundary,
+                first.Node,
+                first.SemanticModel))
+        {
+            return false;
+        }
+
         foreach (IfStatementSyntax ifStatement in first.Node.Ancestors().OfType<IfStatementSyntax>())
         {
             if (ifStatement.Else is not { Statement: StatementSyntax elseStatement } ||
@@ -605,15 +613,12 @@ internal sealed class CreateMapRegistry
             bool firstInElse = elseStatement.Span.Contains(first.Node.Span);
             bool secondInThen = ifStatement.Statement.Span.Contains(second.Node.Span);
             bool secondInElse = elseStatement.Span.Contains(second.Node.Span);
-            if ((firstInThen && secondInElse) || (firstInElse && secondInThen))
+            if (((firstInThen && secondInElse) || (firstInElse && secondInThen)) &&
+                !IsNestedInLoop(first.Node, firstBoundary) &&
+                !IsNestedInLoop(second.Node, firstBoundary))
             {
                 return true;
             }
-        }
-
-        if (!IsSingleExecutionConfigurationBoundary(firstBoundary, first.SemanticModel))
-        {
-            return false;
         }
 
         foreach (SwitchStatementSyntax switchStatement in first.Node.Ancestors().OfType<SwitchStatementSyntax>())
@@ -655,17 +660,22 @@ internal sealed class CreateMapRegistry
 
     private static bool IsSingleExecutionConfigurationBoundary(
         SyntaxNode boundary,
+        InvocationExpressionSyntax createMapInvocation,
         SemanticModel semanticModel)
     {
         if (boundary is not AnonymousFunctionExpressionSyntax anonymousFunction ||
             anonymousFunction.Parent is not ArgumentSyntax argument ||
             argument.Parent?.Parent is not BaseObjectCreationExpressionSyntax objectCreation ||
-            semanticModel.GetTypeInfo(objectCreation).Type is not INamedTypeSymbol constructedType)
+            semanticModel.GetTypeInfo(objectCreation).Type is not INamedTypeSymbol constructedType ||
+            GetInvocationAssembly(createMapInvocation, semanticModel) is not { } autoMapperAssembly)
         {
             return false;
         }
 
-        return IsAutoMapperType(constructedType, "MapperConfiguration");
+        return IsAutoMapperType(constructedType, "MapperConfiguration") &&
+               SymbolEqualityComparer.Default.Equals(
+                   constructedType.ContainingAssembly,
+                   autoMapperAssembly);
     }
 
     private static bool IsAutoMapperType(INamedTypeSymbol type, string name)
@@ -1187,7 +1197,7 @@ internal sealed class CreateMapRegistry
         public ITypeSymbol? Destination { get; }
     }
 
-    private class MappingComparer : IEqualityComparer<(ITypeSymbol Source, ITypeSymbol Destination)>
+    private sealed class MappingComparer : IEqualityComparer<(ITypeSymbol Source, ITypeSymbol Destination)>
     {
         public bool Equals((ITypeSymbol Source, ITypeSymbol Destination) x,
             (ITypeSymbol Source, ITypeSymbol Destination) y)
