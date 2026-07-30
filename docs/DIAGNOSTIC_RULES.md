@@ -1735,11 +1735,17 @@ A registration is considered reachable when it exists for the exact pair, any ba
 AM060 fails closed (stays silent) wherever absence cannot be proven:
 
 - ✅ Compilations with **no** `CreateMap` registrations at all (maps configured in another assembly)
-- ✅ Open-generic `CreateMap(typeof(S<>), typeof(D<>))` registrations and generic registration helpers (`CreateMap<TS, TD>()` inside a generic method) — these could cover any pair
+- ✅ An open-generic `CreateMap(typeof(S<>), typeof(D<>))` registration when its
+  source/destination shapes could cover the specific mapping pair
+- ✅ Generic registration helpers (`CreateMap<TS, TD>()` inside a generic method),
+  whose type-parameter shapes cannot be bounded safely
 - ✅ Both-endpoint built-in/enum pairs and dictionary pairs (AutoMapper handles these without registration)
 - ✅ Generic type parameters, error types, and `object`-typed sources
 
 Closed `typeof` registrations (`CreateMap(typeof(S), typeof(D))`) resolve normally.
+Open-generic `ReverseMap()` calls retain the swapped shape. When a non-generic
+`CreateMap(Type, Type)` mixes a `typeof` operand with a dynamic `Type` value, AM060
+retains the known operand and treats only the dynamic side as a wildcard.
 
 **Non-goal:** registrations that live in referenced assemblies are not visible to the rule; suppress AM060 in composition-root scenarios where profiles are contributed externally.
 
@@ -1902,7 +1908,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.98">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.99">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1941,5 +1947,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.98
+**Version**: 2.30.99
 **Maintainer**: George Wall

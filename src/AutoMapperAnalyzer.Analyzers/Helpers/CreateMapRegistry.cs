@@ -18,16 +18,16 @@ internal sealed class CreateMapRegistry
 
     private readonly ImmutableArray<MappingInfo> _mappings;
 
-    private readonly bool _hasUnresolvedRegistrations;
+    private readonly ImmutableArray<UnresolvedMappingPattern> _unresolvedMappings;
 
     private CreateMapRegistry(
         ImmutableArray<MappingInfo> mappings,
         Dictionary<InvocationExpressionSyntax, (string Source, string Dest, Location Location)> duplicates,
-        bool hasUnresolvedRegistrations)
+        ImmutableArray<UnresolvedMappingPattern> unresolvedMappings)
     {
         _mappings = mappings;
         _duplicates = duplicates;
-        _hasUnresolvedRegistrations = hasUnresolvedRegistrations;
+        _unresolvedMappings = unresolvedMappings;
     }
 
     /// <summary>
@@ -36,12 +36,23 @@ internal sealed class CreateMapRegistry
     public bool IsEmpty => _mappings.IsEmpty;
 
     /// <summary>
-    ///     True when the compilation contains a semantic AutoMapper CreateMap registration whose
-    ///     source/destination types could not be resolved (for example open-generic typeof forms
-    ///     or generic registration helpers). Rules that reason about registration absence must
-    ///     fail closed while this is set.
+    ///     True when the compilation contains at least one resolved or unresolved CreateMap registration.
     /// </summary>
-    public bool HasUnresolvedCreateMapRegistrations => _hasUnresolvedRegistrations;
+    public bool HasAnyCreateMapRegistrations => !_mappings.IsEmpty || !_unresolvedMappings.IsEmpty;
+
+    /// <summary>
+    ///     Determines whether an unresolved registration could cover a specific mapping pair.
+    ///     Type parameters remain wildcards, while open generic shapes match only compatible
+    ///     generic definitions.
+    /// </summary>
+    public bool HasUnresolvedRegistrationThatCouldCover(
+        ITypeSymbol source,
+        ITypeSymbol destination)
+    {
+        return _unresolvedMappings.Any(pattern =>
+            CouldTypePatternCover(pattern.Source, source, allowCandidateBaseTypes: true) &&
+            CouldTypePatternCover(pattern.Destination, destination, allowCandidateBaseTypes: false));
+    }
 
     /// <summary>
     ///     Every resolved registration, including reverse-generated directions.
@@ -233,7 +244,7 @@ internal sealed class CreateMapRegistry
     public static CreateMapRegistry Build(Compilation compilation)
     {
         var mappings = new List<MappingInfo>();
-        bool hasUnresolvedRegistrations = false;
+        var unresolvedMappings = ImmutableArray.CreateBuilder<UnresolvedMappingPattern>();
 
         foreach (SyntaxTree? syntaxTree in compilation.SyntaxTrees)
         {
@@ -259,22 +270,29 @@ internal sealed class CreateMapRegistry
                 if (sourceType == null || destType == null)
                 {
                     // Non-generic CreateMap(typeof(S), typeof(D)) with closed typeof operands is a
-                    // real resolved registration; open generics and non-literal Type arguments are
-                    // not, and make any "registration absent" conclusion unsafe compilation-wide.
+                    // real resolved registration. Preserve any statically known operand for open
+                    // generics and partially dynamic Type arguments so absence can still be scoped.
                     (sourceType, destType) = GetTypeArgumentsFromTypeOfLiterals(invocation, semanticModel);
                 }
+
+                InvocationExpressionSyntax? reverseMapInvocation =
+                    AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
 
                 if (sourceType == null || destType == null ||
                     ContainsTypeParameter(sourceType) || ContainsTypeParameter(destType))
                 {
-                    hasUnresolvedRegistrations = true;
+                    unresolvedMappings.Add(new UnresolvedMappingPattern(sourceType, destType));
+                    if (reverseMapInvocation != null ||
+                        GetDeferredReverseMapInvocations(invocation, semanticModel).Any())
+                    {
+                        unresolvedMappings.Add(new UnresolvedMappingPattern(destType, sourceType));
+                    }
+
                     continue;
                 }
 
                 if (sourceType != null && destType != null)
                 {
-                    InvocationExpressionSyntax? reverseMapInvocation =
-                        AutoMapperAnalysisHelpers.GetReverseMapInvocation(invocation);
                     bool hasMaxDepth = HasCycleBreaker(
                         invocation,
                         reverseMapInvocation,
@@ -419,13 +437,13 @@ internal sealed class CreateMapRegistry
             }
         }
 
-        return new CreateMapRegistry(mappings.ToImmutableArray(), duplicates, hasUnresolvedRegistrations);
+        return new CreateMapRegistry(mappings.ToImmutableArray(), duplicates, unresolvedMappings.ToImmutable());
     }
 
     /// <summary>
     ///     Resolves source/destination types from a non-generic <c>CreateMap(typeof(S), typeof(D))</c>
-    ///     invocation when both arguments are typeof literals. Non-literal Type arguments and open
-    ///     generic operands return (null, null) so the caller can fail closed.
+    ///     invocation. Each <c>typeof</c> operand is retained independently, including open generic
+    ///     shapes; a non-literal <see cref="Type" /> argument remains unresolved.
     /// </summary>
     private static (ITypeSymbol? sourceType, ITypeSymbol? destType) GetTypeArgumentsFromTypeOfLiterals(
         InvocationExpressionSyntax invocation,
@@ -452,10 +470,10 @@ internal sealed class CreateMapRegistry
                 continue;
             }
 
-            // A Type-typed argument that is not a typeof literal cannot be resolved statically.
+            // Preserve the other operand when one Type-typed argument is not a typeof literal.
             if (argument.Expression is not TypeOfExpressionSyntax typeOfExpression)
             {
-                return (null, null);
+                continue;
             }
 
             ITypeSymbol? type = semanticModel.GetTypeInfo(typeOfExpression.Type).Type;
@@ -474,7 +492,7 @@ internal sealed class CreateMapRegistry
             }
         }
 
-        return sourceType != null && destType != null ? (sourceType, destType) : (null, null);
+        return (sourceType, destType);
     }
 
     private static bool ContainsTypeParameter(ITypeSymbol type)
@@ -483,6 +501,87 @@ internal sealed class CreateMapRegistry
                (type is INamedTypeSymbol namedType &&
                 (namedType.IsUnboundGenericType || namedType.TypeArguments.Any(ContainsTypeParameter))) ||
                (type is IArrayTypeSymbol arrayType && ContainsTypeParameter(arrayType.ElementType));
+    }
+
+    private static bool CouldTypePatternCover(
+        ITypeSymbol? pattern,
+        ITypeSymbol candidate,
+        bool allowCandidateBaseTypes)
+    {
+        if (pattern == null || pattern.TypeKind == TypeKind.TypeParameter)
+        {
+            return true;
+        }
+
+        if (pattern is IArrayTypeSymbol patternArray)
+        {
+            return candidate is IArrayTypeSymbol candidateArray &&
+                   patternArray.Rank == candidateArray.Rank &&
+                   CouldTypePatternCover(
+                       patternArray.ElementType,
+                       candidateArray.ElementType,
+                       allowCandidateBaseTypes: false);
+        }
+
+        if (pattern is not INamedTypeSymbol patternNamed ||
+            candidate is not INamedTypeSymbol candidateNamed)
+        {
+            return SymbolEqualityComparer.Default.Equals(pattern, candidate);
+        }
+
+        IEnumerable<INamedTypeSymbol> candidateShapes = allowCandidateBaseTypes
+            ? EnumerateTypeAndBases(candidateNamed).Concat(candidateNamed.AllInterfaces)
+            : [candidateNamed];
+
+        foreach (INamedTypeSymbol candidateShape in candidateShapes)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(
+                    patternNamed.OriginalDefinition,
+                    candidateShape.OriginalDefinition))
+            {
+                continue;
+            }
+
+            if (patternNamed.IsUnboundGenericType)
+            {
+                return true;
+            }
+
+            if (patternNamed.TypeArguments.Length != candidateShape.TypeArguments.Length)
+            {
+                continue;
+            }
+
+            bool allArgumentsMatch = true;
+            for (int i = 0; i < patternNamed.TypeArguments.Length; i++)
+            {
+                if (CouldTypePatternCover(
+                        patternNamed.TypeArguments[i],
+                        candidateShape.TypeArguments[i],
+                        allowCandidateBaseTypes: false))
+                {
+                    continue;
+                }
+
+                allArgumentsMatch = false;
+                break;
+            }
+
+            if (allArgumentsMatch)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<INamedTypeSymbol> EnumerateTypeAndBases(INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
+        {
+            yield return current;
+        }
     }
 
     private static bool AreMutuallyExclusiveByControlFlow(MappingInfo first, MappingInfo second)
@@ -1073,6 +1172,19 @@ internal sealed class CreateMapRegistry
         public bool HasMaxDepth;
         public bool HasPreserveReferences;
         public bool HasConvertUsing;
+    }
+
+    private readonly struct UnresolvedMappingPattern
+    {
+        public UnresolvedMappingPattern(ITypeSymbol? source, ITypeSymbol? destination)
+        {
+            Source = source;
+            Destination = destination;
+        }
+
+        public ITypeSymbol? Source { get; }
+
+        public ITypeSymbol? Destination { get; }
     }
 
     private class MappingComparer : IEqualityComparer<(ITypeSymbol Source, ITypeSymbol Destination)>

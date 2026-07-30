@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+## [2.30.99] - 2026-07-30
+
+AM060 now scopes unresolved open-generic registrations to mapping pairs they could
+actually cover (no rule ID or severity changes).
+
+### Fixed
+
+- **AM060 false negative**: one open-generic `CreateMap(typeof(Wrapper<>),
+  typeof(Destination))` registration suppressed every missing-map diagnostic in
+  the compilation, including unrelated `Source` → `Destination` calls that still
+  throw `AutoMapperMappingException` at runtime.
+
+### Changed
+
+- Unresolved registrations now retain their source/destination type shapes.
+  AM060 stays silent when an open-generic shape could cover the reported pair,
+  and generic registration helpers remain conservatively wildcarded, but an
+  unrelated open-generic registration no longer disables the rule globally.
+- Reversed open-generic registrations retain their swapped direction, and a
+  partially dynamic `CreateMap(Type, Type)` preserves whichever operand is a
+  statically known `typeof` shape.
+
+### Validation
+
+- AM060 focused suite: **30** passed, including compatible, incompatible,
+  reversed, partially dynamic, nested-generic, and array-shaped cases plus the
+  generic-helper fail-closed guard.
+- Full suite: **2479** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.98] - 2026-07-30
 
 AM041 now recognizes mutually exclusive `switch` sections inside direct

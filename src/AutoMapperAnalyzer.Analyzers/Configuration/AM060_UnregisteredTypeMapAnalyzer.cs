@@ -48,10 +48,10 @@ public class AM060_UnregisteredTypeMapAnalyzer : DiagnosticAnalyzer
             CreateMapRegistry registry = CreateMapRegistry.FromCompilation(compilationContext.Compilation);
 
             // Projects with no registrations at all normally consume maps configured elsewhere
-            // (another assembly or composition root); absence cannot be proven there. Unresolved
-            // registrations (open-generic typeof forms, generic helper methods) can cover any
-            // pair, so fail closed too.
-            if (registry.IsEmpty || registry.HasUnresolvedCreateMapRegistrations)
+            // (another assembly or composition root); absence cannot be proven there. When an
+            // unresolved registration exists, AnalyzeInvocation checks whether its shape could
+            // cover the specific mapping pair before reporting.
+            if (!registry.HasAnyCreateMapRegistrations)
             {
                 return;
             }
@@ -66,6 +66,11 @@ public class AM060_UnregisteredTypeMapAnalyzer : DiagnosticAnalyzer
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!TryGetReportedPair(invocation, context.SemanticModel, out ITypeSymbol? source, out ITypeSymbol? destination))
+        {
+            return;
+        }
+
+        if (registry.HasUnresolvedRegistrationThatCouldCover(source, destination))
         {
             return;
         }
