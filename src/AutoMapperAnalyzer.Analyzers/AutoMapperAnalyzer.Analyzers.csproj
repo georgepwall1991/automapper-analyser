@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>104</PatchVersion>
+        <PatchVersion>105</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,11 +32,11 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.104 - AM061 recognizes convention-mapped public enum fields
-- Public field-to-field and field-to-property enum mappings now report misaligned values
-- Static, private, constant, and readonly destination fields remain outside convention analysis
-- Custom AutoMapper ShouldMapField policies conservatively suppress field convention analysis
-- Existing property and explicit MapFrom behavior remains unchanged
+        <PackageReleaseNotes>Version 2.30.105 - AM031 respects mutually exclusive conditional branches
+- Opposite ternary branches no longer count as repeated enumeration
+- Same-branch and unconditional-plus-conditional terminal pairs still report
+- Nested conditional leaves are compared by co-executable paths
+- Existing collection-key and code-fix behavior remains unchanged
 - No rule ID or severity changes
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
