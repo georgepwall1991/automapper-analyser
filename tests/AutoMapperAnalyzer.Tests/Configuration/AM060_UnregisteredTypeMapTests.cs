@@ -869,4 +869,114 @@ public class AM060_UnregisteredTypeMapTests
 
         await AnalyzerVerifier<AM060_UnregisteredTypeMapAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
     }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_When_GenericArrayRegistrationCannotCoverNonArrayPair()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        AddArrayMap<Source>();
+                                    }
+
+                                    private void AddArrayMap<TSource>()
+                                    {
+                                        CreateMap<TSource[], Destination>();
+                                    }
+                                }
+
+                                public class Service
+                                {
+                                    public void Run(IMapper mapper, Source source)
+                                    {
+                                        var destination = mapper.Map<Destination>(source);
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM060_UnregisteredTypeMapAnalyzer.UnregisteredTypeMapRule)
+            .WithLocation(23, 34)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM060_UnregisteredTypeMapAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_When_NestedGenericRegistrationCouldCoverPair()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Destination {}
+                                public class Wrapper<T> {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        AddMap<int>();
+                                    }
+
+                                    private void AddMap<T>()
+                                    {
+                                        CreateMap<Wrapper<T>, Destination>();
+                                    }
+                                }
+
+                                public class Service
+                                {
+                                    public void Run(IMapper mapper, Wrapper<int> source)
+                                    {
+                                        var destination = mapper.Map<Destination>(source);
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM060_UnregisteredTypeMapAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_When_NestedGenericRegistrationCannotCoverPair()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Destination {}
+                                public class Pair<TFirst, TSecond> {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        AddMap<int>();
+                                    }
+
+                                    private void AddMap<T>()
+                                    {
+                                        CreateMap<Pair<string, T>, Destination>();
+                                    }
+                                }
+
+                                public class Service
+                                {
+                                    public void Run(IMapper mapper, Pair<int, int> source)
+                                    {
+                                        var destination = mapper.Map<Destination>(source);
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM060_UnregisteredTypeMapAnalyzer.UnregisteredTypeMapRule)
+            .WithLocation(23, 34)
+            .WithArguments("Pair<int, int>", "Destination");
+
+        await AnalyzerVerifier<AM060_UnregisteredTypeMapAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
 }

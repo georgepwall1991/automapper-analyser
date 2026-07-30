@@ -26,10 +26,10 @@ actually cover (no rule ID or severity changes).
 
 ### Validation
 
-- AM060 focused suite: **27** passed, including compatible, incompatible,
-  reversed, and partially dynamic open-generic cases plus the generic-helper
-  fail-closed guard.
-- Full suite: **2476** passed, 0 skipped, 0 failed on `net10.0`.
+- AM060 focused suite: **30** passed, including compatible, incompatible,
+  reversed, partially dynamic, nested-generic, and array-shaped cases plus the
+  generic-helper fail-closed guard.
+- Full suite: **2479** passed, 0 skipped, 0 failed on `net10.0`.
 
 ## [2.30.98] - 2026-07-30
 

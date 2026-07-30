@@ -36,14 +36,6 @@ internal sealed class CreateMapRegistry
     public bool IsEmpty => _mappings.IsEmpty;
 
     /// <summary>
-    ///     True when the compilation contains a semantic AutoMapper CreateMap registration whose
-    ///     source/destination types could not be resolved (for example open-generic typeof forms
-    ///     or generic registration helpers). Rules that reason about registration absence must
-    ///     compare the unresolved shape before concluding that a specific pair is absent.
-    /// </summary>
-    public bool HasUnresolvedCreateMapRegistrations => !_unresolvedMappings.IsEmpty;
-
-    /// <summary>
     ///     True when the compilation contains at least one resolved or unresolved CreateMap registration.
     /// </summary>
     public bool HasAnyCreateMapRegistrations => !_mappings.IsEmpty || !_unresolvedMappings.IsEmpty;

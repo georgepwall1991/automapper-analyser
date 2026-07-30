@@ -509,10 +509,10 @@ Architecture-style coverage currently comes from analyzer/fixer tests, conflict 
 
 Current verification (**2026-07-30** for the **2.30.99** AM060 open-generic registration candidate):
 
-- AM060 focused suite: **27** passed, 0 skipped, 0 failed on `net10.0`; the incompatible open-generic registration case failed red because the unrelated missing pair produced no diagnostic. Codex review then drove two more red regressions: a reversed open-generic pair emitted a false positive, and a partially dynamic registration discarded its known source shape. Compatible constructed pairs and unbounded generic-helper guards stayed quiet.
-- Full solution suite: **2476** passed, 0 skipped, 0 failed on `net10.0`.
+- AM060 focused suite: **30** passed, 0 skipped, 0 failed on `net10.0`; the incompatible open-generic registration case failed red because the unrelated missing pair produced no diagnostic. Codex review then drove two more red regressions: a reversed open-generic pair emitted a false positive, and a partially dynamic registration discarded its known source shape. Compatible constructed, nested-generic, array-shaped, and unbounded generic-helper boundaries are pinned.
+- Full solution suite: **2479** passed, 0 skipped, 0 failed on `net10.0`.
 - Release build passed with 0 warnings and 0 errors; catalog, sample-diagnostic snapshot, and compatibility documentation checks are current.
-- The packed `AutoMapperAnalyzer.Analyzers.2.30.99.nupkg` (SHA-256 `d139c300db26db0e7bc4f95e4ea6cf44bcc6ebaa6f6c75493477c0fcfff325b1`) passed payload/README/assets/discoverability verification. Exact-package consumers passed for AutoMapper 14.0.0, 15.1.3, and 16.2.0 on `net10.0`: healthy mappings built cleanly and broken mappings failed specifically with AM001. CI remains authoritative for the `net48`, `net6.0`, `net8.0`, and `net9.0` matrix rows unavailable in the local .NET 10-only toolchain.
+- The packed `AutoMapperAnalyzer.Analyzers.2.30.99.nupkg` (SHA-256 `67903f42b22ddbcad3701cf524ae5ef820e29b339da5653f348aad7ca1859f31`) passed payload/README/assets/discoverability verification. Exact-package consumers passed for AutoMapper 14.0.0, 15.1.3, and 16.2.0 on `net10.0`: healthy mappings built cleanly and broken mappings failed specifically with AM001. CI remains authoritative for the `net48`, `net6.0`, `net8.0`, and `net9.0` matrix rows unavailable in the local .NET 10-only toolchain.
 
 Incremental verification (**2026-07-22** for **2.30.86** AM020 computed-receiver capture):
 
