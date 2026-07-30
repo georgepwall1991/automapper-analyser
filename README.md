@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.104">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.105">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.104
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.105
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,9 +119,20 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.104
+## Latest Release: v2.30.105
 
-**AM061 recognizes convention-mapped public enum fields**
+**AM031 respects mutually exclusive conditional branches**
+
+- LINQ terminals over the same collection no longer report multiple
+  enumeration when they occur only in opposite arms of one conditional
+  expression.
+- Multiple terminals in one arm, or one terminal outside the conditional plus
+  another inside it, continue to report.
+- Nested conditional leaves are evaluated by whether any pair can execute on
+  the same path.
+- No rule ID or severity changes.
+
+<details><summary>Previous release: public enum field coverage (v2.30.104)</summary>
 
 - Public field-to-field and field-to-property enum mappings now receive the
   same member-name/value validation as property mappings.
@@ -130,6 +141,8 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 - Custom AutoMapper `ShouldMapField` policies conservatively suppress field
   diagnostics when convention membership cannot be proven.
 - No rule ID or severity changes.
+
+</details>
 
 <details><summary>Previous release: verifiable build provenance (v2.30.94–95)</summary>
 
@@ -166,6 +179,7 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ### Recent highlights
 
+- **v2.30.105**: AM031 no longer reports repeated enumeration when terminals are confined to mutually exclusive conditional-expression branches.
 - **v2.30.104**: AM061 checks convention-mapped public enum fields while respecting custom field-selection policies.
 - **v2.30.103**: AM021 resolves swapped `CreateMap` types before generating simple element conversions for `ReverseMap()` diagnostics.
 - **v2.30.102**: AM033 no longer lets a stable concrete converter suppress unused siblings through interface fallback.
@@ -293,7 +307,7 @@ Reference one from your project file:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.104"
+  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.105"
                     PrivateAssets="all" GeneratePathProperty="true" />
   <GlobalAnalyzerConfigFiles
     Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />

@@ -329,7 +329,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         var memberAccesses = lambda.DescendantNodes().OfType<MemberAccessExpressionSyntax>();
 
         // Track collection accesses for multiple enumeration detection
-        var collectionAccesses = new Dictionary<string, int>();
+        var collectionAccesses = new Dictionary<string, List<InvocationExpressionSyntax>>();
         var reportedIssueTypes = new HashSet<string>(StringComparer.Ordinal);
         string? sourceParameterName = GetSourceParameterName(lambda);
 
@@ -720,9 +720,9 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
         // Check for multiple enumerations — report every source-rooted collection that is enumerated
         // more than once in this lambda (do not de-dupe to a single collection key).
-        foreach (KeyValuePair<string, int> kvp in collectionAccesses)
+        foreach (KeyValuePair<string, List<InvocationExpressionSyntax>> kvp in collectionAccesses)
         {
-            if (kvp.Value > 1)
+            if (HasCoExecutableEnumerationPair(kvp.Value))
             {
                 ReportMultipleEnumerationDiagnostic(context, lambda, propertyName, kvp.Key);
             }
@@ -1798,7 +1798,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
     private static void TrackCollectionAccess(
         InvocationExpressionSyntax invocation,
-        Dictionary<string, int> collectionAccesses,
+        Dictionary<string, List<InvocationExpressionSyntax>> collectionAccesses,
         string? sourceParameterName,
         SemanticModel semanticModel,
         bool isLinqEnumerationMethod,
@@ -1814,6 +1814,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         {
             TrackCollectionExpression(
                 memberAccess.Expression,
+                invocation,
                 collectionAccesses,
                 sourceParameterName,
                 semanticModel);
@@ -1827,7 +1828,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
     private static bool TryTrackStaticLinqSourceArguments(
         InvocationExpressionSyntax invocation,
-        Dictionary<string, int> collectionAccesses,
+        Dictionary<string, List<InvocationExpressionSyntax>> collectionAccesses,
         string? sourceParameterName,
         SemanticModel semanticModel,
         string methodName)
@@ -1844,6 +1845,7 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         {
             TrackCollectionExpression(
                 invocation.ArgumentList.Arguments[index].Expression,
+                invocation,
                 collectionAccesses,
                 sourceParameterName,
                 semanticModel);
@@ -1854,12 +1856,13 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
     private static void TrackSequenceEqualArgumentAccess(
         InvocationExpressionSyntax invocation,
-        Dictionary<string, int> collectionAccesses,
+        Dictionary<string, List<InvocationExpressionSyntax>> collectionAccesses,
         string? sourceParameterName,
         SemanticModel semanticModel)
     {
         TrackCollectionExpression(
             invocation.ArgumentList.Arguments[0].Expression,
+            invocation,
             collectionAccesses,
             sourceParameterName,
             semanticModel);
@@ -1867,7 +1870,8 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
 
     private static void TrackCollectionExpression(
         ExpressionSyntax expression,
-        Dictionary<string, int> collectionAccesses,
+        InvocationExpressionSyntax enumerationSite,
+        Dictionary<string, List<InvocationExpressionSyntax>> collectionAccesses,
         string? sourceParameterName,
         SemanticModel semanticModel)
     {
@@ -1880,12 +1884,52 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
             ? sourceCollectionPath
             : collectionRoot.ToString();
 
-        if (!collectionAccesses.ContainsKey(collectionName))
+        if (!collectionAccesses.TryGetValue(collectionName, out List<InvocationExpressionSyntax>? enumerationSites))
         {
-            collectionAccesses[collectionName] = 0;
+            enumerationSites = [];
+            collectionAccesses[collectionName] = enumerationSites;
         }
 
-        collectionAccesses[collectionName]++;
+        enumerationSites.Add(enumerationSite);
+    }
+
+    private static bool HasCoExecutableEnumerationPair(
+        List<InvocationExpressionSyntax> enumerationSites)
+    {
+        for (int firstIndex = 0; firstIndex < enumerationSites.Count; firstIndex++)
+        {
+            for (int secondIndex = firstIndex + 1; secondIndex < enumerationSites.Count; secondIndex++)
+            {
+                if (!AreInOppositeConditionalBranches(
+                        enumerationSites[firstIndex],
+                        enumerationSites[secondIndex]))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool AreInOppositeConditionalBranches(SyntaxNode first, SyntaxNode second)
+    {
+        foreach (ConditionalExpressionSyntax conditional in first.Ancestors()
+                     .OfType<ConditionalExpressionSyntax>())
+        {
+            bool firstIsWhenTrue = conditional.WhenTrue.Span.Contains(first.Span);
+            bool firstIsWhenFalse = conditional.WhenFalse.Span.Contains(first.Span);
+            bool secondIsWhenTrue = conditional.WhenTrue.Span.Contains(second.Span);
+            bool secondIsWhenFalse = conditional.WhenFalse.Span.Contains(second.Span);
+
+            if (firstIsWhenTrue && secondIsWhenFalse ||
+                firstIsWhenFalse && secondIsWhenTrue)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static ExpressionSyntax UnwrapChainedLinqReceiver(

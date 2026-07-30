@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+## [2.30.105] - 2026-07-30
+
+AM031 now distinguishes mutually exclusive conditional-expression branches
+when detecting repeated enumeration (no rule ID or severity changes).
+
+### Fixed
+
+- **AM031 false positive across ternary branches**: `condition
+  ? source.Items.Sum() : source.Items.Average()` previously reported multiple
+  enumeration even though only one terminal can execute.
+
+### Changed
+
+- Enumeration tracking retains each terminal invocation site and reports only
+  when at least two sites for the same collection can execute on one path.
+- Multiple terminals within one branch, or one terminal before a conditional
+  plus another inside it, continue to report.
+
+### Validation
+
+- AM031 analyzer and code-fix slice: **305** passed, 0 skipped, 0 failed on
+  `net10.0`.
+
 ## [2.30.104] - 2026-07-30
 
 AM061 now checks convention-mapped public enum fields as well as properties

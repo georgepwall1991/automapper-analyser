@@ -2525,6 +2525,169 @@ public class AM031_PerformanceWarningTests
             .RunAsync();
     }
 
+    [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_WhenEnumerationsAreInOppositeConditionalBranches()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public bool UseSum { get; set; }
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public double Total { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Total, opt => opt.MapFrom(src =>
+                                                    src.UseSum ? src.Numbers.Sum() : src.Numbers.Average()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenMultipleEnumerationsShareConditionalBranch()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public bool UseTotals { get; set; }
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public double Total { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Total, opt => opt.MapFrom(src =>
+                                                    src.UseTotals ? src.Numbers.Sum() + src.Numbers.Average() : 0));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule, 23, 67,
+                "Total", "Numbers")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldReportDiagnostic_WhenEnumerationPrecedesConditionalBranch()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public bool IncludeAverage { get; set; }
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public double Total { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Total, opt => opt.MapFrom(src =>
+                                                    src.Numbers.Sum() + (src.IncludeAverage ? src.Numbers.Average() : 0)));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM031_PerformanceWarningAnalyzer.MultipleEnumerationRule, 23, 67,
+                "Total", "Numbers")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM031_ShouldNotReportDiagnostic_WhenNestedConditionalLeavesAreMutuallyExclusive()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System.Collections.Generic;
+                                using System.Linq;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source
+                                    {
+                                        public bool UsePrimary { get; set; }
+                                        public bool UseSum { get; set; }
+                                        public List<int> Numbers { get; set; }
+                                    }
+
+                                    public class Destination
+                                    {
+                                        public double Total { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ForMember(dest => dest.Total, opt => opt.MapFrom(src =>
+                                                    src.UsePrimary
+                                                        ? (src.UseSum ? src.Numbers.Sum() : src.Numbers.Average())
+                                                        : src.Numbers.Max()));
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM031_PerformanceWarningAnalyzer>()
+            .WithSource(testCode)
+            .RunWithNoDiagnosticsAsync();
+    }
+
 
     [Fact]
     public async Task AM031_ShouldReportDiagnostic_WhenTwoCollectionsAreEachMultiplyEnumerated()
