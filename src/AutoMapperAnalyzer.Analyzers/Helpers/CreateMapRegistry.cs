@@ -241,6 +241,54 @@ internal sealed class CreateMapRegistry
         return string.Empty;
     }
 
+    internal static bool HasCustomFieldSelectionPolicy(Compilation compilation)
+    {
+        foreach (SyntaxTree? syntaxTree in compilation.SyntaxTrees)
+        {
+            if (!syntaxTree.TryGetText(out SourceText? text) ||
+                !text.ToString().Contains("ShouldMapField"))
+            {
+                continue;
+            }
+
+            SyntaxNode root = syntaxTree.GetRoot();
+            AssignmentExpressionSyntax[] candidates = root.DescendantNodes()
+                .OfType<AssignmentExpressionSyntax>()
+                .Where(IsShouldMapFieldAssignment)
+                .ToArray();
+            if (candidates.Length == 0)
+            {
+                continue;
+            }
+
+            SemanticModel semanticModel = compilation.GetSemanticModel(syntaxTree);
+            foreach (AssignmentExpressionSyntax candidate in candidates)
+            {
+                if (semanticModel.GetSymbolInfo(candidate.Left).Symbol is IPropertySymbol
+                    {
+                        Name: "ShouldMapField",
+                        ContainingAssembly.Name: "AutoMapper",
+                    })
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsShouldMapFieldAssignment(AssignmentExpressionSyntax assignment)
+    {
+        return assignment.Left switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText == "ShouldMapField",
+            MemberAccessExpressionSyntax memberAccess =>
+                memberAccess.Name.Identifier.ValueText == "ShouldMapField",
+            _ => false,
+        };
+    }
+
     public static CreateMapRegistry Build(Compilation compilation)
     {
         var mappings = new List<MappingInfo>();

@@ -49,8 +49,11 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
                 return;
             }
 
-            // Key registrations by their invocation node so the syntax node action only does work
-            // on CreateMap/ReverseMap call sites (the AM041 pattern).
+            bool shouldAnalyzeConventionFields =
+                !CreateMapRegistry.HasCustomFieldSelectionPolicy(compilationContext.Compilation);
+
+            // Key registrations by their invocation node so diagnostics stay local to the
+            // CreateMap/ReverseMap syntax node for code-fix routing.
             var mappingsByNode = new Dictionary<InvocationExpressionSyntax, List<CreateMapRegistry.MappingInfo>>();
             foreach (CreateMapRegistry.MappingInfo mapping in registry.AllMappings)
             {
@@ -73,7 +76,7 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
 
                 foreach (CreateMapRegistry.MappingInfo mapping in mappings)
                 {
-                    AnalyzeMapping(ctx.ReportDiagnostic, registry, mapping);
+                    AnalyzeMapping(ctx.ReportDiagnostic, registry, mapping, shouldAnalyzeConventionFields);
                 }
             }, SyntaxKind.InvocationExpression);
         });
@@ -82,7 +85,8 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeMapping(
         Action<Diagnostic> reportDiagnostic,
         CreateMapRegistry registry,
-        CreateMapRegistry.MappingInfo mapping)
+        CreateMapRegistry.MappingInfo mapping,
+        bool shouldAnalyzeConventionFields)
     {
         ITypeSymbol source = mapping.Source;
         ITypeSymbol destination = mapping.Destination;
@@ -150,26 +154,24 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
 
         var reportedPairs = new HashSet<(string DestinationName, string SourceMember, string Value)>();
 
-        Dictionary<string, IPropertySymbol> sourcePropertiesByName =
-            AutoMapperAnalysisHelpers.GetMappableProperties(source, requireSetter: false)
-                .GroupBy(property => property.Name, StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        Dictionary<string, ITypeSymbol> sourceMemberTypesByName =
+            GetConventionMappableMemberTypes(source, requireWritable: false, shouldAnalyzeConventionFields);
 
-        Dictionary<string, IPropertySymbol> destinationPropertiesByName =
-            AutoMapperAnalysisHelpers.GetMappableProperties(destination)
-                .GroupBy(property => property.Name, StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        Dictionary<string, ITypeSymbol> destinationMemberTypesByName =
+            GetConventionMappableMemberTypes(destination, requireWritable: true, shouldAnalyzeConventionFields);
 
-        foreach (IPropertySymbol destinationProperty in destinationPropertiesByName.Values)
+        foreach (KeyValuePair<string, ITypeSymbol> destinationMember in destinationMemberTypesByName)
         {
-            if (ignoredMembers.Contains(destinationProperty.Name) ||
-                customConfiguredMembers.Contains(destinationProperty.Name) ||
-                explicitPairs.Any(pair => pair.DestinationName == destinationProperty.Name))
+            string destinationName = destinationMember.Key;
+
+            if (ignoredMembers.Contains(destinationName) ||
+                customConfiguredMembers.Contains(destinationName) ||
+                explicitPairs.Any(pair => pair.DestinationName == destinationName))
             {
                 continue;
             }
 
-            if (!sourcePropertiesByName.TryGetValue(destinationProperty.Name, out IPropertySymbol? sourceProperty))
+            if (!sourceMemberTypesByName.TryGetValue(destinationName, out ITypeSymbol? sourceMemberType))
             {
                 continue;
             }
@@ -178,10 +180,10 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
                 reportDiagnostic,
                 registry,
                 mapping,
-                destinationProperty.Name,
-                sourceProperty.Name,
-                sourceProperty.Type,
-                destinationProperty.Type,
+                destinationName,
+                destinationName,
+                sourceMemberType,
+                destinationMember.Value,
                 forMemberCall: null,
                 reportedPairs);
         }
@@ -193,8 +195,9 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            ITypeSymbol? sourceMemberType = ResolveMemberType(source, sourceName, sourcePropertiesByName);
-            ITypeSymbol? destinationMemberType = ResolveMemberType(destination, destinationName, destinationPropertiesByName);
+            ITypeSymbol? sourceMemberType = ResolveMemberType(source, sourceName, sourceMemberTypesByName);
+            ITypeSymbol? destinationMemberType =
+                ResolveMemberType(destination, destinationName, destinationMemberTypesByName);
             if (sourceMemberType == null || destinationMemberType == null)
             {
                 continue;
@@ -543,15 +546,15 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
     private static ITypeSymbol? ResolveMemberType(
         ITypeSymbol type,
         string memberName,
-        Dictionary<string, IPropertySymbol> propertiesByName)
+        Dictionary<string, ITypeSymbol> conventionMemberTypesByName)
     {
-        if (propertiesByName.TryGetValue(memberName, out IPropertySymbol? property))
+        if (conventionMemberTypesByName.TryGetValue(memberName, out ITypeSymbol? memberType))
         {
-            return property.Type;
+            return memberType;
         }
 
-        // Fields are not convention-mapped but explicit MapFrom can target them; walk the
-        // inheritance chain explicitly so inherited fields resolve like inherited properties.
+        // Explicit MapFrom can target fields outside the default convention visibility;
+        // walk the inheritance chain so inherited fields resolve like inherited properties.
         for (ITypeSymbol? current = type; current != null; current = current.BaseType)
         {
             foreach (ISymbol member in current.GetMembers(memberName))
@@ -564,6 +567,51 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
         }
 
         return null;
+    }
+
+    private static Dictionary<string, ITypeSymbol> GetConventionMappableMemberTypes(
+        ITypeSymbol type,
+        bool requireWritable,
+        bool includeFields)
+    {
+        var memberTypesByName = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+
+        for (ITypeSymbol? current = type; current != null; current = current.BaseType)
+        {
+            foreach (ISymbol member in current.GetMembers())
+            {
+                ITypeSymbol? memberType = member switch
+                {
+                    IPropertySymbol property
+                        when (property.DeclaredAccessibility == Accessibility.Public ||
+                              property.DeclaredAccessibility == Accessibility.Internal) &&
+                             !property.IsStatic &&
+                             !property.IsIndexer &&
+                             property.GetMethod != null &&
+                             (!requireWritable || property.SetMethod != null) =>
+                        property.Type,
+                    IFieldSymbol field
+                        when includeFields &&
+                             field.DeclaredAccessibility == Accessibility.Public &&
+                             !field.IsStatic &&
+                             (!requireWritable || !field.IsReadOnly) =>
+                        field.Type,
+                    _ => null,
+                };
+
+                if (memberType != null && !memberTypesByName.ContainsKey(member.Name))
+                {
+                    memberTypesByName.Add(member.Name, memberType);
+                }
+            }
+
+            if (current.SpecialType == SpecialType.System_Object)
+            {
+                break;
+            }
+        }
+
+        return memberTypesByName;
     }
 
     private static string? ExtractDestinationMemberName(InvocationExpressionSyntax memberConfigurationCall)

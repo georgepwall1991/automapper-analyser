@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+## [2.30.104] - 2026-07-30
+
+AM061 now checks convention-mapped public enum fields as well as properties
+(no rule ID or severity changes).
+
+### Fixed
+
+- **AM061 missed public fields**: AutoMapper conventionally maps public fields,
+  but AM061 enumerated properties only, so field-to-field and
+  field-to-property enum mismatches were silent.
+
+### Changed
+
+- Convention member discovery now includes readable public instance fields on
+  sources and writable public instance fields on destinations.
+- Static, private, constant, and readonly destination fields remain outside
+  convention analysis; explicit `MapFrom` field handling is unchanged.
+- Any authentic AutoMapper `ShouldMapField` customization conservatively
+  suppresses convention-field diagnostics because the selected field set is
+  not statically provable.
+
+### Validation
+
+- AM061 analyzer suite: **29** passed; analyzer plus code-fix slice: **32**
+  passed. This includes red-first public-field and custom-`ShouldMapField`
+  regressions plus same-file and cross-file semantic lookalike boundaries.
+- Full suite: **2495** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.103] - 2026-07-30
 
 AM021 now offers its executable simple-element conversion fix for reverse
