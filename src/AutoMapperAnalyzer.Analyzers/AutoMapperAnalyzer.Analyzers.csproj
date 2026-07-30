@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>101</PatchVersion>
+        <PatchVersion>102</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,12 +32,11 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.101 - AM041 limits branch exclusivity to single-execution configuration callbacks
-- Opposite if/else registrations are suppressed only inside a direct MapperConfiguration callback
-- Repeatable helpers and Profile paths now report when separate executions can select both branches and register a duplicate map
-- Loop-nested branches remain diagnostic because different iterations can select both arms
-- Source-defined MapperConfiguration namespace lookalikes fail closed unless their assembly matches the recognized CreateMap calls
-- Switch and if/else mutual-exclusion proofs now share one boundary
+                <PackageReleaseNotes>Version 2.30.102 - AM033 distinguishes concrete converter usage from interface fallback
+- An interface-typed local with a concrete initializer marks only that implementation as used
+- Unused sibling converters for the same source and destination pair now report
+- Same-block data flow preserves broad fallback after local reassignment
+- Mutable, constructor-injected, and service-located interface handles remain conservative when no stable concrete implementation is statically traceable
 - No rule ID or severity changes
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>

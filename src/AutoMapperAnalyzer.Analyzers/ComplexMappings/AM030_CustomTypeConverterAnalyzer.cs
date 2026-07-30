@@ -160,15 +160,73 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
         foreach (ArgumentSyntax argument in invocation.ArgumentList.Arguments)
         {
+            bool hasConcreteConverter = GetConverterSymbolsFromExpression(
+                argument.Expression,
+                context.SemanticModel).Any();
             TypeInfo argumentTypeInfo = context.SemanticModel.GetTypeInfo(argument.Expression);
             ITypeSymbol? argumentType = argumentTypeInfo.Type ?? argumentTypeInfo.ConvertedType;
             if (argumentType is INamedTypeSymbol namedArgumentType &&
                 IsTypeConverterInterface(namedArgumentType) &&
+                (!hasConcreteConverter ||
+                 !IsStableConcreteConverterReference(
+                     argument.Expression,
+                     invocation,
+                     context.SemanticModel)) &&
                 TryGetTypeConverterInterfaceKey(namedArgumentType, out string interfaceKey))
             {
                 usedConverterInterfaces.TryAdd(interfaceKey, 0);
             }
         }
+    }
+
+    private static bool IsStableConcreteConverterReference(
+        ExpressionSyntax expression,
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        expression = UnwrapConverterReferenceExpression(expression);
+        if (expression is ObjectCreationExpressionSyntax)
+        {
+            return true;
+        }
+
+        return semanticModel.GetSymbolInfo(expression).Symbol switch
+        {
+            ILocalSymbol local => IsLocalReferenceUnchangedBeforeInvocation(
+                local,
+                invocation,
+                semanticModel),
+            _ => false
+        };
+    }
+
+    private static bool IsLocalReferenceUnchangedBeforeInvocation(
+        ILocalSymbol local,
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        if (local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not VariableDeclaratorSyntax declarator ||
+            declarator.Parent?.Parent is not LocalDeclarationStatementSyntax declaration ||
+            declaration.Parent is not BlockSyntax block ||
+            invocation.FirstAncestorOrSelf<StatementSyntax>() is not { } invocationStatement ||
+            !ReferenceEquals(invocationStatement.Parent, block))
+        {
+            return false;
+        }
+
+        int declarationIndex = block.Statements.IndexOf(declaration);
+        int invocationIndex = block.Statements.IndexOf(invocationStatement);
+        if (declarationIndex < 0 || invocationIndex <= declarationIndex)
+        {
+            return false;
+        }
+
+        DataFlowAnalysis? dataFlow = semanticModel.AnalyzeDataFlow(
+            block.Statements[declarationIndex + 1],
+            invocationStatement);
+        return dataFlow?.Succeeded == true &&
+               !dataFlow.WrittenInside.Any(symbol =>
+                   SymbolEqualityComparer.Default.Equals(symbol, local));
     }
 
     private static void ReportUnusedConverters(

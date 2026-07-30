@@ -5039,6 +5039,165 @@ public class AM030_CustomTypeConverterTests
     }
 
     [Fact]
+    public async Task AM033_ShouldReportUnusedSibling_WhenInterfaceTypedLocalHasConcreteInitializer()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class SelectedConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class UnusedSiblingConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            ITypeConverter<string, DateTime> converter = new SelectedConverter();
+                                            CreateMap<string, DateTime>().ConvertUsing(converter);
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(
+                AM030_CustomTypeConverterAnalyzer.UnusedTypeConverterRule,
+                14,
+                18,
+                "UnusedSiblingConverter")
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM033_ShouldPreserveInterfaceFallback_WhenConcreteLocalIsReassignedBeforeConvertUsing()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class InitialConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class RuntimeConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                        {
+                                            return DateTime.Parse(source);
+                                        }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            ITypeConverter<string, DateTime> converter = new InitialConverter();
+                                            converter = ResolveConverter();
+                                            CreateMap<string, DateTime>().ConvertUsing(converter);
+                                        }
+
+                                        private static ITypeConverter<string, DateTime> ResolveConverter()
+                                            => throw new NotImplementedException();
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AM033_ShouldPreserveInterfaceFallback_WhenConstructorReassignsReadonlyMembers()
+    {
+        const string testCode = """
+                                using AutoMapper;
+                                using System;
+
+                                namespace TestNamespace
+                                {
+                                    public class InitialStringConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                            => DateTime.Parse(source);
+                                    }
+
+                                    public class RuntimeStringConverter : ITypeConverter<string, DateTime>
+                                    {
+                                        public DateTime Convert(string source, DateTime destination, ResolutionContext context)
+                                            => DateTime.Parse(source);
+                                    }
+
+                                    public class InitialIntConverter : ITypeConverter<int, string>
+                                    {
+                                        public string Convert(int source, string destination, ResolutionContext context)
+                                            => source.ToString();
+                                    }
+
+                                    public class RuntimeIntConverter : ITypeConverter<int, string>
+                                    {
+                                        public string Convert(int source, string destination, ResolutionContext context)
+                                            => source.ToString();
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        private readonly ITypeConverter<string, DateTime> field =
+                                            new InitialStringConverter();
+
+                                        private ITypeConverter<int, string> Converter { get; } =
+                                            new InitialIntConverter();
+
+                                        public TestProfile()
+                                        {
+                                            field = ResolveStringConverter();
+                                            Converter = ResolveIntConverter();
+                                            CreateMap<string, DateTime>().ConvertUsing(field);
+                                            CreateMap<int, string>().ConvertUsing(Converter);
+                                        }
+
+                                        private static ITypeConverter<string, DateTime> ResolveStringConverter()
+                                            => throw new NotImplementedException();
+
+                                        private static ITypeConverter<int, string> ResolveIntConverter()
+                                            => throw new NotImplementedException();
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM030_CustomTypeConverterAnalyzer>()
+            .WithSource(testCode)
+            .ExpectNoDiagnostics()
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM030_ShouldNotReportDiagnostic_WhenInterfaceTypedFieldConverterIsPassedToConvertUsing()
     {
         const string testCode = """

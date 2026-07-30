@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+## [2.30.102] - 2026-07-30
+
+AM033 now keeps interface fallback separate from a statically resolved concrete
+converter (no rule ID or severity changes).
+
+### Fixed
+
+- **AM033 false negative**: when an interface-typed local was initialized with a
+  concrete converter and passed to `ConvertUsing`, the analyzer recorded both
+  the concrete converter and the broad `ITypeConverter<TSource, TDestination>`
+  pair. That broad fallback incorrectly marked every sibling implementation for
+  the same pair as used.
+
+### Changed
+
+- Interface-pair fallback is recorded only when the individual
+  `ConvertUsing(...)` argument cannot be traced to a stable concrete converter.
+  Interface-typed locals are proven stable only when same-block data flow shows
+  no intervening write. Field and property handles remain conservative,
+  including readonly fields and get-only properties because constructors can
+  reassign their backing values. Constructor injection, service-location, and
+  other genuinely unresolved interface handles also continue to suppress AM033
+  for all compatible implementations.
+
+### Validation
+
+- AM030/AM032/AM033 analyzer suite: **141** passed, including the concrete-local
+  sibling regression, local-reassignment guard, constructor-reassigned member
+  guard, and unresolved-interface negative controls.
+- Full suite: **2486** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.101] - 2026-07-30
 
 AM041 now treats opposite `if`/`else` registrations as mutually exclusive only
