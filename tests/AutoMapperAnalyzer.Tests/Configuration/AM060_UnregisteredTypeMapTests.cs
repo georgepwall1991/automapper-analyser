@@ -740,7 +740,7 @@ public class AM060_UnregisteredTypeMapTests
     }
 
     [Fact]
-    public async Task Should_NotReportDiagnostic_When_OpenGenericRegistrationExists()
+    public async Task Should_ReportDiagnostic_When_OpenGenericRegistrationCannotCoverPair()
     {
         const string testCode = """
                                 using System;
@@ -767,6 +767,106 @@ public class AM060_UnregisteredTypeMapTests
                                 }
                                 """;
 
+        DiagnosticResult expected = new DiagnosticResult(AM060_UnregisteredTypeMapAnalyzer.UnregisteredTypeMapRule)
+            .WithLocation(20, 34)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM060_UnregisteredTypeMapAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_When_OpenGenericRegistrationCouldCoverPair()
+    {
+        const string testCode = """
+                                using System;
+                                using AutoMapper;
+
+                                public class Destination {}
+                                public class Wrapper<T> {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap(typeof(Wrapper<>), typeof(Destination));
+                                    }
+                                }
+
+                                public class Service
+                                {
+                                    public void Run(IMapper mapper, Wrapper<int> source)
+                                    {
+                                        var destination = mapper.Map<Destination>(source);
+                                    }
+                                }
+                                """;
+
         await AnalyzerVerifier<AM060_UnregisteredTypeMapAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_When_ReversedOpenGenericRegistrationCouldCoverPair()
+    {
+        const string testCode = """
+                                using System;
+                                using AutoMapper;
+
+                                public class Destination {}
+                                public class Wrapper<T> {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap(typeof(Wrapper<>), typeof(Destination)).ReverseMap();
+                                    }
+                                }
+
+                                public class Service
+                                {
+                                    public void Run(IMapper mapper, Destination source)
+                                    {
+                                        var destination = mapper.Map<Wrapper<int>>(source);
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM060_UnregisteredTypeMapAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_When_KnownOpenGenericSourceCannotCoverPair()
+    {
+        const string testCode = """
+                                using System;
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+                                public class Wrapper<T> {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        Type destinationType = typeof(Destination);
+                                        CreateMap(typeof(Wrapper<>), destinationType);
+                                    }
+                                }
+
+                                public class Service
+                                {
+                                    public void Run(IMapper mapper, Source source)
+                                    {
+                                        var destination = mapper.Map<Destination>(source);
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM060_UnregisteredTypeMapAnalyzer.UnregisteredTypeMapRule)
+            .WithLocation(21, 34)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM060_UnregisteredTypeMapAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
     }
 }
