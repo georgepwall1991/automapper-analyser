@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## [2.30.98] - 2026-07-30
+
+AM041 now recognizes mutually exclusive `switch` sections (no rule ID or severity changes).
+
+### Fixed
+
+- **AM041 false positive and unsafe fix**: identical `CreateMap<Source, Destination>()` registrations
+  in distinct sections of one `switch` were reported as duplicates even though only one section can
+  execute. Accepting the removal action could delete the only registration for one runtime mode.
+
+### Changed
+
+- Duplicate detection now treats distinct sections of the same `switch` as mutually exclusive only
+  when both registrations share one executable body and the switch contains no `goto`. Registrations
+  in the same section, independent switches, unconditional registrations, and any switch with a
+  `goto` continue to report so control-flow ambiguity cannot hide a real duplicate.
+
+### Validation
+
+- AM041 focused suite: **19** passed, including the red regression and the same-section/`goto` guards.
+- Full suite: **2466** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.97] - 2026-07-29
 
 AM011 now reports a required destination member that an included child map explicitly ignores (no rule ID

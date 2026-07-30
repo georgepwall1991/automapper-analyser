@@ -405,7 +405,7 @@ internal sealed class CreateMapRegistry
                 for (int i = 1; i < sorted.Count; i++)
                 {
                     MappingInfo duplicate = sorted[i];
-                    if (sorted.Take(i).All(previous => AreMutuallyExclusiveByIfElse(previous, duplicate)))
+                    if (sorted.Take(i).All(previous => AreMutuallyExclusiveByControlFlow(previous, duplicate)))
                     {
                         continue;
                     }
@@ -485,7 +485,7 @@ internal sealed class CreateMapRegistry
                (type is IArrayTypeSymbol arrayType && ContainsTypeParameter(arrayType.ElementType));
     }
 
-    private static bool AreMutuallyExclusiveByIfElse(MappingInfo first, MappingInfo second)
+    private static bool AreMutuallyExclusiveByControlFlow(MappingInfo first, MappingInfo second)
     {
         SyntaxNode? firstBoundary = GetContainingExecutableBoundary(first.Node);
         SyntaxNode? secondBoundary = GetContainingExecutableBoundary(second.Node);
@@ -507,6 +507,26 @@ internal sealed class CreateMapRegistry
             bool secondInThen = ifStatement.Statement.Span.Contains(second.Node.Span);
             bool secondInElse = elseStatement.Span.Contains(second.Node.Span);
             if ((firstInThen && secondInElse) || (firstInElse && secondInThen))
+            {
+                return true;
+            }
+        }
+
+        foreach (SwitchStatementSyntax switchStatement in first.Node.Ancestors().OfType<SwitchStatementSyntax>())
+        {
+            if (!switchStatement.Span.Contains(second.Node.Span) ||
+                switchStatement.DescendantNodes().OfType<GotoStatementSyntax>().Any())
+            {
+                continue;
+            }
+
+            SwitchSectionSyntax? firstSection = switchStatement.Sections
+                .FirstOrDefault(section => section.Span.Contains(first.Node.Span));
+            SwitchSectionSyntax? secondSection = switchStatement.Sections
+                .FirstOrDefault(section => section.Span.Contains(second.Node.Span));
+            if (firstSection != null &&
+                secondSection != null &&
+                !ReferenceEquals(firstSection, secondSection))
             {
                 return true;
             }
