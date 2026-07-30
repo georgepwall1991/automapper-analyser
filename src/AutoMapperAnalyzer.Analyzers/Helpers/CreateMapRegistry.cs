@@ -512,18 +512,17 @@ internal sealed class CreateMapRegistry
             }
         }
 
+        if (!IsSingleExecutionConfigurationBoundary(firstBoundary, first.SemanticModel))
+        {
+            return false;
+        }
+
         foreach (SwitchStatementSyntax switchStatement in first.Node.Ancestors().OfType<SwitchStatementSyntax>())
         {
             if (!switchStatement.Span.Contains(second.Node.Span) ||
                 firstBoundary.DescendantNodes().OfType<GotoStatementSyntax>().Any() ||
-                switchStatement.Ancestors()
-                    .TakeWhile(ancestor => !ReferenceEquals(ancestor, firstBoundary))
-                    .Any(ancestor => ancestor is
-                        ForStatementSyntax or
-                        ForEachStatementSyntax or
-                        ForEachVariableStatementSyntax or
-                        WhileStatementSyntax or
-                        DoStatementSyntax))
+                IsNestedInLoop(first.Node, firstBoundary) ||
+                IsNestedInLoop(second.Node, firstBoundary))
             {
                 continue;
             }
@@ -541,6 +540,39 @@ internal sealed class CreateMapRegistry
         }
 
         return false;
+    }
+
+    private static bool IsNestedInLoop(SyntaxNode node, SyntaxNode boundary)
+    {
+        return node.Ancestors()
+            .TakeWhile(ancestor => !ReferenceEquals(ancestor, boundary))
+            .Any(ancestor => ancestor is
+                ForStatementSyntax or
+                ForEachStatementSyntax or
+                ForEachVariableStatementSyntax or
+                WhileStatementSyntax or
+                DoStatementSyntax);
+    }
+
+    private static bool IsSingleExecutionConfigurationBoundary(
+        SyntaxNode boundary,
+        SemanticModel semanticModel)
+    {
+        if (boundary is not AnonymousFunctionExpressionSyntax anonymousFunction ||
+            anonymousFunction.Parent is not ArgumentSyntax argument ||
+            argument.Parent?.Parent is not BaseObjectCreationExpressionSyntax objectCreation ||
+            semanticModel.GetTypeInfo(objectCreation).Type is not INamedTypeSymbol constructedType)
+        {
+            return false;
+        }
+
+        return IsAutoMapperType(constructedType, "MapperConfiguration");
+    }
+
+    private static bool IsAutoMapperType(INamedTypeSymbol type, string name)
+    {
+        return type.Name == name &&
+               type.ContainingNamespace.ToDisplayString() == "AutoMapper";
     }
 
     private static SyntaxNode? GetContainingExecutableBoundary(SyntaxNode node)

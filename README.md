@@ -123,11 +123,13 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 **AM041 respects mutually exclusive `switch` sections**
 
-- Identical `CreateMap` registrations in distinct sections of one `switch` no longer report as duplicates,
-  because only one section can execute.
-- Same-section duplicates, switches nested in loops, and switches in executable bodies containing `goto`
-  remain diagnostic. This also prevents the removal fix from deleting the only registration for one runtime
-  mode.
+- Identical `CreateMap` registrations in distinct sections of a direct `MapperConfiguration` lambda no longer
+  report as duplicates, because only one section can execute for that configuration.
+- `Profile` constructors remain diagnostic because multiple profile instances can select different sections
+  in one configuration. Repeatable helpers, local functions, ordinary lambdas, same-section duplicates,
+  registration paths containing loops, and configuration bodies containing `goto` also keep AM041 enabled.
+  This prevents the removal fix from deleting the only registration for one runtime mode without hiding a
+  real collision.
 - No rule ID or severity changes.
 
 <details><summary>Previous release: verifiable build provenance (v2.30.94–95)</summary>
@@ -165,7 +167,7 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ### Recent highlights
 
-- **v2.30.98**: AM041 no longer reports identical registrations in mutually exclusive `switch` sections.
+- **v2.30.98**: AM041 respects mutually exclusive `switch` sections in direct `MapperConfiguration` lambdas.
 - **v2.30.97**: AM011 reports required members that an included child map explicitly ignores.
 - **v2.30.96**: Faster analysis of profiles with long fluent chains.
 - **v2.30.95**: Corrects the provenance verification command — verify the GitHub release asset, not the NuGet download.

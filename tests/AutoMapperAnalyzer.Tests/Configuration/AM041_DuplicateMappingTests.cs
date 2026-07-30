@@ -457,7 +457,7 @@ public class AM041_DuplicateMappingTests
     }
 
     [Fact]
-    public async Task Should_NotReportDiagnostic_WhenRegistrationsAreInDistinctSwitchSections()
+    public async Task Should_ReportDiagnostic_WhenProfileInstancesCanSelectDifferentSwitchSections()
     {
         const string testCode = """
                                 using AutoMapper;
@@ -480,9 +480,25 @@ public class AM041_DuplicateMappingTests
                                         }
                                     }
                                 }
+
+                                public class ConfigurationOwner
+                                {
+                                    public ConfigurationOwner()
+                                    {
+                                        _ = new MapperConfiguration(cfg =>
+                                        {
+                                            cfg.AddProfile(new MyProfile(0));
+                                            cfg.AddProfile(new MyProfile(1));
+                                        });
+                                    }
+                                }
                                 """;
 
-        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(16, 17)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
     }
 
     [Fact]
@@ -516,6 +532,45 @@ public class AM041_DuplicateMappingTests
 
         DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
             .WithLocation(18, 21)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_WhenRegistrationInsideSwitchSectionCanRepeatInLoop()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class ConfigurationOwner
+                                {
+                                    public ConfigurationOwner(int mode)
+                                    {
+                                        _ = new MapperConfiguration(cfg =>
+                                        {
+                                            switch (mode)
+                                            {
+                                                case 0:
+                                                    for (int index = 0; index < 2; index++)
+                                                    {
+                                                        cfg.CreateMap<Source, Destination>();
+                                                    }
+                                                    break;
+                                                default:
+                                                    cfg.CreateMap<Source, Destination>();
+                                                    break;
+                                            }
+                                        });
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(21, 21)
             .WithArguments("Source", "Destination");
 
         await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
@@ -620,6 +675,156 @@ public class AM041_DuplicateMappingTests
             .WithArguments("Source", "Destination");
 
         await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_WhenLocalFunctionCanRunSwitchWithDifferentModes()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        Configure(0);
+                                        Configure(1);
+
+                                        void Configure(int mode)
+                                        {
+                                            switch (mode)
+                                            {
+                                                case 0:
+                                                    CreateMap<Source, Destination>();
+                                                    break;
+                                                default:
+                                                    CreateMap<Source, Destination>();
+                                                    break;
+                                            }
+                                        }
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(21, 21)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_WhenHelperMethodCanRunSwitchWithDifferentModes()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        Configure(0);
+                                        Configure(1);
+                                    }
+
+                                    private void Configure(int mode)
+                                    {
+                                        switch (mode)
+                                        {
+                                            case 0:
+                                                CreateMap<Source, Destination>();
+                                                break;
+                                            default:
+                                                CreateMap<Source, Destination>();
+                                                break;
+                                        }
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(22, 17)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_WhenLambdaCanRunSwitchWithDifferentModes()
+    {
+        const string testCode = """
+                                using System;
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        Action<int> configure = mode =>
+                                        {
+                                            switch (mode)
+                                            {
+                                                case 0:
+                                                    CreateMap<Source, Destination>();
+                                                    break;
+                                                default:
+                                                    CreateMap<Source, Destination>();
+                                                    break;
+                                            }
+                                        };
+
+                                        configure(0);
+                                        configure(1);
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult expected = new DiagnosticResult(AM041_DuplicateMappingAnalyzer.DuplicateMappingRule)
+            .WithLocation(19, 21)
+            .WithArguments("Source", "Destination");
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode, expected);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_WhenRegistrationsAreInDirectMapperConfigurationLambdaSwitch()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public class Source {}
+                                public class Destination {}
+
+                                public class ConfigurationOwner
+                                {
+                                    public ConfigurationOwner(int mode)
+                                    {
+                                        _ = new MapperConfiguration(cfg =>
+                                        {
+                                            switch (mode)
+                                            {
+                                                case 0:
+                                                    cfg.CreateMap<Source, Destination>();
+                                                    break;
+                                                default:
+                                                    cfg.CreateMap<Source, Destination>();
+                                                    break;
+                                            }
+                                        });
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM041_DuplicateMappingAnalyzer>.VerifyAnalyzerAsync(testCode);
     }
 
 }
