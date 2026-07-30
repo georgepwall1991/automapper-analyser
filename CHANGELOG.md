@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## [2.30.106] - 2026-07-30
+
+AM006 now matches `ConstructUsing` object-initializer members with C#-exact
+casing (no rule ID or severity changes).
+
+### Fixed
+
+- **AM006 false negative for case-distinct destination members**:
+  initializing `value` in `ConstructUsing` previously suppressed the diagnostic
+  for a separate destination property named `Value`, even though C# and
+  AutoMapper treat them as distinct members.
+
+### Changed
+
+- `ConstructUsing` ownership now uses ordinal case-sensitive member comparison.
+- Existing same-cased object-initializer suppression remains unchanged.
+
+### Validation
+
+- AM006 analyzer and code-fix slice: **48** passed, 0 skipped, 0 failed on
+  `net10.0`.
+
 ## [2.30.105] - 2026-07-30
 
 AM031 now distinguishes mutually exclusive conditional-expression branches

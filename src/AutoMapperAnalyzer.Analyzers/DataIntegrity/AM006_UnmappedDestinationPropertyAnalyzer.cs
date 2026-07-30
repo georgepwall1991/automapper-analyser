@@ -306,7 +306,7 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
             _ => null
         };
 
-        return string.Equals(assignedPropertyName, propertyName, StringComparison.OrdinalIgnoreCase);
+        return string.Equals(assignedPropertyName, propertyName, StringComparison.Ordinal);
     }
 
     private static bool IsFlatteningMatch(IPropertySymbol sourceProperty, IPropertySymbol destinationProperty)

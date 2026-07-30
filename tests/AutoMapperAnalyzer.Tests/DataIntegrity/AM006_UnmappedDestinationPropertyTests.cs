@@ -269,6 +269,44 @@ public class AM006_UnmappedDestinationPropertyTests
     }
 
     [Fact]
+    public async Task AM006_ShouldReportDiagnostic_WhenConstructUsingInitializesOnlyCaseDistinctProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                namespace TestNamespace
+                                {
+                                    public class Source { }
+
+                                    public class Destination
+                                    {
+                                        public string Value { get; set; }
+                                        public string value { get; set; }
+                                    }
+
+                                    public class TestProfile : Profile
+                                    {
+                                        public TestProfile()
+                                        {
+                                            CreateMap<Source, Destination>()
+                                                .ConstructUsing(_ => new Destination
+                                                {
+                                                    value = "set"
+                                                });
+                                        }
+                                    }
+                                }
+                                """;
+
+        await DiagnosticTestFramework
+            .ForAnalyzer<AM006_UnmappedDestinationPropertyAnalyzer>()
+            .WithSource(testCode)
+            .ExpectDiagnostic(AM006_UnmappedDestinationPropertyAnalyzer.UnmappedDestinationPropertyRule, 9, 23,
+                "Value", "Source")
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task AM006_ShouldNotReportDiagnostic_WhenBlockConstructUsingHandlesDestinationProperty()
     {
         const string testCode = """
