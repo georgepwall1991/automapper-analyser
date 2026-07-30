@@ -49,6 +49,358 @@ public class AM061_EnumMemberMismatchTests
     }
 
     [Fact]
+    public async Task Should_ReportDiagnostic_When_PublicEnumFieldsAreReordered()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public enum SourceStatus { Active = 1, Inactive = 2 }
+                                public enum DestinationStatus { Inactive = 1, Active = 2 }
+
+                                public class Source
+                                {
+                                    public SourceStatus Status;
+                                }
+
+                                public class Destination
+                                {
+                                    public DestinationStatus Status;
+                                }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult active = new DiagnosticResult(AM061_EnumMemberMismatchAnalyzer.EnumMemberMismatchRule)
+            .WithLocation(20, 9)
+            .WithArguments("Status", "SourceStatus", "DestinationStatus", "Active", "1");
+
+        DiagnosticResult inactive = new DiagnosticResult(AM061_EnumMemberMismatchAnalyzer.EnumMemberMismatchRule)
+            .WithLocation(20, 9)
+            .WithArguments("Status", "SourceStatus", "DestinationStatus", "Inactive", "2");
+
+        await AnalyzerVerifier<AM061_EnumMemberMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            active,
+            inactive);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_When_PublicEnumFieldMapsToProperty()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public enum SourceStatus { Active = 1, Inactive = 2 }
+                                public enum DestinationStatus { Inactive = 1, Active = 2 }
+
+                                public class Source
+                                {
+                                    public SourceStatus Status;
+                                }
+
+                                public class Destination
+                                {
+                                    public DestinationStatus Status { get; set; }
+                                }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult active = new DiagnosticResult(AM061_EnumMemberMismatchAnalyzer.EnumMemberMismatchRule)
+            .WithLocation(20, 9)
+            .WithArguments("Status", "SourceStatus", "DestinationStatus", "Active", "1");
+
+        DiagnosticResult inactive = new DiagnosticResult(AM061_EnumMemberMismatchAnalyzer.EnumMemberMismatchRule)
+            .WithLocation(20, 9)
+            .WithArguments("Status", "SourceStatus", "DestinationStatus", "Inactive", "2");
+
+        await AnalyzerVerifier<AM061_EnumMemberMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            active,
+            inactive);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_ForNonMappableEnumFields()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public enum SourceStatus { Active = 1, Inactive = 2 }
+                                public enum DestinationStatus { Inactive = 1, Active = 2 }
+
+                                public class Source
+                                {
+                                    public SourceStatus StaticStatus = default;
+                                    public SourceStatus PrivateStatus = default;
+                                    public SourceStatus ReadOnlyStatus = default;
+                                    public SourceStatus ConstantStatus = default;
+                                }
+
+                                public class Destination
+                                {
+                                    public static DestinationStatus StaticStatus = default;
+                                    private DestinationStatus PrivateStatus = default;
+                                    public readonly DestinationStatus ReadOnlyStatus = default;
+                                    public const DestinationStatus ConstantStatus = DestinationStatus.Active;
+                                }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM061_EnumMemberMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_When_ShouldMapFieldDisablesFieldMapping()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public enum SourceStatus { Active = 1, Inactive = 2 }
+                                public enum DestinationStatus { Inactive = 1, Active = 2 }
+
+                                public class Source
+                                {
+                                    public SourceStatus Status;
+                                }
+
+                                public class Destination
+                                {
+                                    public DestinationStatus Status;
+                                }
+
+                                public static class MappingConfiguration
+                                {
+                                    public static MapperConfiguration Create()
+                                    {
+                                        return new MapperConfiguration(cfg =>
+                                        {
+                                            cfg.ShouldMapField = _ => false;
+                                            cfg.CreateMap<Source, Destination>();
+                                        });
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM061_EnumMemberMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_When_ProfileCustomizesShouldMapField()
+    {
+        const string testCode = """
+                                using AutoMapper;
+
+                                public enum SourceStatus { Active = 1, Inactive = 2 }
+                                public enum DestinationStatus { Inactive = 1, Active = 2 }
+
+                                public class Source
+                                {
+                                    public SourceStatus Status;
+                                }
+
+                                public class Destination
+                                {
+                                    public DestinationStatus Status;
+                                }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        ShouldMapField = _ => false;
+                                        CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        await AnalyzerVerifier<AM061_EnumMemberMismatchAnalyzer>.VerifyAnalyzerAsync(testCode);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_When_LookalikeShouldMapFieldIsCustomized()
+    {
+        const string testCode = """
+                                using System;
+                                using AutoMapper;
+
+                                public enum SourceStatus { Active = 1, Inactive = 2 }
+                                public enum DestinationStatus { Inactive = 1, Active = 2 }
+
+                                public class Source
+                                {
+                                    public SourceStatus Status;
+                                }
+
+                                public class Destination
+                                {
+                                    public DestinationStatus Status;
+                                }
+
+                                public class MappingOptions
+                                {
+                                    public Func<object, bool> ShouldMapField { get; set; } = _ => true;
+                                }
+
+                                public class MyProfile : Profile
+                                {
+                                    public MyProfile()
+                                    {
+                                        var options = new MappingOptions();
+                                        options.ShouldMapField = _ => false;
+                                        CreateMap<Source, Destination>();
+                                    }
+                                }
+                                """;
+
+        DiagnosticResult active = new DiagnosticResult(AM061_EnumMemberMismatchAnalyzer.EnumMemberMismatchRule)
+            .WithLocation(28, 9)
+            .WithArguments("Status", "SourceStatus", "DestinationStatus", "Active", "1");
+
+        DiagnosticResult inactive = new DiagnosticResult(AM061_EnumMemberMismatchAnalyzer.EnumMemberMismatchRule)
+            .WithLocation(28, 9)
+            .WithArguments("Status", "SourceStatus", "DestinationStatus", "Inactive", "2");
+
+        await AnalyzerVerifier<AM061_EnumMemberMismatchAnalyzer>.VerifyAnalyzerAsync(
+            testCode,
+            active,
+            inactive);
+    }
+
+    [Fact]
+    public async Task Should_ReportDiagnostic_When_LookalikeShouldMapFieldIsCustomizedInSeparateFile()
+    {
+        const string mappingCode = """
+                                   using AutoMapper;
+
+                                   public enum SourceStatus { Active = 1, Inactive = 2 }
+                                   public enum DestinationStatus { Inactive = 1, Active = 2 }
+
+                                   public class Source
+                                   {
+                                       public SourceStatus Status;
+                                   }
+
+                                   public class Destination
+                                   {
+                                       public DestinationStatus Status;
+                                   }
+
+                                   public class MyProfile : Profile
+                                   {
+                                       public MyProfile()
+                                       {
+                                           CreateMap<Source, Destination>();
+                                       }
+                                   }
+                                   """;
+
+        const string lookalikeCode = """
+                                     using System;
+
+                                     public class MappingOptions
+                                     {
+                                         public Func<object, bool> ShouldMapField { get; set; } = _ => true;
+                                     }
+
+                                     public static class ConfigureOptions
+                                     {
+                                         public static void Apply()
+                                         {
+                                             var options = new MappingOptions();
+                                             options.ShouldMapField = _ => false;
+                                         }
+                                     }
+                                     """;
+
+        DiagnosticResult active = new DiagnosticResult(AM061_EnumMemberMismatchAnalyzer.EnumMemberMismatchRule)
+            .WithLocation(20, 9)
+            .WithArguments("Status", "SourceStatus", "DestinationStatus", "Active", "1");
+
+        DiagnosticResult inactive = new DiagnosticResult(AM061_EnumMemberMismatchAnalyzer.EnumMemberMismatchRule)
+            .WithLocation(20, 9)
+            .WithArguments("Status", "SourceStatus", "DestinationStatus", "Inactive", "2");
+
+        await AnalyzerVerifier<AM061_EnumMemberMismatchAnalyzer>.VerifyAnalyzerAsync(
+            [
+                ("Mapping.cs", mappingCode),
+                ("Options.cs", lookalikeCode),
+            ],
+            active,
+            inactive);
+    }
+
+    [Fact]
+    public async Task Should_NotReportDiagnostic_When_ShouldMapFieldIsCustomizedInSeparateFile()
+    {
+        const string mappingCode = """
+                                   using AutoMapper;
+
+                                   public enum SourceStatus { Active = 1, Inactive = 2 }
+                                   public enum DestinationStatus { Inactive = 1, Active = 2 }
+
+                                   public class Source
+                                   {
+                                       public SourceStatus Status;
+                                   }
+
+                                   public class Destination
+                                   {
+                                       public DestinationStatus Status;
+                                   }
+
+                                   public class MyProfile : Profile
+                                   {
+                                       public MyProfile()
+                                       {
+                                           CreateMap<Source, Destination>();
+                                       }
+                                   }
+                                   """;
+
+        const string configurationCode = """
+                                         using AutoMapper;
+
+                                         public static class RootConfiguration
+                                         {
+                                             public static MapperConfiguration Create()
+                                             {
+                                                 return new MapperConfiguration(cfg =>
+                                                 {
+                                                     cfg.ShouldMapField = _ => false;
+                                                     cfg.AddProfile<MyProfile>();
+                                                 });
+                                             }
+                                         }
+                                         """;
+
+        await AnalyzerVerifier<AM061_EnumMemberMismatchAnalyzer>.VerifyAnalyzerAsync(
+        [
+            ("Mapping.cs", mappingCode),
+            ("Configuration.cs", configurationCode),
+        ]);
+    }
+
+    [Fact]
     public async Task Should_ReportDiagnostic_When_DestinationLacksSourceValue()
     {
         const string testCode = """

@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.103">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.104">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.103
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.104
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,15 +119,16 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.103
+## Latest Release: v2.30.104
 
-**AM021 fixes simple element conversions on `ReverseMap()`**
+**AM061 recognizes convention-mapped public enum fields**
 
-- Reverse-direction collection diagnostics now offer the same executable
-  `Select(...)` conversion action as forward mappings.
-- The fixer recovers the originating `CreateMap<TSource, TDestination>()`,
-  swaps its semantic types, and appends `ForMember(...)` to the diagnosed
-  `ReverseMap()` chain.
+- Public field-to-field and field-to-property enum mappings now receive the
+  same member-name/value validation as property mappings.
+- Static, private, constant, and readonly destination fields remain outside
+  convention analysis.
+- Custom AutoMapper `ShouldMapField` policies conservatively suppress field
+  diagnostics when convention membership cannot be proven.
 - No rule ID or severity changes.
 
 <details><summary>Previous release: verifiable build provenance (v2.30.94–95)</summary>
@@ -165,6 +166,7 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ### Recent highlights
 
+- **v2.30.104**: AM061 checks convention-mapped public enum fields while respecting custom field-selection policies.
 - **v2.30.103**: AM021 resolves swapped `CreateMap` types before generating simple element conversions for `ReverseMap()` diagnostics.
 - **v2.30.102**: AM033 no longer lets a stable concrete converter suppress unused siblings through interface fallback.
 - **v2.30.101**: AM041 limits `if`/`else` mutual-exclusion suppression to authentic, direct, non-looping `MapperConfiguration` callbacks.
@@ -291,7 +293,7 @@ Reference one from your project file:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.103"
+  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.104"
                     PrivateAssets="all" GeneratePathProperty="true" />
   <GlobalAnalyzerConfigFiles
     Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />
