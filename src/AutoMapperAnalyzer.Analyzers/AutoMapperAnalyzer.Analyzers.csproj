@@ -35,7 +35,7 @@
                 <PackageReleaseNotes>Version 2.30.98 - AM041 respects mutually exclusive switch sections
 - Identical CreateMap registrations in distinct sections of one switch no longer report as duplicates because only one section can execute
 - This also prevents the removal fix from deleting the only registration for one runtime mode
-- Same-section duplicates, independent switches, unconditional registrations and switches containing goto remain diagnostic
+- Same-section duplicates, loop-nested or independent switches, unconditional registrations and executable bodies containing goto remain diagnostic
 - No rule ID or severity changes
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
