@@ -999,6 +999,8 @@ missing inner conversion and can suppress the warning without making the mapping
 element pairs still receive the focused element `CreateMap` action.
 
 For simple element conversions, AM021 generates `global::System.Convert`, `global::System.DateTime`, and `global::System.Guid` calls so the fix remains stable even when the project contains types with the same short names.
+For a diagnostic on `ReverseMap()`, the fixer resolves the originating semantic `CreateMap`, swaps its source and
+destination types, and appends the generated `ForMember(... MapFrom(... Select(...)))` to the reverse chain.
 
 #### Solution
 
@@ -1914,7 +1916,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.102">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.103">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1953,5 +1955,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.102
+**Version**: 2.30.103
 **Maintainer**: George Wall

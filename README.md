@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.102">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.103">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.102
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.103
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,20 +119,15 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.102
+## Latest Release: v2.30.103
 
-**AM033 distinguishes concrete converter usage from interface fallback**
+**AM021 fixes simple element conversions on `ReverseMap()`**
 
-- An interface-typed local initialized with a known concrete converter now marks
-  only that concrete converter as used.
-- Unused siblings implementing the same `ITypeConverter<S,D>` pair are reported
-  instead of being hidden by a broad interface fallback.
-- Reassigned locals and member handles retain the conservative fallback;
-  readonly fields and get-only properties can still be reassigned during
-  construction.
-- Genuinely unresolved constructor-injected and service-located interface
-  handles still fail closed and treat compatible implementations as potentially
-  used.
+- Reverse-direction collection diagnostics now offer the same executable
+  `Select(...)` conversion action as forward mappings.
+- The fixer recovers the originating `CreateMap<TSource, TDestination>()`,
+  swaps its semantic types, and appends `ForMember(...)` to the diagnosed
+  `ReverseMap()` chain.
 - No rule ID or severity changes.
 
 <details><summary>Previous release: verifiable build provenance (v2.30.94–95)</summary>
@@ -170,6 +165,7 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ### Recent highlights
 
+- **v2.30.103**: AM021 resolves swapped `CreateMap` types before generating simple element conversions for `ReverseMap()` diagnostics.
 - **v2.30.102**: AM033 no longer lets a stable concrete converter suppress unused siblings through interface fallback.
 - **v2.30.101**: AM041 limits `if`/`else` mutual-exclusion suppression to authentic, direct, non-looping `MapperConfiguration` callbacks.
 - **v2.30.100**: AM032 preserves structured conditional directives exactly once when inserting a null guard.
@@ -295,7 +291,7 @@ Reference one from your project file:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.102"
+  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.103"
                     PrivateAssets="all" GeneratePathProperty="true" />
   <GlobalAnalyzerConfigFiles
     Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />

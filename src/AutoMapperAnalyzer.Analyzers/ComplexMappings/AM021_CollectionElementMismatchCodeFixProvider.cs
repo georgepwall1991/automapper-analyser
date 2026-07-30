@@ -552,7 +552,7 @@ public class AM021_CollectionElementMismatchCodeFixProvider : AutoMapperCodeFixP
         SemanticModel semanticModel)
     {
         (ITypeSymbol? sourceType, ITypeSymbol? destType) createMapTypes =
-            AutoMapperAnalysisHelpers.GetCreateMapTypeArguments(invocation, semanticModel);
+            ResolveCreateMapTypesWithReverse(invocation, semanticModel);
         if (createMapTypes.Item2 == null)
         {
             return null;

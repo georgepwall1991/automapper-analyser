@@ -118,8 +118,8 @@ The split exists because GitHub cannot resolve local reusable workflows (`uses: 
 ### Package Versioning
 
 - **Format**: Major.Minor.Patch (SemVer)
-- **Current**: 2.30.102
-- **Pre-release**: 2.30.102-preview, 2.30.102-beta
+- **Current**: 2.30.103
+- **Pre-release**: 2.30.103-preview, 2.30.103-beta
 
 ### Trusted Publishing (not enabled — requires an account-side policy first)
 
@@ -298,7 +298,7 @@ dotnet run --project tools/AnalyzerVerifier -- --update-catalog --update-snapsho
 dotnet pack --configuration Release --output ./packages
 
 # Verify the packed analyzer against one compatibility case (matrix in tools/package-compatibility.json)
-dotnet run --project tools/AnalyzerVerifier -- --verify-package-compatibility ./packages/AutoMapperAnalyzer.Analyzers.2.30.102.nupkg --case net10-am14
+dotnet run --project tools/AnalyzerVerifier -- --verify-package-compatibility ./packages/AutoMapperAnalyzer.Analyzers.2.30.103.nupkg --case net10-am14
 
 # Run samples
 dotnet run --project samples/AutoMapperAnalyzer.Samples
