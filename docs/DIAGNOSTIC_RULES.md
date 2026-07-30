@@ -643,7 +643,7 @@ Reverse-map diagnostics resolve the swapped source/destination types before sugg
 
 #### Safe Cases
 
-AM006 does not report when the destination member is matched by convention, configured with `ForMember` or `ForPath` (including string literal, `nameof(...)`, and const string `ForMember` selectors), covered by flattening, supplied by an `IncludeMembers(...)` member, explicitly initialized in every returned `ConstructUsing` object initializer, or when `ConvertUsing` owns destination object creation. Framework scalar/value types such as `System.DateOnly` are not treated as flattening sources, so a destination member like `CreatedYear` still reports unless it is explicitly configured.
+AM006 does not report when the destination member is matched by convention, configured with `ForMember` or `ForPath` (including string literal, `nameof(...)`, and const string `ForMember` selectors), covered by flattening, supplied by an `IncludeMembers(...)` member, explicitly initialized with the exact C# member casing in every returned `ConstructUsing` object initializer, or when `ConvertUsing` owns destination object creation. Framework scalar/value types such as `System.DateOnly` are not treated as flattening sources, so a destination member like `CreatedYear` still reports unless it is explicitly configured.
 
 #### Configuration
 
@@ -1916,7 +1916,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.105">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.106">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1955,5 +1955,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.105
+**Version**: 2.30.106
 **Maintainer**: George Wall

@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.105">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.106">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.105
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.106
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,27 +119,22 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.105
+## Latest Release: v2.30.106
 
-**AM031 respects mutually exclusive conditional branches**
+**AM006 respects C#-exact destination member casing**
 
-- LINQ terminals over the same collection no longer report multiple
-  enumeration when they occur only in opposite arms of one conditional
-  expression.
-- Multiple terminals in one arm, or one terminal outside the conditional plus
-  another inside it, continue to report.
-- Nested conditional leaves are evaluated by whether any pair can execute on
-  the same path.
+- `ConstructUsing` object initializers now suppress AM006 only for the exact
+  destination member they assign.
+- Case-distinct members such as `Value` and `value` are analyzed independently,
+  matching C# binding and AutoMapper runtime behavior.
+- Existing same-cased construction and conversion ownership remain unchanged.
 - No rule ID or severity changes.
 
-<details><summary>Previous release: public enum field coverage (v2.30.104)</summary>
+<details><summary>Previous release: conditional-branch precision (v2.30.105)</summary>
 
-- Public field-to-field and field-to-property enum mappings now receive the
-  same member-name/value validation as property mappings.
-- Static, private, constant, and readonly destination fields remain outside
-  convention analysis.
-- Custom AutoMapper `ShouldMapField` policies conservatively suppress field
-  diagnostics when convention membership cannot be proven.
+- LINQ terminals over the same collection no longer report repeated
+  enumeration when confined to opposite conditional-expression branches.
+- Same-branch and unconditional-plus-conditional terminal pairs still report.
 - No rule ID or severity changes.
 
 </details>
@@ -179,6 +174,7 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ### Recent highlights
 
+- **v2.30.106**: AM006 treats case-distinct `ConstructUsing` initializer members as separate C# properties.
 - **v2.30.105**: AM031 no longer reports repeated enumeration when terminals are confined to mutually exclusive conditional-expression branches.
 - **v2.30.104**: AM061 checks convention-mapped public enum fields while respecting custom field-selection policies.
 - **v2.30.103**: AM021 resolves swapped `CreateMap` types before generating simple element conversions for `ReverseMap()` diagnostics.
@@ -307,7 +303,7 @@ Reference one from your project file:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.105"
+  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.106"
                     PrivateAssets="all" GeneratePathProperty="true" />
   <GlobalAnalyzerConfigFiles
     Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />
