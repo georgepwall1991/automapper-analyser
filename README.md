@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.97">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.98">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.97
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.98
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,12 +119,18 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.97
+## Latest Release: v2.30.98
 
-**Faster analysis of profiles with long fluent chains**
+**AM041 respects mutually exclusive `switch` sections**
 
-- Configuration calls are resolved once per `CreateMap` rather than re-walked for every destination member. A 60-`ForMember` profile costs about 25% less analysis time, and the gap between long and short chains roughly halves.
-- Short chains are marginally slower, where there is little to cache. No rule ID, severity, or diagnostic changes.
+- Identical `CreateMap` registrations in distinct sections of a direct `MapperConfiguration` lambda no longer
+  report as duplicates, because only one section can execute for that configuration.
+- `Profile` constructors remain diagnostic because multiple profile instances can select different sections
+  in one configuration. Repeatable helpers, local functions, ordinary lambdas, same-section duplicates,
+  registration paths containing loops, and configuration bodies containing `goto` also keep AM041 enabled.
+  This prevents the removal fix from deleting the only registration for one runtime mode without hiding a
+  real collision.
+- No rule ID or severity changes.
 
 <details><summary>Previous release: verifiable build provenance (v2.30.94–95)</summary>
 
@@ -161,7 +167,9 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ### Recent highlights
 
-- **v2.30.97**: Faster analysis of profiles with long fluent chains.
+- **v2.30.98**: AM041 respects mutually exclusive `switch` sections in direct `MapperConfiguration` lambdas.
+- **v2.30.97**: AM011 reports required members that an included child map explicitly ignores.
+- **v2.30.96**: Faster analysis of profiles with long fluent chains.
 - **v2.30.95**: Corrects the provenance verification command — verify the GitHub release asset, not the NuGet download.
 - **v2.30.94**: The published package carries verifiable build provenance.
 - **v2.30.93**: Every diagnostic now links to its documentation section — IDEs offer "learn more" on all 23 rules.
@@ -280,7 +288,7 @@ Reference one from your project file:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.97"
+  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.98"
                     PrivateAssets="all" GeneratePathProperty="true" />
   <GlobalAnalyzerConfigFiles
     Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />

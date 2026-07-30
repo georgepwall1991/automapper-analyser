@@ -1657,6 +1657,16 @@ deferred reverse direction participates in duplicate detection in either stateme
 standalone `ReverseMap()` can be removed safely. Aliases, fields/properties, conditional calls, assignments,
 nested argument flow, and lookalike APIs remain outside this deliberately flow-insensitive boundary.
 
+Registrations in opposite arms of one `if`/`else` chain are not duplicates when they share an executable
+body. Registrations in distinct sections of one `switch` are not duplicates only inside a direct
+`MapperConfiguration` lambda, where the configuration body runs once for that container. `Profile`
+constructors remain diagnostic because multiple profile instances can select different sections in one
+configuration. Repeatable helpers, local functions, and ordinary lambdas also fail closed and keep AM041
+enabled, as does any loop surrounding a switch or nested around a registration within one section, and any
+`goto` in the configuration body; registrations in one section, independent switches, and unconditional
+registrations continue to report. Suppressing the proven false diagnostic removes the unsafe lightbulb that
+could otherwise delete the only registration for one runtime mode.
+
 #### Configuration
 
 ```ini
@@ -1892,7 +1902,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.97">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.98">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1931,5 +1941,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.97
+**Version**: 2.30.98
 **Maintainer**: George Wall

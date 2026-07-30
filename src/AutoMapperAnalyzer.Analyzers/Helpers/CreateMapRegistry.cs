@@ -405,7 +405,7 @@ internal sealed class CreateMapRegistry
                 for (int i = 1; i < sorted.Count; i++)
                 {
                     MappingInfo duplicate = sorted[i];
-                    if (sorted.Take(i).All(previous => AreMutuallyExclusiveByIfElse(previous, duplicate)))
+                    if (sorted.Take(i).All(previous => AreMutuallyExclusiveByControlFlow(previous, duplicate)))
                     {
                         continue;
                     }
@@ -485,7 +485,7 @@ internal sealed class CreateMapRegistry
                (type is IArrayTypeSymbol arrayType && ContainsTypeParameter(arrayType.ElementType));
     }
 
-    private static bool AreMutuallyExclusiveByIfElse(MappingInfo first, MappingInfo second)
+    private static bool AreMutuallyExclusiveByControlFlow(MappingInfo first, MappingInfo second)
     {
         SyntaxNode? firstBoundary = GetContainingExecutableBoundary(first.Node);
         SyntaxNode? secondBoundary = GetContainingExecutableBoundary(second.Node);
@@ -512,7 +512,67 @@ internal sealed class CreateMapRegistry
             }
         }
 
+        if (!IsSingleExecutionConfigurationBoundary(firstBoundary, first.SemanticModel))
+        {
+            return false;
+        }
+
+        foreach (SwitchStatementSyntax switchStatement in first.Node.Ancestors().OfType<SwitchStatementSyntax>())
+        {
+            if (!switchStatement.Span.Contains(second.Node.Span) ||
+                firstBoundary.DescendantNodes().OfType<GotoStatementSyntax>().Any() ||
+                IsNestedInLoop(first.Node, firstBoundary) ||
+                IsNestedInLoop(second.Node, firstBoundary))
+            {
+                continue;
+            }
+
+            SwitchSectionSyntax? firstSection = switchStatement.Sections
+                .FirstOrDefault(section => section.Span.Contains(first.Node.Span));
+            SwitchSectionSyntax? secondSection = switchStatement.Sections
+                .FirstOrDefault(section => section.Span.Contains(second.Node.Span));
+            if (firstSection != null &&
+                secondSection != null &&
+                !ReferenceEquals(firstSection, secondSection))
+            {
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    private static bool IsNestedInLoop(SyntaxNode node, SyntaxNode boundary)
+    {
+        return node.Ancestors()
+            .TakeWhile(ancestor => !ReferenceEquals(ancestor, boundary))
+            .Any(ancestor => ancestor is
+                ForStatementSyntax or
+                ForEachStatementSyntax or
+                ForEachVariableStatementSyntax or
+                WhileStatementSyntax or
+                DoStatementSyntax);
+    }
+
+    private static bool IsSingleExecutionConfigurationBoundary(
+        SyntaxNode boundary,
+        SemanticModel semanticModel)
+    {
+        if (boundary is not AnonymousFunctionExpressionSyntax anonymousFunction ||
+            anonymousFunction.Parent is not ArgumentSyntax argument ||
+            argument.Parent?.Parent is not BaseObjectCreationExpressionSyntax objectCreation ||
+            semanticModel.GetTypeInfo(objectCreation).Type is not INamedTypeSymbol constructedType)
+        {
+            return false;
+        }
+
+        return IsAutoMapperType(constructedType, "MapperConfiguration");
+    }
+
+    private static bool IsAutoMapperType(INamedTypeSymbol type, string name)
+    {
+        return type.Name == name &&
+               type.ContainingNamespace.ToDisplayString() == "AutoMapper";
     }
 
     private static SyntaxNode? GetContainingExecutableBoundary(SyntaxNode node)

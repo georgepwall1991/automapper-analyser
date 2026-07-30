@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+## [2.30.98] - 2026-07-30
+
+AM041 now recognizes mutually exclusive `switch` sections inside direct
+`MapperConfiguration` lambdas (no rule ID or severity changes).
+
+### Fixed
+
+- **AM041 false positive and unsafe fix**: identical `CreateMap<Source, Destination>()` registrations
+  in distinct sections of a direct `MapperConfiguration` lambda were reported as duplicates even
+  though only one section can execute for that configuration. Accepting the removal action could
+  delete the only registration for one runtime mode.
+
+### Changed
+
+- Duplicate detection now treats distinct sections of the same `switch` as mutually exclusive only
+  in a direct `MapperConfiguration` lambda, when neither registration path is nested in a loop and
+  that configuration body contains no `goto`. Registrations in `Profile` constructors remain diagnostic
+  because multiple profile instances can select different sections in one configuration. Repeatable
+  helpers, local functions, ordinary lambdas, same-section, independent-switch, unconditional, and
+  `goto` shapes also continue to report.
+
+### Validation
+
+- AM041 focused suite: **26** passed, including the red regressions and the repeatable-boundary,
+  loop, same-section, and `goto` guards.
+- Full suite: **2473** passed, 0 skipped, 0 failed on `net10.0`.
+
 ## [2.30.97] - 2026-07-29
 
 AM011 now reports a required destination member that an included child map explicitly ignores (no rule ID

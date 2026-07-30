@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>97</PatchVersion>
+        <PatchVersion>98</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,11 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-                <PackageReleaseNotes>Version 2.30.97 - AM011 reports required members an included map explicitly ignores
-- IncludeMembers: a child map with ForMember(... Ignore()) or ForAllMembers(... Ignore()) no longer suppresses AM011
-- AutoMapper rejects those configurations at startup, so AM011 previously stayed silent on a real defect
-- Reads an explicit Ignore only; unresolved includes, ambiguous child maps, ForPath nested ignores and maps carrying both MapFrom and a map-wide Ignore all stay suppressing
+                <PackageReleaseNotes>Version 2.30.98 - AM041 respects mutually exclusive switch sections in direct MapperConfiguration lambdas
+- Identical CreateMap registrations in distinct sections of one switch inside a direct MapperConfiguration lambda no longer report as duplicates because only one section can execute for that configuration
+- This also prevents the removal fix from deleting the only registration for one runtime mode
+- Profile constructors remain diagnostic because multiple profile instances can select different sections in one configuration
+- Repeatable helpers, local functions, ordinary lambdas, same-section duplicates, registration paths containing loops, independent switches, unconditional registrations and configuration bodies containing goto also remain diagnostic
 - No rule ID or severity changes
 </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
