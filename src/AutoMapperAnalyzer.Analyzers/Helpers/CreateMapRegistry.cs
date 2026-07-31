@@ -243,10 +243,20 @@ internal sealed class CreateMapRegistry
 
     internal static bool HasCustomFieldSelectionPolicy(Compilation compilation)
     {
+        return HasCustomMemberSelectionPolicy(compilation, "ShouldMapField");
+    }
+
+    internal static bool HasCustomPropertySelectionPolicy(Compilation compilation)
+    {
+        return HasCustomMemberSelectionPolicy(compilation, "ShouldMapProperty");
+    }
+
+    private static bool HasCustomMemberSelectionPolicy(Compilation compilation, string propertyName)
+    {
         foreach (SyntaxTree? syntaxTree in compilation.SyntaxTrees)
         {
             if (!syntaxTree.TryGetText(out SourceText? text) ||
-                !text.ToString().Contains("ShouldMapField"))
+                !text.ToString().Contains(propertyName))
             {
                 continue;
             }
@@ -254,7 +264,7 @@ internal sealed class CreateMapRegistry
             SyntaxNode root = syntaxTree.GetRoot();
             AssignmentExpressionSyntax[] candidates = root.DescendantNodes()
                 .OfType<AssignmentExpressionSyntax>()
-                .Where(IsShouldMapFieldAssignment)
+                .Where(assignment => IsMemberSelectionPolicyAssignment(assignment, propertyName))
                 .ToArray();
             if (candidates.Length == 0)
             {
@@ -264,11 +274,9 @@ internal sealed class CreateMapRegistry
             SemanticModel semanticModel = compilation.GetSemanticModel(syntaxTree);
             foreach (AssignmentExpressionSyntax candidate in candidates)
             {
-                if (semanticModel.GetSymbolInfo(candidate.Left).Symbol is IPropertySymbol
-                    {
-                        Name: "ShouldMapField",
-                        ContainingAssembly.Name: "AutoMapper",
-                    })
+                if (semanticModel.GetSymbolInfo(candidate.Left).Symbol is IPropertySymbol property &&
+                    property.Name == propertyName &&
+                    property.ContainingAssembly.Name == "AutoMapper")
                 {
                     return true;
                 }
@@ -278,13 +286,15 @@ internal sealed class CreateMapRegistry
         return false;
     }
 
-    private static bool IsShouldMapFieldAssignment(AssignmentExpressionSyntax assignment)
+    private static bool IsMemberSelectionPolicyAssignment(
+        AssignmentExpressionSyntax assignment,
+        string propertyName)
     {
         return assignment.Left switch
         {
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText == "ShouldMapField",
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText == propertyName,
             MemberAccessExpressionSyntax memberAccess =>
-                memberAccess.Name.Identifier.ValueText == "ShouldMapField",
+                memberAccess.Name.Identifier.ValueText == propertyName,
             _ => false,
         };
     }

@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## [2.30.107] - 2026-07-30
+
+AM061 now respects authentic AutoMapper `ShouldMapProperty` selection policies
+(no rule ID or severity changes).
+
+### Fixed
+
+- **AM061 false positive for excluded convention properties**: property enum
+  pairs still reported when `ShouldMapProperty` removed those properties from
+  AutoMapper's convention mapping.
+
+### Changed
+
+- Authentic `ShouldMapProperty` assignments suppress convention-property
+  diagnostics conservatively because the selected property set is not
+  statically provable.
+- Field convention analysis and explicit direct `ForMember`/`ForPath` pairs
+  remain active; semantic lookalike properties do not suppress AM061.
+
+### Validation
+
+- AM061 analyzer and code-fix slice: **38** passed, 0 skipped, 0 failed on
+  `net10.0`.
+
 ## [2.30.106] - 2026-07-30
 
 AM006 now matches `ConstructUsing` object-initializer members with C#-exact

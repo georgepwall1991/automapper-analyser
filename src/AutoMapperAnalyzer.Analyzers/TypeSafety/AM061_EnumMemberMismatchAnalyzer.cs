@@ -51,6 +51,8 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
 
             bool shouldAnalyzeConventionFields =
                 !CreateMapRegistry.HasCustomFieldSelectionPolicy(compilationContext.Compilation);
+            bool shouldAnalyzeConventionProperties =
+                !CreateMapRegistry.HasCustomPropertySelectionPolicy(compilationContext.Compilation);
 
             // Key registrations by their invocation node so diagnostics stay local to the
             // CreateMap/ReverseMap syntax node for code-fix routing.
@@ -76,7 +78,12 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
 
                 foreach (CreateMapRegistry.MappingInfo mapping in mappings)
                 {
-                    AnalyzeMapping(ctx.ReportDiagnostic, registry, mapping, shouldAnalyzeConventionFields);
+                    AnalyzeMapping(
+                        ctx.ReportDiagnostic,
+                        registry,
+                        mapping,
+                        shouldAnalyzeConventionProperties,
+                        shouldAnalyzeConventionFields);
                 }
             }, SyntaxKind.InvocationExpression);
         });
@@ -86,6 +93,7 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
         Action<Diagnostic> reportDiagnostic,
         CreateMapRegistry registry,
         CreateMapRegistry.MappingInfo mapping,
+        bool shouldAnalyzeConventionProperties,
         bool shouldAnalyzeConventionFields)
     {
         ITypeSymbol source = mapping.Source;
@@ -155,12 +163,36 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
         var reportedPairs = new HashSet<(string DestinationName, string SourceMember, string Value)>();
 
         Dictionary<string, ITypeSymbol> sourceMemberTypesByName =
-            GetConventionMappableMemberTypes(source, requireWritable: false, shouldAnalyzeConventionFields);
+            GetConventionMappableMemberTypes(
+                source,
+                requireWritable: false,
+                includeProperties: true,
+                shouldAnalyzeConventionFields);
 
         Dictionary<string, ITypeSymbol> destinationMemberTypesByName =
-            GetConventionMappableMemberTypes(destination, requireWritable: true, shouldAnalyzeConventionFields);
+            GetConventionMappableMemberTypes(
+                destination,
+                requireWritable: true,
+                includeProperties: true,
+                shouldAnalyzeConventionFields);
 
-        foreach (KeyValuePair<string, ITypeSymbol> destinationMember in destinationMemberTypesByName)
+        Dictionary<string, ITypeSymbol> sourceConventionMemberTypesByName = shouldAnalyzeConventionProperties
+            ? sourceMemberTypesByName
+            : GetConventionMappableMemberTypes(
+                source,
+                requireWritable: false,
+                includeProperties: false,
+                shouldAnalyzeConventionFields);
+
+        Dictionary<string, ITypeSymbol> destinationConventionMemberTypesByName = shouldAnalyzeConventionProperties
+            ? destinationMemberTypesByName
+            : GetConventionMappableMemberTypes(
+                destination,
+                requireWritable: true,
+                includeProperties: false,
+                shouldAnalyzeConventionFields);
+
+        foreach (KeyValuePair<string, ITypeSymbol> destinationMember in destinationConventionMemberTypesByName)
         {
             string destinationName = destinationMember.Key;
 
@@ -171,7 +203,7 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            if (!sourceMemberTypesByName.TryGetValue(destinationName, out ITypeSymbol? sourceMemberType))
+            if (!sourceConventionMemberTypesByName.TryGetValue(destinationName, out ITypeSymbol? sourceMemberType))
             {
                 continue;
             }
@@ -572,6 +604,7 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
     private static Dictionary<string, ITypeSymbol> GetConventionMappableMemberTypes(
         ITypeSymbol type,
         bool requireWritable,
+        bool includeProperties,
         bool includeFields)
     {
         var memberTypesByName = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
@@ -583,8 +616,9 @@ public class AM061_EnumMemberMismatchAnalyzer : DiagnosticAnalyzer
                 ITypeSymbol? memberType = member switch
                 {
                     IPropertySymbol property
-                        when (property.DeclaredAccessibility == Accessibility.Public ||
-                              property.DeclaredAccessibility == Accessibility.Internal) &&
+                        when includeProperties &&
+                             (property.DeclaredAccessibility == Accessibility.Public ||
+                               property.DeclaredAccessibility == Accessibility.Internal) &&
                              !property.IsStatic &&
                              !property.IsIndexer &&
                              property.GetMethod != null &&
