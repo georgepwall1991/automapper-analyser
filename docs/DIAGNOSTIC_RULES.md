@@ -322,7 +322,7 @@ dotnet_diagnostic.AM003.severity = error
 
 Detects enum-to-enum property mappings where the source and destination enum members do not align by name **and** numeric value. AutoMapper maps enums by numeric value by default, so a source member whose value corresponds to a differently named (or nonexistent) destination member is silently converted into wrong data — no exception, no log, just corruption.
 
-The analyzer inspects every registered `CreateMap` direction (including `ReverseMap()`-generated directions, which inherit proven direct forward `MapFrom` pairs inverted) and checks convention-mapped same-name property pairs plus explicit direct `ForMember(...MapFrom(src => src.Member))` pairs. One diagnostic is reported per misaligned source member on the registration that owns the mapping.
+The analyzer inspects every registered `CreateMap` direction (including `ReverseMap()`-generated directions, which inherit proven direct forward `MapFrom` pairs inverted) and checks convention-mapped same-name property/public-field pairs plus explicit direct `ForMember(...MapFrom(src => src.Member))` pairs. One diagnostic is reported per misaligned source member on the registration that owns the mapping.
 
 AM061 stays quiet when the pair is safe or intentionally custom:
 
@@ -330,6 +330,7 @@ AM061 stays quiet when the pair is safe or intentionally custom:
 - ✅ Member excluded via `ForMember(...Ignore())` (lambda, string, or `nameof` selectors) or a member/map-level `ConvertUsing`
 - ✅ A dedicated enum-pair registration with `ConvertUsing`/`ConvertUsingEnumMapping` (global conversion owner)
 - ✅ Non-trivial `MapFrom` expressions (the developer already owns the conversion)
+- ✅ Authentic AutoMapper `ShouldMapProperty`/`ShouldMapField` customizations suppress convention pairs involving that member kind because the selected set cannot be proven statically; explicit direct member pairs remain analyzed
 - ✅ `[Flags]` enums (combined values legitimately have no named member)
 - ✅ Deferred local-variable configuration (`var map = CreateMap<S, D>(); map.ForMember(...);`) — the full configuration cannot be proven, so the rule fails closed
 - ✅ Nested `ForPath(d => d.Nested.Member, ...)` selectors are never confused with a top-level property of the same leaf name
@@ -1916,7 +1917,7 @@ using System.Diagnostics.CodeAnalysis;
 
 1. **Check package reference**:
    ```xml
-   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.106">
+   <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.107">
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
    </PackageReference>
@@ -1955,5 +1956,5 @@ If analyzer slows down builds:
 ---
 
 **Last Updated**: 2026-05-15
-**Version**: 2.30.106
+**Version**: 2.30.107
 **Maintainer**: George Wall
