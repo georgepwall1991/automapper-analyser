@@ -100,7 +100,7 @@ jobs:
       #   gh attestation verify AutoMapperAnalyzer.Analyzers.<version>.nupkg \
       #     --repo georgepwall1991/automapper-analyser
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: ./nupkg/*.nupkg
 
