@@ -2165,17 +2165,15 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
         }
 
         if (receiverSymbol is IFieldSymbol { IsReadOnly: true } receiverField &&
-            TryGetFieldInitializer(receiverField, out EqualsValueClauseSyntax? fieldInitializer))
+            TryGetFieldInitializer(receiverField, semanticModel) is { } fieldInitializer)
         {
-            return fieldInitializer is not null &&
-                   IsKnownFrameworkComparerExpression(fieldInitializer.Value, semanticModel);
+            return IsKnownFrameworkComparerExpression(fieldInitializer.Initializer.Value, fieldInitializer.Model);
         }
 
         if (receiverSymbol is IPropertySymbol { SetMethod: null } fieldBackedProperty &&
-            TryGetPropertyFrameworkComparerExpression(fieldBackedProperty, out ExpressionSyntax? propertyExpression))
+            TryGetPropertyFrameworkComparerExpression(fieldBackedProperty, semanticModel) is { } comparerExpression)
         {
-            return propertyExpression is not null &&
-                   IsKnownFrameworkComparerExpression(propertyExpression, semanticModel);
+            return IsKnownFrameworkComparerExpression(comparerExpression.Expression, comparerExpression.Model);
         }
 
         return false;
@@ -2209,55 +2207,60 @@ public class AM031_PerformanceWarningAnalyzer : DiagnosticAnalyzer
                property.Name == "Default";
     }
 
-    private static bool TryGetFieldInitializer(
+    /// <summary>
+    ///     Follows a field's declaring initializer wherever it lives. A semantic model binds only its
+    ///     own tree, so the returned model is rebound for the declaring tree — the initializer may be
+    ///     in another file of this compilation. Declarations in referenced compilations cannot be
+    ///     bound at all and are skipped.
+    /// </summary>
+    private static (EqualsValueClauseSyntax Initializer, SemanticModel Model)? TryGetFieldInitializer(
         IFieldSymbol field,
-        out EqualsValueClauseSyntax? initializer)
+        SemanticModel referenceModel)
     {
         foreach (SyntaxReference syntaxReference in field.DeclaringSyntaxReferences)
         {
-            if (syntaxReference.GetSyntax() is VariableDeclaratorSyntax { Initializer: not null } declarator)
+            if (!referenceModel.Compilation.ContainsSyntaxTree(syntaxReference.SyntaxTree) ||
+                syntaxReference.GetSyntax() is not VariableDeclaratorSyntax { Initializer: not null } declarator)
             {
-                initializer = declarator.Initializer;
-                return true;
+                continue;
             }
+
+            return (
+                declarator.Initializer,
+                referenceModel.Compilation.GetSemanticModel(syntaxReference.SyntaxTree));
         }
 
-        initializer = null;
-        return false;
+        return null;
     }
 
-    private static bool TryGetPropertyFrameworkComparerExpression(
+    /// <inheritdoc cref="TryGetFieldInitializer" />
+    private static (ExpressionSyntax Expression, SemanticModel Model)? TryGetPropertyFrameworkComparerExpression(
         IPropertySymbol property,
-        out ExpressionSyntax? expression)
+        SemanticModel referenceModel)
     {
         foreach (SyntaxReference syntaxReference in property.DeclaringSyntaxReferences)
         {
-            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
+            if (!referenceModel.Compilation.ContainsSyntaxTree(syntaxReference.SyntaxTree) ||
+                syntaxReference.GetSyntax() is not PropertyDeclarationSyntax propertyDeclaration)
             {
-                if (propertyDeclaration.Initializer is not null)
-                {
-                    expression = propertyDeclaration.Initializer.Value;
-                    return true;
-                }
+                continue;
+            }
 
-                if (propertyDeclaration.ExpressionBody is not null)
-                {
-                    expression = propertyDeclaration.ExpressionBody.Expression;
-                    return true;
-                }
-
-                AccessorDeclarationSyntax? getAccessor = propertyDeclaration.AccessorList?.Accessors
-                    .FirstOrDefault(accessor => accessor.Kind() == SyntaxKind.GetAccessorDeclaration);
-                if (getAccessor?.ExpressionBody is not null)
-                {
-                    expression = getAccessor.ExpressionBody.Expression;
-                    return true;
-                }
+            ExpressionSyntax? expression =
+                propertyDeclaration.Initializer?.Value ??
+                propertyDeclaration.ExpressionBody?.Expression ??
+                propertyDeclaration.AccessorList?.Accessors
+                    .FirstOrDefault(accessor => accessor.Kind() == SyntaxKind.GetAccessorDeclaration)
+                    ?.ExpressionBody?.Expression;
+            if (expression is not null)
+            {
+                return (
+                    expression,
+                    referenceModel.Compilation.GetSemanticModel(syntaxReference.SyntaxTree));
             }
         }
 
-        expression = null;
-        return false;
+        return null;
     }
 
     private static ExpressionSyntax RemoveParentheses(ExpressionSyntax expression)

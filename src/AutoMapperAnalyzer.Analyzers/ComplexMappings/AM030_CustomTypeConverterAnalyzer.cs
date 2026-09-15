@@ -365,11 +365,12 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
             yield break;
         }
 
-        foreach (ExpressionSyntax initializer in GetReferencedInitializers(expression, semanticModel, visitedSymbols))
+        foreach ((ExpressionSyntax initializer, SemanticModel initializerModel) in
+                 GetReferencedInitializers(expression, semanticModel, visitedSymbols))
         {
             foreach (INamedTypeSymbol converterSymbol in GetConverterSymbolsFromExpression(
                          initializer,
-                         semanticModel,
+                         initializerModel,
                          visitedSymbols))
             {
                 yield return converterSymbol;
@@ -395,7 +396,13 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static IEnumerable<ExpressionSyntax> GetReferencedInitializers(
+    /// <summary>
+    ///     Yields each initializer/expression a referenced symbol is declared with, paired with the
+    ///     semantic model that can bind it. The declaring tree may be another file in this
+    ///     compilation — a model only binds its own tree — or a referenced compilation, which cannot
+    ///     be bound at all and is skipped.
+    /// </summary>
+    private static IEnumerable<(ExpressionSyntax Expression, SemanticModel Model)> GetReferencedInitializers(
         ExpressionSyntax expression,
         SemanticModel semanticModel,
         HashSet<ISymbol> visitedSymbols)
@@ -408,19 +415,26 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
 
         foreach (SyntaxReference declarationReference in symbol.DeclaringSyntaxReferences)
         {
+            if (!semanticModel.Compilation.ContainsSyntaxTree(declarationReference.SyntaxTree))
+            {
+                continue;
+            }
+
             SyntaxNode declaration = declarationReference.GetSyntax();
+            SemanticModel declarationModel =
+                semanticModel.Compilation.GetSemanticModel(declaration.SyntaxTree);
 
             if (declaration is VariableDeclaratorSyntax { Initializer.Value: { } variableInitializer })
             {
-                yield return variableInitializer;
+                yield return (variableInitializer, declarationModel);
             }
             else if (declaration is PropertyDeclarationSyntax { Initializer.Value: { } propertyInitializer })
             {
-                yield return propertyInitializer;
+                yield return (propertyInitializer, declarationModel);
             }
             else if (declaration is PropertyDeclarationSyntax { ExpressionBody.Expression: { } propertyExpression })
             {
-                yield return propertyExpression;
+                yield return (propertyExpression, declarationModel);
             }
             else if (declaration is PropertyDeclarationSyntax { AccessorList: { } accessorList })
             {
@@ -429,33 +443,33 @@ public class AM030_CustomTypeConverterAnalyzer : DiagnosticAnalyzer
                     if (accessor.IsKind(SyntaxKind.GetAccessorDeclaration) &&
                         accessor.ExpressionBody?.Expression is { } getterExpression)
                     {
-                        yield return getterExpression;
+                        yield return (getterExpression, declarationModel);
                     }
                 }
             }
             else if (symbol is IMethodSymbol { Parameters.Length: 0 } &&
                      declaration is MethodDeclarationSyntax { ExpressionBody.Expression: { } methodExpression })
             {
-                yield return methodExpression;
+                yield return (methodExpression, declarationModel);
             }
             else if (symbol is IMethodSymbol { Parameters.Length: 0 } &&
                      declaration is MethodDeclarationSyntax { Body: { } methodBody } &&
                      methodBody.Statements.Count == 1 &&
                      methodBody.Statements[0] is ReturnStatementSyntax { Expression: { } returnExpression })
             {
-                yield return returnExpression;
+                yield return (returnExpression, declarationModel);
             }
             else if (symbol is IMethodSymbol { Parameters.Length: 0 } &&
                      declaration is LocalFunctionStatementSyntax { ExpressionBody.Expression: { } localFunctionExpression })
             {
-                yield return localFunctionExpression;
+                yield return (localFunctionExpression, declarationModel);
             }
             else if (symbol is IMethodSymbol { Parameters.Length: 0 } &&
                      declaration is LocalFunctionStatementSyntax { Body: { } localFunctionBody } &&
                      localFunctionBody.Statements.Count == 1 &&
                      localFunctionBody.Statements[0] is ReturnStatementSyntax { Expression: { } localFunctionReturnExpression })
             {
-                yield return localFunctionReturnExpression;
+                yield return (localFunctionReturnExpression, declarationModel);
             }
         }
     }

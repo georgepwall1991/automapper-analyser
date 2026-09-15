@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+## [2.30.109] - 2026-09-15
+
+Cross-file and cross-project member syntax no longer crashes analysis (no rule
+ID or severity changes).
+
+### Fixed
+
+- **AM031 AD0001 on cross-file comparer receivers**: following a
+  `static readonly` comparer field (or computed property) to its initializer
+  bound the node with the *profile file's* semantic model. A comparer declared
+  in any other file of the same project — let alone a referenced project —
+  threw `ArgumentException`. The initializer is now bound with the model for
+  its own declaring tree, preserving the known-comparer detection.
+- **AM030/AM033 AD0001 on cross-file converter references**: `ConvertUsing` with
+  a `System.Type` field/property/method declared in another file followed the
+  same pattern. Initializers now yield with their own tree's semantic model, so
+  converter usage tracking works across files instead of crashing.
+- **AM002/AM022 AD0001 on project-referenced constructors**: `ForCtorParam`
+  analysis rebound a semantic model for the destination constructor's declaring
+  tree — `Compilation.GetSemanticModel` throws when that tree belongs to a
+  referenced project. Foreign-compilation constructor syntax now fails closed
+  (the pair stays unproven) rather than crashing.
+
+### Validation
+
+- `CrossCompilationSafetyTests` gains 4 scenarios: ForCtorParam over
+  project-referenced records and body-assigning constructors (AM002, AM022), a
+  cross-file `StringComparer` field and computed property (AM031 — asserting
+  detection is *preserved*, not just the crash removed), and cross-file
+  `Type` field/property converter references (AM033 — asserting the converter
+  is still recognized as used). All failed with `ArgumentException` before the
+  fix.
+
 ## [2.30.108] - 2026-09-15
 
 Member-anchored rules no longer crash when the mapped member is declared in a

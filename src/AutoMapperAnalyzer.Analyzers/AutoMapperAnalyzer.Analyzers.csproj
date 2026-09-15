@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>108</PatchVersion>
+        <PatchVersion>109</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,9 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.108 - member-anchored rules no longer crash on project-referenced models
- - AM001/AM004/AM005/AM006/AM011 now anchor at the CreateMap invocation when a mapped member is declared in a referenced project
- - Reporting a location from another compilation's syntax tree threw ArgumentException and surfaced as AD0001
+        <PackageReleaseNotes>Version 2.30.109 - cross-file and cross-project member syntax no longer crashes analysis
+ - AM031 crashed following a comparer field/property declared in another file; AM030/AM033 crashed following a ConvertUsing Type member the same way
+ - ForCtorParam analysis crashed binding a constructor declared in a referenced project (AM002/AM022)
+ - Member syntax is now bound with the semantic model for its own tree, and foreign-compilation declarations fail closed
  - No rule ID or severity changes
  </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
