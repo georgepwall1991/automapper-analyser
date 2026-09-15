@@ -110,7 +110,9 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
 
             var diagnostic = Diagnostic.Create(
                 UnmappedDestinationPropertyRule,
-                GetPropertyLocation(destProperty) ?? mappingInvocation.GetLocation(),
+                AutoMapperAnalysisHelpers.GetInCompilationPropertyLocation(
+                    destProperty,
+                    context.Compilation) ?? mappingInvocation.GetLocation(),
                 properties.ToImmutable(),
                 destProperty.Name,
                 sourceType.Name);
@@ -405,23 +407,5 @@ public class AM006_UnmappedDestinationPropertyAnalyzer : DiagnosticAnalyzer
         SemanticModel semanticModel)
     {
         return MappingChainAnalysisHelper.IsAutoMapperMethodInvocation(invocation, semanticModel, "CreateMap");
-    }
-
-    private static Location? GetPropertyLocation(IPropertySymbol property)
-    {
-        foreach (SyntaxReference syntaxReference in property.DeclaringSyntaxReferences)
-        {
-            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
-            {
-                return propertyDeclaration.Identifier.GetLocation();
-            }
-
-            if (syntaxReference.GetSyntax() is ParameterSyntax parameter)
-            {
-                return parameter.Identifier.GetLocation();
-            }
-        }
-
-        return null;
     }
 }

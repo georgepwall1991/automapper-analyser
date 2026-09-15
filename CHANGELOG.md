@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+## [2.30.108] - 2026-09-15
+
+Member-anchored rules no longer crash when the mapped member is declared in a
+project-referenced compilation (no rule ID or severity changes).
+
+### Fixed
+
+- **AM001/AM004/AM005/AM006/AM011 AD0001 on project references**: when source or
+  destination types are consumed through a project reference, their member
+  symbols still carry `DeclaringSyntaxReferences` — but those trees belong to
+  the referenced compilation. Anchoring the reported diagnostic on one threw
+  `ArgumentException` and surfaced as AD0001. Found by corpus scanning
+  CleanArchitecture, where AM004 crashed for every DTO declared in the Domain
+  project.
+
+### Changed
+
+- Member-token anchoring now filters declaring syntax references to trees in
+  the analyzed compilation and falls back to the `CreateMap` invocation
+  location when the member lives in a referenced compilation.
+- Same-compilation anchoring — including positional-record parameters — is
+  unchanged; the diagnostic still fires, only its location moves.
+
+### Validation
+
+- New `CrossCompilationSafetyTests` drive every affected rule plus a
+  catalog-wide sweep over a `CompilationReference` model pair: **6** tests,
+  all failing before the fix and green after.
+
 ## [2.30.107] - 2026-07-30
 
 AM061 now respects authentic AutoMapper `ShouldMapProperty` selection policies

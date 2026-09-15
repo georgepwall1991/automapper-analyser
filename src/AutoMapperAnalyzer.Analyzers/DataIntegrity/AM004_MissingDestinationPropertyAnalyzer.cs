@@ -101,27 +101,11 @@ public class AM004_MissingDestinationPropertyAnalyzer : DiagnosticAnalyzer
 
             context.ReportDiagnostic(Diagnostic.Create(
                 MissingDestinationPropertyRule,
-                GetPropertyLocation(sourceProperty) ?? mappingInvocation.GetLocation(),
+                AutoMapperAnalysisHelpers.GetInCompilationPropertyLocation(
+                    sourceProperty,
+                    context.Compilation) ?? mappingInvocation.GetLocation(),
                 properties.ToImmutable(),
                 sourceProperty.Name));
         }
-    }
-
-    private static Location? GetPropertyLocation(IPropertySymbol property)
-    {
-        foreach (SyntaxReference syntaxReference in property.DeclaringSyntaxReferences)
-        {
-            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
-            {
-                return propertyDeclaration.Identifier.GetLocation();
-            }
-
-            if (syntaxReference.GetSyntax() is ParameterSyntax parameter)
-            {
-                return parameter.Identifier.GetLocation();
-            }
-        }
-
-        return null;
     }
 }

@@ -166,7 +166,9 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
 
             var diagnostic = Diagnostic.Create(
                 CaseSensitivityMismatchRule,
-                GetPropertyLocation(sourceProperty) ?? mappingInvocation.GetLocation(),
+                AutoMapperAnalysisHelpers.GetInCompilationPropertyLocation(
+                    sourceProperty,
+                    context.Compilation) ?? mappingInvocation.GetLocation(),
                 properties.ToImmutable(),
                 sourceProperty.Name,
                 caseInsensitiveMatch.Name);
@@ -188,24 +190,6 @@ public class AM005_CaseSensitivityMismatchAnalyzer : DiagnosticAnalyzer
         Array.Sort(propertyNames, StringComparer.Ordinal);
 
         return $"{typeNames[0]}|{typeNames[1]}::{propertyNames[0]}|{propertyNames[1]}";
-    }
-
-    private static Location? GetPropertyLocation(IPropertySymbol property)
-    {
-        foreach (SyntaxReference syntaxReference in property.DeclaringSyntaxReferences)
-        {
-            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
-            {
-                return propertyDeclaration.Identifier.GetLocation();
-            }
-
-            if (syntaxReference.GetSyntax() is ParameterSyntax parameter)
-            {
-                return parameter.Identifier.GetLocation();
-            }
-        }
-
-        return null;
     }
 
 }
