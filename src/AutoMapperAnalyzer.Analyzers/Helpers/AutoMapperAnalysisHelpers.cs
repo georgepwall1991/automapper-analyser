@@ -166,12 +166,13 @@ public static class AutoMapperAnalysisHelpers
                 continue;
             }
 
-            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
+            SyntaxNode declaration = syntaxReference.GetSyntax();
+            if (declaration is PropertyDeclarationSyntax propertyDeclaration)
             {
                 return propertyDeclaration.Identifier.GetLocation();
             }
 
-            if (syntaxReference.GetSyntax() is ParameterSyntax parameter)
+            if (declaration is ParameterSyntax parameter)
             {
                 return parameter.Identifier.GetLocation();
             }
