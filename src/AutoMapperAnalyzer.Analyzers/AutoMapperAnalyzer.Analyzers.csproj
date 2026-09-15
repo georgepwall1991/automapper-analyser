@@ -33,7 +33,7 @@
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageReleaseNotes>Version 2.30.108 - member-anchored rules no longer crash on project-referenced models
- - AM001/AM004/AM005/AM006/AM011 fell back to the CreateMap invocation when a mapped member is declared in a referenced project
+ - AM001/AM004/AM005/AM006/AM011 now anchor at the CreateMap invocation when a mapped member is declared in a referenced project
  - Reporting a location from another compilation's syntax tree threw ArgumentException and surfaced as AD0001
  - No rule ID or severity changes
  </PackageReleaseNotes>
