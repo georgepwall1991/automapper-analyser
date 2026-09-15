@@ -59,11 +59,129 @@ public class CrossCompilationSafetyTests
         }
         """;
 
-    /// <summary>
-    ///     Every rule that anchors on a member declaration must still report when that member is
-    ///     declared in another compilation — the diagnostic falls back to the CreateMap invocation —
-    ///     and none may throw while doing so.
-    /// </summary>
+    private const string CtorModelsSource = """
+        namespace Models
+        {
+            public class CtorSource
+            {
+                public string Name { get; set; } = string.Empty;
+            }
+
+            public record DestRecord(string Renamed);
+
+            public class DestClass
+            {
+                public DestClass(string renamed)
+                {
+                    Differently = renamed;
+                }
+
+                public string Differently { get; set; } = string.Empty;
+            }
+        }
+        """;
+
+    private const string CtorProfileSource = """
+        using AutoMapper;
+        using Models;
+
+        namespace Profiles
+        {
+            public class TestProfile : Profile
+            {
+                public TestProfile()
+                {
+                    CreateMap<CtorSource, DestRecord>()
+                        .ForCtorParam("renamed", o => o.MapFrom(s => s.Name));
+                    CreateMap<CtorSource, DestClass>()
+                        .ForCtorParam("renamed", o => o.MapFrom(s => s.Name));
+                }
+            }
+        }
+        """;
+
+    private const string ComparerHelpersSource = """
+        namespace Helpers
+        {
+            public static class Comparers
+            {
+                public static readonly System.StringComparer Cmp = System.StringComparer.Ordinal;
+                public static System.StringComparer CmpProp => System.StringComparer.OrdinalIgnoreCase;
+            }
+        }
+        """;
+
+    private const string ComparerProfileSource = """
+        using AutoMapper;
+        using Helpers;
+        using Models;
+
+        namespace Profiles
+        {
+            public class TestProfile : Profile
+            {
+                public TestProfile()
+                {
+                    CreateMap<Source, Destination>()
+                        .ForMember(d => d.Missing, o => o.MapFrom(s => Comparers.Cmp.GetHashCode(s.Name)));
+                    CreateMap<Source, FlatDestination>()
+                        .ForMember(d => d.Missing, o => o.MapFrom(s => Comparers.CmpProp.GetHashCode(s.Name)));
+                }
+            }
+        }
+        """;
+
+    private const string ConverterHelpersSource = """
+        using AutoMapper;
+        using Models;
+
+        namespace Helpers
+        {
+            public class FooConverter : ITypeConverter<Source, Destination>
+            {
+                public Destination Convert(Source source, Destination destination, ResolutionContext context)
+                {
+                    return destination;
+                }
+            }
+
+            public static class Holder
+            {
+                public static readonly System.Type Conv = typeof(FooConverter);
+                public static System.Type ConvProp => typeof(FooConverter);
+            }
+        }
+        """;
+
+    private const string ConverterProfileSource = """
+        using AutoMapper;
+        using Helpers;
+        using Models;
+
+        namespace Profiles
+        {
+            public class TestProfile : Profile
+            {
+                public TestProfile()
+                {
+                    CreateMap<Source, Destination>().ConvertUsing(Holder.Conv);
+                    CreateMap<Source, FlatDestination>().ConvertUsing(Holder.ConvProp);
+                }
+            }
+        }
+        """;
+
+    private const string ExtraModelsSource = """
+
+        namespace Models
+        {
+            public class FlatDestination
+            {
+                public string Name { get; set; } = string.Empty;
+                public string Missing { get; set; } = string.Empty;
+            }
+        }
+        """;
     [Theory]
     [InlineData("AM001")]
     [InlineData("AM004")]
@@ -131,6 +249,96 @@ public class CrossCompilationSafetyTests
         );
     }
 
+    /// <summary>
+    ///     ForCtorParam analysis resolves the destination constructor's <i>syntax</i> — a body
+    ///     assignment (<c>DestClass</c>) or a positional-record parameter (<c>DestRecord</c>) — and
+    ///     binds it with a semantic model. When that constructor lives in a referenced compilation,
+    ///     binding its tree throws. Both helpers must fail closed instead.
+    /// </summary>
+    [Theory]
+    [InlineData("AM002")]
+    [InlineData("AM022")]
+    public async Task ConstructorParameterAnalysis_ShouldNotThrow_WhenDestinationCtorIsProjectReferenced(
+        string ruleId
+    )
+    {
+        Compilation compilation = BuildCrossCompilationPair(CtorModelsSource, CtorProfileSource)
+            .ProfileCompilation;
+
+        (_, IReadOnlyList<string> failures) = await RunAnalyzersAsync(compilation, [CreateAnalyzer(ruleId)]);
+
+        Assert.True(
+            failures.Count == 0,
+            $"{ruleId} threw while resolving a project-referenced constructor:"
+                + Environment.NewLine
+                + string.Join(Environment.NewLine, failures)
+        );
+    }
+
+    /// <summary>
+    ///     A member initializer reached through <see cref="ISymbol.DeclaringSyntaxReferences" /> can
+    ///     sit in a different tree of the <i>same</i> compilation — a comparer field in a helpers
+    ///     file, for instance. A semantic model only binds its own tree, so the analyzer must rebind
+    ///     before resolving the initializer. Rebinding preserves the designed detection: a
+    ///     <c>static readonly StringComparer</c> stays a known-cheap receiver and reports nothing.
+    /// </summary>
+    [Fact]
+    public async Task ComparerReceiversInAnotherFile_ShouldStayRecognized_WithoutThrowing()
+    {
+        Compilation compilation = BuildSingleCompilation(
+            ("Models.cs", ModelsSource),
+            ("ExtraModels.cs", ExtraModelsSource),
+            ("Helpers.cs", ComparerHelpersSource),
+            ("Profile.cs", ComparerProfileSource)
+        );
+
+        (ImmutableArray<Diagnostic> diagnostics, IReadOnlyList<string> failures) =
+            await RunAnalyzersAsync(compilation, [CreateAnalyzer("AM031")]);
+
+        Assert.True(
+            failures.Count == 0,
+            "AM031 threw while following a cross-file comparer receiver:"
+                + Environment.NewLine
+                + string.Join(Environment.NewLine, failures)
+        );
+
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Id == "AM031" &&
+                          diagnostic.GetMessage().Contains("method call")
+        );
+    }
+
+    /// <summary>
+    ///     Same boundary, different analysis: AM033 marks a converter used by following a
+    ///     <c>ConvertUsing</c> argument to the <c>System.Type</c> field or property that holds it.
+    ///     When that member is declared in another file, rebinding its tree keeps the converter
+    ///     recognized as used — skipping it would crash or produce an unused-converter false
+    ///     positive.
+    /// </summary>
+    [Fact]
+    public async Task ConverterTypeMembersInAnotherFile_ShouldStayRecognizedAsUsed_WithoutThrowing()
+    {
+        Compilation compilation = BuildSingleCompilation(
+            ("Models.cs", ModelsSource),
+            ("ExtraModels.cs", ExtraModelsSource),
+            ("Converters.cs", ConverterHelpersSource),
+            ("Profile.cs", ConverterProfileSource)
+        );
+
+        (ImmutableArray<Diagnostic> diagnostics, IReadOnlyList<string> failures) =
+            await RunAnalyzersAsync(compilation, [CreateAnalyzer("AM033")]);
+
+        Assert.True(
+            failures.Count == 0,
+            "AM033 threw while following a cross-file converter type reference:"
+                + Environment.NewLine
+                + string.Join(Environment.NewLine, failures)
+        );
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "AM033");
+    }
+
     private static DiagnosticAnalyzer CreateAnalyzer(string ruleId)
     {
         Type analyzerType = RuleCatalog
@@ -191,7 +399,12 @@ public class CrossCompilationSafetyTests
     ///     is exactly what MSBuildWorkspace produces for project references, and what a metadata
     ///     (PE) reference cannot reproduce.
     /// </summary>
-    private static (Compilation ProfileCompilation, SyntaxTree ProfileTree) BuildCrossCompilationPair()
+    private static (Compilation ProfileCompilation, SyntaxTree ProfileTree) BuildCrossCompilationPair() =>
+        BuildCrossCompilationPair(ModelsSource, ProfileSource);
+
+    private static (Compilation ProfileCompilation, SyntaxTree ProfileTree) BuildCrossCompilationPair(
+        string modelsSource,
+        string profileSource)
     {
         List<MetadataReference> references = BuildReferences();
 
@@ -199,7 +412,7 @@ public class CrossCompilationSafetyTests
             "CrossCompilation.Models",
             [
                 CSharpSyntaxTree.ParseText(
-                    ModelsSource,
+                    modelsSource,
                     new CSharpParseOptions(LanguageVersion.Preview),
                     path: "Models.cs"
                 ),
@@ -209,7 +422,7 @@ public class CrossCompilationSafetyTests
         );
 
         SyntaxTree profileTree = CSharpSyntaxTree.ParseText(
-            ProfileSource,
+            profileSource,
             new CSharpParseOptions(LanguageVersion.Preview),
             path: "Profile.cs"
         );
@@ -225,6 +438,34 @@ public class CrossCompilationSafetyTests
         );
 
         return (profileCompilation, profileTree);
+    }
+
+    /// <summary>
+    ///     Builds one compilation from several named sources — the same-compilation/different-tree
+    ///     boundary. A <see cref="SemanticModel" /> bound to one tree cannot answer questions about
+    ///     nodes from another, which is exactly what cross-file member initializers exercise.
+    /// </summary>
+    private static Compilation BuildSingleCompilation(params (string Path, string Source)[] sources)
+    {
+        SyntaxTree[] trees = sources
+            .Select(source =>
+                CSharpSyntaxTree.ParseText(
+                    source.Source,
+                    new CSharpParseOptions(LanguageVersion.Preview),
+                    path: source.Path
+                )
+            )
+            .ToArray();
+
+        return CSharpCompilation.Create(
+            "CrossFile.Profile",
+            trees,
+            BuildReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable
+            )
+        );
     }
 
     private static List<MetadataReference> BuildReferences()

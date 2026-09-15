@@ -98,6 +98,14 @@ internal static class MappingConfigurationHelpers
         bool hasConstructorSyntax = false;
         foreach (SyntaxReference syntaxReference in constructor.DeclaringSyntaxReferences)
         {
+            // A constructor reached through a project (compilation) reference still reports
+            // declaring syntax, but its tree is not part of this compilation — rebinding a
+            // semantic model for it throws. Fail closed: only in-compilation syntax is analyzed.
+            if (!semanticModel.Compilation.ContainsSyntaxTree(syntaxReference.SyntaxTree))
+            {
+                continue;
+            }
+
             var directAssignmentRightSides = new List<ExpressionSyntax>();
             hasConstructorSyntax = true;
             SyntaxNode constructorSyntax = syntaxReference.GetSyntax();
@@ -190,7 +198,9 @@ internal static class MappingConfigurationHelpers
 
         bool isPositionalRecordParameter = constructor.DeclaringSyntaxReferences.Any(syntaxReference =>
         {
-            if (syntaxReference.GetSyntax() is not RecordDeclarationSyntax
+            // Foreign-compilation declarations cannot be bound here — see above.
+            if (!semanticModel.Compilation.ContainsSyntaxTree(syntaxReference.SyntaxTree) ||
+                syntaxReference.GetSyntax() is not RecordDeclarationSyntax
                 {
                     ParameterList: { } parameterList
                 } recordDeclaration)

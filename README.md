@@ -39,7 +39,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 ## Install
 
 ```xml
-<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.108">
+<PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.109">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -48,7 +48,7 @@ When the analyzer cannot prove a mapping shape statically, it **stays quiet**. H
 Or:
 
 ```bash
-dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.108
+dotnet add package AutoMapperAnalyzer.Analyzers --version 2.30.109
 ```
 
 **No runtime dependency** is added to your app. The package is a development-time Roslyn analyzer (plus code fixes). Open any file with AutoMapper configuration and diagnostics appear in supported IDEs and `dotnet build`.
@@ -119,9 +119,22 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ---
 
-## Latest Release: v2.30.108
+## Latest Release: v2.30.109
 
-**Project-referenced models no longer crash member-anchored rules**
+**Cross-file and cross-project member syntax no longer crashes analysis**
+
+- AM031 followed a comparer field or property to its initializer with the wrong
+  file's semantic model — a `static readonly StringComparer` in any other file
+  of the same project crashed it (AD0001). AM030/AM033 followed `ConvertUsing`
+  `Type` members the same way.
+- `ForCtorParam` analysis rebound a model for the destination constructor's
+  declaring tree — a constructor in a referenced project cannot be bound, and
+  threw (AM002/AM022).
+- Member syntax is now bound with the semantic model for its own tree, keeping
+  cross-file detection working; foreign-compilation declarations fail closed.
+- No rule ID or severity changes.
+
+<details><summary>Previous release: project-referenced report anchors (v2.30.108)</summary>
 
 - AM001/AM004/AM005/AM006/AM011 anchored diagnostics on a member's declaring
   syntax; through a project reference that syntax lives in another
@@ -130,15 +143,6 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
   declared in `Domain` and mapped by `Application` profiles.
 - The diagnostic still reports — it now anchors at the `CreateMap` invocation
   when the member is declared in a referenced compilation.
-- No rule ID or severity changes.
-
-<details><summary>Previous release: custom property-selection policies (v2.30.107)</summary>
-
-- Authentic AutoMapper `ShouldMapProperty` customizations suppress
-  convention-property enum diagnostics when the selected property set cannot
-  be proven statically.
-- Convention fields remain analyzed unless `ShouldMapField` is also customized.
-- Explicit direct `ForMember`/`ForPath` enum pairs remain analyzed.
 - No rule ID or severity changes.
 
 </details>
@@ -178,6 +182,7 @@ Analyzer targets **.NET Standard 2.0**. Matrix details: [docs/COMPATIBILITY.md](
 
 ### Recent highlights
 
+- **v2.30.109**: member syntax in other files or referenced projects is bound with its own tree's model — no more AD0001 from cross-tree analysis.
 - **v2.30.108**: member-anchored rules no longer crash (AD0001) when mapped members are declared in a referenced project.
 - **v2.30.107**: AM061 respects authentic AutoMapper `ShouldMapProperty` policies without silencing fields or explicit pairs.
 - **v2.30.106**: AM006 treats case-distinct `ConstructUsing` initializer members as separate C# properties.
@@ -309,7 +314,7 @@ Reference one from your project file:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.108"
+  <PackageReference Include="AutoMapperAnalyzer.Analyzers" Version="2.30.109"
                     PrivateAssets="all" GeneratePathProperty="true" />
   <GlobalAnalyzerConfigFiles
     Include="$(PkgAutoMapperAnalyzer_Analyzers)\config\AutoMapperAnalyzer.Minimal.globalconfig" />
