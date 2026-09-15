@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>109</PatchVersion>
+        <PatchVersion>110</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,11 +32,10 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.109 - cross-file and cross-project member syntax no longer crashes analysis
- - AM031 crashed following a comparer field/property declared in another file; AM030/AM033 crashed following a ConvertUsing Type member the same way
- - ForCtorParam analysis crashed binding a constructor declared in a referenced project (AM002/AM022)
- - Member syntax is now bound with the semantic model for its own tree, and foreign-compilation declarations fail closed
- - No rule ID or severity changes
+        <PackageReleaseNotes>Version 2.30.110 - fixer runtime-contract suite is now self-auditing (no rule ID or severity changes)
+ - Every applied code fix must now leave its own diagnostic cleared; a per-scenario check fails when a declared behaviour also passes on the unfixed mapping
+ - Nine runtime-contract scenarios rebuilt around inputs where fixed and unfixed output differ (AM003/AM004/AM005/AM021/AM022/AM030/AM031/AM050/AM061)
+ - No analyzer behaviour changes
  </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

@@ -167,31 +167,31 @@ Coverage is per *branch*, not per rule. AM021 has two scenarios because its `Lis
 
 Two things about that check are worth stating precisely, because the obvious version of it asserts less
 than it appears to. First, `AssertConfigurationIsValid()` **does not discriminate for many of these
-rules**. Substituting unfixed source for fixer output fails 8 of 17 scenarios — AM001, AM002, AM006,
-AM011, AM020, AM021 `Stack<T>`, AM041 and AM060. The remaining 9 pass **unfixed**, because AutoMapper
-accepts the pre-fix configuration and, where a value expectation exists, convention already produces the
-same value. For those 9 the scenario shows the fix does not break a working mapping, not that it repairs
-a broken one — a weaker guarantee, and the reason configuration validity alone is not relied on. Actions
-that convert, rename, substitute a default, or delete a registration therefore carry **value-level**
-expectations, executed through `MapThroughFixedCode`
+rules** — AutoMapper accepts the pre-fix configuration for most of them, so configuration validity
+alone is never relied on. Actions that convert, rename, substitute a default, bound recursion, or
+delete a registration carry **value-level** or **exception-level** expectations, executed through
+`MapThroughFixedCode`
 — `"42"` must arrive as `42`, a `Stack<int>` popping `3,2,1` must arrive as a `Stack<string>` popping
-`"3","2","1"`, a null source must arrive as the substituted default, and removing a duplicate or
-redundant registration must leave the member still mapping.
+`"3","2","1"`, a null source must arrive as the substituted default, `MaxDepth(2)` must truncate a
+four-deep chain to two nodes, a null member through a nullable converter must return null or throw
+`ArgumentNullException` rather than `NullReferenceException`, and removing a duplicate or redundant
+registration must leave the member still mapping.
 
-Second, both layers were verified by being made to fail rather than by being green. Substituting unfixed
-source for fixer output fails the 8 scenarios listed above; inverting an expected value fails exactly the
-scenario that declares it, checked for six of them (AM001, AM005, AM021 `List<T>`, AM021 `Stack<T>`,
-AM022, AM060).
+Second, both layers are kept honest mechanically rather than by audit. Every applied action must leave
+its own diagnostic cleared — the discriminating contract for convention-equivalent fixes such as AM005
+explicit mapping or AM050 redundant-`MapFrom` removal, where no input exists on which fixed and unfixed
+output could differ. And `DeclaredBehaviours_ShouldFailAgainstTheUnfixedMapping` feeds each scenario's
+*unfixed* source through the same mapper and fails when every declared behaviour still passes — an
+expectation that convention satisfies anyway cannot tell the fix apart from doing nothing. Two
+scenarios (AM005, AM050) are marked `ConventionEquivalentByDesign` because AutoMapper's matching is
+provably equivalent to their fix; their contract is the cleared diagnostic, not a value.
 
 **What remains.** Every shipped fixer is routed, but each scenario is a minimal single-defect case, so
 this checks fixer output on clean inputs rather than the full matrix each fixer supports — and coverage
-is per *branch*, so a routed rule can still have an unexercised branch.
-
-Nine scenarios still pass when fed unfixed source. Presence of an expectation is not the measure: eleven
-of the seventeen declare one, and six of those eleven (AM003, AM004, AM005, AM021 `List<T>`, AM022,
-AM050) assert a value AutoMapper's convention produces with or without the fix. Strengthening them means
-choosing inputs where fixed and unfixed output *differ*, not adding more assertions. Three scenarios
-(AM030, AM031, AM061) carry no value expectation at all.
+is per *branch*, so a routed rule can still have an unexercised branch. Within a scenario, individual
+behaviours may legitimately be convention-equivalent (the AM003 `Constructor` assertion, for example)
+— the per-scenario check requires only that the declared set discriminates, because such assertions
+still tripwire a fixer that produces wrong values.
 
 ## Documented analyzer boundaries
 
