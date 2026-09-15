@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+## [2.30.110] - 2026-09-15
+
+The fixer runtime-contract suite is now self-auditing (no rule ID or severity
+changes; no analyzer behaviour changes).
+
+### Changed
+
+- **Every offered fix must clear its own diagnostic.** After an action is
+  applied, the fixed document is re-analyzed and must report nothing. This is
+  the discriminating contract for convention-equivalent fixes — AM005 explicit
+  mapping and AM050 redundant-`MapFrom` removal can never produce different
+  runtime values by construction — and a sanity check on every other action.
+- **Declared behaviours must discriminate against unfixed source.** A new
+  per-scenario theory fails when every declared behaviour also passes on the
+  *unfixed* mapping — the nine-scenario hollow-assertion gap the rollout audit
+  identified is now enforced mechanically instead of by hand.
+- **Nine scenarios rebuilt around divergent inputs** after probing real
+  AutoMapper 14.0 behaviour: `Ignore` actions assert the destination's own
+  default survives (AM003, AM021 `List<T>`, AM031); AM004 exercises a typo'd
+  fuzzy-match pair; AM022 drives a depth-bounded non-cyclic chain (reference
+  preservation already terminates true cycles); AM030 maps a null member
+  through a nullable-return converter with return-null and guard-throw
+  expectations; AM061 uses divergent enum values so `MapByName` lands on a
+  different member than numeric mapping.
+
 ## [2.30.109] - 2026-09-15
 
 Cross-file and cross-project member syntax no longer crashes analysis (no rule

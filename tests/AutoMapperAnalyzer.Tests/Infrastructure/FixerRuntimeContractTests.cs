@@ -95,6 +95,37 @@ public class FixerRuntimeContractTests
             string fixedText = (await fixedDocument.GetTextAsync()).ToString();
             string because = $"{scenarioName} action '{key}'";
 
+            // A fix that leaves its own diagnostic behind has not fixed anything. This is also the
+            // discriminating check for convention-equivalent actions: removing a provably redundant
+            // ForMember can never change runtime output, so the only runtime-meaningful contract is
+            // that the diagnostic is gone.
+            ImmutableArray<Diagnostic> remainingDiagnostics = await GetDiagnosticsAsync(
+                fixedDocument,
+                scenario.CreateAnalyzer()
+            );
+            Assert.Empty(remainingDiagnostics);
+
+            Action<Exception>? assertThrown = scenario.ExceptionBehaviourFor(key);
+            if (assertThrown != null)
+            {
+                Exception? thrown = Record.Exception(() =>
+                    CodeFixRuntimeVerifier.MapThroughFixedCode(
+                        fixedText,
+                        "Source",
+                        "Destination",
+                        scenario.PopulateSource!,
+                        because
+                    )
+                );
+                Assert.True(
+                    thrown != null,
+                    $"{because}: expected the fixed mapping to throw, but it completed."
+                );
+                assertThrown(thrown);
+                verifiedBehaviours++;
+                continue;
+            }
+
             Action<object>? assertMapped = scenario.BehaviourFor(key);
             if (assertMapped == null)
             {
@@ -117,9 +148,76 @@ public class FixerRuntimeContractTests
         }
 
         Assert.True(
-            scenario.Behaviours.Count == 0 || verifiedBehaviours > 0,
+            (scenario.Behaviours.Count == 0 && scenario.ExceptionBehaviours.Count == 0)
+                || verifiedBehaviours > 0,
             $"{scenarioName}: declares behavioural expectations but no offered action matched one, so "
                 + "only configuration validity was checked."
+        );
+    }
+
+    /// <summary>
+    ///     Every declared behaviour must fail when run against the <i>unfixed</i> source — otherwise it
+    ///     asserts a value AutoMapper convention produces anyway and cannot tell the fix apart from
+    ///     doing nothing. Scenarios marked <see cref="FixerScenario.ConventionEquivalentByDesign" />
+    ///     are exempt because no input exists on which fixed and unfixed output differ.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ScenarioNames))]
+    public void DeclaredBehaviours_ShouldFailAgainstTheUnfixedMapping(string scenarioName)
+    {
+        FixerScenario scenario = Scenarios[scenarioName];
+        int declared = scenario.Behaviours.Count + scenario.ExceptionBehaviours.Count;
+        if (declared == 0 || scenario.ConventionEquivalentByDesign)
+        {
+            return;
+        }
+
+        object? unfixed = null;
+        Exception? unfixedError = null;
+        try
+        {
+            unfixed = CodeFixRuntimeVerifier.MapThroughFixedCode(
+                scenario.Source,
+                "Source",
+                "Destination",
+                scenario.PopulateSource!,
+                $"{scenarioName} unfixed"
+            );
+        }
+        catch (Exception ex)
+        {
+            unfixedError = ex;
+        }
+
+        var hollow = new List<string>();
+        foreach (KeyValuePair<string, Action<object>> behaviour in scenario.Behaviours)
+        {
+            bool failsUnfixed =
+                unfixedError != null || Record.Exception(() => behaviour.Value(unfixed!)) != null;
+            if (!failsUnfixed)
+            {
+                hollow.Add(behaviour.Key);
+            }
+        }
+
+        foreach (
+            KeyValuePair<string, Action<Exception>> behaviour in scenario.ExceptionBehaviours
+        )
+        {
+            bool failsUnfixed =
+                unfixedError == null
+                || Record.Exception(() => behaviour.Value(unfixedError)) != null;
+            if (!failsUnfixed)
+            {
+                hollow.Add(behaviour.Key);
+            }
+        }
+
+        Assert.True(
+            hollow.Count < declared,
+            $"{scenarioName}: every declared behaviour also passes against the unfixed mapping, so "
+                + "nothing distinguishes the fix from convention. Hollow expectations: "
+                + string.Join(", ", hollow)
         );
     }
 
@@ -145,7 +243,7 @@ public class FixerRuntimeContractTests
     {
         /// <summary>
         ///     Builds the source instance fed through the fixed mapping. Required when
-        ///     <see cref="Behaviours" /> is non-empty.
+        ///     <see cref="Behaviours" /> or <see cref="ExceptionBehaviours" /> is non-empty.
         /// </summary>
         public Func<Type, object>? PopulateSource { get; init; }
 
@@ -158,6 +256,23 @@ public class FixerRuntimeContractTests
         public IReadOnlyDictionary<string, Action<object>> Behaviours { get; init; } =
             new Dictionary<string, Action<object>>(StringComparer.Ordinal);
 
+        /// <summary>
+        ///     Exception expectations keyed by equivalence-key fragment, for fixes whose contract is
+        ///     that the mapping <i>throws</i> (a null guard, say). The assertion receives the exception
+        ///     the fixed mapping raised; an unfixed mapping that throws a different exception — or does
+        ///     not throw — still discriminates.
+        /// </summary>
+        public IReadOnlyDictionary<string, Action<Exception>> ExceptionBehaviours { get; init; } =
+            new Dictionary<string, Action<Exception>>(StringComparer.Ordinal);
+
+        /// <summary>
+        ///     True when every offered action reproduces convention output by construction — removing
+        ///     a provably redundant <c>ForMember</c> can never produce different runtime values. The
+        ///     discriminating contract for these scenarios is the diagnostic being cleared, asserted
+        ///     for every action in <see cref="EveryOfferedFix_ShouldProduceAMapperAutoMapperAccepts" />.
+        /// </summary>
+        public bool ConventionEquivalentByDesign { get; init; }
+
         public bool IsAdvisory(string equivalenceKey)
         {
             return AdvisoryKeyFragments.Any(fragment =>
@@ -168,6 +283,19 @@ public class FixerRuntimeContractTests
         public Action<object>? BehaviourFor(string equivalenceKey)
         {
             foreach (KeyValuePair<string, Action<object>> behaviour in Behaviours)
+            {
+                if (equivalenceKey.Contains(behaviour.Key, StringComparison.Ordinal))
+                {
+                    return behaviour.Value;
+                }
+            }
+
+            return null;
+        }
+
+        public Action<Exception>? ExceptionBehaviourFor(string equivalenceKey)
+        {
+            foreach (KeyValuePair<string, Action<Exception>> behaviour in ExceptionBehaviours)
             {
                 if (equivalenceKey.Contains(behaviour.Key, StringComparison.Ordinal))
                 {
@@ -324,6 +452,11 @@ public class FixerRuntimeContractTests
                         ["1", "2"],
                         StringsOf(Property(mapped, "Values")).OrderBy(value => value, StringComparer.Ordinal)
                     ),
+                // Convention already converts List<int> to HashSet<string>, so the Constructor
+                // assertion alone cannot tell the fix apart from doing nothing. Ignore leaves the
+                // destination's own empty set - observable only when the fix actually ran.
+                ["AM003_Ignore"] = mapped =>
+                    Assert.Empty(StringsOf(Property(mapped, "Values"))),
             },
         },
         ["AM004 missing destination property"] = new(
@@ -337,12 +470,13 @@ public class FixerRuntimeContractTests
                 public class Source
                 {
                     public string Name { get; set; } = string.Empty;
-                    public string Dropped { get; set; } = string.Empty;
+                    public string Description { get; set; } = string.Empty;
                 }
 
                 public class Destination
                 {
                     public string Name { get; set; } = string.Empty;
+                    public string Descripton { get; set; } = string.Empty;
                 }
 
                 public class TestProfile : Profile
@@ -354,14 +488,20 @@ public class FixerRuntimeContractTests
                 }
             }
             """,
-            []
+            // DoNotValidate suppresses source-side validation for 'Description' but cannot touch the
+            // unmapped destination member 'Descripton' - the fuzzy target is definitionally an
+            // unmapped destination member, so these actions leave a config AutoMapper still rejects.
+            ["AM004_DoNotValidate"]
         )
         {
-            PopulateSource = type => Populate(type, ("Name", "kept"), ("Dropped", "gone")),
+            PopulateSource = type => Populate(type, ("Name", "kept"), ("Description", "body")),
             Behaviours = new Dictionary<string, Action<object>>(StringComparer.Ordinal)
             {
-                // Silencing a dropped source member must not disturb the members that do map.
-                ["AM004_DoNotValidate"] = mapped => Assert.Equal("kept", Property(mapped, "Name")),
+                // 'Descripton' is a typo the convention will never resolve to 'Description'; only the
+                // fuzzy-match fix (or the bulk equivalent) moves the value across.
+                ["AM004_FuzzyMatch"] = mapped =>
+                    Assert.Equal("body", Property(mapped, "Descripton")),
+                ["AM004_MapAll"] = mapped => Assert.Equal("body", Property(mapped, "Descripton")),
             },
         },
         ["AM005 case sensitivity mismatch"] = new(
@@ -395,6 +535,10 @@ public class FixerRuntimeContractTests
         )
         {
             PopulateSource = type => Populate(type, ("UserName", "george")),
+            // AutoMapper matches 'UserName' to 'Username' case-insensitively, so no input exists on
+            // which the explicit MapFrom produces a different value. The discriminating contract is
+            // the diagnostic being cleared; the assertion still guards a fix that maps wrongly.
+            ConventionEquivalentByDesign = true,
             Behaviours = new Dictionary<string, Action<object>>(StringComparer.Ordinal)
             {
                 ["AM005_ExplicitMapping"] = mapped =>
@@ -538,6 +682,11 @@ public class FixerRuntimeContractTests
                 // the one that guards the 2.30.83 LIFO defect.
                 ["AM021_SimpleConversion"] = mapped =>
                     Assert.Equal(["1", "2", "3"], StringsOf(Property(mapped, "Values"))),
+                // Convention already converts int to string elements, so the conversion assertion
+                // cannot tell the fix apart from doing nothing. Ignore leaves the destination's own
+                // empty list - observable only when the fix actually ran.
+                ["AM021_Ignore"] = mapped =>
+                    Assert.Empty(StringsOf(Property(mapped, "Values"))),
             },
         },
         ["AM021 stack element mismatch"] = new(
@@ -620,11 +769,34 @@ public class FixerRuntimeContractTests
             []
         )
         {
-            PopulateSource = type => Populate(type, ("Name", "root")),
+            // A deep non-cyclic chain: AutoMapper's reference preservation already terminates true
+            // cycles, so only depth (not a cycle) can distinguish a bounded map from the unbounded one.
+            PopulateSource = type =>
+            {
+                object root = Populate(type, ("Name", "root"));
+                object c1 = Populate(type, ("Name", "c1"));
+                object c2 = Populate(type, ("Name", "c2"));
+                object c3 = Populate(type, ("Name", "c3"));
+                type.GetProperty("Parent")!.SetValue(root, c1);
+                type.GetProperty("Parent")!.SetValue(c1, c2);
+                type.GetProperty("Parent")!.SetValue(c2, c3);
+                return root;
+            },
             Behaviours = new Dictionary<string, Action<object>>(StringComparer.Ordinal)
             {
-                // Bounding recursion must not stop the non-recursive members from mapping.
-                ["AM022_"] = mapped => Assert.Equal("root", Property(mapped, "Name")),
+                // MaxDepth(2) emits root -> c1 -> null; the unfixed map walks the whole chain.
+                ["AM022_AddMaxDepth"] = mapped =>
+                {
+                    Assert.Equal("root", Property(mapped, "Name"));
+                    object parent = Property(mapped, "Parent");
+                    Assert.Equal("c1", Property(parent, "Name"));
+                    Assert.Null(Property(parent, "Parent"));
+                },
+                ["AM022_Ignore"] = mapped =>
+                {
+                    Assert.Equal("root", Property(mapped, "Name"));
+                    Assert.Null(Property(mapped, "Parent"));
+                },
             },
         },
         ["AM030 custom type converter null guard"] = new(
@@ -635,25 +807,50 @@ public class FixerRuntimeContractTests
 
             namespace TestNamespace
             {
-                public class NullUnsafeConverter : ITypeConverter<string?, int>
+                public class NullUnsafeConverter : ITypeConverter<string?, int?>
                 {
-                    public int Convert(string? source, int destination, ResolutionContext context)
+                    public int? Convert(string? source, int? destination, ResolutionContext context)
                     {
-                        return int.Parse(source);
+                        return source.Length;
                     }
+                }
+
+                public class Source
+                {
+                    public string? Value { get; set; }
+                }
+
+                public class Destination
+                {
+                    public int? Value { get; set; }
                 }
 
                 public class TestProfile : Profile
                 {
                     public TestProfile()
                     {
-                        CreateMap<string?, int>().ConvertUsing<NullUnsafeConverter>();
+                        CreateMap<string?, int?>().ConvertUsing<NullUnsafeConverter>();
+                        CreateMap<Source, Destination>();
                     }
                 }
             }
             """,
             []
-        ),
+        )
+        {
+            // A null member reaches the converter and dereferences unfixed (NullReferenceException);
+            // the two fixes make opposite contracts observable: return null vs. throw a guard.
+            PopulateSource = type => Populate(type, ("Value", null!)),
+            Behaviours = new Dictionary<string, Action<object>>(StringComparer.Ordinal)
+            {
+                ["AM032_ReturnNull"] = mapped => Assert.Null(Property(mapped, "Value")),
+            },
+            ExceptionBehaviours = new Dictionary<string, Action<Exception>>(StringComparer.Ordinal)
+            {
+                ["AM032_AddNullGuard"] = thrown =>
+                    Assert.IsType<ArgumentNullException>(thrown.GetBaseException()),
+            },
+        },
         ["AM031 expensive operation in MapFrom"] = new(
             () => new AM031_PerformanceWarningAnalyzer(),
             () => new AM031_PerformanceWarningCodeFixProvider(),
@@ -662,9 +859,14 @@ public class FixerRuntimeContractTests
 
             namespace TestNamespace
             {
+                public class TextTool
+                {
+                    public string Compute(string value) => value.ToUpperInvariant();
+                }
+
                 public class Source
                 {
-                    public string Path { get; set; } = string.Empty;
+                    public string Name { get; set; } = string.Empty;
                 }
 
                 public class Destination
@@ -674,16 +876,28 @@ public class FixerRuntimeContractTests
 
                 public class TestProfile : Profile
                 {
+                    private static readonly TextTool Tool = new TextTool();
+
                     public TestProfile()
                     {
                         CreateMap<Source, Destination>()
-                            .ForMember(dest => dest.Content, opt => opt.MapFrom(src => System.IO.File.ReadAllText(src.Path)));
+                            .ForMember(dest => dest.Content, opt => opt.MapFrom(src => Tool.Compute(src.Name)));
                     }
                 }
             }
             """,
             []
-        ),
+        )
+        {
+            PopulateSource = type => Populate(type, ("Name", "kept")),
+            Behaviours = new Dictionary<string, Action<object>>(StringComparer.Ordinal)
+            {
+                // Ignore leaves the destination's own default; unfixed, the helper runs and writes
+                // the upper-cased value - the only runtime-observable difference this fix can make.
+                ["AM031_Ignore"] = mapped =>
+                    Assert.Equal(string.Empty, Property(mapped, "Content")),
+            },
+        },
         ["AM060 unregistered type map"] = new(
             () => new AM060_UnregisteredTypeMapAnalyzer(),
             () => new AM060_UnregisteredTypeMapCodeFixProvider(),
@@ -805,6 +1019,10 @@ public class FixerRuntimeContractTests
         )
         {
             PopulateSource = type => Populate(type, ("Name", "kept")),
+            // Removing a provably redundant ForMember can never change what convention maps, so no
+            // input exists on which fixed and unfixed output differ. The discriminating contract is
+            // the diagnostic being cleared; the assertion still guards a fix that removes too much.
+            ConventionEquivalentByDesign = true,
             Behaviours = new Dictionary<string, Action<object>>(StringComparer.Ordinal)
             {
                 // Deleting a redundant ForMember is only safe if convention still maps the member.
@@ -822,13 +1040,14 @@ public class FixerRuntimeContractTests
             {
                 public enum SourceStatus
                 {
-                    Active,
-                    Archived
+                    Active = 0,
+                    Archived = 5
                 }
 
                 public enum DestinationStatus
                 {
-                    Active
+                    Active = 0,
+                    Archived = 2
                 }
 
                 public class Source
@@ -851,6 +1070,26 @@ public class FixerRuntimeContractTests
             }
             """,
             []
-        ),
+        )
+        {
+            // AutoMapper maps enums numerically, so 'Archived' (source 5) lands as an invalid
+            // destination value. Both enums carry the name, so the MapByName fix applies and
+            // Enum.Parse lands on the real 'Archived' member - the two outputs differ.
+            PopulateSource = type =>
+            {
+                object archived = Enum.Parse(
+                    type.Assembly.GetType("TestNamespace.SourceStatus")!,
+                    "Archived"
+                );
+                return Populate(type, ("Status", archived));
+            },
+            Behaviours = new Dictionary<string, Action<object>>(StringComparer.Ordinal)
+            {
+                ["AM061_MapByName"] = mapped =>
+                    Assert.Equal("Archived", Property(mapped, "Status").ToString()),
+                ["AM061_Ignore"] = mapped =>
+                    Assert.Equal("Active", Property(mapped, "Status").ToString()),
+            },
+        },
     };
 }
