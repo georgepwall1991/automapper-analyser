@@ -146,6 +146,41 @@ public static class AutoMapperAnalysisHelpers
     }
 
     /// <summary>
+    ///     Returns the location of <paramref name="property" />'s declaring identifier — the property
+    ///     token or the positional-record parameter token — when that declaration lives in
+    ///     <paramref name="compilation" />; otherwise <see langword="null" />.
+    ///     <para>
+    ///     Symbols reached through a project (compilation) reference still report
+    ///     <see cref="ISymbol.DeclaringSyntaxReferences" />, but those references resolve to trees that
+    ///     are not part of the analyzed compilation. Reporting a diagnostic at a location built from
+    ///     such a tree throws <see cref="ArgumentException" /> and surfaces as AD0001, so foreign
+    ///     declarations must fall back to an in-compilation anchor.
+    ///     </para>
+    /// </summary>
+    public static Location? GetInCompilationPropertyLocation(IPropertySymbol property, Compilation compilation)
+    {
+        foreach (SyntaxReference syntaxReference in property.DeclaringSyntaxReferences)
+        {
+            if (!compilation.ContainsSyntaxTree(syntaxReference.SyntaxTree))
+            {
+                continue;
+            }
+
+            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
+            {
+                return propertyDeclaration.Identifier.GetLocation();
+            }
+
+            if (syntaxReference.GetSyntax() is ParameterSyntax parameter)
+            {
+                return parameter.Identifier.GetLocation();
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     ///     Checks if a CreateMap configuration already exists for the given types in the compilation.
     /// </summary>
     /// <param name="compilation">The compilation to search.</param>

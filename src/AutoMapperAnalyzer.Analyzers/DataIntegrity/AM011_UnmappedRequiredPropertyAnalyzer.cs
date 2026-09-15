@@ -154,30 +154,14 @@ public class AM011_UnmappedRequiredPropertyAnalyzer : DiagnosticAnalyzer
 
             var diagnostic = Diagnostic.Create(
                 UnmappedRequiredPropertyRule,
-                GetPropertyLocation(destinationProperty) ?? invocation.GetLocation(),
+                AutoMapperAnalysisHelpers.GetInCompilationPropertyLocation(
+                    destinationProperty,
+                    context.Compilation) ?? invocation.GetLocation(),
                 properties.ToImmutable(),
                 destinationProperty.Name);
 
             context.ReportDiagnostic(diagnostic);
         }
-    }
-
-    private static Location? GetPropertyLocation(IPropertySymbol property)
-    {
-        foreach (SyntaxReference syntaxReference in property.DeclaringSyntaxReferences)
-        {
-            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
-            {
-                return propertyDeclaration.Identifier.GetLocation();
-            }
-
-            if (syntaxReference.GetSyntax() is ParameterSyntax parameter)
-            {
-                return parameter.Identifier.GetLocation();
-            }
-        }
-
-        return null;
     }
 
 

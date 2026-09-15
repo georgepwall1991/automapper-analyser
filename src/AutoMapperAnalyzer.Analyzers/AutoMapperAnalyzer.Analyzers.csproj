@@ -17,7 +17,7 @@
         <!-- Fallback for local builds: 2.0.YYYYMMDD-local -->
         <MajorVersion>2</MajorVersion>
         <MinorVersion>30</MinorVersion>
-        <PatchVersion>107</PatchVersion>
+        <PatchVersion>108</PatchVersion>
         <BuildNumber Condition="'$(BuildNumber)' == ''"
         >$([System.DateTime]::Now.ToString('yyyyMMdd'))
         </BuildNumber
@@ -32,10 +32,9 @@
         <RepositoryUrl>https://github.com/georgepwall1991/automapper-analyser</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <PackageReleaseNotes>Version 2.30.107 - AM061 respects custom property-selection policies
- - Authentic ShouldMapProperty assignments suppress convention-property diagnostics conservatively
- - Convention fields and explicit direct member pairs remain analyzed
- - Semantic lookalike properties do not suppress AM061
+        <PackageReleaseNotes>Version 2.30.108 - member-anchored rules no longer crash on project-referenced models
+ - AM001/AM004/AM005/AM006/AM011 fell back to the CreateMap invocation when a mapped member is declared in a referenced project
+ - Reporting a location from another compilation's syntax tree threw ArgumentException and surfaced as AD0001
  - No rule ID or severity changes
  </PackageReleaseNotes>
         <PackageReadmeFile>README.md</PackageReadmeFile>

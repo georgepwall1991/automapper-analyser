@@ -209,7 +209,9 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
 
             var diagnostic = Diagnostic.Create(
                 PropertyTypeMismatchRule,
-                GetPropertyLocation(destinationProperty) ?? invocation.GetLocation(),
+                AutoMapperAnalysisHelpers.GetInCompilationPropertyLocation(
+                    destinationProperty,
+                    context.Compilation) ?? invocation.GetLocation(),
                 properties.ToImmutable(),
                 sourceProperty.Name,
                 AutoMapperAnalysisHelpers.GetTypeName(sourceType),
@@ -219,24 +221,6 @@ public class AM001_PropertyTypeMismatchAnalyzer : DiagnosticAnalyzer
             );
             context.ReportDiagnostic(diagnostic);
         }
-    }
-
-    private static Location? GetPropertyLocation(IPropertySymbol property)
-    {
-        foreach (SyntaxReference syntaxReference in property.DeclaringSyntaxReferences)
-        {
-            if (syntaxReference.GetSyntax() is PropertyDeclarationSyntax propertyDeclaration)
-            {
-                return propertyDeclaration.Identifier.GetLocation();
-            }
-
-            if (syntaxReference.GetSyntax() is ParameterSyntax parameter)
-            {
-                return parameter.Identifier.GetLocation();
-            }
-        }
-
-        return null;
     }
 
     private static string CreateMismatchKey(
